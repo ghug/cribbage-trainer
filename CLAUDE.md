@@ -6,17 +6,16 @@
 ## START HERE (plain version)
 
 You already have a finished, working app. It's the file **`index.html`** in this
-folder — fully self-contained (no build, no install, no internet needed beyond a
-CDN for React). **To just use it: open `index.html` in any browser.** That's it.
+folder — fully self-contained (no in-browser build, no install, no internet needed
+beyond a CDN for React). **To just use it: open `index.html` in any browser.**
 
-Nothing is hosted or "deployed" yet, and you don't need to host it to use it.
-Putting it on a public link is an *optional* extra (see Deployment below) that you
-can do later or never. Don't let deployment block anything — the app works now.
+**It is also deployed** to a live, public link via Cloudflare (see Running and
+deploying below): **`https://cribbage-trainer.gabrielhug.workers.dev`**. Pushing to
+`main` on the `ghug/cribbage-trainer` repo auto-redeploys. Edit the source, run
+`./build.sh`, commit, push — that's the whole update loop.
 
-If you're a Claude Code session picking this up: the human's open question is
-"what do I do with this?" Reasonable answers are (a) nothing — it already runs
-locally; (b) publish it for a shareable link; (c) keep improving it (see Good next
-steps). Ask which they want before assuming deployment.
+If you're a Claude Code session picking this up: the app runs locally, is published,
+and the current direction is **(c) keep improving it** (see Good next steps).
 
 ## What this is
 
@@ -32,31 +31,45 @@ not imported by the app, but they document and re-prove the math.
 
 ## Game rules being modeled (important — not 2-player cribbage)
 
-- 4 players, each dealt **5 cards**, each discards **exactly one** to the crib.
-- The crib therefore holds **4 cards = one from each player**, scored with the
-  starter as a 5-card hand.
-- The **dealer owns the crib**. You deal 1 of every 4 hands; the other 3 you are a
-  non-dealer ("defender") throwing into someone else's crib.
+- **Selectable 4-handed (default) or 3-handed** cutthroat, via the "players at the
+  table" toggle in the UI (`players` state, 4 or 3).
+- Each player is dealt **5 cards** and discards **exactly one** to the crib.
+- The crib always holds **4 cards**, scored with the starter as a 5-card hand:
+  - **4-handed:** the 4 crib cards are one discard from each player.
+  - **3-handed:** the three players' discards make only 3, so the **dealer adds one
+    card dealt straight off the deck** (a uniform random card) to fill the crib.
+- The **dealer owns the crib**. You deal 1 of every `players` hands (1-in-4 or
+  1-in-3); otherwise you are a non-dealer ("defender") throwing into someone else's
+  crib.
 - Standard show scoring: fifteens, pairs, runs (with duplicates), flush (4-card
   flush counts in the **hand** only; the crib needs all 5 same suit), nobs.
 
 ## Architecture / data flow
 
-`analyze(hand5, role, mode, N=10000, Npeg=700)` is the core. For each of the 5
-possible discards it computes three components and two roll-ups:
+`analyze(hand5, role, mode, players=4, N=10000, Npeg=700)` is the core. For each of
+the 5 possible discards it computes three components and two roll-ups. `players`
+(4 or 3) flows into the crib and pegging models below.
 
 1. **Hand EV — exact.** `handDetail(four, dealt5)` enumerates all 47 possible cut
    cards and averages the kept-four score. Returns `ev, sd, min, max, p10, p90`,
    category breakdown, `locked` (guaranteed pre-cut) and top-3 best cuts. No
    estimation here — flush upgrades, nobs, everything falls out of enumeration.
+   Independent of `players` (you only ever know your own 5 cards).
 2. **Crib EV — Monte Carlo (N=10,000).** `cribDetail(...)` samples opponents'
    crib cards by an empirical **role-split rank distribution** (suits uniform
-   within rank; starter uniform). Composition:
-   - you **deal** → your crib = your card + **3 defender** throws.
-   - you **defend** → dealer's crib = your card + **1 dealer** throw + **2
-     defender** throws.
-3. **Pegging EV — Monte Carlo (N=700).** `pegDetail(...)` simulates 4-handed play.
-   Your seat = dealer (seat 3, plays last = best peg seat) when dealing, else a
+   within rank; starter uniform). The crib is always 4 cards = your card + 3 more:
+   - **4-handed**, you **deal** → your card + **3 defender** throws.
+   - **4-handed**, you **defend** → your card + **1 dealer** + **2 defender** throws.
+   - **3-handed**, you **deal** → your card + **2 defender** throws + **1 uniform
+     deck card** (the card the dealer flips off the deck).
+   - **3-handed**, you **defend** → your card + **1 dealer** + **1 defender** throw
+     + **1 uniform deck card**.
+   The deck card is drawn like the starter (uniform from the live deck). Because a
+   uniform card is "richer" than a defender's deliberate junk throw, 3-handed cribs
+   run a touch higher than 4-handed (see crib-swing note below).
+3. **Pegging EV — Monte Carlo (N=700).** `pegDetail(...)` simulates `players`-handed
+   play (`playPegging` derives the seat count from `hands.length`). Your seat =
+   dealer (last seat = `players-1`, plays last = best peg seat) when dealing, else a
    random non-dealer seat. Opponents play a greedy point-grabbing policy with
    light defense. Suits are dropped here (pegging never scores flushes), so
    cards are ranks 1..13. Scoring mechanics (15/31/pair-royals/runs in & out of
@@ -104,6 +117,12 @@ defenders dump K (17%) / Q / 10 / A and **almost never a 5** (0.4%). Re-run with
 passes). NOTE: further passes are not worth it — they move displayed crib EV by
 <0.05 pt. This was a deliberate stopping point.
 
+**3-handed reuses these same distributions.** They were calibrated under 4-handed
+self-play, but how players dump junk barely shifts with table size, so 3-handed
+borrows them (the third crib slot is a uniform deck card anyway, not a throw). The
+UI says so in the crib-model panel. Re-calibrating a separate 3-handed model is a
+possible future step but low value.
+
 ## Reference: per-rank crib value ("crib swing")
 
 Validation numbers from the model (avg crib pts when you contribute that rank).
@@ -118,6 +137,10 @@ their:4.13 4.28 4.37 4.28 6.52 4.32 4.45 4.46 4.26 3.99 4.41 4.02 4.03
 The dealer's crib runs ~0.15 richer than yours for the same card, because it
 collects the dealer's offensive "salt" throw plus your card, while your crib gets
 your card + three defensive junk throws.
+
+`engine/verify_players.js` reprints this table for both 4- and 3-handed and asserts
+the 4-handed column still matches (tol 0.12). 3-handed runs ~0.1–0.2 richer across
+the board because the deck card beats a defender's junk throw on average.
 
 ## Known limitations (be honest about these in the UI)
 
@@ -135,32 +158,46 @@ your card + three defensive junk throws.
 node engine/pegging.js          # pegging unit tests + full-game sanity (dealer seat pegs most)
 node engine/breakdown.js        # category breakdown reconciles to totals; perfect-29 check
 node engine/calibrate_split.js  # one self-play calibration pass (mutates state.json)
+node engine/verify_players.js   # 3-/4-handed: regression (players=4 == original) + crib/peg sanity
 ```
 If you change `scoreInto`, re-run breakdown/pegging tests AND re-check the crib
-swing table above before trusting `analyze()`.
+swing table above before trusting `analyze()`. If you touch `cribDetail`,
+`pegDetail`, or `playPegging`, also run `verify_players.js` — it guarantees the
+4-handed path is unchanged and the 3-handed path stays sane.
 
 ## Running and deploying
 
 **Run locally (already works):** open `index.html` in a browser. It is the whole
-app, pre-compiled to plain JS (no Babel, no build step). React/ReactDOM load from a
-CDN. `src/CribbageTrainer.jsx` is the editable source; if you change it, re-compile
-to refresh `index.html` (JSX → JS, e.g. via esbuild or `tsc`/TypeScript transpile).
+app, pre-compiled to plain JS (no Babel, no in-browser build). React/ReactDOM load
+from a CDN. `src/CribbageTrainer.jsx` is the editable source.
 
-**Deploying for a public link is OPTIONAL and nothing is set up yet.** No hosting
-account, no Cloudflare token, no Git remote exists. Don't assume any of these are
-ready. If/when the human wants a public URL, ranked by least setup:
+**Rebuild after editing the source:** run `./build.sh` (needs a global `tsc`; one is
+present in this environment). It transpiles the JSX → `React.createElement` with
+`tsc --jsx react --target es2020 --removeComments`, swaps the ESM import/export for
+CDN globals, and wraps it in the HTML shell — regenerating `index.html`
+deterministically. The script was validated to reproduce the committed `index.html`
+**byte-for-byte** from the source, so its output is trustworthy. Deploy = commit the
+regenerated `index.html` (see below); never hand-edit `index.html`.
 
-1. **Cloudflare Pages — Direct Upload (no CLI, no Git, all in the browser).**
-   dash.cloudflare.com → Workers & Pages → Create → Pages → **Upload assets** →
-   name it → drag in `index.html` → Deploy. Lands at `<name>.pages.dev`, public by
-   link. Updates: project → Deployments → Create deployment → re-upload. Requires a
-   (free) Cloudflare account, which the human does NOT yet have.
-2. **Cloudflare Pages — REST API via curl** (scriptable, no Wrangler/workerd).
-   Needs an API token (Account → Cloudflare Pages → Edit) + Account ID. Good if an
-   agent should deploy non-interactively.
-3. **GitHub Pages** if a usable account/repo exists. NOTE from the original session:
-   the human's GitHub is on an account that can't be used for this, so this route
-   was effectively blocked. Re-confirm before relying on it.
+**Deploying is now SET UP — a live Cloudflare pipeline exists.** The app is published
+via **Cloudflare Pages/Workers Git integration** connected to the GitHub repo
+**`ghug/cribbage-trainer`** (a public repo on the human's secondary GitHub account,
+used specifically for deploy because the primary account is private/locked and can't
+authorize Cloudflare). Live URL: **`https://cribbage-trainer.gabrielhug.workers.dev`**.
+
+**To ship a change:** edit `src/CribbageTrainer.jsx` → `./build.sh` → commit → push
+to `main` on the `ghug/cribbage-trainer` remote. Cloudflare auto-builds and the live
+URL updates in ~30s. No tokens, no manual upload. (Pushing requires a fine-grained
+GitHub PAT for the `ghug` account scoped to that repo's Contents; the human pastes it
+per session — it is not stored.) The canonical dev repo is still
+`vanderoi/cribbage-trainer`; `ghug` is the deploy mirror.
+
+Note: the sandbox network allowlist blocks `*.workers.dev` / `*.pages.dev`, so the
+agent canNOT fetch the live URL to smoke-test it — ask the human to eyeball it.
+
+Legacy fallback routes (only if the pipeline above is ever torn down): Cloudflare
+Direct Upload (drag `index.html` in the dashboard), or the REST API with an
+`Account → Cloudflare Pages → Edit` token + Account ID.
 
 **ANDROID / TERMUX CAVEAT (important, learned the hard way):** `npm install -g
 wrangler` FAILS on Android/Termux — Wrangler bundles `workerd`, a native binary

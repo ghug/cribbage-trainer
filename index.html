@@ -168,24 +168,35 @@ function pickWeightedRank(rng, cum) {
             return i + 1;
     return 13;
 }
-function cribDetail(discard, dealt5, N, rng, role) {
+function cribDetail(discard, dealt5, N, rng, role, players) {
     const pool = deckExcluding(dealt5);
     const suitsByRank = Array.from({ length: 14 }, () => []);
     for (const c of pool)
         suitsByRank[c.r].push(c.s);
-    const cums = role === "deal"
-        ? [DEFENDER_CUM, DEFENDER_CUM, DEFENDER_CUM]
-        : [DEALER_CUM, DEFENDER_CUM, DEFENDER_CUM];
+    const weighted = role === "deal"
+        ? (players === 3 ? [DEFENDER_CUM, DEFENDER_CUM] : [DEFENDER_CUM, DEFENDER_CUM, DEFENDER_CUM])
+        : (players === 3 ? [DEALER_CUM, DEFENDER_CUM] : [DEALER_CUM, DEFENDER_CUM, DEFENDER_CUM]);
+    const nUniform = 3 - weighted.length;
     const acc = [0, 0, 0, 0, 0];
     let total = 0, sq = 0, hits = 0;
     const used = new Set();
+    const drawUniform = () => {
+        for (let t = 0; t < 80; t++) {
+            const c = pool[(rng() * pool.length) | 0];
+            if (!used.has(c.r * 4 + c.s)) {
+                used.add(c.r * 4 + c.s);
+                return c;
+            }
+        }
+        return pool[0];
+    };
     for (let k = 0; k < N; k++) {
         used.clear();
         const draw = [];
-        for (let d = 0; d < 3; d++) {
+        for (let d = 0; d < weighted.length; d++) {
             let card = null;
             for (let tries = 0; tries < 48 && !card; tries++) {
-                const r = pickWeightedRank(rng, cums[d]);
+                const r = pickWeightedRank(rng, weighted[d]);
                 const suits = suitsByRank[r];
                 if (!suits.length)
                     continue;
@@ -196,26 +207,13 @@ function cribDetail(discard, dealt5, N, rng, role) {
                 card = { r, s };
                 used.add(r * 4 + s);
             }
-            if (!card) {
-                for (let t = 0; t < 80; t++) {
-                    const c = pool[(rng() * pool.length) | 0];
-                    if (!used.has(c.r * 4 + c.s)) {
-                        card = c;
-                        used.add(c.r * 4 + c.s);
-                        break;
-                    }
-                }
-            }
+            if (!card)
+                card = drawUniform();
             draw.push(card);
         }
-        let starter = null;
-        for (let t = 0; t < 80; t++) {
-            const c = pool[(rng() * pool.length) | 0];
-            if (!used.has(c.r * 4 + c.s)) {
-                starter = c;
-                break;
-            }
-        }
+        for (let u = 0; u < nUniform; u++)
+            draw.push(drawUniform());
+        const starter = drawUniform();
         const t = scoreInto([discard, draw[0], draw[1], draw[2]], starter, true, acc);
         total += t;
         sq += t * t;
@@ -277,14 +275,15 @@ function pegChoose(legal, count, pile, hand) {
 }
 function playPegging(hands, dealerIdx) {
     hands = hands.map((h) => h.slice());
-    const pts = [0, 0, 0, 0];
-    let turn = (dealerIdx + 1) % 4, count = 0, pile = [], passes = 0, last = -1;
+    const P = hands.length;
+    const pts = new Array(P).fill(0);
+    let turn = (dealerIdx + 1) % P, count = 0, pile = [], passes = 0, last = -1;
     let remaining = hands.reduce((s, h) => s + h.length, 0);
     while (remaining > 0) {
         const hand = hands[turn];
         const legal = hand.filter((c) => pval(c) + count <= 31);
         if (legal.length === 0) {
-            if (++passes >= 4) {
+            if (++passes >= P) {
                 if (last >= 0 && count !== 31)
                     pts[last] += 1;
                 count = 0;
@@ -292,7 +291,7 @@ function playPegging(hands, dealerIdx) {
                 passes = 0;
                 last = -1;
             }
-            turn = (turn + 1) % 4;
+            turn = (turn + 1) % P;
             continue;
         }
         const card = pegChoose(legal, count, pile, hand);
@@ -308,37 +307,39 @@ function playPegging(hands, dealerIdx) {
             pile = [];
             last = -1;
         }
-        turn = (turn + 1) % 4;
+        turn = (turn + 1) % P;
     }
     if (last >= 0)
         pts[last] += 1;
     return pts;
 }
-function pegDetail(four, dealt5, N, rng, role) {
+function pegDetail(four, dealt5, N, rng, role, players) {
     const pool = deckExcluding(dealt5);
     const ourR = four.map((c) => c.r);
+    const dealerSeat = players - 1;
+    const oppCards = (players - 1) * 4;
     let total = 0, sq = 0;
     for (let k = 0; k < N; k++) {
         const seen = new Set();
         const opp = [];
-        while (opp.length < 12) {
+        while (opp.length < oppCards) {
             const i = (rng() * pool.length) | 0;
             if (!seen.has(i)) {
                 seen.add(i);
                 opp.push(pool[i].r);
             }
         }
-        const ourSeat = role === "deal" ? 3 : (rng() * 3) | 0;
-        const hands = [[], [], [], []];
+        const ourSeat = role === "deal" ? dealerSeat : (rng() * (players - 1)) | 0;
+        const hands = Array.from({ length: players }, () => []);
         hands[ourSeat] = ourR.slice();
         let oi = 0;
-        for (let s = 0; s < 4; s++) {
+        for (let s = 0; s < players; s++) {
             if (s === ourSeat)
                 continue;
             hands[s] = opp.slice(oi, oi + 4);
             oi += 4;
         }
-        const p = playPegging(hands, 3)[ourSeat];
+        const p = playPegging(hands, dealerSeat)[ourSeat];
         total += p;
         sq += p * p;
     }
@@ -346,7 +347,7 @@ function pegDetail(four, dealt5, N, rng, role) {
     return { ev, sd: Math.sqrt(Math.max(0, sq / N - ev * ev)) };
 }
 const RISK = 0.5;
-function analyze(hand5, role, mode, N = 10000, Npeg = 700) {
+function analyze(hand5, role, mode, players = 4, N = 10000, Npeg = 700) {
     const rng = mulberry32(hand5.reduce((a, c) => (a * 53 + cardId(c) + 1) >>> 0, 7));
     const sign = role === "deal" ? 1 : -1;
     const cribW = (mode === "protect" && role === "defend") ? 1.3 : (mode === "need" && role === "defend") ? 0.9 : 1.0;
@@ -355,8 +356,8 @@ function analyze(hand5, role, mode, N = 10000, Npeg = 700) {
     for (let i = 0; i < 5; i++) {
         const four = hand5.filter((_, j) => j !== i);
         const hd = handDetail(four, hand5);
-        const cd = cribDetail(hand5[i], hand5, N, rng, role);
-        const pd = pegDetail(four, hand5, Npeg, rng, role);
+        const cd = cribDetail(hand5[i], hand5, N, rng, role, players);
+        const pd = pegDetail(four, hand5, Npeg, rng, role, players);
         const net = hd.ev + pd.ev + sign * cd.ev;
         const sd = Math.sqrt(hd.sd * hd.sd + cd.sd * cd.sd + pd.sd * pd.sd);
         const adj = hd.ev + pd.ev + sign * cribW * cd.ev + riskSign * RISK * sd;
@@ -454,7 +455,7 @@ function dominant(cats) {
             bi = i;
     return cats[bi] > 0.01 ? CATS[bi] : "spread-out points";
 }
-function Explain({ opt, dealer, mode }) {
+function Explain({ opt, dealer, mode, players = 4 }) {
     const h = opt.hand, cr = opt.crib, pg = opt.peg;
     const topStr = h.top.map((c) => `${rankLabel(c.r)}→${c.avg.toFixed(1)}`).join("   ");
     const pegWhy = pg.ev >= 3.6
@@ -536,7 +537,11 @@ function Explain({ opt, dealer, mode }) {
                 "\u00B7\u03C3 \u2192 adj ",
                 opt.adj.toFixed(2)))),
         React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, marginTop: 10, lineHeight: 1.5 } },
-            "Crib uses role-split discard models; pegging simulates 4-handed play from your seat (",
+            "Crib uses role-split discard models",
+            players === 3 ? " plus one card dealt straight off the deck" : "",
+            "; pegging simulates ",
+            players,
+            "-handed play from your seat (",
             dealer ? "dealer, last to play" : "a non-dealer seat",
             ") against greedy opponents.")));
 }
@@ -564,6 +569,7 @@ function buildNote(role, best, chosen) {
     return `Close, but the ${rankLabel(c.r)} edges it by ${delta.toFixed(2)} expected points.`;
 }
 function CribbageTrainer() {
+    const [players, setPlayers] = useState(4);
     const [roleMode, setRoleMode] = useState("random");
     const [hand, setHand] = useState(() => randomHand());
     const [role, setRole] = useState(() => (Math.random() < 0.25 ? "deal" : "defend"));
@@ -578,17 +584,17 @@ function CribbageTrainer() {
     const [stats, setStats] = useState({ hands: 0, optimal: 0, lost: 0 });
     const suggested = suggestMode(yourPips, leaderPips);
     const mode = modeOverride || suggested;
-    const opts = useMemo(() => (phase === "revealed" ? analyze(hand, role, mode) : null), [phase, hand, role, mode]);
+    const opts = useMemo(() => (phase === "revealed" ? analyze(hand, role, mode, players) : null), [phase, hand, role, mode, players]);
     const deal = useCallback(() => {
-        const r = roleMode === "random" ? (Math.random() < 0.25 ? "deal" : "defend") : roleMode;
+        const r = roleMode === "random" ? (Math.random() < 1 / players ? "deal" : "defend") : roleMode;
         setHand(randomHand());
         setRole(r);
         setChosenIdx(null);
         setExpanded(null);
         setPhase("choose");
-    }, [roleMode]);
+    }, [roleMode, players]);
     const pick = useCallback((i) => {
-        const res = analyze(hand, role, mode);
+        const res = analyze(hand, role, mode, players);
         const best = res[0];
         const chosen = res.find((o) => o.i === i);
         const delta = best.adj - chosen.adj;
@@ -596,7 +602,7 @@ function CribbageTrainer() {
         setExpanded(i);
         setPhase("revealed");
         setStats((s) => ({ hands: s.hands + 1, optimal: s.optimal + (delta < 0.1 ? 1 : 0), lost: s.lost + delta }));
-    }, [hand, role, mode]);
+    }, [hand, role, mode, players]);
     const best = opts ? opts[0] : null;
     const chosen = opts ? opts.find((o) => o.i === chosenIdx) : null;
     const acc = stats.hands ? (stats.optimal / stats.hands) * 100 : 0;
@@ -625,7 +631,9 @@ function CribbageTrainer() {
             } },
             React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap" } },
                 React.createElement("h1", { style: { margin: 0, fontSize: 22, color: "#2A1B0E", letterSpacing: 0.3, fontWeight: 700 } }, "Cutthroat Crib Trainer"),
-                React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: "rgba(42,27,14,0.75)" } }, "4-handed \u00B7 every player for themselves")),
+                React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: "rgba(42,27,14,0.75)" } },
+                    players,
+                    "-handed \u00B7 every player for themselves")),
             React.createElement("div", { style: { marginTop: 12 } },
                 React.createElement(PegTrack, { pct: acc })),
             React.createElement("div", { style: { marginTop: 10, display: "flex", gap: 18, flexWrap: "wrap", fontFamily: mono, fontSize: 12, color: "#2A1B0E" } },
@@ -707,7 +715,7 @@ function CribbageTrainer() {
                                 "+",
                                 o.pegEV.toFixed(2)),
                             React.createElement("span", { style: { fontFamily: mono, fontSize: 12.5, fontWeight: 700, textAlign: "right", color: isBest ? T.good : T.cream } }, scoreVal.toFixed(2))),
-                        isOpen && React.createElement(Explain, { opt: o, dealer: dealer, mode: mode })));
+                        isOpen && React.createElement(Explain, { opt: o, dealer: dealer, mode: mode, players: players })));
                 })))),
             React.createElement("div", { style: { marginTop: 22, display: "flex", flexDirection: "column", gap: 14 } },
                 React.createElement("button", { onClick: deal, style: {
@@ -716,8 +724,21 @@ function CribbageTrainer() {
                         fontSize: 16, fontWeight: 700, letterSpacing: 0.3, boxShadow: "0 4px 12px rgba(0,0,0,0.35)",
                     } }, phase === "choose" ? "Deal a different hand" : "Deal next hand"),
                 React.createElement("div", null,
+                    React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 } }, "players at the table"),
+                    React.createElement("div", { style: { display: "flex", gap: 6 } }, [[4, "4-handed"], [3, "3-handed"]].map(([n, label]) => {
+                        const on = players === n;
+                        return (React.createElement("button", { key: n, onClick: () => setPlayers(n), style: {
+                                flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: 11.5,
+                                background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
+                                border: `1px solid ${on ? T.pegIvory : T.line}`, fontWeight: on ? 700 : 400,
+                            } }, label));
+                    })),
+                    React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 6, lineHeight: 1.5 } }, players === 3
+                        ? "3-handed: everyone discards one, and the dealer adds one card off the deck to fill the 4-card crib."
+                        : "4-handed: the 4-card crib is one discard from each player.")),
+                React.createElement("div", null,
                     React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 } }, "practice as"),
-                    React.createElement("div", { style: { display: "flex", gap: 6 } }, [["random", "Random (1-in-4 deal)"], ["deal", "Always dealer"], ["defend", "Always defend"]].map(([k, label]) => {
+                    React.createElement("div", { style: { display: "flex", gap: 6 } }, [["random", `Random (1-in-${players} deal)`], ["deal", "Always dealer"], ["defend", "Always defend"]].map(([k, label]) => {
                         const on = roleMode === k;
                         return (React.createElement("button", { key: k, onClick: () => setRoleMode(k), style: {
                                 flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: 11.5,
@@ -778,7 +799,14 @@ function CribbageTrainer() {
                             React.createElement("b", null, "dealers"),
                             " feed their own crib, ",
                             React.createElement("b", null, "defenders"),
-                            "surrender junk to an opponent's. Your crib draws three defender throws; when you defend, the dealer's crib draws one dealer + two defender throws. The cut stays uniform."),
+                            "surrender junk to an opponent's.",
+                            " ",
+                            players === 3
+                                ? "Your crib draws two defender throws plus one card dealt off the deck; when you defend, the dealer's crib draws one dealer + one defender throw plus one deck card."
+                                : "Your crib draws three defender throws; when you defend, the dealer's crib draws one dealer + two defender throws.",
+                            " ",
+                            "The cut stays uniform.",
+                            players === 3 && (React.createElement("span", { style: { color: T.muted } }, " \u00A0(3-handed reuses the 4-handed discard model \u2014 a close approximation, since how players dump junk barely shifts with table size.)"))),
                         React.createElement("div", { style: { display: "grid", gridTemplateColumns: "16px 1fr 1fr", gap: 6, alignItems: "center", marginBottom: 6 } },
                             React.createElement("span", null),
                             React.createElement("span", { style: { fontFamily: mono, fontSize: 10, color: T.good } }, "DEALER \u2192 own crib"),

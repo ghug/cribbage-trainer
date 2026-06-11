@@ -118,19 +118,25 @@ function pickWeightedRank(rng, cum) {
   return 13;
 }
 
-function cribDetail(discard, dealt5, N, rng, role, players) {
-  const pool = deckExcluding(dealt5);
+function cribDetail(discards, dealt, N, rng, role, players) {
+  const pool = deckExcluding(dealt);
   const suitsByRank = Array.from({ length: 14 }, () => []);
   for (const c of pool) suitsByRank[c.r].push(c.s);
-  // The crib always holds 4 cards (yours + 3 more). In 4-handed all three extras are
-  // opponent throws; in 3-handed only two are throws and the dealer deals one straight
-  // off the deck (a uniform card), so we draw fewer weighted throws + a uniform fill.
-  //   deal:   your crib  = defender throws (+ deck card when 3-handed)
-  //   defend: dealer crib = 1 dealer + defender throws (+ deck card when 3-handed)
-  const weighted = role === "deal"
-    ? (players === 3 ? [DEFENDER_CUM, DEFENDER_CUM] : [DEFENDER_CUM, DEFENDER_CUM, DEFENDER_CUM])
-    : (players === 3 ? [DEALER_CUM, DEFENDER_CUM] : [DEALER_CUM, DEFENDER_CUM, DEFENDER_CUM]);
-  const nUniform = 3 - weighted.length; // deck cards dealt directly into the crib (3-handed only)
+  // The crib always holds 4 cards. You contribute `discards.length` of them (1 in
+  // 3-/4-handed, 2 heads-up); the rest are filled by opponent throws and — in
+  // 3-handed only — one uniform card the dealer flips off the deck.
+  //   deal:   your crib  = all remaining slots are defender throws.
+  //   defend: dealer crib = the dealer's own throws + any other defenders'.
+  //     heads-up (2p): both remaining are the dealer's; 3-/4p: 1 dealer + the rest defenders.
+  const nUniform = players === 3 ? 1 : 0; // deck card dealt straight into the crib
+  const nThrows = 4 - discards.length - nUniform; // opponent throws to simulate
+  let weighted;
+  if (role === "deal") {
+    weighted = new Array(nThrows).fill(DEFENDER_CUM);
+  } else {
+    const nDealer = players === 2 ? nThrows : 1;
+    weighted = new Array(nDealer).fill(DEALER_CUM).concat(new Array(nThrows - nDealer).fill(DEFENDER_CUM));
+  }
   const acc = [0, 0, 0, 0, 0];
   let total = 0, sq = 0, hits = 0;
   const used = new Set();
@@ -140,7 +146,7 @@ function cribDetail(discard, dealt5, N, rng, role, players) {
   };
   for (let k = 0; k < N; k++) {
     used.clear();
-    const draw = [];
+    const draw = discards.slice(); // your known card(s) are always in the crib
     for (let d = 0; d < weighted.length; d++) {
       let card = null;
       for (let tries = 0; tries < 48 && !card; tries++) {
@@ -155,9 +161,9 @@ function cribDetail(discard, dealt5, N, rng, role, players) {
       if (!card) card = drawUniform(); // rare fallback (rank exhausted): take any remaining card
       draw.push(card);
     }
-    for (let u = 0; u < nUniform; u++) draw.push(drawUniform()); // deck card(s) into the crib
+    for (let u = 0; u < nUniform; u++) draw.push(drawUniform()); // deck card into the crib (3-handed)
     const starter = drawUniform(); // the cut is uniform, not a discard
-    const t = scoreInto([discard, draw[0], draw[1], draw[2]], starter, true, acc);
+    const t = scoreInto([draw[0], draw[1], draw[2], draw[3]], starter, true, acc);
     total += t; sq += t * t; if (t > 0) hits++;
   }
   const ev = total / N;
@@ -238,21 +244,31 @@ function pegDetail(four, dealt5, N, rng, role, players) {
 }
 
 const RISK = 0.5; // weight on volatility for board-position modes
-function analyze(hand5, role, mode, players = 4, N = 10000, Npeg = 700) {
-  const rng = mulberry32(hand5.reduce((a, c) => (a * 53 + cardId(c) + 1) >>> 0, 7));
+// Index sets of cards to discard: 1-of-N for 3-/4-handed, all 2-card combos heads-up.
+function discardCombos(handLen, k) {
+  const out = [];
+  if (k === 1) { for (let i = 0; i < handLen; i++) out.push([i]); return out; }
+  for (let i = 0; i < handLen; i++) for (let j = i + 1; j < handLen; j++) out.push([i, j]);
+  return out;
+}
+function analyze(hand, role, mode, players = 4, N = 10000, Npeg = 700) {
+  const rng = mulberry32(hand.reduce((a, c) => (a * 53 + cardId(c) + 1) >>> 0, 7));
   const sign = role === "deal" ? 1 : -1;
   const cribW = (mode === "protect" && role === "defend") ? 1.3 : (mode === "need" && role === "defend") ? 0.9 : 1.0;
   const riskSign = mode === "need" ? 1 : mode === "protect" ? -1 : 0;
+  const k = players === 2 ? 2 : 1; // cards discarded to the crib
   const opts = [];
-  for (let i = 0; i < 5; i++) {
-    const four = hand5.filter((_, j) => j !== i);
-    const hd = handDetail(four, hand5);
-    const cd = cribDetail(hand5[i], hand5, N, rng, role, players);
-    const pd = pegDetail(four, hand5, Npeg, rng, role, players);
+  for (const idxs of discardCombos(hand.length, k)) {
+    const drop = new Set(idxs);
+    const four = hand.filter((_, j) => !drop.has(j));
+    const discards = idxs.map((j) => hand[j]);
+    const hd = handDetail(four, hand);
+    const cd = cribDetail(discards, hand, N, rng, role, players);
+    const pd = pegDetail(four, hand, Npeg, rng, role, players);
     const net = hd.ev + pd.ev + sign * cd.ev;                       // mode-neutral expected points
     const sd = Math.sqrt(hd.sd * hd.sd + cd.sd * cd.sd + pd.sd * pd.sd);
     const adj = hd.ev + pd.ev + sign * cribW * cd.ev + riskSign * RISK * sd; // ranking objective
-    opts.push({ i, card: hand5[i], hand: hd, crib: cd, peg: pd, handEV: hd.ev, cribEV: cd.ev, pegEV: pd.ev, netEV: net, sd, adj });
+    opts.push({ id: idxs.join(","), idxs, cards: discards, hand: hd, crib: cd, peg: pd, handEV: hd.ev, cribEV: cd.ev, pegEV: pd.ev, netEV: net, sd, adj });
   }
   opts.sort((a, b) => b.adj - a.adj);
   return opts;
@@ -284,39 +300,46 @@ const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
 const mono = "ui-monospace, 'SF Mono', Menlo, Consolas, monospace";
 const serif = "'Hoefler Text', 'Iowan Old Style', Georgia, 'Times New Roman', serif";
 
-function randomHand() {
+function randomHand(count = 5) {
   const deck = deckExcluding([]);
   for (let i = deck.length - 1; i > 0; i--) {
     const j = (Math.random() * (i + 1)) | 0;
     [deck[i], deck[j]] = [deck[j], deck[i]];
   }
-  return deck.slice(0, 5).sort((a, b) => a.r - b.r || a.s - b.s);
+  return deck.slice(0, count).sort((a, b) => a.r - b.r || a.s - b.s);
 }
 
 /* ============================ CARD ============================ */
-function Card({ card, onClick, phase, badge, dim }) {
+function Card({ card, onClick, phase, badge, dim, selected }) {
   const clickable = phase === "choose";
   const [hover, setHover] = useState(false);
-  const lift = badge ? -10 : hover && clickable ? -6 : 0;
+  const lift = badge || selected ? -10 : hover && clickable ? -6 : 0;
+  const edge = badge ? badge.color : selected ? T.pegRed : null;
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
       <div style={{ height: 18 }}>
-        {badge && (
+        {badge ? (
           <span style={{
             fontFamily: mono, fontSize: 10, letterSpacing: 0.5, fontWeight: 700,
             color: T.ivory, background: badge.color, padding: "2px 7px", borderRadius: 4, whiteSpace: "nowrap",
           }}>{badge.text}</span>
-        )}
+        ) : selected ? (
+          <span style={{
+            fontFamily: mono, fontSize: 10, letterSpacing: 0.5, fontWeight: 700,
+            color: T.ivory, background: T.pegRed, padding: "2px 7px", borderRadius: 4, whiteSpace: "nowrap",
+          }}>THROW</span>
+        ) : null}
       </div>
       <button
         onClick={clickable ? onClick : undefined}
         onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
         aria-label={`${rankLabel(card.r)} of ${["spades", "hearts", "diamonds", "clubs"][card.s]}`}
+        aria-pressed={clickable ? !!selected : undefined}
         style={{
           width: 68, height: 96, borderRadius: 9, padding: 0, background: T.ivory, position: "relative",
           cursor: clickable ? "pointer" : "default",
-          border: badge ? `2px solid ${badge.color}` : "1px solid rgba(0,0,0,0.25)",
-          boxShadow: badge ? "0 8px 18px rgba(0,0,0,0.45)" : "0 4px 10px rgba(0,0,0,0.35)",
+          border: edge ? `2px solid ${edge}` : "1px solid rgba(0,0,0,0.25)",
+          boxShadow: badge || selected ? "0 8px 18px rgba(0,0,0,0.45)" : "0 4px 10px rgba(0,0,0,0.35)",
           transform: `translateY(${lift}px)`, transition: "transform 140ms ease, box-shadow 140ms ease",
           opacity: dim ? 0.5 : 1, outlineOffset: 3,
         }}
@@ -394,7 +417,7 @@ function Explain({ opt, dealer, mode, players = 4 }) {
     <div style={{ padding: "12px 12px 14px", background: "rgba(0,0,0,0.26)", borderRadius: 9, marginTop: 6, lineHeight: 1.5 }}>
       {/* HAND */}
       <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 }}>
-        KEPT HAND — averages {h.ev.toFixed(2)} over all 47 cuts
+        KEPT HAND — averages {h.ev.toFixed(2)} over all {players === 2 ? 46 : 47} cuts
       </div>
       <div style={{ fontSize: 13.5, marginBottom: 8 }}>
         {h.locked.toFixed(0)} locked in already, +{h.fromCut.toFixed(2)} on average from the cut.
@@ -408,7 +431,7 @@ function Explain({ opt, dealer, mode, players = 4 }) {
       {/* CRIB */}
       <div style={{ height: 1, background: T.line, margin: "13px 0" }} />
       <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 }}>
-        CRIB — your {tag(opt.card)} averages {cr.ev.toFixed(2)} {dealer ? "FOR you" : "AGAINST you"}
+        CRIB — your {opt.cards.map(tag).join(" + ")} average{opt.cards.length > 1 ? "" : "s"} {cr.ev.toFixed(2)} {dealer ? "FOR you" : "AGAINST you"}
       </div>
       <div style={{ fontSize: 13.5, marginBottom: 8 }}>
         Lands points in {(cr.hitRate * 100).toFixed(0)}% of random cribs, mostly via {dominant(cr.cats)}.
@@ -445,35 +468,39 @@ function Explain({ opt, dealer, mode, players = 4 }) {
 
 /* ====================== TOP-LEVEL NOTE ====================== */
 function buildNote(role, best, chosen) {
-  const optimal = best.i === chosen.i;
-  const c = best.card;
-  const high = c.r >= 11 && c.r <= 13;
+  const optimal = best.id === chosen.id;
+  const bestLabel = best.cards.map((c) => rankLabel(c.r)).join("+");
+  const multi = best.cards.length > 1;
+  const phrase = multi ? bestLabel : `the ${bestLabel}`;          // "the K"  vs  "K+3"
+  const bestHas5 = best.cards.some((c) => c.r === 5);
+  const allHigh = best.cards.every((c) => c.r >= 11 && c.r <= 13);
   if (optimal) {
     if (role === "deal") {
-      if (c.r === 5) return "Best line. A 5 in your own crib is gold — it pairs with every ten-card for fifteens.";
+      if (bestHas5) return "Best line. A 5 in your own crib is gold — it pairs with every ten-card for fifteens.";
       return "Best line — you keep your strongest four and the throwaway lands in your own crib anyway.";
     }
-    if (best.card.r === 5) return "Best available, though even your safest throw is a 5 here — sometimes unavoidable.";
-    if (high) return "Best line. High cards can't stretch into long runs, so they're the cheapest gift to the dealer.";
-    return "Best line — you shed a loner and starve the dealer's crib.";
+    if (bestHas5) return "Best available, though even your safest throw includes a 5 here — sometimes unavoidable.";
+    if (allHigh) return "Best line. High cards can't stretch into long runs, so they're the cheapest gift to the dealer.";
+    return `Best line — you ${multi ? "shed your loners" : "shed a loner"} and starve the dealer's crib.`;
   }
   const delta = best.adj - chosen.adj;
-  if (role === "defend" && chosen.card.r === 5 && c.r !== 5)
-    return `You fed the dealer a 5 — the richest crib card (~${chosen.cribEV.toFixed(1)} pts to them). On defense, almost never do this. Throw the ${rankLabel(c.r)} instead (−${delta.toFixed(2)}).`;
+  if (role === "defend" && chosen.cards.some((c) => c.r === 5) && !bestHas5)
+    return `You fed the dealer a 5 — the richest crib card (~${chosen.cribEV.toFixed(1)} pts to them). On defense, almost never do this. Throw ${phrase} instead (−${delta.toFixed(2)}).`;
   if (chosen.handEV > best.handEV)
-    return `You kept more hand points, but the crib swing more than canceled it. The ${rankLabel(c.r)} is better by ${delta.toFixed(2)}.`;
-  return `Close, but the ${rankLabel(c.r)} edges it by ${delta.toFixed(2)} expected points.`;
+    return `You kept more hand points, but the crib swing more than canceled it. ${multi ? phrase : "The " + bestLabel} is better by ${delta.toFixed(2)}.`;
+  return `Close, but ${phrase} edges it by ${delta.toFixed(2)} expected points.`;
 }
 
 /* ============================ APP ============================ */
 export default function CribbageTrainer() {
-  const [players, setPlayers] = useState(4); // 4-handed (default) or 3-handed cutthroat
+  const [players, setPlayers] = useState(4); // table size: 4-/3-handed cutthroat or 2-handed heads-up
   const [roleMode, setRoleMode] = useState("random");
-  const [hand, setHand] = useState(() => randomHand());
+  const [hand, setHand] = useState(() => randomHand(5));
   const [role, setRole] = useState(() => (Math.random() < 0.25 ? "deal" : "defend"));
   const [phase, setPhase] = useState("choose");
-  const [chosenIdx, setChosenIdx] = useState(null);
-  const [expanded, setExpanded] = useState(null);
+  const [selected, setSelected] = useState([]);   // card indices tapped during the choose phase
+  const [chosenId, setChosenId] = useState(null);  // option id ("i" or "i,j") the user committed to
+  const [expanded, setExpanded] = useState(null);  // option id of the open explain drawer
   const [showModel, setShowModel] = useState(false);
   const [showBoard, setShowBoard] = useState(false);
   const [yourPips, setYourPips] = useState(0);
@@ -484,28 +511,48 @@ export default function CribbageTrainer() {
   const suggested = suggestMode(yourPips, leaderPips);
   const mode = modeOverride || suggested;
 
+  const discardCount = players === 2 ? 2 : 1; // cards thrown to the crib (heads-up throws two)
+
   const opts = useMemo(() => (phase === "revealed" ? analyze(hand, role, mode, players) : null), [phase, hand, role, mode, players]);
 
-  const deal = useCallback(() => {
-    const r = roleMode === "random" ? (Math.random() < 1 / players ? "deal" : "defend") : roleMode;
-    setHand(randomHand()); setRole(r); setChosenIdx(null); setExpanded(null); setPhase("choose");
-  }, [roleMode, players]);
+  const dealHand = useCallback((p) => {
+    const r = roleMode === "random" ? (Math.random() < 1 / p ? "deal" : "defend") : roleMode;
+    setHand(randomHand(p === 2 ? 6 : 5)); setRole(r);
+    setSelected([]); setChosenId(null); setExpanded(null); setPhase("choose");
+  }, [roleMode]);
 
-  const pick = useCallback((i) => {
+  const deal = useCallback(() => dealHand(players), [dealHand, players]);
+
+  const changePlayers = useCallback((n) => {
+    setPlayers(n);
+    if ((n === 2 ? 6 : 5) !== hand.length) dealHand(n); // hand size changed → fresh deal
+    else setSelected([]);                                // same size → keep hand, drop partial selection
+  }, [hand.length, dealHand]);
+
+  const pick = useCallback((idxs) => {
+    const id = idxs.slice().sort((a, b) => a - b).join(","); // match analyze's i<j combo ids
     const res = analyze(hand, role, mode, players);
     const best = res[0];
-    const chosen = res.find((o) => o.i === i);
+    const chosen = res.find((o) => o.id === id);
     const delta = best.adj - chosen.adj;
-    setChosenIdx(i); setExpanded(i); setPhase("revealed");
+    setChosenId(id); setExpanded(id); setPhase("revealed");
     setStats((s) => ({ hands: s.hands + 1, optimal: s.optimal + (delta < 0.1 ? 1 : 0), lost: s.lost + delta }));
   }, [hand, role, mode, players]);
 
+  const toggleSelect = useCallback((i) => {
+    if (selected.includes(i)) { setSelected(selected.filter((x) => x !== i)); return; } // tap again to deselect
+    const next = [...selected, i];
+    if (next.length >= discardCount) { setSelected([]); pick(next); } // complete set → reveal
+    else setSelected(next);
+  }, [selected, discardCount, pick]);
+
   const best = opts ? opts[0] : null;
-  const chosen = opts ? opts.find((o) => o.i === chosenIdx) : null;
+  const chosen = opts ? opts.find((o) => o.id === chosenId) : null;
   const acc = stats.hands ? (stats.optimal / stats.hands) * 100 : 0;
   const avgLost = stats.hands ? stats.lost / stats.hands : 0;
   const maxAdj = opts ? Math.max(...opts.map((o) => o.adj)) : 1;
   const dealer = role === "deal";
+  const gridCols = `16px ${discardCount === 2 ? "58px" : "30px"} 1fr 38px 40px 34px 46px`;
   const MODE_LABEL = { ev: "max EV", need: "chase points", protect: "protect lead" };
 
   return (
@@ -520,6 +567,7 @@ export default function CribbageTrainer() {
         .dealwrap > *:nth-child(3){animation-delay:80ms}
         .dealwrap > *:nth-child(4){animation-delay:120ms}
         .dealwrap > *:nth-child(5){animation-delay:160ms}
+        .dealwrap > *:nth-child(6){animation-delay:200ms}
         button{font-family:inherit}
         button:focus-visible{outline:2px solid ${T.pegIvory}}
         @media (prefers-reduced-motion: reduce){.dealwrap > *{animation:none}}
@@ -531,7 +579,7 @@ export default function CribbageTrainer() {
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
           <h1 style={{ margin: 0, fontSize: 22, color: "#2A1B0E", letterSpacing: 0.3, fontWeight: 700 }}>Cutthroat Crib Trainer</h1>
-          <span style={{ fontFamily: mono, fontSize: 11, color: "rgba(42,27,14,0.75)" }}>{players}-handed · every player for themselves</span>
+          <span style={{ fontFamily: mono, fontSize: 11, color: "rgba(42,27,14,0.75)" }}>{players === 2 ? "heads-up · 6 cards, discard two" : `${players}-handed · every player for themselves`}</span>
         </div>
         <div style={{ marginTop: 12 }}><PegTrack pct={acc} /></div>
         <div style={{ marginTop: 10, display: "flex", gap: 18, flexWrap: "wrap", fontFamily: mono, fontSize: 12, color: "#2A1B0E" }}>
@@ -556,20 +604,24 @@ export default function CribbageTrainer() {
 
         <p style={{ fontFamily: mono, fontSize: 12, color: T.muted, margin: "18px 2px 6px" }}>
           {phase === "choose"
-            ? "Tap the card you'd throw to the crib."
+            ? (discardCount === 2
+                ? `Tap the two cards you'd throw to the crib.${selected.length === 1 ? " One more…" : ""}`
+                : "Tap the card you'd throw to the crib.")
             : `Ranked by ${MODE_LABEL[mode]}${mode === "ev" ? "" : " (net " + (mode === "need" ? "+" : "−") + " risk·σ)"} — tap any row for the why.`}
         </p>
         <div className={phase === "choose" ? "dealwrap" : ""} style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
           {hand.map((card, i) => {
-            let badge = null, dim = false;
+            let badge = null, dim = false, sel = false;
             if (phase === "revealed") {
-              const isBest = best.i === i, isPick = chosenIdx === i;
+              const isBest = best.idxs.includes(i), isPick = chosen ? chosen.idxs.includes(i) : false;
               if (isBest && isPick) badge = { text: "BEST ✓", color: T.goodDeep };
               else if (isBest) badge = { text: "BEST", color: T.goodDeep };
               else if (isPick) badge = { text: "YOUR PICK", color: T.pegRed };
               else dim = true;
+            } else {
+              sel = selected.includes(i);
             }
-            return <Card key={cardId(card)} card={card} phase={phase} badge={badge} dim={dim} onClick={() => pick(i)} />;
+            return <Card key={cardId(card)} card={card} phase={phase} badge={badge} dim={dim} selected={sel} onClick={() => toggleSelect(i)} />;
           })}
         </div>
 
@@ -577,11 +629,11 @@ export default function CribbageTrainer() {
           <div style={{ marginTop: 20 }}>
             <div style={{
               padding: "12px 14px", borderRadius: 10, marginBottom: 14, lineHeight: 1.5, fontSize: 14.5,
-              background: chosenIdx === best.i ? "rgba(95,164,124,0.14)" : "rgba(0,0,0,0.22)",
-              border: `1px solid ${chosenIdx === best.i ? "rgba(95,164,124,0.4)" : T.line}`,
+              background: chosenId === best.id ? "rgba(95,164,124,0.14)" : "rgba(0,0,0,0.22)",
+              border: `1px solid ${chosenId === best.id ? "rgba(95,164,124,0.4)" : T.line}`,
             }}>{buildNote(role, best, chosen)}</div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "16px 30px 1fr 38px 40px 34px 46px", gap: 5, fontFamily: mono, fontSize: 10, color: T.muted, padding: "0 4px 2px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: gridCols, gap: 5, fontFamily: mono, fontSize: 10, color: T.muted, padding: "0 4px 2px" }}>
               <span></span><span>throw</span><span>{mode === "ev" ? "net" : "adj"} (bar)</span>
               <span style={{ textAlign: "right" }}>hand</span><span style={{ textAlign: "right" }}>crib</span>
               <span style={{ textAlign: "right" }}>peg</span><span style={{ textAlign: "right" }}>{mode === "ev" ? "net" : "adj"}</span>
@@ -589,19 +641,21 @@ export default function CribbageTrainer() {
 
             <div style={{ display: "grid", gap: 4 }}>
               {opts.map((o) => {
-                const isBest = o.i === best.i, isPick = o.i === chosenIdx, isOpen = expanded === o.i;
+                const isBest = o.id === best.id, isPick = o.id === chosenId, isOpen = expanded === o.id;
                 const scoreVal = mode === "ev" ? o.netEV : o.adj;
                 return (
-                  <div key={o.i}>
-                    <button onClick={() => setExpanded(isOpen ? null : o.i)} style={{
+                  <div key={o.id}>
+                    <button onClick={() => setExpanded(isOpen ? null : o.id)} style={{
                       width: "100%", textAlign: "left", cursor: "pointer",
-                      display: "grid", gridTemplateColumns: "16px 30px 1fr 38px 40px 34px 46px", gap: 5, alignItems: "center",
+                      display: "grid", gridTemplateColumns: gridCols, gap: 5, alignItems: "center",
                       padding: "8px 4px", borderRadius: 8,
                       background: isBest ? "rgba(95,164,124,0.12)" : "rgba(0,0,0,0.12)",
                       border: isPick && !isBest ? `1px solid ${T.pegRed}` : "1px solid transparent",
                     }}>
                       <span style={{ fontFamily: mono, fontSize: 12, color: T.muted, transform: isOpen ? "rotate(90deg)" : "none", transition: "transform 150ms" }}>{"›"}</span>
-                      <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 15, color: isRed(o.card.s) ? T.suitRed : T.ivory }}>{tag(o.card)}</span>
+                      <span style={{ fontFamily: serif, fontWeight: 700, fontSize: discardCount === 2 ? 13 : 15, display: "flex", gap: 4, flexWrap: "wrap" }}>
+                        {o.cards.map((c) => <span key={cardId(c)} style={{ color: isRed(c.s) ? T.suitRed : T.ivory }}>{tag(c)}</span>)}
+                      </span>
                       <span style={{ height: 9, background: "rgba(0,0,0,0.28)", borderRadius: 5, overflow: "hidden" }}>
                         <span style={{ display: "block", height: "100%", width: `${Math.max(4, (scoreVal / maxAdj) * 100)}%`, background: isBest ? T.good : isPick ? T.pegRed : "rgba(236,224,182,0.45)" }} />
                       </span>
@@ -628,9 +682,9 @@ export default function CribbageTrainer() {
           <div>
             <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 }}>players at the table</div>
             <div style={{ display: "flex", gap: 6 }}>
-              {[[4, "4-handed"], [3, "3-handed"]].map(([n, label]) => {
+              {[[4, "4-handed"], [3, "3-handed"], [2, "2-handed"]].map(([n, label]) => {
                 const on = players === n;
-                return (<button key={n} onClick={() => setPlayers(n)} style={{
+                return (<button key={n} onClick={() => changePlayers(n)} style={{
                   flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: 11.5,
                   background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
                   border: `1px solid ${on ? T.pegIvory : T.line}`, fontWeight: on ? 700 : 400,
@@ -638,7 +692,9 @@ export default function CribbageTrainer() {
               })}
             </div>
             <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 6, lineHeight: 1.5 }}>
-              {players === 3
+              {players === 2
+                ? "2-handed (heads-up): 6 cards each, discard two. The 4-card crib is your two + the opponent's two."
+                : players === 3
                 ? "3-handed: everyone discards one, and the dealer adds one card off the deck to fill the 4-card crib."
                 : "4-handed: the 4-card crib is one discard from each player."}
             </div>
@@ -730,12 +786,14 @@ export default function CribbageTrainer() {
                   How often each rank is thrown, from a fixed-point self-play calibration
                   (10,000 hands/pass). Two behaviors: <b>dealers</b> feed their own crib, <b>defenders</b>
                   surrender junk to an opponent's.{" "}
-                  {players === 3
+                  {players === 2
+                    ? "Heads-up, the crib is your two discards + the opponent's two — defender throws when you deal, the dealer's own throws when you defend."
+                    : players === 3
                     ? "Your crib draws two defender throws plus one card dealt off the deck; when you defend, the dealer's crib draws one dealer + one defender throw plus one deck card."
                     : "Your crib draws three defender throws; when you defend, the dealer's crib draws one dealer + two defender throws."}
                   {" "}The cut stays uniform.
-                  {players === 3 && (
-                    <span style={{ color: T.muted }}> &nbsp;(3-handed reuses the 4-handed discard model — a close approximation, since how players dump junk barely shifts with table size.)</span>
+                  {players !== 4 && (
+                    <span style={{ color: T.muted }}> &nbsp;({players}-handed reuses the 4-handed discard model — a close approximation, since how players dump junk barely shifts with table size.)</span>
                   )}
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "16px 1fr 1fr", gap: 6, alignItems: "center", marginBottom: 6 }}>

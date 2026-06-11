@@ -19,54 +19,67 @@ and the current direction is **(c) keep improving it** (see Good next steps).
 
 ## What this is
 
-An interactive React trainer for practicing **optimal discarding in 4-player
-"cutthroat" cribbage** (every player for themselves). It deals a hand, lets the
-user pick a card to throw, then reveals a ranked, fully-explained analysis of all
-five possible discards.
+An interactive React trainer for practicing **optimal discarding** in cribbage —
+**4-/3-handed "cutthroat"** (every player for themselves) or **2-handed heads-up**,
+selectable in the UI. It deals a hand, lets the user pick the card(s) to throw, then
+reveals a ranked, fully-explained analysis of every possible discard (5 single-card
+throws when dealt 5 cards, all 15 two-card combos when dealt 6).
 
 The whole app is a single component: `src/CribbageTrainer.jsx` (inline styles,
 cribbage-board aesthetic, no dependencies beyond React). The `engine/` folder
 holds the Node verification scripts the engine was validated against — they are
 not imported by the app, but they document and re-prove the math.
 
-## Game rules being modeled (important — not 2-player cribbage)
+## Game rules being modeled
 
-- **Selectable 4-handed (default) or 3-handed** cutthroat, via the "players at the
-  table" toggle in the UI (`players` state, 4 or 3).
-- Each player is dealt **5 cards** and discards **exactly one** to the crib.
+- **Selectable 4-handed (default), 3-handed, or 2-handed**, via the "players at the
+  table" toggle in the UI (`players` state ∈ {4, 3, 2}). 4-/3-handed are "cutthroat"
+  (every player for themselves); 2-handed is standard heads-up cribbage.
+- **Deal & discard depend on table size:**
+  - **4-/3-handed:** each player dealt **5 cards**, discards **exactly one**. UI
+    ranks the **5** single-card discards.
+  - **2-handed:** each player dealt **6 cards**, discards **two**. UI ranks all
+    **15** two-card combos; the user taps two cards.
 - The crib always holds **4 cards**, scored with the starter as a 5-card hand:
   - **4-handed:** the 4 crib cards are one discard from each player.
   - **3-handed:** the three players' discards make only 3, so the **dealer adds one
     card dealt straight off the deck** (a uniform random card) to fill the crib.
-- The **dealer owns the crib**. You deal 1 of every `players` hands (1-in-4 or
-  1-in-3); otherwise you are a non-dealer ("defender") throwing into someone else's
+  - **2-handed:** your **two** discards + the opponent's **two**.
+- The **dealer owns the crib**. You deal 1 of every `players` hands (1-in-4, 1-in-3,
+  or 1-in-2); otherwise you are a non-dealer ("defender") throwing into the dealer's
   crib.
 - Standard show scoring: fifteens, pairs, runs (with duplicates), flush (4-card
   flush counts in the **hand** only; the crib needs all 5 same suit), nobs.
 
 ## Architecture / data flow
 
-`analyze(hand5, role, mode, players=4, N=10000, Npeg=700)` is the core. For each of
-the 5 possible discards it computes three components and two roll-ups. `players`
-(4 or 3) flows into the crib and pegging models below.
+`analyze(hand, role, mode, players=4, N=10000, Npeg=700)` is the core. It enumerates
+the discard options (`discardCombos`: 5 single-card throws for 4-/3-handed, all 15
+two-card combos for 2-handed) and for each computes three components and two
+roll-ups. Each option carries `{ id, idxs, cards }` (the discard index set + the
+actual card(s)); `id` is `idxs.join(",")`. `players` flows into the crib and pegging
+models below.
 
-1. **Hand EV — exact.** `handDetail(four, dealt5)` enumerates all 47 possible cut
-   cards and averages the kept-four score. Returns `ev, sd, min, max, p10, p90`,
-   category breakdown, `locked` (guaranteed pre-cut) and top-3 best cuts. No
-   estimation here — flush upgrades, nobs, everything falls out of enumeration.
-   Independent of `players` (you only ever know your own 5 cards).
-2. **Crib EV — Monte Carlo (N=10,000).** `cribDetail(...)` samples opponents'
-   crib cards by an empirical **role-split rank distribution** (suits uniform
-   within rank; starter uniform). The crib is always 4 cards = your card + 3 more:
-   - **4-handed**, you **deal** → your card + **3 defender** throws.
-   - **4-handed**, you **defend** → your card + **1 dealer** + **2 defender** throws.
-   - **3-handed**, you **deal** → your card + **2 defender** throws + **1 uniform
-     deck card** (the card the dealer flips off the deck).
-   - **3-handed**, you **defend** → your card + **1 dealer** + **1 defender** throw
-     + **1 uniform deck card**.
-   The deck card is drawn like the starter (uniform from the live deck). Because a
-   uniform card is "richer" than a defender's deliberate junk throw, 3-handed cribs
-   run a touch higher than 4-handed (see crib-swing note below).
+1. **Hand EV — exact.** `handDetail(four, dealt)` enumerates every possible cut
+   card (47 from a 5-card deal, 46 heads-up) and averages the kept-four score.
+   Returns `ev, sd, min, max, p10, p90`, category breakdown, `locked` (guaranteed
+   pre-cut) and top-3 best cuts. No estimation — flush upgrades, nobs, everything
+   falls out of enumeration. Independent of `players` (you only know your own cards).
+2. **Crib EV — Monte Carlo (N=10,000).** `cribDetail(discards, dealt, ...)` takes
+   your **array** of discards (1 card for 4-/3-handed, 2 heads-up) and fills the
+   rest of the 4-card crib by an empirical **role-split rank distribution** (suits
+   uniform within rank; starter uniform). The crib is always 4 cards:
+   - **4-handed** deal → your 1 + **3 defender** throws; defend → your 1 + **1
+     dealer** + **2 defender**.
+   - **3-handed** deal → your 1 + **2 defender** + **1 uniform deck card**; defend →
+     your 1 + **1 dealer** + **1 defender** + **1 uniform deck card**.
+   - **2-handed** deal → your 2 + **2 defender** throws; defend → your 2 + **2
+     dealer** throws (heads-up, the only other contributor is the dealer).
+   Composition is computed generally: `nUniform = players===3 ? 1 : 0`,
+   `nThrows = 4 - discards.length - nUniform`; on defense `nDealer = players===2 ?
+   nThrows : 1`. The deck card is drawn like the starter (uniform). Because a uniform
+   card is "richer" than a defender's deliberate junk throw, 3-handed cribs run a
+   touch higher than 4-handed (see crib-swing note below).
 3. **Pegging EV — Monte Carlo (N=700).** `pegDetail(...)` simulates `players`-handed
    play (`playPegging` derives the seat count from `hands.length`). Your seat =
    dealer (last seat = `players-1`, plays last = best peg seat) when dealing, else a
@@ -158,12 +171,12 @@ the board because the deck card beats a defender's junk throw on average.
 node engine/pegging.js          # pegging unit tests + full-game sanity (dealer seat pegs most)
 node engine/breakdown.js        # category breakdown reconciles to totals; perfect-29 check
 node engine/calibrate_split.js  # one self-play calibration pass (mutates state.json)
-node engine/verify_players.js   # 3-/4-handed: regression (players=4 == original) + crib/peg sanity
+node engine/verify_players.js   # 2-/3-/4-handed: regression (players=4 == original) + crib/peg sanity
 ```
 If you change `scoreInto`, re-run breakdown/pegging tests AND re-check the crib
 swing table above before trusting `analyze()`. If you touch `cribDetail`,
 `pegDetail`, or `playPegging`, also run `verify_players.js` — it guarantees the
-4-handed path is unchanged and the 3-handed path stays sane.
+4-handed path is bit-for-bit unchanged and the 3-/2-handed paths stay sane.
 
 ## Running and deploying
 

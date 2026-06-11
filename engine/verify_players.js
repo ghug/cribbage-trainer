@@ -89,18 +89,19 @@ function OLD_pegDetail(four, dealt5, N, rng, role) {
 }
 
 /* ---------- NEW (parameterized) — copied verbatim from CribbageTrainer.jsx ---------- */
-function NEW_cribDetail(discard, dealt5, N, rng, role, players) {
-  const pool = deckExcluding(dealt5);
+function NEW_cribDetail(discards, dealt, N, rng, role, players) {
+  const pool = deckExcluding(dealt);
   const suitsByRank = Array.from({ length: 14 }, () => []);
   for (const c of pool) suitsByRank[c.r].push(c.s);
-  const weighted = role === "deal"
-    ? (players === 3 ? [DEFENDER_CUM, DEFENDER_CUM] : [DEFENDER_CUM, DEFENDER_CUM, DEFENDER_CUM])
-    : (players === 3 ? [DEALER_CUM, DEFENDER_CUM] : [DEALER_CUM, DEFENDER_CUM, DEFENDER_CUM]);
-  const nUniform = 3 - weighted.length;
+  const nUniform = players === 3 ? 1 : 0;
+  const nThrows = 4 - discards.length - nUniform;
+  let weighted;
+  if (role === "deal") { weighted = new Array(nThrows).fill(DEFENDER_CUM); }
+  else { const nDealer = players === 2 ? nThrows : 1; weighted = new Array(nDealer).fill(DEALER_CUM).concat(new Array(nThrows - nDealer).fill(DEFENDER_CUM)); }
   const acc = [0, 0, 0, 0, 0]; let total = 0, sq = 0, hits = 0; const used = new Set();
   const drawUniform = () => { for (let t = 0; t < 80; t++) { const c = pool[(rng() * pool.length) | 0]; if (!used.has(c.r * 4 + c.s)) { used.add(c.r * 4 + c.s); return c; } } return pool[0]; };
   for (let k = 0; k < N; k++) {
-    used.clear(); const draw = [];
+    used.clear(); const draw = discards.slice();
     for (let d = 0; d < weighted.length; d++) {
       let card = null;
       for (let tries = 0; tries < 48 && !card; tries++) { const r = pickWeightedRank(rng, weighted[d]); const suits = suitsByRank[r]; if (!suits.length) continue; const free = suits.filter((s) => !used.has(r * 4 + s)); if (!free.length) continue; const s = free[(rng() * free.length) | 0]; card = { r, s }; used.add(r * 4 + s); }
@@ -109,7 +110,7 @@ function NEW_cribDetail(discard, dealt5, N, rng, role, players) {
     }
     for (let u = 0; u < nUniform; u++) draw.push(drawUniform());
     const starter = drawUniform();
-    const t = scoreInto([discard, draw[0], draw[1], draw[2]], starter, true, acc); total += t; sq += t * t; if (t > 0) hits++;
+    const t = scoreInto([draw[0], draw[1], draw[2], draw[3]], starter, true, acc); total += t; sq += t * t; if (t > 0) hits++;
   }
   const ev = total / N; return { ev, sd: Math.sqrt(Math.max(0, sq / N - ev * ev)), cats: acc.map((x) => x / N), hitRate: hits / N };
 }
@@ -153,7 +154,7 @@ console.log("1) Regression — refactored players=4 vs original 4-handed code (e
       const discard = hand[0];
       const seed = (hand.reduce((a, c) => (a * 53 + cardId(c) + 1) >>> 0, 7));
       const a = OLD_cribDetail(discard, hand, 500, mulberry32(seed), role);
-      const b = NEW_cribDetail(discard, hand, 500, mulberry32(seed), role, 4);
+      const b = NEW_cribDetail([discard], hand, 500, mulberry32(seed), role, 4);
       if (a.ev !== b.ev || a.sd !== b.sd || a.hitRate !== b.hitRate || a.cats.some((v, i) => v !== b.cats[i])) { console.log(`  ✗ cribDetail mismatch h=${h} role=${role}`); failures++; }
       const pa = OLD_pegDetail(four, hand, 400, mulberry32(seed + 1), role);
       const pb = NEW_pegDetail(four, hand, 400, mulberry32(seed + 1), role, 4);
@@ -174,8 +175,8 @@ function cribSwing(players) {
     const hand = handFrom(rng);
     for (let i = 0; i < 5; i++) {
       const r = hand[i].r;
-      yourSum[r] += NEW_cribDetail(hand[i], hand, 600, rng, "deal", players).ev; yourN[r]++;
-      theirSum[r] += NEW_cribDetail(hand[i], hand, 600, rng, "defend", players).ev; theirN[r]++;
+      yourSum[r] += NEW_cribDetail([hand[i]], hand, 600, rng, "deal", players).ev; yourN[r]++;
+      theirSum[r] += NEW_cribDetail([hand[i]], hand, 600, rng, "defend", players).ev; theirN[r]++;
     }
   }
   const your = [], their = [];
@@ -209,11 +210,40 @@ function pegSeatMeans(P) {
   }
   return sums.map((x) => x / games);
 }
-for (const P of [4, 3]) {
+for (const P of [4, 3, 2]) {
   const m = pegSeatMeans(P);
   const dealer = P - 1; const dealerTop = m[dealer] === Math.max(...m);
   console.log(`   ${P}-handed seats [${m.map((x) => x.toFixed(2)).join(", ")}]  dealer=seat${dealer}=${m[dealer].toFixed(2)} ${dealerTop ? "(top ✓)" : "(NOT top ✗)"}`);
   if (!dealerTop) failures++;
+}
+
+/* ===== 4) SANITY: heads-up (2-handed) — discard two, crib = your 2 + opponent's 2 ===== */
+console.log("\n4) Heads-up (2-handed) — 6 cards, discard two:");
+{
+  const rng = mulberry32(77);
+  // A pair of 5s thrown into your OWN crib should be very rich (pair + many fifteens).
+  const handFives = [{ r: 5, s: 0 }, { r: 5, s: 1 }, { r: 6, s: 2 }, { r: 9, s: 3 }, { r: 11, s: 0 }, { r: 13, s: 1 }];
+  const cribFives = NEW_cribDetail([{ r: 5, s: 0 }, { r: 5, s: 1 }], handFives, 4000, rng, "deal", 2).ev;
+  const cribJunk = NEW_cribDetail([{ r: 9, s: 3 }, { r: 13, s: 1 }], handFives, 4000, rng, "deal", 2).ev;
+  console.log(`   own-crib EV: throw 5-5 = ${cribFives.toFixed(2)} vs throw 9-K = ${cribJunk.toFixed(2)}  ${cribFives > cribJunk + 1 ? "(5-5 richer ✓)" : "(✗)"}`);
+  if (!(cribFives > cribJunk + 1)) failures++;
+  // Enumerate all 15 two-card discards of a fixed hand; every crib EV must be finite and the
+  // kept four must always be exactly 4 cards (crib gets exactly 4: your 2 + 2 throws).
+  const hand6 = [{ r: 2, s: 0 }, { r: 3, s: 1 }, { r: 4, s: 2 }, { r: 5, s: 3 }, { r: 10, s: 0 }, { r: 12, s: 2 }];
+  let combos = 0, ok = true;
+  for (let i = 0; i < 6; i++) for (let j = i + 1; j < 6; j++) {
+    const discards = [hand6[i], hand6[j]];
+    const four = hand6.filter((_, k) => k !== i && k !== j);
+    const cd = NEW_cribDetail(discards, hand6, 300, rng, "deal", 2);
+    if (four.length !== 4 || !isFinite(cd.ev) || cd.ev < 0) ok = false;
+    combos++;
+  }
+  console.log(`   enumerated ${combos} two-card discards (expect 15); all kept-4 + finite crib EV: ${ok ? "✓" : "✗"}`);
+  if (combos !== 15 || !ok) failures++;
+  // Defending heads-up, both non-your crib cards are the DEALER's throws (not defenders').
+  const cribDef = NEW_cribDetail([{ r: 9, s: 3 }, { r: 13, s: 1 }], handFives, 4000, rng, "defend", 2).ev;
+  console.log(`   defend crib EV (dealer throws the other two) = ${cribDef.toFixed(2)} ${isFinite(cribDef) && cribDef > 0 ? "✓" : "✗"}`);
+  if (!(isFinite(cribDef) && cribDef > 0)) failures++;
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED ✓" : failures + " CHECK(S) FAILED ✗"}`);

@@ -1,0 +1,13 @@
+Cribbage Trainer is two tools in one, behind a small landing page — a discard trainer to sharpen your throws, and a full game against the computer.
+
+Discard Trainer
+
+Deal a hand and see every possible discard ranked by expected points, each one fully explained: the kept hand's exact average over all 46/47 possible cuts, the crib swing for the card(s) you throw, and pegging potential. Practice 4- and 3-handed "cutthroat" (every player for themselves) or 2-handed heads-up, as dealer or defender, with an optional board-position mode that re-ranks for chasing points or protecting a lead.
+
+Play a Game (vs 3 AI)
+
+A complete game of 4-player cutthroat cribbage against three computer opponents: cut for deal, discard, cut the starter, interactive pegging, the show, and the race to 121. Count automatically or play muggins (claim your own points). Optional warnings flag a weak discard — or a pegging play that leaves points on the table — with a chance to take it back. A pause control and a per-player scoring history are a tap away, plus settings to auto-play forced cards, auto-cut, auto-deal, and auto-continue.
+
+Private and offline
+
+No ads, no tracking, no accounts, and no network permission at all — everything runs locally on your device. Released into the public domain (The Unlicense).

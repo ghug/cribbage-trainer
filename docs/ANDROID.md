@@ -126,6 +126,23 @@ the APK. Nothing else required beyond signed releases existing.
    your release APK and records your signing certificate.
 4. Maintain: **increment `versionCode` every release**; keep `targetSdk` current.
 
+## Listing text (fastlane metadata)
+
+F-Droid / IzzyOnDroid auto-import the store listing from
+`fastlane/metadata/android/en-US/`:
+
+```
+title.txt               app name
+short_description.txt    one line, <= 80 chars
+full_description.txt     the long description
+changelogs/<code>.txt    per-release notes, named by versionCode (1.txt, 2.txt, …)
+images/phoneScreenshots/ 1.png, 2.png, … (add your own from the running app)
+```
+
+Per release: bump `versionCode` and add a matching `changelogs/<code>.txt`. Drop a
+few PNG screenshots into `images/phoneScreenshots/` to fill out the listing (the icon
+comes from the APK's adaptive icon, so no `icon.png` is needed).
+
 ## Caveat: WebView age
 
 The UI uses CSS **container queries** (`container-type` / `cqw`), which need

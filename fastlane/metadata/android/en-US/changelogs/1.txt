@@ -1,0 +1,8 @@
+First release.
+
+- Discard trainer: every throw ranked by expected points, fully explained
+  (4-, 3-, and 2-handed).
+- Play a full game of 4-player cutthroat cribbage vs 3 AI — pegging, the show,
+  the race to 121; auto-count or muggins.
+- Optional weak-play warnings, a pause control, and per-player scoring history.
+- Fully offline: no ads, no trackers, no network permission.

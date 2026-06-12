@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 /* Verifies the consolidated play page (play.html), which adapts to the table size
- * in settings.players. Currently supports P = 2 (heads-up) and P = 3 (3-handed).
+ * in settings.players. Currently supports P = 2 (heads-up), 3 and 4 (cutthroat).
  *
  * We eval the compiled play.html <script> in a vm sandbox and drive whole hands for
  * each supported P, asserting the per-P rules:
  *   P=2: deal 6, throw 2; crib = your 2 + opponent 2; starter deck[12]; show 3 steps.
  *   P=3: deal 5, throw 1; crib = 3 throws + a deck card (deck[15]); starter deck[16];
  *        show 4 steps.
+ *   P=4: deal 5, throw 1; crib = 4 throws; starter deck[20]; show 5 steps.
  * Plus the shared invariants: go/31/last-card never double-count, his heels = +2,
  * suits survive pegging, scores only go up, history reconciles, the 121 stop.
  */
@@ -46,7 +47,9 @@ const sameCard = (a, b) => a.r === b.r && a.s === b.s;
 const FACTS = {
   2: { dealt: 6, throws: 2, idxs: [0, 1], starterIdx: 12, deckCard: false, showLen: 3 },
   3: { dealt: 5, throws: 1, idxs: [0], starterIdx: 16, deckCard: true, deckIdx: 15, showLen: 4 },
+  4: { dealt: 5, throws: 1, idxs: [0], starterIdx: 20, deckCard: false, showLen: 5 },
 };
+const SUPPORTED = [2, 3, 4];
 
 /* ---- A. pegScore + perfect-29 spot checks ---- */
 check(pegScore([7, 8], 15) === 2, "fifteen = 2");
@@ -114,7 +117,7 @@ function playHand(state, P) {
 }
 
 /* ---- B. for each supported P: drive many hands; scores sane ---- */
-for (const P of [2, 3]) {
+for (const P of SUPPORTED) {
   let state = gameFor(P);
   check(state.phase === "cutdeal" && state.seats.length === P, `P=${P}: new game is cutdeal with ${P} seats`);
   check(Array.isArray(state.dealDraw) && state.dealDraw.length === P, `P=${P}: ${P}-card cut-for-deal`);
@@ -140,7 +143,7 @@ for (const P of [2, 3]) {
 }
 
 /* ---- C. his heels = +2 at the cut, per P ---- */
-for (const P of [2, 3]) {
+for (const P of SUPPORTED) {
   const F = FACTS[P];
   let state = reduce(gameFor(P), { type: "DEAL" });
   state = reduce(state, { type: "DISCARD", idxs: F.idxs });

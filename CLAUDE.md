@@ -1,4 +1,4 @@
-# CLAUDE.md — Cutthroat Cribbage Discard Trainer
+# CLAUDE.md — Cribbage Discard Trainer
 
 > Read this first. It is the full context for the project. It was handed off from a
 > claude.ai chat session; treat it as the source of truth and update it as you work.

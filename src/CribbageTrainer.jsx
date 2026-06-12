@@ -582,7 +582,7 @@ export default function CribbageTrainer() {
         padding: "14px 18px 16px", boxShadow: "0 6px 18px rgba(0,0,0,0.4)", borderBottom: "2px solid rgba(0,0,0,0.3)",
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-          <h1 style={{ margin: 0, fontSize: 22, color: "#2A1B0E", letterSpacing: 0.3, fontWeight: 700 }}>Cutthroat Crib Trainer</h1>
+          <h1 style={{ margin: 0, fontSize: 22, color: "#2A1B0E", letterSpacing: 0.3, fontWeight: 700 }}>Cribbage Discard Trainer</h1>
           <span style={{ fontFamily: mono, fontSize: 11, color: "rgba(42,27,14,0.75)" }}>{players === 2 ? "heads-up · 6 cards, discard two" : `${players}-handed · every player for themselves`}</span>
         </div>
         <div style={{ marginTop: 12 }}><PegTrack pct={acc} /></div>

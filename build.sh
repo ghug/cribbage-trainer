@@ -29,7 +29,7 @@ cat <<'HTML'
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#0f2417" />
-<title>Cutthroat Cribbage Trainer</title>
+<title>Cribbage Discard Trainer</title>
 <style>html,body{margin:0;background:#0f2417;min-height:100%}#root{min-height:100vh}</style>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>

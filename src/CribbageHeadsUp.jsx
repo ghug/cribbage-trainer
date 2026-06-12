@@ -609,6 +609,23 @@ function Panel({ children, tone }) {
   return <div style={{ padding: "11px 14px", borderRadius: 10, background: bg, border: `1px solid ${bd}` }}>{children}</div>;
 }
 
+// Skunk callouts at game end: a loser who finishes with <=90 is skunked, <=60 is
+// double-skunked. Red tone if you're the one skunked, otherwise a friendly green.
+function SkunkPanel({ seats, winner }) {
+  const losers = seats.map((s, i) => ({ i, score: s.score })).filter((x) => x.i !== winner);
+  const dbl = losers.filter((x) => x.score <= 60);
+  const sk = losers.filter((x) => x.score > 60 && x.score <= 90);
+  if (!dbl.length && !sk.length) return null;
+  const youSkunked = losers.some((x) => x.i === 0 && x.score <= 90);
+  const fmt = (arr) => arr.map((x) => `${seatName(x.i)} (${x.score})`).join(", ");
+  return (
+    <Panel tone={youSkunked ? "red" : "good"}>
+      {dbl.length > 0 && <div style={{ fontWeight: 700, fontSize: 15 }}>Double skunk 🦨🦨 — {fmt(dbl)}</div>}
+      {sk.length > 0 && <div style={{ fontWeight: 700, fontSize: 15, marginTop: dbl.length ? 4 : 0 }}>Skunk 🦨 — {fmt(sk)}</div>}
+    </Panel>
+  );
+}
+
 function bigBtn(label, onClick, tone) {
   const grad = tone === "wood" ? `linear-gradient(180deg, ${T.woodL}, ${T.woodM})` : `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`;
   return (
@@ -1163,7 +1180,7 @@ export default function CribbageHeadsUp() {
               <div style={{ fontWeight: 700, fontSize: 18 }}>{winner === 0 ? "You win! 🎉" : `${seatName(winner)} wins.`}</div>
               <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>First to {TARGET}. Final: {seats.map((s, i) => `${seatName(i)} ${s.score}`).join(" · ")}</div>
             </Panel>
-            {starter && <StarterStrip starter={starter} />}
+            <SkunkPanel seats={seats} winner={winner} />
             {bigBtn("Play again", () => dispatch({ type: "PLAY_AGAIN" }), "good")}
           </div>
         )}

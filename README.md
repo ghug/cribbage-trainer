@@ -10,9 +10,12 @@ accounts, no tracking:
 - **Play a Game** (`play.html`) — a full game of 4-player cutthroat cribbage vs 3 AI:
   cut for deal → discard → cut → interactive pegging → the show → race to 121.
 
-**Live:** https://cribbage-trainer.gabrielhug.workers.dev
-**Android:** a signed APK is published on the [Releases](../../releases) page and
-installs via Obtainium — see [`docs/ANDROID.md`](docs/ANDROID.md).
+**Two ways to use it:**
+
+- **In a browser** (nothing to install) — the web release: https://cribbage-trainer.gabrielhug.workers.dev
+- **As an Android app** — a signed APK on the [Releases](../../releases) page,
+  installable directly or via Obtainium. The APK is fully self-contained and offline;
+  see [`docs/ANDROID.md`](docs/ANDROID.md).
 
 ## Run & build
 

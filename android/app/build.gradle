@@ -32,13 +32,13 @@ android {
 
 // Bundle the built web app (committed at the repo root) into the APK's assets before
 // every build, so the wrapper always ships the current pages + vendored React. The
-// repo root holds the source of truth (index.html / trainer.html / play4.html / vendor),
+// repo root holds the source of truth (index.html / trainer.html / play.html / vendor),
 // produced by ../build.sh; these copies under src/main/assets are git-ignored.
 tasks.register('syncWebAssets', Copy) {
     def repoRoot = rootProject.projectDir.parentFile
     into layout.projectDirectory.dir('src/main/assets')
     from(repoRoot) {
-        include 'index.html', 'trainer.html', 'play.html', 'play4.html', 'play3.html', 'play5.html', 'play6.html', 'headsup.html'
+        include 'index.html', 'trainer.html', 'play.html'
         include 'vendor/**'
     }
 }

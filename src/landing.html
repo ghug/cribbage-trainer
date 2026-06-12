@@ -43,10 +43,6 @@
         font-size:24px; box-shadow:inset 0 1px 2px rgba(255,255,255,0.15), 0 3px 8px rgba(0,0,0,0.35) }
   .pip.train{ background:linear-gradient(180deg,var(--good),#3F7E5E) }
   .pip.play{ background:linear-gradient(180deg,var(--pegRed),#9c3120) }
-  .pip.duel{ background:linear-gradient(180deg,#5B95C2,#3F6E92) }
-  .pip.trio{ background:linear-gradient(180deg,#C9A24B,#9C7A2F) }
-  .pip.quint{ background:linear-gradient(180deg,#8E6FC0,#5E4A86) }
-  .pip.sext{ background:linear-gradient(180deg,#4FA3A1,#2F6F6D) }
   .opt-title{ font-size:19px; font-weight:700; color:var(--ivory) }
   .opt-sub{ font-family:var(--mono); font-size:11.5px; color:var(--muted); margin-top:3px }
   .opt-desc{ font-size:13.5px; line-height:1.5; color:var(--cream); margin-top:12px }
@@ -75,6 +71,10 @@
   .seg{ flex:1; padding:9px 6px; border-radius:8px; cursor:pointer; font-family:var(--mono); font-size:11.5px;
     background:rgba(0,0,0,0.2); color:var(--cream); border:1px solid var(--line) }
   .seg.on{ background:#ECDCB4; color:#2A1B0E; border-color:#ECDCB4; font-weight:700 }
+  .players-pick{ background:rgba(0,0,0,0.18); border:1px solid var(--line); border-radius:14px; padding:14px 16px }
+  .pp-label{ font-size:14px; font-weight:700; color:var(--ivory) }
+  .pp-note{ font-family:var(--mono); font-size:11px; color:var(--muted); font-weight:400 }
+  .pp-segs{ display:flex; gap:6px; margin-top:9px }
   .modal-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px }
   .modal h2{ margin:0; font-size:17px; color:var(--ivory) }
   .modal p{ font-family:var(--mono); font-size:12px; color:var(--cream); line-height:1.6; margin:0 0 14px }
@@ -185,82 +185,22 @@
           hand value over every cut, crib swing, and pegging potential, each fully explained.
           Supports 4-, 3-, and 2-handed.</div>
       </a>
+      <div class="players-pick">
+        <div class="pp-label">Players at the table <span class="pp-note">— for the Play game</span></div>
+        <div class="pp-segs" id="playersSegs"></div>
+      </div>
       <a class="option" href="play.html">
         <div class="opt-row">
           <span class="pip play">♥</span>
           <div>
             <div class="opt-title">Play</div>
-            <div class="opt-sub">one game, your choice of table size</div>
+            <div class="opt-sub">a full game vs bots, 2–6 players</div>
           </div>
           <span class="arrow">›</span>
         </div>
-        <div class="opt-desc">A single game that adapts to the number of players you pick in
-          its settings — anywhere from heads-up (2) to six-handed cutthroat. Cut for deal,
-          discard, cut, interactive pegging, the show, and the race to 121.</div>
-      </a>
-      <a class="option" href="headsup.html">
-        <div class="opt-row">
-          <span class="pip duel">♠</span>
-          <div>
-            <div class="opt-title">Heads-Up (vs 1 bot)</div>
-            <div class="opt-sub">2-handed · first to 121</div>
-          </div>
-          <span class="arrow">›</span>
-        </div>
-        <div class="opt-desc">Classic two-player cribbage against the computer: deal six,
-          throw two to the crib, then cut, peg, and count your way to 121.</div>
-      </a>
-      <a class="option" href="play3.html">
-        <div class="opt-row">
-          <span class="pip trio">♦</span>
-          <div>
-            <div class="opt-title">Three-Handed (vs 2 bots)</div>
-            <div class="opt-sub">3-player cutthroat · first to 121</div>
-          </div>
-          <span class="arrow">›</span>
-        </div>
-        <div class="opt-desc">Three-player cutthroat cribbage against two computer players:
-          everyone throws one to the crib and the dealer tops it up with a card off the deck,
-          then cut, interactive pegging, the show, and the race to 121.</div>
-      </a>
-      <a class="option" href="play4.html">
-        <div class="opt-row">
-          <span class="pip play">♥</span>
-          <div>
-            <div class="opt-title">Four-Handed (vs 3 bots)</div>
-            <div class="opt-sub">4-player cutthroat · first to 121</div>
-          </div>
-          <span class="arrow">›</span>
-        </div>
-        <div class="opt-desc">Four-player cutthroat cribbage against three computer players:
-          each player is dealt five and throws one to the crib, then cut, interactive pegging,
-          the show, and the race to 121.</div>
-      </a>
-      <a class="option" href="play5.html">
-        <div class="opt-row">
-          <span class="pip quint">♣</span>
-          <div>
-            <div class="opt-title">Five-Handed (vs 4 bots)</div>
-            <div class="opt-sub">5-player cutthroat · first to 121</div>
-          </div>
-          <span class="arrow">›</span>
-        </div>
-        <div class="opt-desc">Five-player cutthroat cribbage against four computer players:
-          everyone is dealt five and throws one to the crib — except the dealer, dealt four
-          and keeping them all — then cut, interactive pegging, the show, and the race to 121.</div>
-      </a>
-      <a class="option" href="play6.html">
-        <div class="opt-row">
-          <span class="pip sext">♥</span>
-          <div>
-            <div class="opt-title">Six-Handed (vs 5 bots)</div>
-            <div class="opt-sub">6-player cutthroat · first to 121</div>
-          </div>
-          <span class="arrow">›</span>
-        </div>
-        <div class="opt-desc">Six-player cutthroat cribbage against five computer players:
-          everyone throws one to the crib except the dealer and the player to their right
-          (each dealt four), then cut, interactive pegging, the show, and the race to 121.</div>
+        <div class="opt-desc">A complete game against bots that adapts to the players you choose
+          above — anywhere from heads-up (2) to six-handed cutthroat. Cut for deal, discard, cut,
+          interactive pegging, the show, and the race to 121.</div>
       </a>
     </nav>
   </main>
@@ -274,8 +214,8 @@
         <h2>Settings</h2>
         <button class="btn btn-ghost btn-sm" id="settingsDone" type="button">Done</button>
       </div>
-      <p class="set-intro">These apply to every game and are saved on this device, so they
-        stay set as you move between the games. (Table size is chosen by which game you open.)</p>
+      <p class="set-intro">These apply to the Play game and are saved on this device. (The
+        number of players is set above, on the home page.)</p>
       <div id="settingsList"></div>
       <button class="btn btn-ghost" id="openAbout" type="button" style="margin-top:6px">About &amp; feedback</button>
     </div>
@@ -307,9 +247,9 @@
       // Game settings, shared across every page via localStorage (same key the games
       // read/write), so a toggle here — or in any game — sticks everywhere.
       var SETTINGS_KEY = "cribbage:settings";
-      var DEFAULTS = { players: 2, counting: "auto", autoGo: false, warn: true, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false, autoContinue: false, autoDeal: false };
+      var DEFAULTS = { players: 4, counting: "auto", autoGo: false, warn: true, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false, autoContinue: false, autoDeal: false };
+      // "Players" lives on the main page (above Play); the rest are in this popup.
       var ROWS = [
-        { k: "players", title: "Players (in “Play”)", desc: "Table size for the consolidated Play game. 2 = heads-up; 3–6 = cutthroat (at 5–6 the dealer, and at 6 the seat to their right, are dealt 4 and throw none). Changing it starts a new game.", opts: [["2", 2], ["3", 3], ["4", 4], ["5", 5], ["6", 6]] },
         { k: "counting", title: "Counting", desc: "Auto tallies every hand. Muggins: you claim your own hand (and crib when you deal) — miss points and the next opponent takes them.", opts: [["Auto-count", "auto"], ["Muggins", "muggins"]] },
         { k: "autoGo", title: "Go on no playable card", desc: "When you can’t play, Manual waits for you to tap “Go”; Auto passes for you.", opts: [["Manual", false], ["Auto", true]] },
         { k: "warn", title: "Warn on a weak play", desc: "Pause and explain when a throw to the crib, or a pegging card that leaves a point on the table, isn’t the best — with a chance to take it back.", opts: [["On", true], ["Off", false]] },
@@ -341,7 +281,20 @@
       }
       renderSettings();
 
-      document.getElementById('gear').addEventListener('click', function () { settings = loadSettings(); renderSettings(); open(s); });
+      // The "Players" control lives on the home page, just above the Play card.
+      function renderPlayers() {
+        var host = document.getElementById('playersSegs');
+        host.innerHTML = '';
+        [2, 3, 4, 5, 6].forEach(function (p) {
+          var b = document.createElement('button'); b.type = 'button'; b.textContent = String(p);
+          b.className = 'seg' + (settings.players === p ? ' on' : '');
+          b.addEventListener('click', function () { settings.players = p; saveSettings(settings); renderPlayers(); });
+          host.appendChild(b);
+        });
+      }
+      renderPlayers();
+
+      document.getElementById('gear').addEventListener('click', function () { settings = loadSettings(); renderSettings(); renderPlayers(); open(s); });
       document.getElementById('settingsDone').addEventListener('click', function () { close(s); });
       document.getElementById('openAbout').addEventListener('click', function () { close(s); open(a); });
       document.getElementById('footerAbout').addEventListener('click', function () { open(a); });

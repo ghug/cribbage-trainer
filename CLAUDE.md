@@ -14,44 +14,29 @@ You have **two finished, working tools** behind a small welcome page, all
 self-contained (no in-browser build, no install, no internet needed beyond a CDN
 for React):
 
-- **`index.html`** — the landing page. The trainer, the consolidated Play page, and
-  the fixed-size games.
+- **`index.html`** — the landing page (`src/landing.html`). The trainer and the Play
+  game, with the **"Players at the table"** selector shown on the page just above the
+  Play card.
 - **`trainer.html`** — the **Discard Trainer** (analyzes/ranks discards).
-- **`play.html`** — **Play**: a *consolidated* game that adapts to `settings.players`
-  (the global "Players" setting). Supports **2 (heads-up)** through **6** (cutthroat) —
+- **`play.html`** — **Play**: one game that adapts to `settings.players` (the global
+  "Players" setting, default **4**). Supports **2 (heads-up)** through **6** (cutthroat) —
   the reducer is general (deal/crib/show/pegging/layout all computed from the player
-  count via `plan(P, dealerIdx)`); `PLAYER_OPTIONS` lists the exposed sizes.
+  count via `plan(P, dealerIdx)`); `PLAYER_OPTIONS` lists the exposed sizes. Per size:
+  3-handed flips a deck card into the crib; at 5–6 the dealer (and at 6 the seat to their
+  right) are dealt 4 and throw none, and the human-as-non-thrower skips the discard.
   `discard` is stored as an **array** (1 or 2 cards) to unify the heads-up two-card throw.
-  `src/CribbagePlay.jsx`. Verified by `engine/verify_play.js` (drives P=2 and P=3).
-- **`play4.html`** — **Four-Handed (vs 3 bots)**: a full game of 4-player cutthroat.
-- **`play6.html`** — **Six-Handed (vs 5 bots)**: 6-player cutthroat. The **dealer and the
-  player to their right** are each dealt 4 and throw none; the other four are dealt 5
-  and throw one, so the crib is those **four throws** (no deck card). When the human is
-  either non-thrower they skip the discard phase. Starter is deck[28]. `src/CribbagePlay6.jsx`;
-  a 6-seat adaptation (show order [pone, +2…+5, dealer, CRIB], three opponents across
-  the top + two flanking). Verified by `engine/verify_play6.js`.
-- **`play5.html`** — **Five-Handed (vs 4 bots)**: 5-player cutthroat. The **dealer is
-  dealt 4 and throws none**; the other four are dealt 5 and throw one, so the crib is
-  the **four non-dealer throws** (no deck card). When the human deals they skip the
-  discard phase. Starter is deck[24]. `src/CribbagePlay5.jsx`; a 5-seat adaptation of
-  the play app's reducer (show order [pone, +2, +3, +4, dealer, CRIB], two opponents
-  across the top + two flanking). Verified by `engine/verify_play5.js`.
-- **`play3.html`** — **Three-Handed (vs 2 bots)**: 3-player cutthroat (deal 5, discard
-  1; the crib is the three discards **plus one card off the deck**, deck[15], to make
-  four; starter is deck[16]). `src/CribbagePlay3.jsx`; a 3-seat adaptation of the play
-  app's reducer (show order [pone, +2, dealer, CRIB], two opponents flanking the
-  table). Verified by `engine/verify_play3.js`.
-- **`headsup.html`** — **Heads-Up (vs 1 bot)**: classic 2-player cribbage (deal 6,
-  discard 2, race to 121). `src/CribbageHeadsUp.jsx`; a 2-player adaptation of the
-  play app's reducer (P=2, show order [pone, dealer, CRIB], `cribSeed` two-card bot
-  discard). Verified by `engine/verify_headsup.js`.
+  `src/CribbagePlay.jsx`. Verified by `engine/verify_play.js` (drives P=2 through 6).
+
+  > The five fixed-size pages (`play3/4/5/6.html`, `headsup.html` + their `src/` and
+  > `engine/verify_*` files) were **retired** once the consolidated `play.html` covered
+  > 2–6; git history has them if ever needed.
 
 **To just use it: open `index.html` in any browser** (or jump straight to
-`trainer.html` / `play4.html`).
+`trainer.html` / `play.html`).
 
 **It is also deployed** to a live, public link via Cloudflare (see Running and
 deploying below): **`https://cribbage-trainer.gabrielhug.workers.dev`** (the root is
-now the welcome page; the trainer is at `/trainer.html`, the game at `/play4.html`).
+now the welcome page; the trainer is at `/trainer.html`, the game at `/play.html`).
 Pushing to `main` on the `ghug/cribbage-trainer` repo auto-redeploys. Edit the
 source, run `./build.sh`, commit, push — that's the whole update loop.
 
@@ -70,7 +55,7 @@ cribbage-board aesthetic (inline styles, no dependencies beyond React):
    the user pick the card(s) to throw, then reveals a ranked, fully-explained
    analysis of every possible discard (5 single-card throws when dealt 5 cards, all
    15 two-card combos when dealt 6).
-2. **Play a Game** (`src/CribbagePlay4.jsx` → `play4.html`) — a complete, playable
+2. **Play a Game** (`src/CribbagePlay.jsx` → `play.html`) — a complete, playable
    game of **4-player cutthroat cribbage vs 3 bots**: deal → discard → cut →
    interactive pegging → the show → race to 121 → rotate dealer. See "The playable
    game" below.
@@ -205,16 +190,18 @@ your card + three defensive junk throws.
 the 4-handed column still matches (tol 0.12). 3-handed runs ~0.1–0.2 richer across
 the board because the deck card beats a defender's junk throw on average.
 
-## The playable game (`src/CribbagePlay4.jsx` → `play4.html`)
+## The playable game (`src/CribbagePlay.jsx` → `play.html`)
 
-A complete game of **4-player cutthroat cribbage vs 3 bots**, first to 121. It is a
-second self-contained React page that **copies the engine primitives verbatim** from
-the trainer (`scoreInto`, `handDetail`, `pegScore`, `pegChoose`, `deckExcluding`,
-the theme/UI atoms) — the two pages never share a module, matching how `engine/`
-also duplicates the math.
+A complete game of cribbage vs bots that **adapts to the table size** (2–6, from
+`settings.players`), first to 121. It is a second self-contained React page that
+**copies the engine primitives verbatim** from the trainer (`scoreInto`, `handDetail`,
+`pegScore`, `pegChoose`, `deckExcluding`, the theme/UI atoms) — the two pages never
+share a module, matching how `engine/` also duplicates the math. Everything per-size
+(deal sizes, crib makeup, starter index, show order, pegging rotation, seat names,
+layout) is derived from the player count via `plan(P, dealerIdx)` / `tableSeats(P)`.
 
-- **Phase machine** (`useReducer`): `deal → discard → cut → play → show → over`.
-  Human is always seat 0; `dealerIdx` rotates +1 each hand. State carries `seats[4]`
+- **Phase machine** (`useReducer`): `cutdeal → deal → discard → cut → play → show → over`.
+  Human is always seat 0; `dealerIdx` rotates +1 each hand. State carries `seats[P]`
   (`{score, dealt, kept, discard, isAI}`, cards stay **suited** throughout), `crib`,
   `starter`, a `peg` sub-state during play, a `show` sub-state during counting, and
   `settings.counting`.
@@ -230,7 +217,7 @@ also duplicates the math.
   every award and stopping immediately** (a non-dealer to the dealer's left can peg
   out first). Auto-count or **muggins** (you claim your own hand/crib; missed points
   go to the next opponent in counting order; over-claims are corrected down).
-- **Correctness pitfalls guarded** (see `engine/verify_play4.js`): go/31/last-card
+- **Correctness pitfalls guarded** (see `engine/verify_play.js`): go/31/last-card
   never double-count; his heels = **+2** at the cut; the 121 counting-order
   short-circuit; suits survive pegging (only the rank arrays handed to
   `pegScore`/`pegChoose` drop suits).
@@ -255,41 +242,33 @@ node engine/pegging.js          # pegging unit tests + full-game sanity (dealer 
 node engine/breakdown.js        # category breakdown reconciles to totals; perfect-29 check
 node engine/calibrate_split.js  # one self-play calibration pass (mutates state.json)
 node engine/verify_players.js   # 2-/3-/4-handed: regression (players=4 == original) + crib/peg sanity
-node engine/verify_play4.js      # play4.html: evals the built game's reducer, drives whole hands,
-                                #   asserts go/31/last-card, his-heels +2, the 121 show short-circuit
-node engine/verify_play3.js     # play3.html: same harness for 3-handed (crib = 3 throws + deck[15],
-                                #   show order pone/+2/dealer/crib, turn rotates over three seats)
-node engine/verify_play5.js     # play5.html: same harness for 5-handed (dealer dealt 4/throws none,
-                                #   crib = 4 non-dealer throws, human-dealer skips discard, 5-seat show)
-node engine/verify_play6.js     # play6.html: same harness for 6-handed (dealer + seat-to-right dealt 4/
-                                #   throw none, crib = 4 throws, non-throwers skip discard, 6-seat show)
-node engine/verify_headsup.js   # headsup.html: same harness for the 2-player game (deal-6/discard-2,
-                                #   heads-up pegging & show, his-heels, history sums to score)
+node engine/verify_play.js      # play.html: evals the built consolidated reducer, drives whole hands
+                                #   at every table size P=2..6 — deal/crib/starter, go/31/last-card,
+                                #   his-heels +2, the 121 show short-circuit, the skip-discard paths
 ```
 If you change `scoreInto`, re-run breakdown/pegging tests AND re-check the crib
 swing table above before trusting `analyze()`. If you touch `cribDetail`,
 `pegDetail`, or `playPegging`, also run `verify_players.js` — it guarantees the
 4-handed path is bit-for-bit unchanged and the 3-/2-handed paths stay sane.
-`verify_play4.js` reads the **built** `play4.html`, so run `./build.sh` first when you
-change `src/CribbagePlay4.jsx`.
+`verify_play.js` reads the **built** `play.html`, so run `./build.sh` first when you
+change `src/CribbagePlay.jsx`.
 
 ## Running and deploying
 
 **Run locally (already works):** open `index.html` in a browser (the welcome page),
-or `trainer.html` / `play4.html` directly. They are pre-compiled to plain JS (no
+or `trainer.html` / `play.html` directly. They are pre-compiled to plain JS (no
 Babel, no in-browser build). React/ReactDOM are **vendored locally** in `vendor/`
 (`react@18.3.1` UMD), referenced as `<script src="vendor/react*.min.js">` — **no
 CDN**, so everything works fully offline (this matters for the APK wrapper below).
-The editable sources are `src/CribbageTrainer.jsx`, `src/CribbagePlay4.jsx`, and
+The editable sources are `src/CribbageTrainer.jsx`, `src/CribbagePlay.jsx`, and
 `src/landing.html`. The `vendor/` files must be served alongside the HTML (they are
 not in `.assetsignore`).
 
 **Rebuild after editing any source:** run `./build.sh` (needs a global `tsc`; one is
-present in this environment). It regenerates **all four** root pages from `src/`:
+present in this environment). It regenerates the root pages from `src/`:
 - `index.html` ← `src/landing.html` (plain static HTML, copied verbatim).
-- `trainer.html` ← `src/CribbageTrainer.jsx`; `play4.html` ← `src/CribbagePlay4.jsx`;
-  `headsup.html` ← `src/CribbageHeadsUp.jsx` — each via a
-  `build_one <src> <out> <title> <Component> <homeLink>` helper:
+- `trainer.html` ← `src/CribbageTrainer.jsx`; `play.html` ← `src/CribbagePlay.jsx` —
+  each via a `build_one <src> <out> <title> <Component> <homeLink>` helper:
   transpile JSX → `React.createElement` (`tsc --jsx react --target es2020
   --removeComments`), swap the ESM import/export for CDN globals, wrap in the HTML
   shell. Both apps render their **own ⌂ Home button in their header** (the trainer's
@@ -326,7 +305,7 @@ created), so don't assume — test it with a quick `curl`. In some environments
 `*.workers.dev` is blocked (`host_not_allowed`); in others it is reachable. When it
 is reachable you can smoke-test what's *served* (HTTP status, titles, that the right
 app code is in the page) — e.g. `curl -sSL …/play4` returns `<title>Cribbage — Play</title>`;
-Cloudflare serves clean URLs, so `/play4.html` 307-redirects to `/play4` and
+Cloudflare serves clean URLs, so `/play.html` 307-redirects to `/play4` and
 `/trainer.html` to `/trainer`. Full interactive JS testing still needs a real
 browser, so for actual gameplay/visual checks, ask the human to eyeball it.
 
@@ -340,7 +319,7 @@ Scaffolded for Obtainium / IzzyOnDroid. `android/` is a self-contained Gradle
 project: a single full-screen `WebView` (`MainActivity.java`, no third-party libs,
 **no INTERNET permission** — fully offline) loading `file:///android_asset/index.html`.
 The Gradle task `:app:syncWebAssets` copies the repo-root build outputs
-(`index.html`/`trainer.html`/`play4.html`/`headsup.html`/`vendor/`) into the APK at build time, so the
+(`index.html`/`trainer.html`/`play.html`/`vendor/`) into the APK at build time, so the
 **committed root HTML is the source of truth** — run `./build.sh` and commit before
 tagging. `applicationId = dev.cribbage.cutthroat` (name-free; immutable once
 published). The CI workflow `.github/workflows/android-release.yml` builds + signs +

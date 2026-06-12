@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Regenerates the three root pages from src/ using tsc (JSX -> React.createElement).
+# Regenerates the root pages from src/ using tsc (JSX -> React.createElement).
 # No bundler/build deps beyond a global `tsc`. Run: ./build.sh
 #
 #   index.html    <- src/landing.html         (static welcome page, copied verbatim)
 #   trainer.html  <- src/CribbageTrainer.jsx  (the discard trainer)
-#   play4.html     <- src/CribbagePlay4.jsx     (the playable game vs 3 AI)
+#   play.html     <- src/CribbagePlay.jsx     (the consolidated game, 2-6 players)
 #
 # Each app renders its own in-header Home link, so the shell's optional fixed Home
 # link (the homeLink arg to build_one) is off for both; it remains available for any
@@ -78,8 +78,3 @@ echo "built index.html (landing, copied from src/landing.html)"
 # Both apps render their own Home button in their header, so neither uses the shell link.
 build_one "src/CribbageTrainer.jsx" "trainer.html" "Cribbage Discard Trainer" "CribbageTrainer" "no"
 build_one "src/CribbagePlay.jsx"    "play.html"    "Cribbage — Play"          "CribbagePlay"   "no"
-build_one "src/CribbagePlay4.jsx"    "play4.html"   "Cribbage — 4-Handed"      "CribbagePlay4"  "no"
-build_one "src/CribbagePlay3.jsx"   "play3.html"   "Cribbage — 3-Handed"      "CribbagePlay3"  "no"
-build_one "src/CribbagePlay5.jsx"   "play5.html"   "Cribbage — 5-Handed"      "CribbagePlay5"  "no"
-build_one "src/CribbagePlay6.jsx"   "play6.html"   "Cribbage — 6-Handed"      "CribbagePlay6"  "no"
-build_one "src/CribbageHeadsUp.jsx" "headsup.html" "Cribbage — Heads-Up"      "CribbageHeadsUp" "no"

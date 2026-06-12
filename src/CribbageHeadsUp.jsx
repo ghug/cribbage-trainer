@@ -285,7 +285,7 @@ const initPeg = (seats, dealerIdx) => ({
 });
 const initShow = (dealerIdx) => ({
   order: [(dealerIdx + 1) % 2, dealerIdx, "CRIB"], // pone, dealer, then dealer's crib
-  step: 0, claimSubmitted: false, claimValue: null,
+  step: 0, scored: false, claimSubmitted: false, claimValue: null,
 });
 
 function computeShow(state) {
@@ -474,7 +474,10 @@ function reduce(state, action) {
     case "SHOW_CLAIM":
       return { ...state, show: { ...state.show, claimSubmitted: true, claimValue: action.value } };
 
-    case "SHOW_NEXT": {
+    case "SHOW_SCORE": {
+      // Award the current show step's points immediately (so the score/history
+      // update as soon as the step is shown, before Continue). Win-checked.
+      if (state.show.scored) return state;
       const info = computeShow(state);
       const counting = state.settings.counting;
       let seats = state.seats, message = "", winner = null;
@@ -498,11 +501,15 @@ function reduce(state, action) {
         if (seats[info.owner].score >= TARGET) winner = info.owner;
       }
       if (winner !== null) return { ...state, seats, phase: "over", winner, message };
+      return { ...state, seats, show: { ...state.show, scored: true }, message };
+    }
 
+    case "SHOW_NEXT": {
+      // The step is scored eagerly (SHOW_SCORE) when shown; Continue just advances.
       const nextStep = state.show.step + 1;
       if (nextStep >= state.show.order.length)
-        return { ...state, seats, phase: "deal", dealerIdx: (state.dealerIdx + 1) % 2, show: null, peg: null, message: "Hand complete — deal the next." };
-      return { ...state, seats, show: { ...state.show, step: nextStep, claimSubmitted: false, claimValue: null }, message };
+        return { ...state, phase: "deal", dealerIdx: (state.dealerIdx + 1) % 2, show: null, peg: null, message: "Hand complete — deal the next." };
+      return { ...state, show: { ...state.show, step: nextStep, scored: false, claimSubmitted: false, claimValue: null } };
     }
 
     case "PLAY_AGAIN":
@@ -961,14 +968,21 @@ export default function CribbageHeadsUp() {
     const t = setTimeout(() => dispatch({ type: "CUT" }), 650);
     return () => clearTimeout(t);
   }, [phase, autoPaused]);
+  // Score the current show step as soon as it's shown — so the score/history update
+  // before Continue — except a muggins step waits for the human's claim.
   useEffect(() => {
-    if (phase !== "show" || !show || !settings.autoContinue || autoPaused) return;
+    if (phase !== "show" || !show || show.scored) return;
     const info = computeShow(state);
     const needClaim = settings.counting === "muggins" && info.owner === 0 && !show.claimSubmitted;
     if (needClaim) return;
+    dispatch({ type: "SHOW_SCORE" });
+  }, [phase, show, settings.counting]);
+  // Auto-advance the show once the step has been scored (if enabled).
+  useEffect(() => {
+    if (phase !== "show" || !show || !settings.autoContinue || autoPaused || !show.scored) return;
     const t = setTimeout(() => dispatch({ type: "SHOW_NEXT" }), 1200);
     return () => clearTimeout(t);
-  }, [phase, show, settings.autoContinue, settings.counting, autoPaused]);
+  }, [phase, show, settings.autoContinue, autoPaused]);
 
   const dealer = dealerIdx === 0;
   const cutter = (dealerIdx + 1) % 2;

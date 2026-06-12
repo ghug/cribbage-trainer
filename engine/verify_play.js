@@ -101,7 +101,8 @@ function playHand(state, humanIdxPicker) {
 
   // show loop (auto)
   guard = 0;
-  while (state.phase === "show" && guard++ < 20) state = reduce(state, { type: "SHOW_NEXT" });
+  // each step is scored when shown (SHOW_SCORE), then Continue (SHOW_NEXT) advances
+  while (state.phase === "show" && guard++ < 30) state = reduce(state, state.show.scored ? { type: "SHOW_NEXT" } : { type: "SHOW_SCORE" });
   check(guard < 20, "show terminated");
   check(state.phase === "deal" || state.phase === "over", "show -> deal/over");
   return state;
@@ -173,7 +174,7 @@ function playHand(state, humanIdxPicker) {
     settings: { counting: "auto" },
   };
   const secondBefore = fab.seats[second].score;
-  fab = reduce(fab, { type: "SHOW_NEXT" });   // counts pone -> should win immediately
+  fab = reduce(fab, { type: "SHOW_SCORE" });   // counts pone -> should win immediately
   check(fab.phase === "over", "show short-circuits to over when pone pegs out");
   check(fab.winner === pone, `pone is the winner (got ${fab.winner})`);
   check(fab.seats[second].score === secondBefore, "the next player in order is NOT counted after the win");
@@ -202,7 +203,7 @@ function playHand(state, humanIdxPicker) {
   };
   check(actual > 2, `human hand worth more than the claim (actual ${actual})`);
   const recipBefore = fab.seats[recip].score;
-  fab = reduce(fab, { type: "SHOW_NEXT" });
+  fab = reduce(fab, { type: "SHOW_SCORE" });
   check(fab.seats[human].score === 2, `human awarded only the claimed 2 (got ${fab.seats[human].score})`);
   check(fab.seats[recip].score === recipBefore + (actual - 2), `missed ${actual - 2} mugginsed to next opponent (got +${fab.seats[recip].score - recipBefore})`);
 }

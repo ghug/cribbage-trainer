@@ -316,7 +316,7 @@ const initPeg = (seats, dealerIdx) => ({
 });
 const initShow = (dealerIdx) => ({
     order: [(dealerIdx + 1) % 2, dealerIdx, "CRIB"],
-    step: 0, claimSubmitted: false, claimValue: null,
+    step: 0, scored: false, claimSubmitted: false, claimValue: null,
 });
 function computeShow(state) {
     const { show, seats, crib, starter, dealerIdx } = state;
@@ -516,7 +516,9 @@ function reduce(state, action) {
         }
         case "SHOW_CLAIM":
             return { ...state, show: { ...state.show, claimSubmitted: true, claimValue: action.value } };
-        case "SHOW_NEXT": {
+        case "SHOW_SCORE": {
+            if (state.show.scored)
+                return state;
             const info = computeShow(state);
             const counting = state.settings.counting;
             let seats = state.seats, message = "", winner = null;
@@ -546,10 +548,13 @@ function reduce(state, action) {
             }
             if (winner !== null)
                 return { ...state, seats, phase: "over", winner, message };
+            return { ...state, seats, show: { ...state.show, scored: true }, message };
+        }
+        case "SHOW_NEXT": {
             const nextStep = state.show.step + 1;
             if (nextStep >= state.show.order.length)
-                return { ...state, seats, phase: "deal", dealerIdx: (state.dealerIdx + 1) % 2, show: null, peg: null, message: "Hand complete — deal the next." };
-            return { ...state, seats, show: { ...state.show, step: nextStep, claimSubmitted: false, claimValue: null }, message };
+                return { ...state, phase: "deal", dealerIdx: (state.dealerIdx + 1) % 2, show: null, peg: null, message: "Hand complete — deal the next." };
+            return { ...state, show: { ...state.show, step: nextStep, scored: false, claimSubmitted: false, claimValue: null } };
         }
         case "PLAY_AGAIN":
             return newGameState(state);
@@ -918,15 +923,20 @@ function CribbageHeadsUp() {
         return () => clearTimeout(t);
     }, [phase, autoPaused]);
     useEffect(() => {
-        if (phase !== "show" || !show || !settings.autoContinue || autoPaused)
+        if (phase !== "show" || !show || show.scored)
             return;
         const info = computeShow(state);
         const needClaim = settings.counting === "muggins" && info.owner === 0 && !show.claimSubmitted;
         if (needClaim)
             return;
+        dispatch({ type: "SHOW_SCORE" });
+    }, [phase, show, settings.counting]);
+    useEffect(() => {
+        if (phase !== "show" || !show || !settings.autoContinue || autoPaused || !show.scored)
+            return;
         const t = setTimeout(() => dispatch({ type: "SHOW_NEXT" }), 1200);
         return () => clearTimeout(t);
-    }, [phase, show, settings.autoContinue, settings.counting, autoPaused]);
+    }, [phase, show, settings.autoContinue, autoPaused]);
     const dealer = dealerIdx === 0;
     const cutter = (dealerIdx + 1) % 2;
     const turnNow = phase === "play" && peg ? peg.turn : phase === "over" ? winner : -1;

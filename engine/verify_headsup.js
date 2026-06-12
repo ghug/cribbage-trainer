@@ -97,7 +97,8 @@ function playHand(state) {
   check(state.show.order.length === 3, "show order is [pone, dealer, CRIB]");
 
   guard = 0;
-  while (state.phase === "show" && guard++ < 12) state = reduce(state, { type: "SHOW_NEXT" });
+  // each step is scored when shown (SHOW_SCORE), then Continue (SHOW_NEXT) advances
+  while (state.phase === "show" && guard++ < 18) state = reduce(state, state.show.scored ? { type: "SHOW_NEXT" } : { type: "SHOW_SCORE" });
   check(state.phase === "deal" || state.phase === "over", "show -> deal/over");
   return state;
 }

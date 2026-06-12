@@ -1,0 +1,82 @@
+name: Bootstrap signing key
+
+# ONE-OFF, run from the Actions tab ("Run workflow"). Generates a release keystore
+# in CI and stores it — plus its passwords — as this repo's Actions secrets
+# (KEYSTORE_BASE64 / KEYSTORE_PASSWORD / KEY_PASSWORD / KEY_ALIAS), so you never run
+# keytool locally. The release workflow then uses those secrets on every v* tag.
+#
+# Prerequisite: add a repo secret BOOTSTRAP_PAT = a fine-grained PAT scoped to this
+# repo with "Secrets: Read and write" (+ Metadata). After this workflow succeeds,
+# DELETE the BOOTSTRAP_PAT secret and revoke that token. You can also delete this
+# workflow file afterwards — it's single-use.
+#
+# Note: the key is stored only as a secret (not readable back / not downloadable, so
+# it can't leak from this public repo). There is therefore no off-device backup; if
+# you lose it, re-run this to make a new one (users would reinstall once).
+
+on:
+  workflow_dispatch:
+    inputs:
+      key_alias:
+        description: "Key alias"
+        required: true
+        default: "cribbage"
+
+permissions: {}   # this job uses BOOTSTRAP_PAT for gh, not the default token
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up JDK 17 (for keytool)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Generate keystore and store signing secrets
+        env:
+          GH_TOKEN: ${{ secrets.BOOTSTRAP_PAT }}
+          KEY_ALIAS: ${{ inputs.key_alias }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::error::Missing BOOTSTRAP_PAT secret (a fine-grained PAT with 'Secrets: Read and write' on this repo). See docs/ANDROID.md."
+            exit 1
+          fi
+
+          # One strong random password, used for both store and key (PKCS12 keeps them equal).
+          PASS="$(openssl rand -base64 24)"
+          echo "::add-mask::$PASS"
+
+          KS="$RUNNER_TEMP/release.jks"
+          keytool -genkeypair -v \
+            -keystore "$KS" -storetype PKCS12 \
+            -alias "$KEY_ALIAS" \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass "$PASS" -keypass "$PASS" \
+            -dname "CN=Cribbage, OU=Cutthroat, O=Cribbage"
+
+          base64 -w0 "$KS"        > "$RUNNER_TEMP/ks.b64"
+          printf '%s' "$PASS"     > "$RUNNER_TEMP/pass.txt"
+          printf '%s' "$KEY_ALIAS"> "$RUNNER_TEMP/alias.txt"
+
+          # gh reads the secret value from stdin (no value on the command line / in logs).
+          gh secret set KEYSTORE_BASE64   --repo "$REPO" < "$RUNNER_TEMP/ks.b64"
+          gh secret set KEYSTORE_PASSWORD --repo "$REPO" < "$RUNNER_TEMP/pass.txt"
+          gh secret set KEY_PASSWORD      --repo "$REPO" < "$RUNNER_TEMP/pass.txt"
+          gh secret set KEY_ALIAS         --repo "$REPO" < "$RUNNER_TEMP/alias.txt"
+
+          rm -f "$RUNNER_TEMP/ks.b64" "$RUNNER_TEMP/pass.txt" "$RUNNER_TEMP/alias.txt" "$KS"
+
+          {
+            echo "### ✅ Signing secrets created"
+            echo ""
+            echo "\`KEYSTORE_BASE64\`, \`KEYSTORE_PASSWORD\`, \`KEY_PASSWORD\`, \`KEY_ALIAS\` are now set on \`$REPO\`."
+            echo ""
+            echo "**Next:**"
+            echo "1. Delete the \`BOOTSTRAP_PAT\` secret and revoke that token."
+            echo "2. (Optional) delete this \`bootstrap-signing.yml\` workflow — it's single-use."
+            echo "3. Push a \`v1.0.0\` tag to build & publish the signed APK."
+          } >> "$GITHUB_STEP_SUMMARY"

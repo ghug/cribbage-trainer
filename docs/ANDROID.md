@@ -68,6 +68,26 @@ $BT/apksigner verify --print-certs cribbage.apk
 > Never commit `release.jks` / passwords — `.gitignore` already blocks `*.jks`,
 > `*.keystore`, and `android/keystore.properties`.
 
+## Phone-friendly: generate the key in CI (no local keytool)
+
+If you can't run `keytool` (e.g. you're on a phone), use the one-off
+`.github/workflows/bootstrap-signing.yml` — it generates the keystore in CI and
+writes the four signing secrets for you. All steps are taps in the GitHub web UI:
+
+1. Create a fine-grained PAT (github.com/settings/personal-access-tokens/new) on
+   `ghug/cribbage-trainer` with **Secrets: Read and write** (+ Metadata).
+2. Add it as a repo secret named **`BOOTSTRAP_PAT`** (Settings → Secrets and
+   variables → Actions).
+3. Actions tab → **Bootstrap signing key** → **Run workflow** (keep alias `cribbage`).
+4. When it's green, **delete `BOOTSTRAP_PAT`** and revoke that token. Optionally
+   delete the `bootstrap-signing.yml` workflow (single-use).
+
+`KEYSTORE_BASE64 / KEYSTORE_PASSWORD / KEY_PASSWORD / KEY_ALIAS` are now set, so the
+release workflow below just works. Caveat: the key lives only as a secret (not
+readable back), so there is **no off-device backup** — re-run the bootstrap to make a
+new one if it's ever lost (users reinstall once). Prefer a backup? Use the manual
+`keytool` route above from a browser terminal (e.g. GitHub Codespaces).
+
 ## Automated releases (CI)
 
 `.github/workflows/android-release.yml` builds + signs + attaches the APK to a GitHub

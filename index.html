@@ -50,12 +50,44 @@
   .arrow{ margin-left:auto; color:var(--muted); font-size:22px }
   footer{ max-width:560px; width:100%; margin:0 auto; padding:0 18px 28px; box-sizing:border-box;
           font-family:var(--mono); font-size:10.5px; color:var(--muted); line-height:1.6 }
+  .hdr-row{ display:flex; align-items:center; justify-content:space-between; gap:12px }
+  .brand{ display:flex; align-items:center; gap:12px; min-width:0 }
+  .logo{ flex:0 0 auto; width:42px; height:42px; border-radius:10px; background:var(--baize); color:var(--ivory);
+    display:flex; align-items:center; justify-content:center; font-size:23px; line-height:1;
+    box-shadow:inset 0 1px 2px rgba(255,255,255,0.14), 0 2px 6px rgba(0,0,0,0.4) }
+  .gear{ flex:0 0 auto; width:42px; height:42px; border-radius:10px; cursor:pointer;
+    border:1px solid rgba(0,0,0,0.28); background:rgba(42,27,14,0.16); color:#2A1B0E; font-size:21px; line-height:1;
+    display:flex; align-items:center; justify-content:center }
+  .overlay{ position:fixed; inset:0; z-index:100; background:rgba(0,0,0,0.62); padding:20px;
+    display:none; align-items:center; justify-content:center }
+  .overlay.open{ display:flex }
+  .modal{ max-width:380px; width:100%; box-sizing:border-box; background:var(--baize);
+    border:1px solid var(--line); border-radius:14px; padding:20px; box-shadow:0 14px 44px rgba(0,0,0,0.55) }
+  .modal-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px }
+  .modal h2{ margin:0; font-size:17px; color:var(--ivory) }
+  .modal p{ font-family:var(--mono); font-size:12px; color:var(--cream); line-height:1.6; margin:0 0 14px }
+  .modal .logo{ width:34px; height:34px; font-size:19px }
+  .btn{ display:block; width:100%; box-sizing:border-box; text-align:center; padding:12px; border-radius:9px;
+    font-family:var(--mono); font-size:12.5px; font-weight:700; cursor:pointer; text-decoration:none }
+  .btn-primary{ background:linear-gradient(180deg,var(--good),#3F7E5E); color:var(--ivory); border:none }
+  .btn-ghost{ background:rgba(0,0,0,0.3); color:var(--cream); border:1px solid var(--line) }
+  .btn-sm{ width:auto; padding:6px 14px; border-radius:8px; font-size:11.5px }
+  .repo-url{ font-family:var(--mono); font-size:10.5px; color:var(--muted); text-align:center;
+    margin:8px 0 16px; word-break:break-all }
 </style>
 </head>
 <body>
   <header>
-    <h1>Cribbage Trainer</h1>
-    <p>discard practice or play vs the computer</p>
+    <div class="hdr-row">
+      <div class="brand">
+        <span class="logo" role="img" aria-label="Cribbage Trainer">♣</span>
+        <div>
+          <h1>Cribbage Trainer</h1>
+          <p>discard practice or play vs the computer</p>
+        </div>
+      </div>
+      <button id="gear" class="gear" type="button" aria-label="Settings" aria-haspopup="dialog">⚙</button>
+    </div>
   </header>
   <main>
     <p class="lead">Three ways to play. Sharpen your throw in the trainer, then put it to
@@ -104,5 +136,53 @@
   <footer>
     Open-source cribbage practice.
   </footer>
+
+  <div class="overlay" id="settingsOverlay" role="dialog" aria-modal="true" aria-label="Settings">
+    <div class="modal">
+      <div class="modal-head">
+        <h2>Settings</h2>
+        <button class="btn btn-ghost btn-sm" id="settingsDone" type="button">Done</button>
+      </div>
+      <p>Game options live inside each tool — tap ⚙ in the trainer or a game to set
+        counting, warnings, and table size.</p>
+      <button class="btn btn-ghost" id="openAbout" type="button">About &amp; feedback</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="aboutOverlay" role="dialog" aria-modal="true" aria-label="About">
+    <div class="modal">
+      <div class="modal-head">
+        <span class="logo" aria-hidden="true">♣</span>
+        <h2 style="flex:1">About</h2>
+      </div>
+      <p>A free, open-source cribbage trainer and game — public domain, no accounts,
+        no tracking.</p>
+      <p>Found a bug, or have feedback? The source lives on GitHub — open an issue
+        there and it’ll be seen.</p>
+      <a class="btn btn-primary" href="https://github.com/ghug/cribbage-trainer/"
+         target="_blank" rel="noopener noreferrer">Source, bugs &amp; feedback ↗</a>
+      <div class="repo-url">github.com/ghug/cribbage-trainer</div>
+      <button class="btn btn-ghost" id="aboutClose" type="button">Close</button>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var s = document.getElementById('settingsOverlay');
+      var a = document.getElementById('aboutOverlay');
+      function open(el) { el.classList.add('open'); }
+      function close(el) { el.classList.remove('open'); }
+      document.getElementById('gear').addEventListener('click', function () { open(s); });
+      document.getElementById('settingsDone').addEventListener('click', function () { close(s); });
+      document.getElementById('openAbout').addEventListener('click', function () { close(s); open(a); });
+      document.getElementById('aboutClose').addEventListener('click', function () { close(a); });
+      [s, a].forEach(function (el) {
+        el.addEventListener('click', function (e) { if (e.target === el) close(el); });
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { close(s); close(a); }
+      });
+    })();
+  </script>
 </body>
 </html>

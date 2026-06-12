@@ -813,7 +813,7 @@ const segStyle = (on) => ({
     background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
     border: `1px solid ${on ? T.pegIvory : T.line}`, fontWeight: on ? 700 : 400,
 });
-function SettingsPanel({ settings, dispatch, onClose }) {
+function SettingsPanel({ settings, dispatch, onClose, onAbout }) {
     const Row = ({ title, desc, k, options }) => (React.createElement("div", { style: { marginBottom: 14 } },
         React.createElement("div", { style: { fontWeight: 700, fontSize: 13.5 } }, title),
         React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, margin: "2px 0 7px", lineHeight: 1.45 } }, desc),
@@ -827,7 +827,32 @@ function SettingsPanel({ settings, dispatch, onClose }) {
         React.createElement(Row, { title: "Warn on a weak play", k: "warn", desc: "Pause and explain when your throw to the crib \u2014 or a pegging card that leaves a point on the table \u2014 isn\u2019t the best, with a chance to take it back.", options: [["On", true], ["Off", false]] }),
         React.createElement(Row, { title: "Auto-play a forced card", k: "autoPlayOne", desc: "When only one of your cards is legal to peg, play it for you.", options: [["Off", false], ["On", true]] }),
         React.createElement(Row, { title: "Auto-continue the show", k: "autoContinue", desc: "Advance the counting automatically (still pauses for your muggins claim).", options: [["Off", false], ["On", true]] }),
-        React.createElement(Row, { title: "Auto-deal the next hand", k: "autoDeal", desc: "Deal the next hand automatically once a hand is fully counted.", options: [["Off", false], ["On", true]] })));
+        React.createElement(Row, { title: "Auto-deal the next hand", k: "autoDeal", desc: "Deal the next hand automatically once a hand is fully counted.", options: [["Off", false], ["On", true]] }),
+        React.createElement(AboutRow, { onAbout: onAbout })));
+}
+function AboutRow({ onAbout }) {
+    return (React.createElement("div", { style: { borderTop: `1px solid ${T.line}`, margin: "2px -16px 0", padding: "12px 16px 4px" } },
+        React.createElement("button", { onClick: onAbout, style: {
+                width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer",
+                border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream,
+                fontFamily: mono, fontSize: 12, fontWeight: 700,
+            } }, "About & feedback")));
+}
+function AboutModal({ onClose }) {
+    const REPO = "https://github.com/ghug/cribbage-trainer/";
+    return (React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 220, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }, onClick: onClose },
+        React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { maxWidth: 380, width: "100%", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "20px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" } },
+            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 12 } },
+                React.createElement("span", { "aria-hidden": "true", style: { flex: "0 0 auto", width: 34, height: 34, borderRadius: 8, background: "rgba(0,0,0,0.25)", color: T.ivory, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, lineHeight: 1 } }, "\u2663"),
+                React.createElement("span", { style: { fontWeight: 700, fontSize: 17 } }, "About")),
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.6, marginBottom: 12 } }, "A free, open-source cribbage trainer and game \u2014 public domain, no accounts, no tracking."),
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.6, marginBottom: 16 } }, "Found a bug, or have feedback? The source lives on GitHub \u2014 open an issue there and it\u2019ll be seen."),
+            React.createElement("a", { href: REPO, target: "_blank", rel: "noopener noreferrer", style: {
+                    display: "block", textAlign: "center", padding: "12px", borderRadius: 9, textDecoration: "none", boxSizing: "border-box",
+                    background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+                } }, "Source, bugs & feedback \u2197"),
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 16px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
+            React.createElement("button", { onClick: onClose, style: { width: "100%", padding: "11px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer", background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: 12.5, fontWeight: 700 } }, "Close"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },
@@ -878,6 +903,7 @@ function CribbageHeadsUp() {
     const [historySeat, setHistorySeat] = React.useState(null);
     const [paused, setPaused] = React.useState(false);
     const [confirmHome, setConfirmHome] = React.useState(false);
+    const [aboutOpen, setAboutOpen] = React.useState(false);
     const [sel, setSel] = React.useState([]);
     const { phase, seats, dealerIdx, peg, show, starter, winner, message, settings, dealDraw } = state;
     const canPause = settings.autoGo || settings.autoDeal || settings.autoContinue || settings.autoPlayOne;
@@ -994,8 +1020,9 @@ function CribbageHeadsUp() {
             } },
             React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 } },
                 React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, minWidth: 0 } },
-                    React.createElement("span", { role: "img", "aria-label": "Cribbage \u2014 Heads-Up (2-handed)", style: {
-                            flex: "0 0 auto", width: 34, height: 34, borderRadius: 8, background: T.baize, color: T.ivory,
+                    React.createElement("button", { onClick: () => setConfirmHome(true), "aria-label": "Home", title: "Home", style: {
+                            flex: "0 0 auto", width: 34, height: 34, borderRadius: 8, background: T.baize, color: T.ivory, cursor: "pointer",
+                            border: "none", padding: 0,
                             display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, lineHeight: 1,
                             boxShadow: "inset 0 1px 2px rgba(255,255,255,0.12), 0 2px 5px rgba(0,0,0,0.35)",
                         } }, "\u2663"),
@@ -1017,7 +1044,7 @@ function CribbageHeadsUp() {
                             color: "#2A1B0E", fontSize: 20, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
                         } }, "\u2699")))),
         React.createElement("main", { style: { maxWidth: 560, margin: "0 auto", padding: "16px 16px 0" } },
-            settingsOpen && React.createElement(SettingsPanel, { settings: settings, dispatch: dispatch, onClose: () => setSettingsOpen(false) }),
+            settingsOpen && React.createElement(SettingsPanel, { settings: settings, dispatch: dispatch, onClose: () => setSettingsOpen(false), onAbout: () => { setSettingsOpen(false); setAboutOpen(true); } }),
             React.createElement(ScoreRow, { seats: seats, dealerIdx: dealerIdx, turn: turnNow, winner: phase === "over" ? winner : null, onPick: (i) => setHistorySeat((cur) => (cur === i ? null : i)) }),
             historySeat !== null && React.createElement(HistoryPanel, { seatIdx: historySeat, seats: seats, onClose: () => setHistorySeat(null) }),
             paused && (React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.pegRed, textAlign: "center", marginTop: 8 } }, "\u23F8 Paused \u2014 automatic play is stopped. Tap \u25B6 to resume.")),
@@ -1093,6 +1120,7 @@ function CribbageHeadsUp() {
                         seats.map((s, i) => `${seatName(i)} ${s.score}`).join(" · "))),
                 React.createElement(SkunkPanel, { seats: seats, winner: winner }),
                 bigBtn("Play again", () => dispatch({ type: "PLAY_AGAIN" }), "good")))),
+        aboutOpen && React.createElement(AboutModal, { onClose: () => setAboutOpen(false) }),
         confirmHome && (React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }, onClick: () => setConfirmHome(false) },
             React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { maxWidth: 360, width: "100%", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "18px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" } },
                 React.createElement("div", { style: { fontWeight: 700, fontSize: 16, marginBottom: 6 } }, "Leave to the home menu?"),

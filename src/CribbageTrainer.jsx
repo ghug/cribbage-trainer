@@ -492,6 +492,66 @@ function buildNote(role, best, chosen) {
   return `Close, but ${phrase} edges it by ${delta.toFixed(2)} expected points.`;
 }
 
+// Settings menu. The trainer's table size and role are chosen inline on the main
+// screen, so this panel mainly hosts the standard About entry shared with the games.
+function SettingsPanel({ onClose, onAbout }) {
+  return (
+    <div style={{ background: "rgba(0,0,0,0.32)", border: `1px solid ${T.line}`, borderRadius: 12, padding: "14px 16px", marginBottom: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <span style={{ fontWeight: 700, fontSize: 16 }}>Settings</span>
+        <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>Done</button>
+      </div>
+      <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, lineHeight: 1.5, marginBottom: 12 }}>
+        Table size and whether you’re the dealer are set on the main screen, below.
+      </div>
+      <AboutRow onAbout={onAbout} />
+    </div>
+  );
+}
+
+// A standard footer for the settings panel: an "About & feedback" entry that opens
+// the About popup. Shared verbatim across the trainer and both games.
+function AboutRow({ onAbout }) {
+  return (
+    <div style={{ borderTop: `1px solid ${T.line}`, margin: "2px -16px 0", padding: "12px 16px 4px" }}>
+      <button onClick={onAbout} style={{
+        width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer",
+        border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream,
+        fontFamily: mono, fontSize: 12, fontWeight: 700,
+      }}>About &amp; feedback</button>
+    </div>
+  );
+}
+
+// The About popup: open-source/public-domain note plus a link to the GitHub repo
+// for reporting bugs or sharing feedback. Reached from the bottom of Settings.
+function AboutModal({ onClose }) {
+  const REPO = "https://github.com/ghug/cribbage-trainer/";
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 220, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+      onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 380, width: "100%", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "20px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+          <span aria-hidden="true" style={{ flex: "0 0 auto", width: 34, height: 34, borderRadius: 8, background: "rgba(0,0,0,0.25)", color: T.ivory, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, lineHeight: 1 }}>♣</span>
+          <span style={{ fontWeight: 700, fontSize: 17 }}>About</span>
+        </div>
+        <div style={{ fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.6, marginBottom: 12 }}>
+          A free, open-source cribbage trainer and game — public domain, no accounts, no tracking.
+        </div>
+        <div style={{ fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.6, marginBottom: 16 }}>
+          Found a bug, or have feedback? The source lives on GitHub — open an issue there and it’ll be seen.
+        </div>
+        <a href={REPO} target="_blank" rel="noopener noreferrer" style={{
+          display: "block", textAlign: "center", padding: "12px", borderRadius: 9, textDecoration: "none", boxSizing: "border-box",
+          background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+        }}>Source, bugs &amp; feedback ↗</a>
+        <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 16px", wordBreak: "break-all" }}>github.com/ghug/cribbage-trainer</div>
+        <button onClick={onClose} style={{ width: "100%", padding: "11px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer", background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: 12.5, fontWeight: 700 }}>Close</button>
+      </div>
+    </div>
+  );
+}
+
 /* ============================ APP ============================ */
 export default function CribbageTrainer() {
   const [players, setPlayers] = useState(4); // table size: 4-/3-handed cutthroat or 2-handed heads-up
@@ -503,6 +563,8 @@ export default function CribbageTrainer() {
   const [chosenId, setChosenId] = useState(null);  // option id ("i" or "i,j") the user committed to
   const [expanded, setExpanded] = useState(null);  // option id of the open explain drawer
   const [showModel, setShowModel] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [showBoard, setShowBoard] = useState(false);
   const [yourPips, setYourPips] = useState(0);
   const [leaderPips, setLeaderPips] = useState(0);
@@ -580,18 +642,25 @@ export default function CribbageTrainer() {
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-            <span role="img" aria-label="Cribbage Discard Trainer" style={{
-              flex: "0 0 auto", width: 34, height: 34, borderRadius: 8, background: T.baize, color: T.ivory,
+            <a href="index.html" aria-label="Home" title="Home" style={{
+              flex: "0 0 auto", width: 34, height: 34, borderRadius: 8, background: T.baize, color: T.ivory, textDecoration: "none",
               display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, lineHeight: 1,
               boxShadow: "inset 0 1px 2px rgba(255,255,255,0.12), 0 2px 5px rgba(0,0,0,0.35)",
-            }}>♣</span>
+            }}>♣</a>
             <span style={{ fontFamily: mono, fontSize: 12, color: "rgba(42,27,14,0.8)", lineHeight: 1.3 }}>{players === 2 ? "heads-up · 6 cards, discard two" : `${players}-handed · every player for themselves`}</span>
           </div>
-          <a href="index.html" aria-label="Home" style={{
-            flex: "0 0 auto", width: 40, height: 40, borderRadius: 10, textDecoration: "none",
-            border: "1px solid rgba(0,0,0,0.28)", background: "rgba(42,27,14,0.14)",
-            color: "#2A1B0E", fontSize: 19, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
-          }}>⌂</a>
+          <div style={{ display: "flex", gap: 8, flex: "0 0 auto" }}>
+            <a href="index.html" aria-label="Home" style={{
+              width: 40, height: 40, borderRadius: 10, textDecoration: "none",
+              border: "1px solid rgba(0,0,0,0.28)", background: "rgba(42,27,14,0.14)",
+              color: "#2A1B0E", fontSize: 19, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
+            }}>⌂</a>
+            <button onClick={() => setShowSettings((o) => !o)} aria-label="Settings" aria-expanded={showSettings} style={{
+              width: 40, height: 40, borderRadius: 10, cursor: "pointer",
+              border: "1px solid rgba(0,0,0,0.28)", background: showSettings ? "rgba(42,27,14,0.28)" : "rgba(42,27,14,0.14)",
+              color: "#2A1B0E", fontSize: 20, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
+            }}>⚙</button>
+          </div>
         </div>
         <div style={{ marginTop: 12 }}><PegTrack pct={acc} /></div>
         <div style={{ marginTop: 10, display: "flex", gap: 18, flexWrap: "wrap", fontFamily: mono, fontSize: 12, color: "#2A1B0E" }}>
@@ -602,6 +671,8 @@ export default function CribbageTrainer() {
       </header>
 
       <main style={{ maxWidth: 560, margin: "0 auto", padding: "18px 16px 0" }}>
+        {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} onAbout={() => { setShowSettings(false); setAboutOpen(true); }} />}
+        {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
         <div style={{
           display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", borderRadius: 10,
           background: dealer ? "rgba(95,164,124,0.16)" : "rgba(200,65,43,0.14)",

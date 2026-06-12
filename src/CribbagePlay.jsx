@@ -652,6 +652,7 @@ export default function CribbagePlay() {
   const [historySeat, setHistorySeat] = React.useState(null);
   const [paused, setPaused] = React.useState(false);
   const [confirmHome, setConfirmHome] = React.useState(false);
+  const [aboutOpen, setAboutOpen] = React.useState(false);
   const { phase, seats, dealerIdx, peg, show, starter, crib, winner, message, settings, dealDraw } = state;
   // The pause control only matters when at least one auto setting is on (auto-count
   // doesn't count). Nothing happens automatically while paused, or while the
@@ -748,11 +749,12 @@ export default function CribbagePlay() {
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-            <span role="img" aria-label="Cribbage — Play (4-handed vs 3 bots)" style={{
-              flex: "0 0 auto", width: 34, height: 34, borderRadius: 8, background: T.baize, color: T.ivory,
+            <button onClick={() => setConfirmHome(true)} aria-label="Home" title="Home" style={{
+              flex: "0 0 auto", width: 34, height: 34, borderRadius: 8, background: T.baize, color: T.ivory, cursor: "pointer",
+              border: "none", padding: 0,
               display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, lineHeight: 1,
               boxShadow: "inset 0 1px 2px rgba(255,255,255,0.12), 0 2px 5px rgba(0,0,0,0.35)",
-            }}>♣</span>
+            }}>♣</button>
             <span style={{ fontFamily: mono, fontSize: 12, color: "rgba(42,27,14,0.8)", lineHeight: 1.3 }}>4-handed vs 3 bots<br />first to 121</span>
           </div>
           <div style={{ display: "flex", gap: 8, flex: "0 0 auto" }}>
@@ -778,7 +780,7 @@ export default function CribbagePlay() {
       </header>
 
       <main style={{ maxWidth: 560, margin: "0 auto", padding: "16px 16px 0" }}>
-        {settingsOpen && <SettingsPanel settings={settings} dispatch={dispatch} onClose={() => setSettingsOpen(false)} />}
+        {settingsOpen && <SettingsPanel settings={settings} dispatch={dispatch} onClose={() => setSettingsOpen(false)} onAbout={() => { setSettingsOpen(false); setAboutOpen(true); }} />}
         <ScoreRow seats={seats} dealerIdx={dealerIdx} turn={turnNow} winner={phase === "over" ? winner : null}
           onPick={(i) => setHistorySeat((cur) => (cur === i ? null : i))} />
         {historySeat !== null && <HistoryPanel seatIdx={historySeat} seats={seats} onClose={() => setHistorySeat(null)} />}
@@ -895,6 +897,8 @@ export default function CribbagePlay() {
           </div>
         )}
       </main>
+
+      {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
 
       {confirmHome && (
         <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
@@ -1173,7 +1177,7 @@ const segStyle = (on) => ({
   border: `1px solid ${on ? T.pegIvory : T.line}`, fontWeight: on ? 700 : 400,
 });
 
-function SettingsPanel({ settings, dispatch, onClose }) {
+function SettingsPanel({ settings, dispatch, onClose, onAbout }) {
   const Row = ({ title, desc, k, options }) => (
     <div style={{ marginBottom: 14 }}>
       <div style={{ fontWeight: 700, fontSize: 13.5 }}>{title}</div>
@@ -1209,6 +1213,50 @@ function SettingsPanel({ settings, dispatch, onClose }) {
       <Row title="Auto-deal the next hand" k="autoDeal"
         desc="Deal the next hand automatically once a hand is fully counted."
         options={[["Off", false], ["On", true]]} />
+      <AboutRow onAbout={onAbout} />
+    </div>
+  );
+}
+
+// A standard footer for the settings panel: an "About & feedback" entry that opens
+// the About popup. Shared verbatim across the trainer and both games.
+function AboutRow({ onAbout }) {
+  return (
+    <div style={{ borderTop: `1px solid ${T.line}`, margin: "2px -16px 0", padding: "12px 16px 4px" }}>
+      <button onClick={onAbout} style={{
+        width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer",
+        border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream,
+        fontFamily: mono, fontSize: 12, fontWeight: 700,
+      }}>About &amp; feedback</button>
+    </div>
+  );
+}
+
+// The About popup: open-source/public-domain note plus a link to the GitHub repo
+// for reporting bugs or sharing feedback. Reached from the bottom of Settings.
+function AboutModal({ onClose }) {
+  const REPO = "https://github.com/ghug/cribbage-trainer/";
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 220, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+      onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 380, width: "100%", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "20px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+          <span aria-hidden="true" style={{ flex: "0 0 auto", width: 34, height: 34, borderRadius: 8, background: "rgba(0,0,0,0.25)", color: T.ivory, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, lineHeight: 1 }}>♣</span>
+          <span style={{ fontWeight: 700, fontSize: 17 }}>About</span>
+        </div>
+        <div style={{ fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.6, marginBottom: 12 }}>
+          A free, open-source cribbage trainer and game — public domain, no accounts, no tracking.
+        </div>
+        <div style={{ fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.6, marginBottom: 16 }}>
+          Found a bug, or have feedback? The source lives on GitHub — open an issue there and it’ll be seen.
+        </div>
+        <a href={REPO} target="_blank" rel="noopener noreferrer" style={{
+          display: "block", textAlign: "center", padding: "12px", borderRadius: 9, textDecoration: "none", boxSizing: "border-box",
+          background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+        }}>Source, bugs &amp; feedback ↗</a>
+        <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 16px", wordBreak: "break-all" }}>github.com/ghug/cribbage-trainer</div>
+        <button onClick={onClose} style={{ width: "100%", padding: "11px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer", background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: 12.5, fontWeight: 700 }}>Close</button>
+      </div>
     </div>
   );
 }

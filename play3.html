@@ -552,7 +552,7 @@ function reduce(state, action) {
             return state;
     }
 }
-const DEFAULT_SETTINGS = { counting: "auto", autoGo: false, warn: true, autoDeal: false, autoContinue: false, autoPlayOne: false };
+const DEFAULT_SETTINGS = { counting: "auto", autoGo: false, warn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
 const SETTINGS_KEY = "cribbage:settings";
 function loadSettings() {
     try {
@@ -675,7 +675,7 @@ function CribbagePlay3() {
         window.location.href = "index.html";
     else
         setConfirmHome(true); };
-    const canPause = settings.autoGo || settings.autoDeal || settings.autoContinue || settings.autoPlayOne;
+    const canPause = settings.autoGo || settings.autoDeal || settings.autoContinue || settings.autoPlayOne || settings.autoPlayBest || settings.autoDiscardBest;
     const autoPaused = paused || settingsOpen || historySeat !== null;
     useEffect(() => { if (!canPause && paused)
         setPaused(false); }, [canPause, paused]);
@@ -688,6 +688,12 @@ function CribbagePlay3() {
             const out = hand.length === 0;
             if (out || (legal.length === 0 && settings.autoGo)) {
                 const t = setTimeout(() => dispatch({ type: "PASS_GO", seat: 0 }), 450);
+                return () => clearTimeout(t);
+            }
+            if (settings.autoPlayBest && legal.length >= 1 && !state.pendingPlay) {
+                const rank = pegChoose(legal.map((c) => c.r), peg.count, peg.pile, hand.map((c) => c.r));
+                const card = legal.find((c) => c.r === rank) || legal[0];
+                const t = setTimeout(() => dispatch({ type: "PLAY_CARD", seat: 0, card }), 450);
                 return () => clearTimeout(t);
             }
             if (legal.length === 1 && settings.autoPlayOne && !state.pendingPlay) {
@@ -707,7 +713,7 @@ function CribbagePlay3() {
             dispatch({ type: "PLAY_CARD", seat: peg.turn, card: chosen });
         }, 760);
         return () => clearTimeout(t);
-    }, [phase, peg, settings.autoGo, settings.autoPlayOne, state.pendingPlay, autoPaused]);
+    }, [phase, peg, settings.autoGo, settings.autoPlayOne, settings.autoPlayBest, state.pendingPlay, autoPaused]);
     useEffect(() => {
         if (autoPaused || !settings.autoDeal)
             return;
@@ -720,6 +726,13 @@ function CribbagePlay3() {
             return () => clearTimeout(t);
         }
     }, [phase, settings.autoDeal, autoPaused]);
+    useEffect(() => {
+        if (phase !== "discard" || autoPaused || !settings.autoDiscardBest || state.pendingDiscard)
+            return;
+        const best = evalDiscards(state.seats[0].dealt, state.dealerIdx).best;
+        const t = setTimeout(() => dispatch({ type: "DISCARD", idx: best.idx }), 550);
+        return () => clearTimeout(t);
+    }, [phase, settings.autoDiscardBest, autoPaused]);
     useEffect(() => {
         if (phase !== "cut" || autoPaused)
             return;
@@ -1066,6 +1079,8 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout }) {
         React.createElement(Row, { title: "Go on no playable card", k: "autoGo", desc: 'When you can’t play, Manual waits for you to tap “Go”; Auto passes for you.', options: [["Manual", false], ["Auto", true]] }),
         React.createElement(Row, { title: "Warn on a weak play", k: "warn", desc: "Pause and explain when your throw to the crib \u2014 or a pegging card that leaves a point on the table \u2014 isn\u2019t the best, with a chance to take it back.", options: [["On", true], ["Off", false]] }),
         React.createElement(Row, { title: "Auto-play a forced card", k: "autoPlayOne", desc: "When only one of your cards is legal to peg, play it for you.", options: [["Off", false], ["On", true]] }),
+        React.createElement(Row, { title: "Auto-play the best card", k: "autoPlayBest", desc: "On your turn to peg, play the best card automatically \u2014 the same policy the bots use. Full autopilot for the play.", options: [["Off", false], ["On", true]] }),
+        React.createElement(Row, { title: "Auto-discard the best throw", k: "autoDiscardBest", desc: "At the discard, throw the best card(s) for your position automatically \u2014 accounting for whether the crib is yours or the dealer's.", options: [["Off", false], ["On", true]] }),
         React.createElement(Row, { title: "Auto-continue the show", k: "autoContinue", desc: "Advance the counting automatically (still pauses for your muggins claim).", options: [["Off", false], ["On", true]] }),
         React.createElement(Row, { title: "Auto-deal the next hand", k: "autoDeal", desc: "Deal the next hand automatically once a hand is fully counted.", options: [["Off", false], ["On", true]] }),
         React.createElement(AboutRow, { onAbout: onAbout })));

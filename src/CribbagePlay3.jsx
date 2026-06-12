@@ -531,7 +531,7 @@ function reduce(state, action) {
   }
 }
 
-const DEFAULT_SETTINGS = { counting: "auto", autoGo: false, warn: true, autoDeal: false, autoContinue: false, autoPlayOne: false };
+const DEFAULT_SETTINGS = { counting: "auto", autoGo: false, warn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
 // Settings persist across pages (and game sizes) in localStorage under a shared key,
 // so toggling one in any game keeps it set everywhere. The try/catch keeps the engine
 // verification harness (no localStorage) and private-mode browsers happy.
@@ -675,7 +675,7 @@ export default function CribbagePlay3() {
   // The pause control only matters when at least one auto setting is on (auto-count
   // doesn't count). Nothing happens automatically while paused, or while the
   // settings/history panels are open.
-  const canPause = settings.autoGo || settings.autoDeal || settings.autoContinue || settings.autoPlayOne;
+  const canPause = settings.autoGo || settings.autoDeal || settings.autoContinue || settings.autoPlayOne || settings.autoPlayBest || settings.autoDiscardBest;
   const autoPaused = paused || settingsOpen || historySeat !== null;
   useEffect(() => { if (!canPause && paused) setPaused(false); }, [canPause, paused]);
 
@@ -694,6 +694,12 @@ export default function CribbagePlay3() {
         const t = setTimeout(() => dispatch({ type: "PASS_GO", seat: 0 }), 450);
         return () => clearTimeout(t);
       }
+      if (settings.autoPlayBest && legal.length >= 1 && !state.pendingPlay) {
+        const rank = pegChoose(legal.map((c) => c.r), peg.count, peg.pile, hand.map((c) => c.r));
+        const card = legal.find((c) => c.r === rank) || legal[0];
+        const t = setTimeout(() => dispatch({ type: "PLAY_CARD", seat: 0, card }), 450);
+        return () => clearTimeout(t);
+      }
       if (legal.length === 1 && settings.autoPlayOne && !state.pendingPlay) {
         const card = legal[0];
         const t = setTimeout(() => dispatch({ type: "PLAY_CARD", seat: 0, card }), 450);
@@ -708,7 +714,7 @@ export default function CribbagePlay3() {
       dispatch({ type: "PLAY_CARD", seat: peg.turn, card: chosen });
     }, 760);
     return () => clearTimeout(t);
-  }, [phase, peg, settings.autoGo, settings.autoPlayOne, state.pendingPlay, autoPaused]);
+  }, [phase, peg, settings.autoGo, settings.autoPlayOne, settings.autoPlayBest, state.pendingPlay, autoPaused]);
 
   // Auto-deal the next hand, auto-cut the starter, and auto-advance the show —
   // each gated by its own setting. The show auto-advance waits whenever the human
@@ -718,6 +724,13 @@ export default function CribbagePlay3() {
     if (phase === "cutdeal") { const t = setTimeout(() => dispatch({ type: "DEAL" }), 1600); return () => clearTimeout(t); }
     if (phase === "deal") { const t = setTimeout(() => dispatch({ type: "DEAL" }), 650); return () => clearTimeout(t); }
   }, [phase, settings.autoDeal, autoPaused]);
+  // Auto-discard the best throw for the human at the discard, when enabled.
+  useEffect(() => {
+    if (phase !== "discard" || autoPaused || !settings.autoDiscardBest || state.pendingDiscard) return;
+    const best = evalDiscards(state.seats[0].dealt, state.dealerIdx).best;
+    const t = setTimeout(() => dispatch({ type: "DISCARD", idx: best.idx }), 550);
+    return () => clearTimeout(t);
+  }, [phase, settings.autoDiscardBest, autoPaused]);
   useEffect(() => {
     if (phase !== "cut" || autoPaused) return;
     // The starter is always cut automatically, after a brief beat.
@@ -1220,6 +1233,12 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout }) {
         options={[["On", true], ["Off", false]]} />
       <Row title="Auto-play a forced card" k="autoPlayOne"
         desc="When only one of your cards is legal to peg, play it for you."
+        options={[["Off", false], ["On", true]]} />
+      <Row title="Auto-play the best card" k="autoPlayBest"
+        desc="On your turn to peg, play the best card automatically — the same policy the bots use. Full autopilot for the play."
+        options={[["Off", false], ["On", true]]} />
+      <Row title="Auto-discard the best throw" k="autoDiscardBest"
+        desc="At the discard, throw the best card(s) for your position automatically — accounting for whether the crib is yours or the dealer's."
         options={[["Off", false], ["On", true]]} />
       <Row title="Auto-continue the show" k="autoContinue"
         desc="Advance the counting automatically (still pauses for your muggins claim)."

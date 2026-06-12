@@ -732,9 +732,13 @@ export default function CribbagePlay() {
         padding: "14px 18px 16px", boxShadow: "0 6px 18px rgba(0,0,0,0.4)", borderBottom: "2px solid rgba(0,0,0,0.3)",
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: 22, color: "#2A1B0E", letterSpacing: 0.3, fontWeight: 700 }}>Cribbage — Play</h1>
-            <span style={{ display: "block", fontFamily: mono, fontSize: 11, color: "rgba(42,27,14,0.75)", marginTop: 2 }}>4-handed cutthroat · first to 121</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+            <span role="img" aria-label="Cribbage — Play (4-handed cutthroat)" style={{
+              flex: "0 0 auto", width: 34, height: 34, borderRadius: 8, background: T.baize, color: T.ivory,
+              display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, lineHeight: 1,
+              boxShadow: "inset 0 1px 2px rgba(255,255,255,0.12), 0 2px 5px rgba(0,0,0,0.35)",
+            }}>♣</span>
+            <span style={{ fontFamily: mono, fontSize: 12, color: "rgba(42,27,14,0.8)", lineHeight: 1.3 }}>4-handed cutthroat · first to 121</span>
           </div>
           <div style={{ display: "flex", gap: 8, flex: "0 0 auto" }}>
             <button onClick={() => setConfirmHome(true)} aria-label="Home" style={{

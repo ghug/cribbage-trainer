@@ -10,7 +10,7 @@
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
 </head>
 <body>
-<a href="index.html" aria-label="Back to home" style="position:fixed;right:10px;bottom:10px;z-index:9999;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:#ECE0C6;text-decoration:none;background:rgba(15,36,23,0.85);border:1px solid rgba(236,224,182,0.28);padding:7px 11px;border-radius:9px;box-shadow:0 3px 10px rgba(0,0,0,0.45)">&#8962; Home</a>
+
 <div id="root"></div>
 <script>
 "use strict";
@@ -629,8 +629,12 @@ function CribbagePlay() {
     const [settingsOpen, setSettingsOpen] = React.useState(false);
     const [historySeat, setHistorySeat] = React.useState(null);
     const [paused, setPaused] = React.useState(false);
+    const [confirmHome, setConfirmHome] = React.useState(false);
     const { phase, seats, dealerIdx, peg, show, starter, crib, winner, message, settings, dealDraw } = state;
+    const canPause = settings.autoGo || settings.autoDeal || settings.autoCut || settings.autoContinue || settings.autoPlayOne;
     const autoPaused = paused || settingsOpen || historySeat !== null;
+    useEffect(() => { if (!canPause && paused)
+        setPaused(false); }, [canPause, paused]);
     useEffect(() => {
         if (phase !== "play" || !peg || autoPaused)
             return;
@@ -718,11 +722,16 @@ function CribbagePlay() {
                     React.createElement("h1", { style: { margin: 0, fontSize: 22, color: "#2A1B0E", letterSpacing: 0.3, fontWeight: 700 } }, "Cribbage \u2014 Play"),
                     React.createElement("span", { style: { display: "block", fontFamily: mono, fontSize: 11, color: "rgba(42,27,14,0.75)", marginTop: 2 } }, "4-handed cutthroat \u00B7 first to 121")),
                 React.createElement("div", { style: { display: "flex", gap: 8, flex: "0 0 auto" } },
-                    React.createElement("button", { onClick: () => setPaused((p) => !p), "aria-label": paused ? "Resume" : "Pause", "aria-pressed": paused, style: {
+                    React.createElement("button", { onClick: () => setConfirmHome(true), "aria-label": "Home", style: {
+                            width: 40, height: 40, borderRadius: 10, cursor: "pointer",
+                            border: "1px solid rgba(0,0,0,0.28)", background: "rgba(42,27,14,0.14)",
+                            color: "#2A1B0E", fontSize: 19, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
+                        } }, "\u2302"),
+                    canPause && (React.createElement("button", { onClick: () => setPaused((p) => !p), "aria-label": paused ? "Resume" : "Pause", "aria-pressed": paused, style: {
                             width: 40, height: 40, borderRadius: 10, cursor: "pointer",
                             border: "1px solid rgba(0,0,0,0.28)", background: paused ? "rgba(200,65,43,0.32)" : "rgba(42,27,14,0.14)",
                             color: "#2A1B0E", fontSize: 17, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
-                        } }, paused ? "▶" : "⏸"),
+                        } }, paused ? "▶" : "⏸")),
                     React.createElement("button", { onClick: () => setSettingsOpen((o) => !o), "aria-label": "Settings", "aria-expanded": settingsOpen, style: {
                             width: 40, height: 40, borderRadius: 10, cursor: "pointer",
                             border: "1px solid rgba(0,0,0,0.28)", background: settingsOpen ? "rgba(42,27,14,0.28)" : "rgba(42,27,14,0.14)",
@@ -804,7 +813,20 @@ function CribbagePlay() {
                         ". Final: ",
                         seats.map((s, i) => `${seatName(i)} ${s.score}`).join(" · "))),
                 starter && React.createElement(StarterStrip, { starter: starter }),
-                bigBtn("Play again", () => dispatch({ type: "PLAY_AGAIN" }), "good"))))));
+                bigBtn("Play again", () => dispatch({ type: "PLAY_AGAIN" }), "good")))),
+        confirmHome && (React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }, onClick: () => setConfirmHome(false) },
+            React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { maxWidth: 360, width: "100%", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "18px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" } },
+                React.createElement("div", { style: { fontWeight: 700, fontSize: 16, marginBottom: 6 } }, "Leave to the home menu?"),
+                React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.muted, lineHeight: 1.5, marginBottom: 16 } }, "This ends the current game \u2014 scores aren't saved."),
+                React.createElement("div", { style: { display: "flex", gap: 8 } },
+                    React.createElement("button", { onClick: () => setConfirmHome(false), style: {
+                            flex: 1, padding: "12px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer",
+                            background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: 13, fontWeight: 700,
+                        } }, "Keep playing"),
+                    React.createElement("a", { href: "index.html", style: {
+                            flex: 1, padding: "12px", borderRadius: 9, cursor: "pointer", textDecoration: "none", textAlign: "center", boxSizing: "border-box",
+                            background: `linear-gradient(180deg, ${T.pegRed}, #9c3120)`, color: T.ivory, fontFamily: mono, fontSize: 13, fontWeight: 700,
+                        } }, "Leave")))))));
 }
 function StarterStrip({ starter }) {
     return (React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, justifyContent: "center", fontFamily: mono, fontSize: 11, color: T.muted } },

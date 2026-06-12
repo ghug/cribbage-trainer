@@ -621,9 +621,14 @@ export default function CribbagePlay() {
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [historySeat, setHistorySeat] = React.useState(null);
   const [paused, setPaused] = React.useState(false);
+  const [confirmHome, setConfirmHome] = React.useState(false);
   const { phase, seats, dealerIdx, peg, show, starter, crib, winner, message, settings, dealDraw } = state;
-  // Nothing happens automatically while paused, or while the settings/history panels are open.
+  // The pause control only matters when at least one auto setting is on (auto-count
+  // doesn't count). Nothing happens automatically while paused, or while the
+  // settings/history panels are open.
+  const canPause = settings.autoGo || settings.autoDeal || settings.autoCut || settings.autoContinue || settings.autoPlayOne;
   const autoPaused = paused || settingsOpen || historySeat !== null;
+  useEffect(() => { if (!canPause && paused) setPaused(false); }, [canPause, paused]);
 
   // Self-clocking play loop: AI moves and all forced "go"s fire on a timer; a
   // human with a legal card blocks for a tap. Re-runs whenever the peg state changes.
@@ -714,11 +719,18 @@ export default function CribbagePlay() {
             <span style={{ display: "block", fontFamily: mono, fontSize: 11, color: "rgba(42,27,14,0.75)", marginTop: 2 }}>4-handed cutthroat · first to 121</span>
           </div>
           <div style={{ display: "flex", gap: 8, flex: "0 0 auto" }}>
-            <button onClick={() => setPaused((p) => !p)} aria-label={paused ? "Resume" : "Pause"} aria-pressed={paused} style={{
+            <button onClick={() => setConfirmHome(true)} aria-label="Home" style={{
               width: 40, height: 40, borderRadius: 10, cursor: "pointer",
-              border: "1px solid rgba(0,0,0,0.28)", background: paused ? "rgba(200,65,43,0.32)" : "rgba(42,27,14,0.14)",
-              color: "#2A1B0E", fontSize: 17, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
-            }}>{paused ? "▶" : "⏸"}</button>
+              border: "1px solid rgba(0,0,0,0.28)", background: "rgba(42,27,14,0.14)",
+              color: "#2A1B0E", fontSize: 19, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
+            }}>⌂</button>
+            {canPause && (
+              <button onClick={() => setPaused((p) => !p)} aria-label={paused ? "Resume" : "Pause"} aria-pressed={paused} style={{
+                width: 40, height: 40, borderRadius: 10, cursor: "pointer",
+                border: "1px solid rgba(0,0,0,0.28)", background: paused ? "rgba(200,65,43,0.32)" : "rgba(42,27,14,0.14)",
+                color: "#2A1B0E", fontSize: 17, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
+              }}>{paused ? "▶" : "⏸"}</button>
+            )}
             <button onClick={() => setSettingsOpen((o) => !o)} aria-label="Settings" aria-expanded={settingsOpen} style={{
               width: 40, height: 40, borderRadius: 10, cursor: "pointer",
               border: "1px solid rgba(0,0,0,0.28)", background: settingsOpen ? "rgba(42,27,14,0.28)" : "rgba(42,27,14,0.14)",
@@ -847,6 +859,26 @@ export default function CribbagePlay() {
           </div>
         )}
       </main>
+
+      {confirmHome && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+          onClick={() => setConfirmHome(false)}>
+          <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 360, width: "100%", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "18px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" }}>
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6 }}>Leave to the home menu?</div>
+            <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, lineHeight: 1.5, marginBottom: 16 }}>This ends the current game — scores aren't saved.</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setConfirmHome(false)} style={{
+                flex: 1, padding: "12px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer",
+                background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: 13, fontWeight: 700,
+              }}>Keep playing</button>
+              <a href="index.html" style={{
+                flex: 1, padding: "12px", borderRadius: 9, cursor: "pointer", textDecoration: "none", textAlign: "center", boxSizing: "border-box",
+                background: `linear-gradient(180deg, ${T.pegRed}, #9c3120)`, color: T.ivory, fontFamily: mono, fontSize: 13, fontWeight: 700,
+              }}>Leave</a>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

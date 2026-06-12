@@ -15,8 +15,13 @@ ROOT="$(cd "$(dirname "$0")" && pwd)"
 # build_one <src.jsx> <out.html> <title> <ComponentName>
 # Transpiles a single self-contained React component into a standalone HTML page.
 build_one() {
-  local SRC="$1" OUT="$2" TITLE="$3" COMPONENT="$4"
+  local SRC="$1" OUT="$2" TITLE="$3" COMPONENT="$4" HOMELINK="${5:-yes}"
   local TMP; TMP="$(mktemp -d)"
+  # The fixed shell "Home" link (pages that render their own in-app home button pass "no").
+  local HOMEHTML=""
+  if [ "$HOMELINK" = "yes" ]; then
+    HOMEHTML='<a href="index.html" aria-label="Back to home" style="position:fixed;right:10px;bottom:10px;z-index:9999;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:#ECE0C6;text-decoration:none;background:rgba(15,36,23,0.85);border:1px solid rgba(236,224,182,0.28);padding:7px 11px;border-radius:9px;box-shadow:0 3px 10px rgba(0,0,0,0.45)">&#8962; Home</a>'
+  fi
 
   # 1) Swap the ESM import/export for browser-global CDN React, and mount the app.
   #    The import sed captures whatever hooks the file imports, so it is component-agnostic.
@@ -49,7 +54,7 @@ build_one() {
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
 </head>
 <body>
-<a href="index.html" aria-label="Back to home" style="position:fixed;right:10px;bottom:10px;z-index:9999;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:#ECE0C6;text-decoration:none;background:rgba(15,36,23,0.85);border:1px solid rgba(236,224,182,0.28);padding:7px 11px;border-radius:9px;box-shadow:0 3px 10px rgba(0,0,0,0.45)">&#8962; Home</a>
+${HOMEHTML}
 <div id="root"></div>
 <script>
 HTML
@@ -70,5 +75,5 @@ HTML
 cp "$ROOT/src/landing.html" "$ROOT/index.html"
 echo "built index.html (landing, copied from src/landing.html)"
 
-build_one "src/CribbageTrainer.jsx" "trainer.html" "Cribbage Discard Trainer" "CribbageTrainer"
-build_one "src/CribbagePlay.jsx"    "play.html"    "Cribbage — Play"          "CribbagePlay"
+build_one "src/CribbageTrainer.jsx" "trainer.html" "Cribbage Discard Trainer" "CribbageTrainer" "yes"
+build_one "src/CribbagePlay.jsx"    "play.html"    "Cribbage — Play"          "CribbagePlay"   "no"

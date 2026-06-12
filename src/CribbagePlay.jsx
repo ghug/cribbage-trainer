@@ -1251,7 +1251,7 @@ function AboutModal({ onClose }) {
           A free, open-source cribbage trainer and game — public domain, no accounts, no tracking.
         </div>
         <div style={{ fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.6, marginBottom: 16 }}>
-          Found a bug, or have feedback? The source lives on GitHub — open an issue there to be part of the conversation.
+          Found a bug, or have feedback? The source lives on GitHub — feel free to go there to be part of the conversation.
         </div>
         <a href={REPO} target="_blank" rel="noopener noreferrer" style={{
           display: "block", textAlign: "center", padding: "12px", borderRadius: 9, textDecoration: "none", boxSizing: "border-box",

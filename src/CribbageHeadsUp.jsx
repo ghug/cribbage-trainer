@@ -179,7 +179,7 @@ function freshDeck() {
 const sortHand = (cs) => cs.slice().sort((a, b) => a.r - b.r || a.s - b.s);
 
 /* ============================ CARDS ============================ */
-function Card({ card, onClick, clickable, badge, dim, selected, small }) {
+function Card({ card, onClick, clickable, badge, dim, selected, small, selLabel }) {
   const [hover, setHover] = React.useState(false);
   const base = small ? 44 : 68;
   const lift = badge || selected ? -8 : hover && clickable ? -6 : 0;
@@ -190,7 +190,7 @@ function Card({ card, onClick, clickable, badge, dim, selected, small }) {
         <span style={{
           fontFamily: mono, fontSize: 9.5, letterSpacing: 0.4, fontWeight: 700,
           color: T.ivory, background: badge ? badge.color : T.selBlue, padding: "2px 6px", borderRadius: 4, whiteSpace: "nowrap",
-        }}>{badge ? badge.text : "THROW"}</span>
+        }}>{badge ? badge.text : (selLabel || "THROW")}</span>
       )}
       <button
         onClick={clickable ? onClick : undefined}
@@ -717,7 +717,7 @@ function PlayScreen({ state, dispatch }) {
             // While a peg warning is up, tapping any card just unselects (clears the
             // warning) — it never plays. Tap again afterward to play normally.
             return (
-              <Card key={cardId(card)} card={card}
+              <Card key={cardId(card)} card={card} selLabel="PLAY"
                 clickable={pp ? true : (yourTurn && legal)}
                 selected={pp ? sameCard(pp.card, card) : false}
                 dim={!pp && !legal && peg.turn === 0}

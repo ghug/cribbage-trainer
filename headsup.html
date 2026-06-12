@@ -244,7 +244,7 @@ function freshDeck() {
     return d;
 }
 const sortHand = (cs) => cs.slice().sort((a, b) => a.r - b.r || a.s - b.s);
-function Card({ card, onClick, clickable, badge, dim, selected, small }) {
+function Card({ card, onClick, clickable, badge, dim, selected, small, selLabel }) {
     const [hover, setHover] = React.useState(false);
     const base = small ? 44 : 68;
     const lift = badge || selected ? -8 : hover && clickable ? -6 : 0;
@@ -253,7 +253,7 @@ function Card({ card, onClick, clickable, badge, dim, selected, small }) {
         (badge || selected) && (React.createElement("span", { style: {
                 fontFamily: mono, fontSize: 9.5, letterSpacing: 0.4, fontWeight: 700,
                 color: T.ivory, background: badge ? badge.color : T.selBlue, padding: "2px 6px", borderRadius: 4, whiteSpace: "nowrap",
-            } }, badge ? badge.text : "THROW")),
+            } }, badge ? badge.text : (selLabel || "THROW"))),
         React.createElement("button", { onClick: clickable ? onClick : undefined, onPointerEnter: () => setHover(true), onPointerLeave: () => setHover(false), "aria-label": `${rankLabel(card.r)} of ${["spades", "hearts", "diamonds", "clubs"][card.s]}`, style: {
                 width: "100%", aspectRatio: "68 / 96", containerType: "inline-size",
                 borderRadius: small ? 7 : 9, padding: 0, background: T.ivory, position: "relative",
@@ -702,7 +702,7 @@ function PlayScreen({ state, dispatch }) {
                 yourHand.map((card) => {
                     const legal = legalSet.has(cardId(card));
                     const pp = state.pendingPlay;
-                    return (React.createElement(Card, { key: cardId(card), card: card, clickable: pp ? true : (yourTurn && legal), selected: pp ? sameCard(pp.card, card) : false, dim: !pp && !legal && peg.turn === 0, onClick: () => dispatch(pp ? { type: "CANCEL_PLAY" } : { type: "SELECT_PLAY", card }) }));
+                    return (React.createElement(Card, { key: cardId(card), card: card, selLabel: "PLAY", clickable: pp ? true : (yourTurn && legal), selected: pp ? sameCard(pp.card, card) : false, dim: !pp && !legal && peg.turn === 0, onClick: () => dispatch(pp ? { type: "CANCEL_PLAY" } : { type: "SELECT_PLAY", card }) }));
                 }),
                 yourHand.length === 0 && React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: T.muted } }, "your cards are all played")))));
 }

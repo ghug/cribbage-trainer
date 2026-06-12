@@ -13,6 +13,7 @@ on:
       - "index.html"
       - "trainer.html"
       - "play.html"
+      - "play3.html"
       - "headsup.html"
       - "vendor/**"
       - ".github/workflows/pages.yml"
@@ -41,7 +42,7 @@ jobs:
       - name: Assemble site
         run: |
           mkdir -p _site/vendor
-          cp index.html trainer.html play.html headsup.html _site/
+          cp index.html trainer.html play.html play3.html headsup.html _site/
           cp vendor/react.production.min.js vendor/react-dom.production.min.js _site/vendor/
           touch _site/.nojekyll   # skip Jekyll; serve files verbatim
 

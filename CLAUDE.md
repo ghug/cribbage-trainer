@@ -14,9 +14,14 @@ You have **two finished, working tools** behind a small welcome page, all
 self-contained (no in-browser build, no install, no internet needed beyond a CDN
 for React):
 
-- **`index.html`** — the landing page. Three choices: the trainer and two games.
+- **`index.html`** — the landing page. Four choices: the trainer and three games.
 - **`trainer.html`** — the **Discard Trainer** (analyzes/ranks discards).
 - **`play.html`** — **Play a Game (vs 3 AI)**: a full game of 4-player cutthroat.
+- **`play3.html`** — **Three-Handed (vs 2 AI)**: 3-player cutthroat (deal 5, discard
+  1; the crib is the three discards **plus one card off the deck**, deck[15], to make
+  four; starter is deck[16]). `src/CribbagePlay3.jsx`; a 3-seat adaptation of the play
+  app's reducer (show order [pone, +2, dealer, CRIB], two opponents flanking the
+  table). Verified by `engine/verify_play3.js`.
 - **`headsup.html`** — **Heads-Up (vs 1 AI)**: classic 2-player cribbage (deal 6,
   discard 2, race to 121). `src/CribbageHeadsUp.jsx`; a 2-player adaptation of the
   play app's reducer (P=2, show order [pone, dealer, CRIB], `cribSeed` two-card AI
@@ -233,6 +238,8 @@ node engine/calibrate_split.js  # one self-play calibration pass (mutates state.
 node engine/verify_players.js   # 2-/3-/4-handed: regression (players=4 == original) + crib/peg sanity
 node engine/verify_play.js      # play.html: evals the built game's reducer, drives whole hands,
                                 #   asserts go/31/last-card, his-heels +2, the 121 show short-circuit
+node engine/verify_play3.js     # play3.html: same harness for 3-handed (crib = 3 throws + deck[15],
+                                #   show order pone/+2/dealer/crib, turn rotates over three seats)
 node engine/verify_headsup.js   # headsup.html: same harness for the 2-player game (deal-6/discard-2,
                                 #   heads-up pegging & show, his-heels, history sums to score)
 ```

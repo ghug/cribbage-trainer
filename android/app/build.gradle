@@ -38,7 +38,7 @@ tasks.register('syncWebAssets', Copy) {
     def repoRoot = rootProject.projectDir.parentFile
     into layout.projectDirectory.dir('src/main/assets')
     from(repoRoot) {
-        include 'index.html', 'trainer.html', 'play.html', 'headsup.html'
+        include 'index.html', 'trainer.html', 'play.html', 'play3.html', 'headsup.html'
         include 'vendor/**'
     }
 }

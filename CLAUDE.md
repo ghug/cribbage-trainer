@@ -203,7 +203,12 @@ to `main` on the `ghug/cribbage-trainer` remote. Cloudflare auto-builds and the 
 URL updates in ~30s. No tokens, no manual upload. (Pushing requires a fine-grained
 GitHub PAT for the `ghug` account scoped to that repo's Contents; the human pastes it
 per session — it is not stored.) The canonical dev repo is still
-`vanderoi/cribbage-trainer`; `ghug` is the deploy mirror.
+`vanderoi/cribbage-trainer`; `ghug` is the deploy mirror. The exact deploy push (no
+named remote; the PAT goes inline in the URL and must not be committed/logged):
+
+```
+git push "https://x-access-token:<GHUG_PAT>@github.com/ghug/cribbage-trainer.git" HEAD:main
+```
 
 Note: the sandbox network allowlist blocks `*.workers.dev` / `*.pages.dev`, so the
 agent canNOT fetch the live URL to smoke-test it — ask the human to eyeball it.
@@ -221,6 +226,13 @@ or the REST API (route 2), or run Wrangler only inside a real Linux arm64 userla
 
 ## Good next steps (roughly in value order)
 
+0. **IN PROGRESS — playable game vs AI.** A full plan for a separate `play.html`
+   (4-player cutthroat cribbage you play against 3 computer opponents, with `index.html`
+   becoming a welcome page that links to the trainer and the game) is committed at
+   **`docs/cribbage-play-plan.md`**. To resume: re-paste the `ghug` GitHub PAT (it is never
+   stored — see deploy note above), check out branch `claude/claude-md-review-m77h8q`, and
+   build per that plan. Reachability caveat: the sandbox can only `curl` the live URL if
+   `*.gabrielhug.workers.dev` is added under the environment's Network access (Custom).
 1. Decide with the human whether they even want hosting — it already runs locally.
 2. If hosting: Cloudflare Pages Direct Upload (route 1 above) is the lowest-effort.
 3. Add an in-repo test runner (port the `engine/` checks to a `test/` dir, e.g.

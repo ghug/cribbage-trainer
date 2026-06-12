@@ -654,6 +654,9 @@ export default function CribbagePlay() {
   const [confirmHome, setConfirmHome] = React.useState(false);
   const [aboutOpen, setAboutOpen] = React.useState(false);
   const { phase, seats, dealerIdx, peg, show, starter, crib, winner, message, settings, dealDraw } = state;
+  // Home / logo: the game hasn't really begun at "cutdeal", so leave straight to the
+  // menu; once a hand is underway, confirm first since leaving forfeits the game.
+  const goHome = () => { if (phase === "cutdeal") window.location.href = "index.html"; else setConfirmHome(true); };
   // The pause control only matters when at least one auto setting is on (auto-count
   // doesn't count). Nothing happens automatically while paused, or while the
   // settings/history panels are open.
@@ -749,7 +752,7 @@ export default function CribbagePlay() {
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-            <button onClick={() => setConfirmHome(true)} aria-label="Home" title="Home" style={{
+            <button onClick={goHome} aria-label="Home" title="Home" style={{
               flex: "0 0 auto", width: 34, height: 34, borderRadius: 8, background: T.baize, color: T.ivory, cursor: "pointer",
               border: "none", padding: 0,
               display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, lineHeight: 1,
@@ -758,7 +761,7 @@ export default function CribbagePlay() {
             <span style={{ fontFamily: mono, fontSize: 12, color: "rgba(42,27,14,0.8)", lineHeight: 1.3 }}>4-handed vs 3 bots<br />first to 121</span>
           </div>
           <div style={{ display: "flex", gap: 8, flex: "0 0 auto" }}>
-            <button onClick={() => setConfirmHome(true)} aria-label="Home" style={{
+            <button onClick={goHome} aria-label="Home" style={{
               width: 40, height: 40, borderRadius: 10, cursor: "pointer",
               border: "1px solid rgba(0,0,0,0.28)", background: "rgba(42,27,14,0.14)",
               color: "#2A1B0E", fontSize: 19, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",

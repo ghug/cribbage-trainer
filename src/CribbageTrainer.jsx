@@ -609,7 +609,7 @@ export default function CribbageTrainer() {
         <p style={{ fontFamily: mono, fontSize: 12, color: T.muted, margin: "18px 2px 6px" }}>
           {phase === "choose"
             ? (discardCount === 2
-                ? `Tap the two cards you'd throw to the crib.${selected.length === 1 ? " One more…" : ""}`
+                ? `Tap two cards you'd throw to the crib.${selected.length === 1 ? " One more…" : ""}`
                 : "Tap the card you'd throw to the crib.")
             : `Ranked by ${MODE_LABEL[mode]}${mode === "ev" ? "" : " (net " + (mode === "need" ? "+" : "−") + " risk·σ)"} — tap any row for the why.`}
         </p>

@@ -8,8 +8,8 @@ client-side, no install, no accounts, no tracking:
   the crib swing of the card(s) you throw, and pegging potential. Supports 4-/3-handed
   "cutthroat" and 2-handed heads-up, as dealer or defender.
 - **Play** (`play.html`) — one consolidated game that adapts to the table size set in
-  its settings: heads-up (2), three- or four-handed cutthroat. Cut, discard, peg, the
-  show, race to 121.
+  its settings: heads-up (2), or three-, four-, or five-handed cutthroat. Cut, discard,
+  peg, the show, race to 121.
 - **Four-Handed** (`play4.html`) — 4-player cutthroat cribbage vs 3 bots: cut for deal →
   discard → cut → interactive pegging → the show → race to 121.
 - **Six-Handed** (`play6.html`) — 6-player cutthroat cribbage vs 5 bots: everyone throws
@@ -52,7 +52,7 @@ Edit the sources in `src/` (`CribbageTrainer.jsx`, `CribbagePlay4.jsx`,
 node engine/pegging.js          # pegging unit tests + full-game sanity
 node engine/breakdown.js        # show-scoring breakdown + perfect-29 check
 node engine/verify_players.js   # 2-/3-/4-handed regression + sanity
-node engine/verify_play.js      # play.html reducer: consolidated page at P=2, 3, and 4
+node engine/verify_play.js      # play.html reducer: consolidated page at P=2, 3, 4, and 5
 node engine/verify_play4.js      # play4.html reducer: go/31/last-card, his-heels, the show
 node engine/verify_play3.js     # play3.html reducer: 3-handed crib (3 throws + deck card), show order
 node engine/verify_play5.js     # play5.html reducer: dealer dealt 4/throws none, crib = 4 non-dealer throws

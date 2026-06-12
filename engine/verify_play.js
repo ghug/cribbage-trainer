@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /* Verifies the consolidated play page (play.html), which adapts to the table size
- * in settings.players. Currently supports P = 2 (heads-up), 3 and 4 (cutthroat).
+ * in settings.players. Currently supports P = 2 (heads-up), 3, 4 and 5 (cutthroat).
  *
  * We eval the compiled play.html <script> in a vm sandbox and drive whole hands for
  * each supported P, asserting the per-P rules:
@@ -8,6 +8,8 @@
  *   P=3: deal 5, throw 1; crib = 3 throws + a deck card (deck[15]); starter deck[16];
  *        show 4 steps.
  *   P=4: deal 5, throw 1; crib = 4 throws; starter deck[20]; show 5 steps.
+ *   P=5: dealer dealt 4/throws none, others deal 5/throw 1; crib = 4 throws; starter
+ *        deck[24]; show 6 steps; the human-as-dealer skips the discard.
  * Plus the shared invariants: go/31/last-card never double-count, his heels = +2,
  * suits survive pegging, scores only go up, history reconciles, the 121 stop.
  */
@@ -48,8 +50,16 @@ const FACTS = {
   2: { dealt: 6, throws: 2, idxs: [0, 1], starterIdx: 12, deckCard: false, showLen: 3 },
   3: { dealt: 5, throws: 1, idxs: [0], starterIdx: 16, deckCard: true, deckIdx: 15, showLen: 4 },
   4: { dealt: 5, throws: 1, idxs: [0], starterIdx: 20, deckCard: false, showLen: 5 },
+  5: { dealt: 5, throws: 1, idxs: [0], starterIdx: 24, deckCard: false, showLen: 6 },
 };
-const SUPPORTED = [2, 3, 4];
+const SUPPORTED = [2, 3, 4, 5];
+// Seats dealt 4 that throw nothing: the dealer in 5-handed, the dealer + seat to
+// their right in 6-handed. (None at 2/3/4.)
+function noThrowSeat(P, d, i) {
+  if (P === 5) return i === d;
+  if (P === 6) return i === d || i === (d + 5) % 6;
+  return false;
+}
 
 /* ---- A. pegScore + perfect-29 spot checks ---- */
 check(pegScore([7, 8], 15) === 2, "fifteen = 2");
@@ -69,14 +79,26 @@ function gameFor(P) {
 function playHand(state, P) {
   const F = FACTS[P];
   state = reduce(state, { type: "DEAL" });
+  const d = state.dealerIdx;
   check(state.seats.length === P, `P=${P}: ${P} seats`);
-  for (let i = 0; i < P; i++) check(state.seats[i].dealt.length === F.dealt, `P=${P}: seat ${i} dealt ${F.dealt}`);
-  check(state.phase === "discard", `P=${P}: DEAL -> discard`);
-  for (let i = 1; i < P; i++) check(state.seats[i].kept.length === 4 && state.seats[i].discard.length === F.throws, `P=${P}: bot ${i} threw ${F.throws}`);
+  for (let i = 0; i < P; i++) {
+    const exp = noThrowSeat(P, d, i) ? 4 : F.dealt;
+    check(state.seats[i].dealt.length === exp, `P=${P}: seat ${i} dealt ${exp}`);
+  }
+  for (let i = 1; i < P; i++) {
+    if (noThrowSeat(P, d, i)) check(state.seats[i].kept.length === 4 && state.seats[i].discard.length === 0, `P=${P}: non-thrower bot ${i} keeps 4`);
+    else check(state.seats[i].kept.length === 4 && state.seats[i].discard.length === F.throws, `P=${P}: bot ${i} threw ${F.throws}`);
+  }
   const deckBefore = state.deck;
-  state = reduce(state, { type: "DISCARD", idxs: F.idxs });
-  check(state.phase === "cut", `P=${P}: DISCARD -> cut`);
-  check(state.seats[0].kept.length === 4, `P=${P}: human kept 4`);
+  if (noThrowSeat(P, d, 0)) {
+    check(state.phase === "cut", `P=${P}: human non-thrower -> straight to cut`);
+    check(state.seats[0].kept.length === 4 && state.seats[0].discard.length === 0, `P=${P}: human non-thrower keeps 4, throws none`);
+  } else {
+    check(state.phase === "discard", `P=${P}: DEAL -> discard`);
+    state = reduce(state, { type: "DISCARD", idxs: F.idxs });
+    check(state.phase === "cut", `P=${P}: DISCARD -> cut`);
+    check(state.seats[0].kept.length === 4, `P=${P}: human kept 4`);
+  }
   check(state.crib.length === 4, `P=${P}: crib of 4`);
   check(state.crib.every((c) => typeof c.s === "number"), `P=${P}: crib cards suited`);
   // every throw is in the crib
@@ -146,7 +168,7 @@ for (const P of SUPPORTED) {
 for (const P of SUPPORTED) {
   const F = FACTS[P];
   let state = reduce(gameFor(P), { type: "DEAL" });
-  state = reduce(state, { type: "DISCARD", idxs: F.idxs });
+  if (state.phase === "discard") state = reduce(state, { type: "DISCARD", idxs: F.idxs });
   const d = state.dealerIdx;
   const before = state.seats[d].score;
   state = { ...state, deck: state.deck.map((c, i) => (i === F.starterIdx ? { r: 11, s: 0 } : c)) };

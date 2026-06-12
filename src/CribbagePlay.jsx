@@ -661,7 +661,9 @@ function PlayedStack({ cards, backs }) {
   return (
     <div style={{ display: "flex", justifyContent: "center" }}>
       {cards.map((c, i) => (
-        <div key={cardId(c)} style={{ position: "relative", zIndex: i, marginLeft: i === 0 ? 0 : -33 }}>
+        // explicit width: a small Card's face is absolutely positioned, so without
+        // a definite width here the wrapped card would collapse to 0px.
+        <div key={cardId(c)} style={{ width: 44, position: "relative", zIndex: i, marginLeft: i === 0 ? 0 : -33 }}>
           <Card card={c} small />
         </div>
       ))}
@@ -706,30 +708,38 @@ function PlayScreen({ state, dispatch }) {
   const legalSet = new Set(yourHand.filter((c) => pval(c.r) + peg.count <= 31).map(cardId));
   const yourTurn = peg.turn === 0 && legalSet.size > 0;
   const stuck = peg.turn === 0 && legalSet.size === 0 && yourHand.length > 0; // must say "go"
+  const cell = (i) => (
+    <SeatCell i={i} dealerIdx={dealerIdx} active={peg.turn === i}
+      played={peg.played[i]} backs={peg.hands[i].length} label={`${peg.hands[i].length} cards`} />
+  );
   return (
     <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 14 }}>
-      {/* starter + count, held well apart so the count never tucks under the card */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 34 }}>
-        <StarterStrip starter={starter} />
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "5px 16px", borderRadius: 10, background: "rgba(0,0,0,0.28)", border: `1px solid ${T.line}` }}>
+      {/* running count, on its own up top so nothing covers it */}
+      <div style={{ display: "flex", justifyContent: "center" }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 9, padding: "5px 18px", borderRadius: 10, background: "rgba(0,0,0,0.28)", border: `1px solid ${T.line}` }}>
           <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>count</span>
-          <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 30, lineHeight: 1.05, color: peg.count === 31 ? T.good : T.ivory }}>{peg.count}</span>
+          <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 26, lineHeight: 1, color: peg.count === 31 ? T.good : T.ivory }}>{peg.count}</span>
         </div>
       </div>
 
-      {/* opponents' laid cards — North centered above West & East */}
-      <OpponentRows dealerIdx={dealerIdx} render={(i) => (
-        <SeatCell key={i} i={i} dealerIdx={dealerIdx} active={peg.turn === i}
-          played={peg.played[i]} backs={peg.hands[i].length} label={`${peg.hands[i].length} left`} />
-      )} />
+      {/* the table: North on top, then West — STARTER — East across the middle */}
+      <div style={{ display: "flex", justifyContent: "center" }}>{cell(2)}</div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "0 6px" }}>
+        {cell(1)}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: "0 0 auto" }}>
+          <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 4 }}>starter</div>
+          <div style={{ width: 44 }}><Card card={starter} small /></div>
+        </div>
+        {cell(3)}
+      </div>
 
-      {/* the running pile */}
+      {/* the running pile — cards fan with the same ~75% overlap */}
       <div style={{ background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "10px 12px" }}>
         <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 6 }}>the pile</div>
-        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", minHeight: 64 }}>
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: 64 }}>
           {peg.pileSuited.length
-            ? peg.pileSuited.map((c, k) => <Card key={k} card={c} small />)
-            : <span style={{ fontFamily: mono, fontSize: 11, color: T.muted, alignSelf: "center" }}>cleared — new count from 0</span>}
+            ? <PlayedStack cards={peg.pileSuited} backs={0} />
+            : <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>cleared — new count from 0</span>}
         </div>
       </div>
 

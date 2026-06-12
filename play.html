@@ -633,7 +633,7 @@ function PlayedStack({ cards, backs }) {
     if (!cards || cards.length === 0) {
         return React.createElement("div", { style: { display: "flex", gap: 2, justifyContent: "center" } }, Array.from({ length: backs }).map((_, k) => React.createElement(CardBack, { key: k, small: true })));
     }
-    return (React.createElement("div", { style: { display: "flex", justifyContent: "center" } }, cards.map((c, i) => (React.createElement("div", { key: cardId(c), style: { position: "relative", zIndex: i, marginLeft: i === 0 ? 0 : -33 } },
+    return (React.createElement("div", { style: { display: "flex", justifyContent: "center" } }, cards.map((c, i) => (React.createElement("div", { key: cardId(c), style: { width: 44, position: "relative", zIndex: i, marginLeft: i === 0 ? 0 : -33 } },
         React.createElement(Card, { card: c, small: true }))))));
 }
 function SeatCell({ i, dealerIdx, active, played, backs, label }) {
@@ -661,18 +661,25 @@ function PlayScreen({ state, dispatch }) {
     const legalSet = new Set(yourHand.filter((c) => pval(c.r) + peg.count <= 31).map(cardId));
     const yourTurn = peg.turn === 0 && legalSet.size > 0;
     const stuck = peg.turn === 0 && legalSet.size === 0 && yourHand.length > 0;
+    const cell = (i) => (React.createElement(SeatCell, { i: i, dealerIdx: dealerIdx, active: peg.turn === i, played: peg.played[i], backs: peg.hands[i].length, label: `${peg.hands[i].length} cards` }));
     return (React.createElement("div", { style: { marginTop: 12, display: "flex", flexDirection: "column", gap: 14 } },
-        React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 34 } },
-            React.createElement(StarterStrip, { starter: starter }),
-            React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", padding: "5px 16px", borderRadius: 10, background: "rgba(0,0,0,0.28)", border: `1px solid ${T.line}` } },
+        React.createElement("div", { style: { display: "flex", justifyContent: "center" } },
+            React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 9, padding: "5px 18px", borderRadius: 10, background: "rgba(0,0,0,0.28)", border: `1px solid ${T.line}` } },
                 React.createElement("span", { style: { fontFamily: mono, fontSize: 10, color: T.muted } }, "count"),
-                React.createElement("span", { style: { fontFamily: serif, fontWeight: 700, fontSize: 30, lineHeight: 1.05, color: peg.count === 31 ? T.good : T.ivory } }, peg.count))),
-        React.createElement(OpponentRows, { dealerIdx: dealerIdx, render: (i) => (React.createElement(SeatCell, { key: i, i: i, dealerIdx: dealerIdx, active: peg.turn === i, played: peg.played[i], backs: peg.hands[i].length, label: `${peg.hands[i].length} left` })) }),
+                React.createElement("span", { style: { fontFamily: serif, fontWeight: 700, fontSize: 26, lineHeight: 1, color: peg.count === 31 ? T.good : T.ivory } }, peg.count))),
+        React.createElement("div", { style: { display: "flex", justifyContent: "center" } }, cell(2)),
+        React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "0 6px" } },
+            cell(1),
+            React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", flex: "0 0 auto" } },
+                React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 4 } }, "starter"),
+                React.createElement("div", { style: { width: 44 } },
+                    React.createElement(Card, { card: starter, small: true }))),
+            cell(3)),
         React.createElement("div", { style: { background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "10px 12px" } },
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 6 } }, "the pile"),
-            React.createElement("div", { style: { display: "flex", gap: 4, flexWrap: "wrap", minHeight: 64 } }, peg.pileSuited.length
-                ? peg.pileSuited.map((c, k) => React.createElement(Card, { key: k, card: c, small: true }))
-                : React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: T.muted, alignSelf: "center" } }, "cleared \u2014 new count from 0"))),
+            React.createElement("div", { style: { display: "flex", justifyContent: "center", alignItems: "center", minHeight: 64 } }, peg.pileSuited.length
+                ? React.createElement(PlayedStack, { cards: peg.pileSuited, backs: 0 })
+                : React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: T.muted } }, "cleared \u2014 new count from 0"))),
         React.createElement("div", null,
             React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: (yourTurn || stuck) ? T.selBlue : T.muted, marginBottom: 6 } }, peg.turn === 0
                 ? (yourTurn ? "Your turn — tap a card to play." : stuck ? "No legal card — tap Go to pass." : "Your cards are all played.")

@@ -9,6 +9,8 @@ accounts, no tracking:
   "cutthroat" and 2-handed heads-up, as dealer or defender.
 - **Play a Game** (`play.html`) — a full game of 4-player cutthroat cribbage vs 3 AI:
   cut for deal → discard → cut → interactive pegging → the show → race to 121.
+- **Heads-Up** (`headsup.html`) — classic two-player cribbage vs 1 AI: deal six,
+  throw two to the crib, then cut, peg, and count to 121.
 
 **Two ways to use it:**
 
@@ -37,6 +39,7 @@ node engine/pegging.js          # pegging unit tests + full-game sanity
 node engine/breakdown.js        # show-scoring breakdown + perfect-29 check
 node engine/verify_players.js   # 2-/3-/4-handed regression + sanity
 node engine/verify_play.js      # play.html reducer: go/31/last-card, his-heels, the show
+node engine/verify_headsup.js   # headsup.html reducer: deal-6/discard-2, heads-up pegging & show
 ```
 
 `CLAUDE.md` holds the full design notes — the EV model, the calibrated discard

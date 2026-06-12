@@ -12,6 +12,7 @@ android/captures/
 android/app/src/main/assets/index.html
 android/app/src/main/assets/trainer.html
 android/app/src/main/assets/play.html
+android/app/src/main/assets/headsup.html
 android/app/src/main/assets/vendor/
 
 # ── Signing material — NEVER commit ──────────────────────────────────────────

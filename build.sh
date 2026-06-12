@@ -78,3 +78,4 @@ echo "built index.html (landing, copied from src/landing.html)"
 # Both apps render their own Home button in their header, so neither uses the shell link.
 build_one "src/CribbageTrainer.jsx" "trainer.html" "Cribbage Discard Trainer" "CribbageTrainer" "no"
 build_one "src/CribbagePlay.jsx"    "play.html"    "Cribbage — Play"          "CribbagePlay"   "no"
+build_one "src/CribbageHeadsUp.jsx" "headsup.html" "Cribbage — Heads-Up"      "CribbageHeadsUp" "no"

@@ -14,9 +14,13 @@ You have **two finished, working tools** behind a small welcome page, all
 self-contained (no in-browser build, no install, no internet needed beyond a CDN
 for React):
 
-- **`index.html`** — the landing page. Two choices: the trainer and the game.
+- **`index.html`** — the landing page. Three choices: the trainer and two games.
 - **`trainer.html`** — the **Discard Trainer** (analyzes/ranks discards).
 - **`play.html`** — **Play a Game (vs 3 AI)**: a full game of 4-player cutthroat.
+- **`headsup.html`** — **Heads-Up (vs 1 AI)**: classic 2-player cribbage (deal 6,
+  discard 2, race to 121). `src/CribbageHeadsUp.jsx`; a 2-player adaptation of the
+  play app's reducer (P=2, show order [pone, dealer, CRIB], `cribSeed` two-card AI
+  discard). Verified by `engine/verify_headsup.js`.
 
 **To just use it: open `index.html` in any browser** (or jump straight to
 `trainer.html` / `play.html`).
@@ -229,6 +233,8 @@ node engine/calibrate_split.js  # one self-play calibration pass (mutates state.
 node engine/verify_players.js   # 2-/3-/4-handed: regression (players=4 == original) + crib/peg sanity
 node engine/verify_play.js      # play.html: evals the built game's reducer, drives whole hands,
                                 #   asserts go/31/last-card, his-heels +2, the 121 show short-circuit
+node engine/verify_headsup.js   # headsup.html: same harness for the 2-player game (deal-6/discard-2,
+                                #   heads-up pegging & show, his-heels, history sums to score)
 ```
 If you change `scoreInto`, re-run breakdown/pegging tests AND re-check the crib
 swing table above before trusting `analyze()`. If you touch `cribDetail`,
@@ -249,10 +255,11 @@ The editable sources are `src/CribbageTrainer.jsx`, `src/CribbagePlay.jsx`, and
 not in `.assetsignore`).
 
 **Rebuild after editing any source:** run `./build.sh` (needs a global `tsc`; one is
-present in this environment). It regenerates **all three** root pages from `src/`:
+present in this environment). It regenerates **all four** root pages from `src/`:
 - `index.html` ← `src/landing.html` (plain static HTML, copied verbatim).
-- `trainer.html` ← `src/CribbageTrainer.jsx`; `play.html` ← `src/CribbagePlay.jsx`,
-  each via a `build_one <src> <out> <title> <Component> <homeLink>` helper:
+- `trainer.html` ← `src/CribbageTrainer.jsx`; `play.html` ← `src/CribbagePlay.jsx`;
+  `headsup.html` ← `src/CribbageHeadsUp.jsx` — each via a
+  `build_one <src> <out> <title> <Component> <homeLink>` helper:
   transpile JSX → `React.createElement` (`tsc --jsx react --target es2020
   --removeComments`), swap the ESM import/export for CDN globals, wrap in the HTML
   shell. Both apps render their **own ⌂ Home button in their header** (the trainer's
@@ -303,7 +310,7 @@ Scaffolded for Obtainium / IzzyOnDroid. `android/` is a self-contained Gradle
 project: a single full-screen `WebView` (`MainActivity.java`, no third-party libs,
 **no INTERNET permission** — fully offline) loading `file:///android_asset/index.html`.
 The Gradle task `:app:syncWebAssets` copies the repo-root build outputs
-(`index.html`/`trainer.html`/`play.html`/`vendor/`) into the APK at build time, so the
+(`index.html`/`trainer.html`/`play.html`/`headsup.html`/`vendor/`) into the APK at build time, so the
 **committed root HTML is the source of truth** — run `./build.sh` and commit before
 tagging. `applicationId = dev.cribbage.cutthroat` (name-free; immutable once
 published). The CI workflow `.github/workflows/android-release.yml` builds + signs +

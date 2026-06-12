@@ -492,18 +492,47 @@ function buildNote(role, best, chosen) {
   return `Close, but ${phrase} edges it by ${delta.toFixed(2)} expected points.`;
 }
 
-// Settings menu. The trainer's table size and role are chosen inline on the main
-// screen, so this panel mainly hosts the standard About entry shared with the games.
-function SettingsPanel({ onClose, onAbout }) {
+// Settings menu. Hosts the trainer's configuration — table size and the role you
+// practice — plus the standard About entry shared with the games. (Board position
+// stays inline on the main screen, alongside the live analysis it re-ranks.)
+function SettingsPanel({ players, onPlayers, roleMode, onRoleMode, onClose, onAbout }) {
+  const seg = (on) => ({
+    flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: 11.5,
+    background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
+    border: `1px solid ${on ? T.pegIvory : T.line}`, fontWeight: on ? 700 : 400,
+  });
   return (
     <div style={{ background: "rgba(0,0,0,0.32)", border: `1px solid ${T.line}`, borderRadius: 12, padding: "14px 16px", marginBottom: 16 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
         <span style={{ fontWeight: 700, fontSize: 16 }}>Settings</span>
         <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>Done</button>
       </div>
-      <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, lineHeight: 1.5, marginBottom: 12 }}>
-        Table size and whether you’re the dealer are set on the main screen, below.
+
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 }}>players at the table</div>
+        <div style={{ display: "flex", gap: 6 }}>
+          {[[2, "2-handed"], [3, "3-handed"], [4, "4-handed"]].map(([n, label]) => (
+            <button key={n} onClick={() => onPlayers(n)} style={seg(players === n)}>{label}</button>
+          ))}
+        </div>
+        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 6, lineHeight: 1.5 }}>
+          {players === 2
+            ? "2-handed (heads-up): 6 cards each, discard two. The 4-card crib is your two + the opponent's two."
+            : players === 3
+            ? "3-handed: everyone discards one, and the dealer adds one card off the deck to fill the 4-card crib."
+            : "4-handed: the 4-card crib is one discard from each player."}
+        </div>
       </div>
+
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 }}>practice as</div>
+        <div style={{ display: "flex", gap: 6 }}>
+          {[["random", `Random (1-in-${players} deal)`], ["deal", "Always dealer"], ["defend", "Always defend"]].map(([k, label]) => (
+            <button key={k} onClick={() => onRoleMode(k)} style={seg(roleMode === k)}>{label}</button>
+          ))}
+        </div>
+      </div>
+
       <AboutRow onAbout={onAbout} />
     </div>
   );
@@ -671,7 +700,7 @@ export default function CribbageTrainer() {
       </header>
 
       <main style={{ maxWidth: 560, margin: "0 auto", padding: "18px 16px 0" }}>
-        {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} onAbout={() => { setShowSettings(false); setAboutOpen(true); }} />}
+        {showSettings && <SettingsPanel players={players} onPlayers={changePlayers} roleMode={roleMode} onRoleMode={setRoleMode} onClose={() => setShowSettings(false)} onAbout={() => { setShowSettings(false); setAboutOpen(true); }} />}
         {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
         <div style={{
           display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", borderRadius: 10,
@@ -761,41 +790,6 @@ export default function CribbageTrainer() {
             background: `linear-gradient(180deg, ${T.woodL}, ${T.woodM})`, color: "#2A1B0E",
             fontSize: 16, fontWeight: 700, letterSpacing: 0.3, boxShadow: "0 4px 12px rgba(0,0,0,0.35)",
           }}>{phase === "choose" ? "Deal a different hand" : "Deal next hand"}</button>
-
-          <div>
-            <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 }}>players at the table</div>
-            <div style={{ display: "flex", gap: 6 }}>
-              {[[2, "2-handed"], [3, "3-handed"], [4, "4-handed"]].map(([n, label]) => {
-                const on = players === n;
-                return (<button key={n} onClick={() => changePlayers(n)} style={{
-                  flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: 11.5,
-                  background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
-                  border: `1px solid ${on ? T.pegIvory : T.line}`, fontWeight: on ? 700 : 400,
-                }}>{label}</button>);
-              })}
-            </div>
-            <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 6, lineHeight: 1.5 }}>
-              {players === 2
-                ? "2-handed (heads-up): 6 cards each, discard two. The 4-card crib is your two + the opponent's two."
-                : players === 3
-                ? "3-handed: everyone discards one, and the dealer adds one card off the deck to fill the 4-card crib."
-                : "4-handed: the 4-card crib is one discard from each player."}
-            </div>
-          </div>
-
-          <div>
-            <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 }}>practice as</div>
-            <div style={{ display: "flex", gap: 6 }}>
-              {[["random", `Random (1-in-${players} deal)`], ["deal", "Always dealer"], ["defend", "Always defend"]].map(([k, label]) => {
-                const on = roleMode === k;
-                return (<button key={k} onClick={() => setRoleMode(k)} style={{
-                  flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: 11.5,
-                  background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
-                  border: `1px solid ${on ? T.pegIvory : T.line}`, fontWeight: on ? 700 : 400,
-                }}>{label}</button>);
-              })}
-            </div>
-          </div>
 
           <div>
             <button onClick={() => setShowBoard((v) => !v)} style={{

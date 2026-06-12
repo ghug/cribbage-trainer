@@ -565,7 +565,7 @@ function AboutModal({ onClose }) {
           <span style={{ fontWeight: 700, fontSize: 17 }}>About</span>
         </div>
         <div style={{ fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.6, marginBottom: 12 }}>
-          A free, open-source cribbage trainer and game — public domain, no accounts, no tracking.
+          An open-source cribbage trainer and game.
         </div>
         <div style={{ fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.6, marginBottom: 16 }}>
           Found a bug, or have feedback? The source lives on GitHub — feel free to go there to be part of the conversation.

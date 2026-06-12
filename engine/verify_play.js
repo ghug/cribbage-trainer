@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /* Verifies the consolidated play page (play.html), which adapts to the table size
- * in settings.players. Currently supports P = 2 (heads-up), 3, 4 and 5 (cutthroat).
+ * in settings.players. Supports P = 2 (heads-up) through 6 (cutthroat).
  *
  * We eval the compiled play.html <script> in a vm sandbox and drive whole hands for
  * each supported P, asserting the per-P rules:
@@ -10,6 +10,8 @@
  *   P=4: deal 5, throw 1; crib = 4 throws; starter deck[20]; show 5 steps.
  *   P=5: dealer dealt 4/throws none, others deal 5/throw 1; crib = 4 throws; starter
  *        deck[24]; show 6 steps; the human-as-dealer skips the discard.
+ *   P=6: dealer + seat to their right dealt 4/throw none; crib = 4 throws; starter
+ *        deck[28]; show 7 steps; either non-thrower (as human) skips the discard.
  * Plus the shared invariants: go/31/last-card never double-count, his heels = +2,
  * suits survive pegging, scores only go up, history reconciles, the 121 stop.
  */
@@ -51,8 +53,9 @@ const FACTS = {
   3: { dealt: 5, throws: 1, idxs: [0], starterIdx: 16, deckCard: true, deckIdx: 15, showLen: 4 },
   4: { dealt: 5, throws: 1, idxs: [0], starterIdx: 20, deckCard: false, showLen: 5 },
   5: { dealt: 5, throws: 1, idxs: [0], starterIdx: 24, deckCard: false, showLen: 6 },
+  6: { dealt: 5, throws: 1, idxs: [0], starterIdx: 28, deckCard: false, showLen: 7 },
 };
-const SUPPORTED = [2, 3, 4, 5];
+const SUPPORTED = [2, 3, 4, 5, 6];
 // Seats dealt 4 that throw nothing: the dealer in 5-handed, the dealer + seat to
 // their right in 6-handed. (None at 2/3/4.)
 function noThrowSeat(P, d, i) {

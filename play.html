@@ -326,7 +326,7 @@ function CatBars({ cats, scale, color }) {
         React.createElement("span", { style: { fontFamily: mono, fontSize: 11.5, textAlign: "right" } }, v))))));
 }
 const TARGET = 121;
-const PLAYER_OPTIONS = [2, 3, 4, 5];
+const PLAYER_OPTIONS = [2, 3, 4, 5, 6];
 const clampPlayers = (p) => (PLAYER_OPTIONS.includes(p) ? p : 2);
 function plan(P, dealerIdx) {
     const right = (dealerIdx + P - 1) % P;
@@ -1252,7 +1252,7 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout }) {
         React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 } },
             React.createElement("span", { style: { fontWeight: 700, fontSize: 16 } }, "Settings"),
             React.createElement("button", { onClick: onClose, style: { padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 } }, "Done")),
-        React.createElement(Row, { title: "Players at the table", k: "players", desc: "2 = heads-up (deal 6, throw 2). 3 = three-handed (deal 5, throw 1; the dealer flips one off the deck to fill the crib). 4 = four-handed (deal 5, throw 1). 5 = five-handed (the dealer is dealt 4 and throws none). Changing this starts a new game.", options: PLAYER_OPTIONS.map((p) => [String(p), p]) }),
+        React.createElement(Row, { title: "Players at the table", k: "players", desc: "2 = heads-up (deal 6, throw 2). 3 = three-handed (deal 5, throw 1; the dealer flips one off the deck to fill the crib). 4 = four-handed (deal 5, throw 1). 5\u20136 = the dealer (and, at 6, the player to their right) are dealt 4 and throw none. Changing this starts a new game.", options: PLAYER_OPTIONS.map((p) => [String(p), p]) }),
         React.createElement(Row, { title: "Counting", k: "counting", desc: "Auto tallies every hand for you. Muggins: you claim your own hand (and crib when you deal) \u2014 miss points and the next opponent takes them.", options: [["Auto-count", "auto"], ["Muggins", "muggins"]] }),
         React.createElement(Row, { title: "Go on no playable card", k: "autoGo", desc: 'When you can’t play, Manual waits for you to tap “Go”; Auto passes for you.', options: [["Manual", false], ["Auto", true]] }),
         React.createElement(Row, { title: "Warn on a weak play", k: "warn", desc: "Pause and explain when your throw to the crib \u2014 or a pegging card that leaves a point on the table \u2014 isn\u2019t the best, with a chance to take it back.", options: [["On", true], ["Off", false]] }),

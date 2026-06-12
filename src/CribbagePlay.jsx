@@ -296,7 +296,7 @@ function CatBars({ cats, scale, color }) {
 }
 /* ============================ GAME STATE ============================ */
 const TARGET = 121;
-const PLAYER_OPTIONS = [2, 3, 4, 5]; // table sizes this page supports (heads-up / 3- / 4- / 5-handed)
+const PLAYER_OPTIONS = [2, 3, 4, 5, 6]; // table sizes this page supports (2 heads-up … 6 cutthroat)
 const clampPlayers = (p) => (PLAYER_OPTIONS.includes(p) ? p : 2);
 
 // The deal plan for a table of P with this dealer: per-seat dealt count and throw
@@ -1280,7 +1280,7 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout }) {
         <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>Done</button>
       </div>
       <Row title="Players at the table" k="players"
-        desc="2 = heads-up (deal 6, throw 2). 3 = three-handed (deal 5, throw 1; the dealer flips one off the deck to fill the crib). 4 = four-handed (deal 5, throw 1). 5 = five-handed (the dealer is dealt 4 and throws none). Changing this starts a new game."
+        desc="2 = heads-up (deal 6, throw 2). 3 = three-handed (deal 5, throw 1; the dealer flips one off the deck to fill the crib). 4 = four-handed (deal 5, throw 1). 5–6 = the dealer (and, at 6, the player to their right) are dealt 4 and throw none. Changing this starts a new game."
         options={PLAYER_OPTIONS.map((p) => [String(p), p])} />
       <Row title="Counting" k="counting"
         desc="Auto tallies every hand for you. Muggins: you claim your own hand (and crib when you deal) — miss points and the next opponent takes them."

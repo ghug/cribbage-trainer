@@ -371,7 +371,7 @@ function playCard(state, seat, card) {
   const pileSuited = peg.pileSuited.concat(card);
   const played = peg.played.map((p, i) => (i === seat ? p.concat(card) : p));
   const pts = pegScore(pile, count);
-  let seats = addScore(state.seats, seat, pts, pegReason(pile, count));
+  let seats = addScore(state.seats, seat, pts, `pegging · ${pegReason(pile, count)}`);
   let message = pts > 0 ? `${seatName(seat)}: ${scoreCallout(pile, count, pts)}.` : `${sv(seat, "play", "plays")} ${tag(card)} (count ${count}).`;
   const np = { ...peg, hands, count, pile, pileSuited, played, lastPlayer: seat, passes: 0 };
   if (count === 31) { np.count = 0; np.pile = []; np.pileSuited = []; np.lastPlayer = -1; }
@@ -380,7 +380,7 @@ function playCard(state, seat, card) {
   const remaining = hands.reduce((a, h) => a + h.length, 0);
   if (remaining === 0) {
     if (np.lastPlayer >= 0) {
-      seats = addScore(seats, seat, 1, "last card");
+      seats = addScore(seats, seat, 1, "pegging · last card");
       message += ` ${seatName(seat)} +1 for last card.`;
       if (seats[seat].score >= TARGET) return { ...state, seats, peg: np, phase: "over", winner: seat, message };
     }
@@ -461,7 +461,7 @@ function reduce(state, action) {
         let seats = state.seats, message = `${sv(seat, "say", "says")} "go".`;
         const np = { ...peg, passes: 0, turn: (seat + 1) % 2 };
         if (peg.lastPlayer >= 0 && peg.count !== 31) {
-          seats = addScore(seats, peg.lastPlayer, 1, "go");
+          seats = addScore(seats, peg.lastPlayer, 1, "pegging · go");
           message = `${seatName(peg.lastPlayer)} +1 for the go.`;
           if (seats[peg.lastPlayer].score >= TARGET) return { ...state, seats, peg: np, phase: "over", winner: peg.lastPlayer, message };
         }

@@ -785,7 +785,7 @@ export default function CribbagePlay() {
             <Panel tone={dealer ? "good" : null}>
               <div style={{ fontWeight: 700, fontSize: 15 }}>Cut for deal</div>
               <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>
-                Lowest card deals — {dealer ? "you deal" : `${seatName(dealerIdx)} deals`} this game.
+                Lowest card deals — {dealer ? "you deal first" : `${seatName(dealerIdx)} deals first`} this game.
               </div>
             </Panel>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 6 }}>

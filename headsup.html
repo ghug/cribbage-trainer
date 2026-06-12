@@ -1016,7 +1016,7 @@ function CribbageHeadsUp() {
                     React.createElement("div", { style: { fontWeight: 700, fontSize: 15 } }, "Cut for deal"),
                     React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 } },
                         "Lowest card deals \u2014 ",
-                        dealer ? "you deal" : `${seatName(dealerIdx)} deals`,
+                        dealer ? "you deal first" : `${seatName(dealerIdx)} deals first`,
                         " this game.")),
                 React.createElement("div", { style: { display: "flex", justifyContent: "space-around", gap: 10 } }, [0, 1].map((i) => {
                     const isD = i === dealerIdx;

@@ -308,6 +308,29 @@ function scoreCallout(pile, count, pts) {
   return `${label} for ${pts}`;
 }
 
+// Score the human's 5 possible throws the same way the AI does: kept-hand EV over
+// every cut, plus the thrown card's average crib value (signed for whose crib it is).
+function evalDiscards(dealt5, dealerIdx) {
+  const sign = dealerIdx === 0 ? 1 : -1; // human is seat 0; +1 if it's their own crib
+  const opts = dealt5.map((thrown, idx) => {
+    const four = dealt5.filter((_, j) => j !== idx);
+    const hd = handDetail(four, dealt5);
+    const cribSwing = CRIB_VALUE[thrown.r - 1];
+    return { idx, thrown, four, keptEV: hd.ev, cribSwing, value: hd.ev + sign * cribSwing };
+  });
+  const best = opts.reduce((a, b) => (b.value > a.value ? b : a));
+  return { opts, best, sign };
+}
+
+// Commit a chosen throw: assemble the 4-card crib (one throw per seat) and cut next.
+function commitDiscard(state, idx) {
+  const dealt = state.seats[0].dealt;
+  const discard = dealt[idx];
+  const kept = sortHand(dealt.filter((_, j) => j !== idx));
+  const seats = state.seats.map((s, i) => (i === 0 ? { ...s, discard, kept } : s));
+  return { ...state, seats, crib: seats.map((s) => s.discard), pendingDiscard: null, phase: "cut" };
+}
+
 function dealNewHand(state) {
   const deck = freshDeck();
   const seats = [0, 1, 2, 3].map((i) => ({
@@ -320,7 +343,7 @@ function dealNewHand(state) {
   }
   return {
     ...state, seats, deck, starter: null, crib: [], hisHeels: false,
-    peg: null, show: null, winner: null, phase: "discard", message: "",
+    peg: null, show: null, winner: null, phase: "discard", message: "", pendingDiscard: null,
   };
 }
 
@@ -332,14 +355,24 @@ function reduce(state, action) {
     case "TOGGLE_COUNTING":
       return { ...state, settings: { ...state.settings, counting: state.settings.counting === "auto" ? "muggins" : "auto" } };
 
-    case "DISCARD": {
-      const dealt = state.seats[0].dealt;
-      const discard = dealt[action.idx];
-      const kept = sortHand(dealt.filter((_, j) => j !== action.idx));
-      const seats = state.seats.map((s, i) => (i === 0 ? { ...s, discard, kept } : s));
-      const crib = seats.map((s) => s.discard); // one throw from each of the four seats
-      return { ...state, seats, crib, phase: "cut" };
+    case "DISCARD": // commit straight away (used programmatically / by tests)
+      return commitDiscard(state, action.idx);
+
+    case "SELECT_DISCARD": {
+      // The human tapped a throw. If it's optimal (or a near-tie), throw it; if it
+      // gives up real value, pause and explain so they can take it back.
+      const { opts, best } = evalDiscards(state.seats[0].dealt, state.dealerIdx);
+      const chosen = opts[action.idx];
+      const delta = best.value - chosen.value;
+      if (delta <= 0.1) return commitDiscard(state, action.idx);
+      return { ...state, pendingDiscard: { idx: action.idx, chosen, best, delta } };
     }
+
+    case "CONFIRM_DISCARD":
+      return commitDiscard(state, state.pendingDiscard.idx);
+
+    case "CANCEL_DISCARD":
+      return { ...state, pendingDiscard: null };
 
     case "CUT": {
       const starter = state.deck[20]; // the next undealt card after 4 hands of 5
@@ -448,7 +481,7 @@ function initGame() {
   return {
     seats: [0, 1, 2, 3].map((i) => ({ score: 0, isAI: i !== 0, dealt: [], kept: null, discard: null })),
     dealerIdx: (Math.random() * 4) | 0,
-    deck: [], starter: null, crib: [], hisHeels: false,
+    deck: [], starter: null, crib: [], hisHeels: false, pendingDiscard: null,
     peg: null, show: null, winner: null, phase: "deal", message: "", settings: { counting: "auto" },
   };
 }
@@ -600,10 +633,16 @@ export default function CribbagePlay() {
             </Panel>
             <OpponentBacks dealerIdx={dealerIdx} n={5} label="5 cards" />
             <div className="dealwrap" style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "nowrap" }}>
-              {seats[0].dealt.map((card, i) => (
-                <Card key={cardId(card)} card={card} clickable onClick={() => dispatch({ type: "DISCARD", idx: i })} />
-              ))}
+              {seats[0].dealt.map((card, i) => {
+                const pd = state.pendingDiscard;
+                return (
+                  <Card key={cardId(card)} card={card}
+                    clickable={!pd} selected={pd ? pd.idx === i : false} dim={pd ? pd.idx !== i : false}
+                    onClick={() => dispatch({ type: "SELECT_DISCARD", idx: i })} />
+                );
+              })}
             </div>
+            {state.pendingDiscard && <DiscardWarning pd={state.pendingDiscard} dealer={dealer} dispatch={dispatch} />}
           </div>
         )}
 
@@ -654,17 +693,21 @@ function StarterStrip({ starter }) {
 
 // A seat's played cards, fanned so each later card sits ~75% on top of the prior
 // one (only the newest is fully visible). Falls back to face-down backs pre-play.
+// Each later card sits partly on top of the previous one (newest on top). A small
+// Card's face is absolutely positioned, so each wrapper needs an explicit width or
+// it would collapse to 0px. Face-down backs fan the same way.
+const STACK_VISIBLE = 0.5; // fraction of each overlapped card left showing
+const overlapMargin = (w) => -Math.round(w * (1 - STACK_VISIBLE));
 function PlayedStack({ cards, backs }) {
-  if (!cards || cards.length === 0) {
-    return <div style={{ display: "flex", gap: 2, justifyContent: "center" }}>{Array.from({ length: backs }).map((_, k) => <CardBack key={k} small />)}</div>;
-  }
+  const items = (cards && cards.length)
+    ? cards.map((c) => ({ key: cardId(c), w: 44, el: <Card card={c} small /> }))
+    : Array.from({ length: backs || 0 }).map((_, k) => ({ key: "b" + k, w: 30, el: <CardBack small /> }));
+  if (!items.length) return null;
   return (
     <div style={{ display: "flex", justifyContent: "center" }}>
-      {cards.map((c, i) => (
-        // explicit width: a small Card's face is absolutely positioned, so without
-        // a definite width here the wrapped card would collapse to 0px.
-        <div key={cardId(c)} style={{ width: 44, position: "relative", zIndex: i, marginLeft: i === 0 ? 0 : -33 }}>
-          <Card card={c} small />
+      {items.map((it, i) => (
+        <div key={it.key} style={{ width: it.w, position: "relative", zIndex: i, marginLeft: i === 0 ? 0 : overlapMargin(it.w) }}>
+          {it.el}
         </div>
       ))}
     </div>
@@ -714,14 +757,6 @@ function PlayScreen({ state, dispatch }) {
   );
   return (
     <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 14 }}>
-      {/* running count, on its own up top so nothing covers it */}
-      <div style={{ display: "flex", justifyContent: "center" }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 9, padding: "5px 18px", borderRadius: 10, background: "rgba(0,0,0,0.28)", border: `1px solid ${T.line}` }}>
-          <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>count</span>
-          <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 26, lineHeight: 1, color: peg.count === 31 ? T.good : T.ivory }}>{peg.count}</span>
-        </div>
-      </div>
-
       {/* the table: North on top, then West — STARTER — East across the middle */}
       <div style={{ display: "flex", justifyContent: "center" }}>{cell(2)}</div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "0 6px" }}>
@@ -733,13 +768,19 @@ function PlayScreen({ state, dispatch }) {
         {cell(3)}
       </div>
 
-      {/* the running pile — cards fan with the same ~75% overlap */}
+      {/* the running pile — cards fan with overlap; the running count sits beside them */}
       <div style={{ background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "10px 12px" }}>
         <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 6 }}>the pile</div>
-        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: 64 }}>
-          {peg.pileSuited.length
-            ? <PlayedStack cards={peg.pileSuited} backs={0} />
-            : <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>cleared — new count from 0</span>}
+        <div style={{ display: "flex", alignItems: "center", gap: 14, minHeight: 64 }}>
+          <div style={{ flex: "1 1 auto", display: "flex", justifyContent: "center" }}>
+            {peg.pileSuited.length
+              ? <PlayedStack cards={peg.pileSuited} backs={0} />
+              : <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>cleared — new count from 0</span>}
+          </div>
+          <div style={{ flex: "0 0 auto", display: "flex", flexDirection: "column", alignItems: "center", padding: "4px 14px", borderRadius: 9, background: "rgba(0,0,0,0.3)", border: `1px solid ${T.line}` }}>
+            <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>count</span>
+            <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 28, lineHeight: 1, color: peg.count === 31 ? T.good : T.ivory }}>{peg.count}</span>
+          </div>
         </div>
       </div>
 
@@ -836,6 +877,41 @@ function ShowScreen({ state, dispatch }) {
         </div>
       )}
     </div>
+  );
+}
+
+// Shown when the human throws a card that isn't the best available: spells out the
+// hand/crib numbers for their throw vs the best, with a chance to take it back.
+function DiscardWarning({ pd, dealer, dispatch }) {
+  const { chosen, best, delta } = pd;
+  const side = dealer ? "for you" : "to the dealer";
+  const Line = ({ label, o, strong }) => (
+    <div style={{ fontFamily: mono, fontSize: 11.5, lineHeight: 1.6, color: strong ? T.cream : T.muted }}>
+      <b style={{ color: strong ? T.good : T.ivory }}>{label}</b> throw {tag(o.thrown)} · keep {o.four.map(tag).join(" ")} · hand {o.keptEV.toFixed(2)} · crib {o.cribSwing.toFixed(2)} {side} → net <b>{o.value.toFixed(2)}</b>
+    </div>
+  );
+  return (
+    <Panel tone="red">
+      <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>Not the best throw — off by {delta.toFixed(2)} pts</div>
+      <div style={{ display: "grid", gap: 6, marginBottom: 10 }}>
+        <Line label="Best:&nbsp;" o={best} strong />
+        <Line label="Yours:" o={chosen} />
+      </div>
+      <div style={{ fontSize: 12.5, lineHeight: 1.5, color: T.cream, marginBottom: 12 }}>
+        “hand” = your kept four averaged over every cut; “crib” = the thrown card's average value in the crib
+        ({dealer ? "added to your score" : "given to the dealer, so subtracted"}). Net is the two combined.
+      </div>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button onClick={() => dispatch({ type: "CONFIRM_DISCARD" })} style={{
+          flex: 1, padding: "11px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer",
+          background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+        }}>Throw {tag(chosen.thrown)} anyway</button>
+        <button onClick={() => dispatch({ type: "CANCEL_DISCARD" })} style={{
+          flex: 1, padding: "11px", borderRadius: 9, border: "none", cursor: "pointer",
+          background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+        }}>Pick again</button>
+      </div>
+    </Panel>
   );
 }
 

@@ -205,5 +205,30 @@ function playHand(state, humanIdxPicker) {
   check(fab.seats[recip].score === recipBefore + (actual - 2), `missed ${actual - 2} mugginsed to next opponent (got +${fab.seats[recip].score - recipBefore})`);
 }
 
+/* ---- G. suboptimal-discard intercept: SELECT_DISCARD pauses on a bad throw and
+        commits on the best; CONFIRM throws it, CANCEL takes it back ---- */
+{
+  const { evalDiscards } = S;
+  let base = reduce(initGame(), { type: "DEAL" });
+  const ev = evalDiscards(base.seats[0].dealt, base.dealerIdx);
+  const worst = ev.opts.reduce((a, b) => (b.value < a.value ? b : a));
+  const bestIdx = ev.best.idx;
+  check(ev.opts.length === 5, "evalDiscards rates all 5 throws");
+
+  // selecting the best throw commits straight to the cut, no pause
+  const s1 = reduce(base, { type: "SELECT_DISCARD", idx: bestIdx });
+  check(s1.phase === "cut" && !s1.pendingDiscard, "best throw commits with no warning");
+
+  if (ev.best.value - worst.value > 0.1) {
+    const s2 = reduce(base, { type: "SELECT_DISCARD", idx: worst.idx });
+    check(s2.phase === "discard" && s2.pendingDiscard && s2.pendingDiscard.idx === worst.idx, "bad throw pauses with a warning");
+    check(s2.pendingDiscard.delta > 0.1, "warning carries the points given up");
+    const cancelled = reduce(s2, { type: "CANCEL_DISCARD" });
+    check(cancelled.phase === "discard" && !cancelled.pendingDiscard, "CANCEL_DISCARD takes the choice back");
+    const confirmed = reduce(s2, { type: "CONFIRM_DISCARD" });
+    check(confirmed.phase === "cut" && confirmed.seats[0].discard.r === worst.thrown.r, "CONFIRM_DISCARD throws the chosen card");
+  }
+}
+
 console.log(`\nplay.html engine checks: ${ok} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

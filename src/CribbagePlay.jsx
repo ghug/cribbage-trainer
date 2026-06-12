@@ -312,6 +312,14 @@ function pegReason(pile, count) {
 }
 const scoreCallout = (pile, count, pts) => `${pegReason(pile, count)} for ${pts}`;
 
+// Score-history label for a counted hand/crib: append the category breakdown
+// (e.g. "hand · 15s 4, pairs 2, runs 3") from the show's per-category points.
+const CAT_SHORT = ["15s", "pairs", "runs", "flush", "nobs"];
+const showLabel = (kind, acc) => {
+  const parts = acc.map((v, i) => (v > 0 ? `${CAT_SHORT[i]} ${v}` : null)).filter(Boolean);
+  return parts.length ? `${kind} · ${parts.join(", ")}` : kind;
+};
+
 // Score the human's 5 possible throws the same way the AI does: kept-hand EV over
 // every cut, plus the thrown card's average crib value (signed for whose crib it is).
 function evalDiscards(dealt5, dealerIdx) {
@@ -492,7 +500,7 @@ function reduce(state, action) {
           message = `You count ${awarded}${claim > info.total ? " — over-claim corrected down" : ""}.`;
         }
       } else {
-        seats = addScore(seats, info.owner, info.total, info.isCrib ? "crib" : "hand");
+        seats = addScore(seats, info.owner, info.total, showLabel(info.isCrib ? "crib" : "hand", info.acc));
         message = `${entLabel(info)} scores ${info.total}.`;
         if (seats[info.owner].score >= TARGET) winner = info.owner;
       }

@@ -346,6 +346,11 @@ function pegReason(pile, count) {
     return parts.length ? parts.join(" + ") : "points";
 }
 const scoreCallout = (pile, count, pts) => `${pegReason(pile, count)} for ${pts}`;
+const CAT_SHORT = ["15s", "pairs", "runs", "flush", "nobs"];
+const showLabel = (kind, acc) => {
+    const parts = acc.map((v, i) => (v > 0 ? `${CAT_SHORT[i]} ${v}` : null)).filter(Boolean);
+    return parts.length ? `${kind} · ${parts.join(", ")}` : kind;
+};
 function evalDiscards(dealt5, dealerIdx) {
     const sign = dealerIdx === 0 ? 1 : -1;
     const opts = dealt5.map((thrown, idx) => {
@@ -525,7 +530,7 @@ function reduce(state, action) {
                 }
             }
             else {
-                seats = addScore(seats, info.owner, info.total, info.isCrib ? "crib" : "hand");
+                seats = addScore(seats, info.owner, info.total, showLabel(info.isCrib ? "crib" : "hand", info.acc));
                 message = `${entLabel(info)} scores ${info.total}.`;
                 if (seats[info.owner].score >= TARGET)
                     winner = info.owner;

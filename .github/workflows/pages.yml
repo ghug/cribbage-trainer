@@ -1,0 +1,54 @@
+name: Deploy to GitHub Pages
+
+# Publishes the static web app to GitHub Pages. Unlike "Deploy from a branch"
+# (which serves the whole repo root, source/Gradle dirs and all), this uploads
+# only the built site: the four root HTML pages and the vendored React. The
+# committed root HTML is the source of truth (same as the Android asset sync),
+# so there is no build step here.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "index.html"
+      - "trainer.html"
+      - "play.html"
+      - "headsup.html"
+      - "vendor/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+# Allow one concurrent deploy; let an in-progress run finish so a half-published
+# site is never left live.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble site
+        run: |
+          mkdir -p _site/vendor
+          cp index.html trainer.html play.html headsup.html _site/
+          cp vendor/react.production.min.js vendor/react-dom.production.min.js _site/vendor/
+          touch _site/.nojekyll   # skip Jekyll; serve files verbatim
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

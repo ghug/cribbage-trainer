@@ -11,6 +11,7 @@ wrangler.toml
 build.sh
 CLAUDE.md
 README.md
+LICENSE
 src
 engine
 docs

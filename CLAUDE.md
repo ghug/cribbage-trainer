@@ -3,6 +3,11 @@
 > Read this first. It is the full context for the project. It was handed off from a
 > claude.ai chat session; treat it as the source of truth and update it as you work.
 
+**License:** GPL-3.0-or-later (see `LICENSE`; copyright "Gabriel Hug" — adjust the
+holder if needed). Chosen for compatibility with a possible future F-Droid release.
+Bundled React/React-DOM is MIT (GPL-compatible). Keep new code and any added
+dependencies GPL-compatible so F-Droid stays an option.
+
 ## START HERE (plain version)
 
 You have **two finished, working tools** behind a small welcome page, all

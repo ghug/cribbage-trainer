@@ -38,3 +38,16 @@ node engine/breakdown.js     # show-scoring breakdown + perfect-29 check
 
 See `CLAUDE.md` for the EV model, the calibrated discard distributions, the
 per-rank "crib swing" reference numbers, known limitations, and next steps.
+
+## License
+
+Copyright (C) 2026 Gabriel Hug
+
+This project is free software, licensed under the **GNU General Public License,
+version 3 or (at your option) any later version** (`SPDX-License-Identifier:
+GPL-3.0-or-later`). See the [`LICENSE`](LICENSE) file for the full text. It comes
+with NO WARRANTY, to the extent permitted by law.
+
+The only bundled third-party code is React / React-DOM, used under the MIT license
+(GPL-compatible). Chosen for compatibility with FOSS distribution channels
+(F-Droid, IzzyOnDroid).

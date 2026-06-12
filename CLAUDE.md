@@ -306,10 +306,10 @@ The Gradle task `:app:syncWebAssets` copies the repo-root build outputs
 (`index.html`/`trainer.html`/`play.html`/`vendor/`) into the APK at build time, so the
 **committed root HTML is the source of truth** — run `./build.sh` and commit before
 tagging. `applicationId = dev.cribbage.cutthroat` (name-free; immutable once
-published). The CI workflow (template at `docs/ci-android-release.yml` — move it to
-`.github/workflows/android-release.yml` once a `workflow`-scoped token is available;
-the ghug Contents PAT can't push under `.github/workflows/`) builds + signs + attaches
-the APK to a GitHub Release on a `v*` tag (needs `KEYSTORE_*` repo secrets). Full how-to
+published). The CI workflow `.github/workflows/android-release.yml` builds + signs +
+attaches the APK to a GitHub Release on a `v*` tag (needs `KEYSTORE_*` repo secrets;
+pushing workflow files needs a `workflow`-scoped token, not the Contents-only PAT).
+Full how-to
 (keystore, secrets, Obtainium add-by-URL, IzzyOnDroid RFP) in **`docs/ANDROID.md`**.
 Known caveat: the UI's CSS container queries need WebView ≥105 (old/de-Googled
 WebViews may mis-size cards). The wrapper couldn't be fully built in-sandbox (no

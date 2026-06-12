@@ -16,14 +16,9 @@ android/                         self-contained Gradle/Android project
       res/                        app name, theme, adaptive launcher icon (club on green)
       assets/                     (git-ignored) the web app, copied in at build time
   gradlew, gradle/wrapper/        Gradle 8.7 wrapper (AGP 8.5.2)
-docs/ci-android-release.yml      CI workflow TEMPLATE (see "Automated releases" below)
+.github/workflows/android-release.yml   tag v* -> build, sign, attach APK to the Release
 vendor/react*.production.min.js  React/React-DOM bundled locally (no CDN) so the app is offline
 ```
-
-> **Note:** the GitHub Actions workflow ships as `docs/ci-android-release.yml` rather
-> than under `.github/workflows/`, because the token used to push this repo lacks the
-> `workflow` scope. To enable CI, copy it to `.github/workflows/android-release.yml`
-> (via the GitHub web UI "Add file", or a push with a `workflow`-scoped token).
 
 - **applicationId:** `dev.cribbage.cutthroat` (name-free). It is **permanent once
   published** — change it in `android/app/build.gradle` *before* your first release
@@ -75,11 +70,9 @@ $BT/apksigner verify --print-certs cribbage.apk
 
 ## Automated releases (CI)
 
-Install the workflow first: copy `docs/ci-android-release.yml` to
-`.github/workflows/android-release.yml` (web UI, or a `workflow`-scoped push). It then
-builds + signs + attaches the APK to a GitHub Release on every `v*` tag. Add these
-**repository secrets** once (Settings → Secrets and variables → Actions) on the repo
-the workflow runs in:
+`.github/workflows/android-release.yml` builds + signs + attaches the APK to a GitHub
+Release on every `v*` tag. Add these **repository secrets** once (Settings → Secrets
+and variables → Actions) on the repo the workflow runs in:
 
 | Secret | Value |
 |---|---|

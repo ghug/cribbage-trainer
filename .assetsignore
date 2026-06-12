@@ -1,0 +1,14 @@
+# Only the built index.html should be served. Keep source, docs, tooling, and
+# any install artifacts out of the deployed asset bundle.
+.git
+.gitignore
+.assetsignore
+.wrangler
+node_modules
+wrangler.jsonc
+wrangler.toml
+build.sh
+CLAUDE.md
+README.md
+src
+engine

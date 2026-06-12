@@ -272,8 +272,15 @@ named remote; the PAT goes inline in the URL and must not be committed/logged):
 git push "https://x-access-token:<GHUG_PAT>@github.com/ghug/cribbage-trainer.git" HEAD:main
 ```
 
-Note: the sandbox network allowlist blocks `*.workers.dev` / `*.pages.dev`, so the
-agent canNOT fetch the live URL to smoke-test it — ask the human to eyeball it.
+Note on reachability: whether the sandbox can fetch the live URL depends on the
+**environment's network policy** (set when the Claude-Code-on-the-web environment is
+created), so don't assume — test it with a quick `curl`. In some environments
+`*.workers.dev` is blocked (`host_not_allowed`); in others it is reachable. When it
+is reachable you can smoke-test what's *served* (HTTP status, titles, that the right
+app code is in the page) — e.g. `curl -sSL …/play` returns `<title>Cribbage — Play</title>`;
+Cloudflare serves clean URLs, so `/play.html` 307-redirects to `/play` and
+`/trainer.html` to `/trainer`. Full interactive JS testing still needs a real
+browser, so for actual gameplay/visual checks, ask the human to eyeball it.
 
 Legacy fallback routes (only if the pipeline above is ever torn down): Cloudflare
 Direct Upload (drag `index.html` in the dashboard), or the REST API with an

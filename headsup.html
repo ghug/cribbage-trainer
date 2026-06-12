@@ -931,8 +931,14 @@ function CribbageHeadsUp() {
     const cutter = (dealerIdx + 1) % 2;
     const turnNow = phase === "play" && peg ? peg.turn : phase === "over" ? winner : -1;
     const onTapDiscard = (i) => {
-        if (state.pendingDiscard)
+        const pd = state.pendingDiscard;
+        if (pd) {
+            if (pd.idxs.includes(i)) {
+                setSel(pd.idxs.filter((x) => x !== i));
+                dispatch({ type: "CANCEL_DISCARD" });
+            }
             return;
+        }
         if (sel.includes(i)) {
             setSel(sel.filter((x) => x !== i));
             return;
@@ -1036,7 +1042,7 @@ function CribbageHeadsUp() {
                 React.createElement("div", { className: "dealwrap", style: { display: "flex", gap: 8, justifyContent: "center", flexWrap: "nowrap" } }, seats[0].dealt.map((card, i) => {
                     const pd = state.pendingDiscard;
                     const isSel = pd ? pd.idxs.includes(i) : sel.includes(i);
-                    return (React.createElement(Card, { key: cardId(card), card: card, clickable: !pd, selected: isSel, onClick: () => onTapDiscard(i) }));
+                    return (React.createElement(Card, { key: cardId(card), card: card, clickable: pd ? pd.idxs.includes(i) : true, selected: isSel, onClick: () => onTapDiscard(i) }));
                 })),
                 state.pendingDiscard && React.createElement(DiscardWarning, { pd: state.pendingDiscard, dealer: dealer, dispatch: dispatch }))),
             phase === "cut" && (React.createElement("div", { style: { marginTop: 14, display: "flex", flexDirection: "column", gap: 16 } },

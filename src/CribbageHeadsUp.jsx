@@ -975,7 +975,13 @@ export default function CribbageHeadsUp() {
   const turnNow = phase === "play" && peg ? peg.turn : phase === "over" ? winner : -1;
 
   const onTapDiscard = (i) => {
-    if (state.pendingDiscard) return;
+    const pd = state.pendingDiscard;
+    if (pd) {
+      // While warned, tapping one of the two selected cards unselects it (keeping the
+      // other) and clears the warning, so you can pick a different partner.
+      if (pd.idxs.includes(i)) { setSel(pd.idxs.filter((x) => x !== i)); dispatch({ type: "CANCEL_DISCARD" }); }
+      return;
+    }
     if (sel.includes(i)) { setSel(sel.filter((x) => x !== i)); return; }
     const next = [...sel, i];
     if (next.length === 2) { setSel([]); dispatch({ type: "SELECT_DISCARD", idxs: next }); }
@@ -1106,7 +1112,7 @@ export default function CribbageHeadsUp() {
                 const pd = state.pendingDiscard;
                 const isSel = pd ? pd.idxs.includes(i) : sel.includes(i);
                 return (
-                  <Card key={cardId(card)} card={card} clickable={!pd} selected={isSel}
+                  <Card key={cardId(card)} card={card} clickable={pd ? pd.idxs.includes(i) : true} selected={isSel}
                     onClick={() => onTapDiscard(i)} />
                 );
               })}

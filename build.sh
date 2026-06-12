@@ -6,9 +6,9 @@
 #   trainer.html  <- src/CribbageTrainer.jsx  (the discard trainer)
 #   play.html     <- src/CribbagePlay.jsx     (the playable game vs 3 AI)
 #
-# The trainer's compiled <script> body is unchanged from the old index.html — only
-# the output filename, <title>, and the added "Home" link (which lives in the HTML
-# shell, not the compiled script) differ.
+# Each app renders its own in-header Home link, so the shell's optional fixed Home
+# link (the homeLink arg to build_one) is off for both; it remains available for any
+# future page that wants it.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 
@@ -75,5 +75,6 @@ HTML
 cp "$ROOT/src/landing.html" "$ROOT/index.html"
 echo "built index.html (landing, copied from src/landing.html)"
 
-build_one "src/CribbageTrainer.jsx" "trainer.html" "Cribbage Discard Trainer" "CribbageTrainer" "yes"
+# Both apps render their own Home button in their header, so neither uses the shell link.
+build_one "src/CribbageTrainer.jsx" "trainer.html" "Cribbage Discard Trainer" "CribbageTrainer" "no"
 build_one "src/CribbagePlay.jsx"    "play.html"    "Cribbage — Play"          "CribbagePlay"   "no"

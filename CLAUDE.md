@@ -243,16 +243,18 @@ are `src/CribbageTrainer.jsx`, `src/CribbagePlay.jsx`, and `src/landing.html`.
 present in this environment). It regenerates **all three** root pages from `src/`:
 - `index.html` ← `src/landing.html` (plain static HTML, copied verbatim).
 - `trainer.html` ← `src/CribbageTrainer.jsx`; `play.html` ← `src/CribbagePlay.jsx`,
-  each via a `build_one` helper: transpile JSX → `React.createElement`
-  (`tsc --jsx react --target es2020 --removeComments`), swap the ESM import/export
-  for CDN globals, wrap in the HTML shell (which adds a small fixed **⌂ Home** link
-  back to `index.html`).
+  each via a `build_one <src> <out> <title> <Component> <homeLink>` helper:
+  transpile JSX → `React.createElement` (`tsc --jsx react --target es2020
+  --removeComments`), swap the ESM import/export for CDN globals, wrap in the HTML
+  shell. Both apps render their **own ⌂ Home button in their header** (the trainer's
+  links straight home; the game's confirms first, since leaving ends the game), so
+  both pass `homeLink "no"` — the shell's optional fixed Home link is unused but kept
+  for any future page.
 
-The trainer's compiled `<script>` body is **byte-for-byte identical** to the old
-single-page `index.html` — only the filename, `<title>`, and the shell's Home link
-differ (the Home link is in the shell, never in the compiled script). Verify with
-`diff <(sed -n '/^<script>$/,/^<\/script>$/p' trainer.html) <old-script>`. Deploy =
-commit the regenerated HTML files (see below); never hand-edit them.
+Historically the trainer's compiled `<script>` was byte-for-byte identical to the
+old single-page `index.html`; that intentionally ended when the in-header Home
+button was added. Deploy = commit the regenerated HTML files (see below); never
+hand-edit them.
 
 **Deploying is now SET UP — a live Cloudflare pipeline exists.** The app is published
 via **Cloudflare Pages/Workers Git integration** connected to the GitHub repo

@@ -16,7 +16,7 @@ for React):
 
 - **`index.html`** — the landing page. Six choices: the trainer and five games.
 - **`trainer.html`** — the **Discard Trainer** (analyzes/ranks discards).
-- **`play4.html`** — **Play a Game (vs 3 AI)**: a full game of 4-player cutthroat.
+- **`play4.html`** — **Four-Handed (vs 3 AI)**: a full game of 4-player cutthroat.
 - **`play6.html`** — **Six-Handed (vs 5 AI)**: 6-player cutthroat. The **dealer and the
   player to their right** are each dealt 4 and throw none; the other four are dealt 5
   and throw one, so the crib is those **four throws** (no deck card). When the human is

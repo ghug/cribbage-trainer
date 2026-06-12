@@ -7,8 +7,8 @@ accounts, no tracking:
   ranked by expected points, each fully explained: exact hand value over all cuts,
   the crib swing of the card(s) you throw, and pegging potential. Supports 4-/3-handed
   "cutthroat" and 2-handed heads-up, as dealer or defender.
-- **Play a Game** (`play4.html`) — a full game of 4-player cutthroat cribbage vs 3 AI:
-  cut for deal → discard → cut → interactive pegging → the show → race to 121.
+- **Four-Handed** (`play4.html`) — 4-player cutthroat cribbage vs 3 AI: cut for deal →
+  discard → cut → interactive pegging → the show → race to 121.
 - **Six-Handed** (`play6.html`) — 6-player cutthroat cribbage vs 5 AI: everyone throws
   one to the crib except the dealer and the player to their right (each dealt four,
   throw none), then cut, peg, and count to 121.

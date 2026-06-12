@@ -270,5 +270,20 @@ function playHand(state, humanIdxPicker) {
   check(!cancelled.pendingPlay && cancelled.peg.pile.length === 1, "CANCEL_PLAY takes the peg back");
 }
 
+/* ---- I. cut for deal: lowest unique card deals; a game starts in cutdeal ---- */
+{
+  const { drawForDealer } = S;
+  for (let i = 0; i < 80; i++) {
+    const { dealerIdx, draw } = drawForDealer();
+    const ranks = draw.map((c) => c.r);
+    const lo = Math.min(...ranks);
+    check(ranks[dealerIdx] === lo, "dealer holds the lowest drawn card");
+    check(ranks.filter((r) => r === lo).length === 1, "no tie for the lowest draw");
+  }
+  const g = initGame();
+  check(g.phase === "cutdeal" && Array.isArray(g.dealDraw) && g.dealDraw.length === 4, "new game starts in cutdeal with a 4-card draw");
+  check(reduce(g, { type: "DEAL" }).phase === "discard", "cutdeal -> DEAL deals the first hand");
+}
+
 console.log(`\nplay.html engine checks: ${ok} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

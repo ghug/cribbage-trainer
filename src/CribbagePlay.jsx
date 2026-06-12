@@ -501,22 +501,38 @@ function reduce(state, action) {
     }
 
     case "PLAY_AGAIN":
-      return dealNewHand({ ...state, seats: state.seats.map((s) => ({ ...s, score: 0 })), dealerIdx: (Math.random() * 4) | 0 });
+      return newGameState(state); // fresh cut for deal, scores reset
 
     default:
       return state;
   }
 }
 
-function initGame() {
+const DEFAULT_SETTINGS = { counting: "auto", autoGo: false, warn: true, autoDeal: false, autoCut: false, autoContinue: false, autoPlayOne: false };
+
+// Cut for deal at the start of a game: each seat draws one card from a shuffled
+// deck; the lowest rank deals. Re-draw all four on a tie for lowest, until unique.
+function drawForDealer() {
+  for (let attempt = 0; attempt < 500; attempt++) {
+    const draw = freshDeck().slice(0, 4); // seat i draws draw[i]
+    const ranks = draw.map((c) => c.r);
+    const lo = Math.min(...ranks);
+    if (ranks.filter((r) => r === lo).length === 1) return { dealerIdx: ranks.indexOf(lo), draw };
+  }
+  return { dealerIdx: 0, draw: null };
+}
+
+function newGameState(prev) {
+  const { dealerIdx, draw } = drawForDealer();
   return {
     seats: [0, 1, 2, 3].map((i) => ({ score: 0, isAI: i !== 0, dealt: [], kept: null, discard: null })),
-    dealerIdx: (Math.random() * 4) | 0,
+    dealerIdx, dealDraw: draw,
     deck: [], starter: null, crib: [], hisHeels: false, pendingDiscard: null, pendingPlay: null,
-    peg: null, show: null, winner: null, phase: "deal", message: "",
-    settings: { counting: "auto", autoGo: false, warn: true, autoDeal: false, autoCut: false, autoContinue: false, autoPlayOne: false },
+    peg: null, show: null, winner: null, phase: "cutdeal", message: "",
+    settings: prev ? prev.settings : DEFAULT_SETTINGS,
   };
 }
+function initGame() { return newGameState(null); }
 
 /* ============================ UI BITS ============================ */
 function ScoreRow({ seats, dealerIdx, turn, winner }) {
@@ -564,7 +580,7 @@ function bigBtn(label, onClick, tone) {
 export default function CribbagePlay() {
   const [state, dispatch] = useReducer(reduce, undefined, initGame);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
-  const { phase, seats, dealerIdx, peg, show, starter, crib, winner, message, settings } = state;
+  const { phase, seats, dealerIdx, peg, show, starter, crib, winner, message, settings, dealDraw } = state;
 
   // Self-clocking play loop: AI moves and all forced "go"s fire on a timer; a
   // human with a legal card blocks for a tap. Re-runs whenever the peg state changes.
@@ -601,17 +617,20 @@ export default function CribbagePlay() {
   // each gated by its own setting. The show auto-advance waits whenever the human
   // still has a muggins claim to make.
   useEffect(() => {
-    if (phase === "deal" && settings.autoDeal) {
-      const t = setTimeout(() => dispatch({ type: "DEAL" }), 650);
-      return () => clearTimeout(t);
-    }
+    if (!settings.autoDeal) return;
+    if (phase === "cutdeal") { const t = setTimeout(() => dispatch({ type: "DEAL" }), 1600); return () => clearTimeout(t); }
+    if (phase === "deal") { const t = setTimeout(() => dispatch({ type: "DEAL" }), 650); return () => clearTimeout(t); }
   }, [phase, settings.autoDeal]);
   useEffect(() => {
-    if (phase === "cut" && settings.autoCut) {
+    if (phase !== "cut") return;
+    // The player to the dealer's right cuts. An AI cutter always cuts; the human
+    // cutter (seat 0) only auto-cuts when the setting is on.
+    const cutter = (dealerIdx + 3) % 4;
+    if (cutter !== 0 || settings.autoCut) {
       const t = setTimeout(() => dispatch({ type: "CUT" }), 650);
       return () => clearTimeout(t);
     }
-  }, [phase, settings.autoCut]);
+  }, [phase, dealerIdx, settings.autoCut]);
   useEffect(() => {
     if (phase !== "show" || !show || !settings.autoContinue) return;
     const info = computeShow(state);
@@ -622,6 +641,7 @@ export default function CribbagePlay() {
   }, [phase, show, settings.autoContinue, settings.counting]);
 
   const dealer = dealerIdx === 0;
+  const cutter = (dealerIdx + 3) % 4; // the player to the dealer's right cuts
   const turnNow = phase === "play" && peg ? peg.turn : phase === "over" ? winner : -1;
 
   return (
@@ -668,6 +688,31 @@ export default function CribbagePlay() {
           </div>
         )}
 
+        {phase === "cutdeal" && (
+          <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 16 }}>
+            <Panel tone={dealer ? "good" : null}>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>Cut for deal</div>
+              <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>
+                Lowest card deals — {dealer ? "you deal" : `${seatName(dealerIdx)} deals`} this game.
+              </div>
+            </Panel>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 6 }}>
+              {[0, 1, 2, 3].map((i) => {
+                const isD = i === dealerIdx;
+                return (
+                  <div key={i} style={{ flex: 1, textAlign: "center" }}>
+                    <div style={{ fontFamily: mono, fontSize: 10, color: isD ? T.good : T.muted, marginBottom: 4 }}>{seatName(i)}{isD ? " (D)" : ""}</div>
+                    <div style={{ display: "flex", justifyContent: "center", opacity: isD ? 1 : 0.65 }}>
+                      {dealDraw ? <div style={{ width: 44 }}><Card card={dealDraw[i]} small /></div> : <CardBack small />}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {bigBtn(dealer ? "Deal" : `Deal (${seatName(dealerIdx)}'s crib)`, () => dispatch({ type: "DEAL" }), "wood")}
+          </div>
+        )}
+
         {phase === "deal" && (
           <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 16 }}>
             <Panel tone={dealer ? "good" : null}>
@@ -711,12 +756,17 @@ export default function CribbagePlay() {
           <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 16 }}>
             <Panel>
               <div style={{ fontWeight: 700, fontSize: 15 }}>The crib is set</div>
-              <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>Four cards in {dealer ? "your" : `${seatName(dealerIdx)}'s`} crib. Cut for the starter.</div>
+              <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>
+                Four cards in {dealer ? "your" : `${seatName(dealerIdx)}'s`} crib.{" "}
+                {cutter === 0 ? "It's yours to cut the starter." : `${seatName(cutter)} cuts the starter.`}
+              </div>
             </Panel>
             <div style={{ display: "flex", justifyContent: "center", gap: 8 }}>
               {[0, 1, 2, 3].map((i) => <CardBack key={i} />)}
             </div>
-            {bigBtn("Cut the starter", () => dispatch({ type: "CUT" }), "wood")}
+            {cutter === 0
+              ? bigBtn("Cut the starter", () => dispatch({ type: "CUT" }), "wood")
+              : <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" }}>{seatName(cutter)} is cutting…</div>}
           </div>
         )}
 
@@ -842,11 +892,10 @@ function PlayScreen({ state, dispatch }) {
       )}
 
       {/* the running pile — cards fan with overlap; the running count sits beside them */}
-      <div style={{ background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "10px 12px" }}>
-        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 6 }}>the pile</div>
+      <div style={{ background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "12px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14, minHeight: 64 }}>
-          <div style={{ flex: "0 0 auto", display: "flex", flexDirection: "column", alignItems: "center", padding: "4px 14px", borderRadius: 9, background: "rgba(0,0,0,0.3)", border: `1px solid ${T.line}` }}>
-            <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>count</span>
+          <div style={{ flex: "0 0 auto", display: "flex", flexDirection: "column", alignItems: "center", padding: "4px 12px", borderRadius: 9, background: "rgba(0,0,0,0.3)", border: `1px solid ${T.line}` }}>
+            <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>pile count</span>
             <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 28, lineHeight: 1, color: peg.count === 31 ? T.good : T.ivory }}>{peg.count}</span>
           </div>
           <div style={{ flex: "1 1 auto", display: "flex", justifyContent: "center" }}>

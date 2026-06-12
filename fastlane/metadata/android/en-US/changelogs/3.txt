@@ -1,0 +1,7 @@
+- New Heads-Up game: classic two-player cribbage against the computer.
+- Score history now itemizes every point — "pegging · run of 3", "hand · 15s 4,
+  pairs 2", "crib · …" — tap a player's score to see it.
+- During the show, each hand/crib is scored as soon as it's shown (no waiting on
+  Continue).
+- The starter is now always cut automatically.
+- UI polish: app-logo headers, clearer labels, card-fit and pegging-warning fixes.

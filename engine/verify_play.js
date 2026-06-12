@@ -225,7 +225,7 @@ function playHand(state, humanIdxPicker) {
 
   if (ev.best.value - worst.value > 0.1) {
     // with warnings off, even a bad throw commits immediately
-    const noWarn = reduce({ ...base, settings: { ...base.settings, warnDiscard: false } }, { type: "SELECT_DISCARD", idx: worst.idx });
+    const noWarn = reduce({ ...base, settings: { ...base.settings, warn: false } }, { type: "SELECT_DISCARD", idx: worst.idx });
     check(noWarn.phase === "cut" && !noWarn.pendingDiscard, "warnings off: a weak throw commits with no pause");
     const s2 = reduce(base, { type: "SELECT_DISCARD", idx: worst.idx });
     check(s2.phase === "discard" && s2.pendingDiscard && s2.pendingDiscard.idx === worst.idx, "bad throw pauses with a warning");
@@ -235,6 +235,35 @@ function playHand(state, humanIdxPicker) {
     const confirmed = reduce(s2, { type: "CONFIRM_DISCARD" });
     check(confirmed.phase === "cut" && confirmed.seats[0].discard.r === worst.thrown.r, "CONFIRM_DISCARD throws the chosen card");
   }
+}
+
+/* ---- H. suboptimal-peg intercept: SELECT_PLAY warns when >=1 point is passed up ---- */
+{
+  let st = reduce(initGame(), { type: "DEAL" });
+  st = reduce(st, { type: "DISCARD", idx: 0 });
+  st = reduce(st, { type: "CUT" });
+  // controlled peg: count 10, pile [10]; the 5 makes fifteen (2), the 6 scores 0.
+  const peg = {
+    hands: [[{ r: 5, s: 0 }, { r: 6, s: 1 }], [{ r: 2, s: 0 }], [{ r: 3, s: 1 }], [{ r: 4, s: 2 }]],
+    turn: 0, count: 10, pile: [10], pileSuited: [{ r: 10, s: 3 }], played: [[], [], [], []], passes: 0, lastPlayer: -1,
+  };
+  const ps = { ...st, phase: "play", peg, settings: { ...st.settings, warn: true } };
+
+  const warned = reduce(ps, { type: "SELECT_PLAY", card: { r: 6, s: 1 } });
+  check(warned.pendingPlay && warned.pendingPlay.delta === 2, "weak peg play warns (>=1 pt passed up)");
+  check(warned.peg.pile.length === 1, "weak peg play is NOT committed while pending");
+
+  const okPlay = reduce(ps, { type: "SELECT_PLAY", card: { r: 5, s: 0 } });
+  check(!okPlay.pendingPlay && okPlay.peg.pile.length === 2, "the best peg play commits with no warning");
+
+  const off = reduce({ ...ps, settings: { ...ps.settings, warn: false } }, { type: "SELECT_PLAY", card: { r: 6, s: 1 } });
+  check(!off.pendingPlay && off.peg.pile.length === 2, "warnings off: weak peg play commits");
+
+  const confirmed = reduce(warned, { type: "CONFIRM_PLAY" });
+  check(!confirmed.pendingPlay && confirmed.peg.pile.length === 2 && confirmed.peg.count === 16, "CONFIRM_PLAY plays the weak card");
+
+  const cancelled = reduce(warned, { type: "CANCEL_PLAY" });
+  check(!cancelled.pendingPlay && cancelled.peg.pile.length === 1, "CANCEL_PLAY takes the peg back");
 }
 
 console.log(`\nplay.html engine checks: ${ok} passed, ${fail} failed`);

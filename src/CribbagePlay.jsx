@@ -343,8 +343,47 @@ function dealNewHand(state) {
   }
   return {
     ...state, seats, deck, starter: null, crib: [], hisHeels: false,
-    peg: null, show: null, winner: null, phase: "discard", message: "", pendingDiscard: null,
+    peg: null, show: null, winner: null, phase: "discard", message: "", pendingDiscard: null, pendingPlay: null,
   };
+}
+
+// Commit one pegging card for `seat`: score it, handle 31/last-card/go-to-show,
+// win-check after every award, advance the turn. Mirrors the verified playPegging.
+function playCard(state, seat, card) {
+  const peg = state.peg;
+  const hands = peg.hands.map((h, i) => (i === seat ? h.filter((c) => !sameCard(c, card)) : h));
+  const count = peg.count + pval(card.r);
+  const pile = peg.pile.concat(card.r);
+  const pileSuited = peg.pileSuited.concat(card);
+  const played = peg.played.map((p, i) => (i === seat ? p.concat(card) : p));
+  const pts = pegScore(pile, count);
+  let seats = award(state.seats, seat, pts);
+  let message = pts > 0 ? `${seatName(seat)}: ${scoreCallout(pile, count, pts)}.` : `${sv(seat, "play", "plays")} ${tag(card)} (count ${count}).`;
+  const np = { ...peg, hands, count, pile, pileSuited, played, lastPlayer: seat, passes: 0 };
+  if (count === 31) { np.count = 0; np.pile = []; np.pileSuited = []; np.lastPlayer = -1; }
+  if (seats[seat].score >= TARGET) return { ...state, seats, peg: np, phase: "over", winner: seat, message };
+
+  const remaining = hands.reduce((a, h) => a + h.length, 0);
+  if (remaining === 0) {
+    if (np.lastPlayer >= 0) { // not already reset by a 31; award last-card +1
+      seats = award(seats, seat, 1);
+      message += ` ${seatName(seat)} +1 for last card.`;
+      if (seats[seat].score >= TARGET) return { ...state, seats, peg: np, phase: "over", winner: seat, message };
+    }
+    return { ...state, seats, peg: np, phase: "show", show: initShow(state.dealerIdx), message };
+  }
+  np.turn = (seat + 1) % 4;
+  return { ...state, seats, peg: np, message };
+}
+
+// Compare the human's chosen pegging card to the best-scoring legal card right now.
+function evalPlay(peg, card) {
+  const legal = peg.hands[0].filter((c) => pval(c.r) + peg.count <= 31);
+  const scoreOf = (c) => pegScore(peg.pile.concat(c.r), peg.count + pval(c.r));
+  let bestCard = card, bestPts = -1;
+  for (const c of legal) { const p = scoreOf(c); if (p > bestPts) { bestPts = p; bestCard = c; } }
+  const chosenPts = scoreOf(card);
+  return { chosenPts, bestCard, bestPts, delta: bestPts - chosenPts };
 }
 
 function reduce(state, action) {
@@ -362,7 +401,7 @@ function reduce(state, action) {
       // The human tapped a throw. If warnings are off, just throw it. Otherwise, if
       // it's optimal (or a near-tie) throw it; if it gives up real value, pause and
       // explain so they can take it back.
-      if (!state.settings.warnDiscard) return commitDiscard(state, action.idx);
+      if (!state.settings.warn) return commitDiscard(state, action.idx);
       const { opts, best } = evalDiscards(state.seats[0].dealt, state.dealerIdx);
       const chosen = opts[action.idx];
       const delta = best.value - chosen.value;
@@ -389,33 +428,23 @@ function reduce(state, action) {
       return { ...state, starter, hisHeels, seats, peg: initPeg(seats, state.dealerIdx), phase: "play", message };
     }
 
-    case "PLAY_CARD": {
-      const { seat, card } = action;
-      const peg = state.peg;
-      const hands = peg.hands.map((h, i) => (i === seat ? h.filter((c) => !sameCard(c, card)) : h));
-      const count = peg.count + pval(card.r);
-      const pile = peg.pile.concat(card.r);
-      const pileSuited = peg.pileSuited.concat(card);
-      const played = peg.played.map((p, i) => (i === seat ? p.concat(card) : p));
-      const pts = pegScore(pile, count);
-      let seats = award(state.seats, seat, pts);
-      let message = pts > 0 ? `${seatName(seat)}: ${scoreCallout(pile, count, pts)}.` : `${sv(seat, "play", "plays")} ${tag(card)} (count ${count}).`;
-      let np = { ...peg, hands, count, pile, pileSuited, played, lastPlayer: seat, passes: 0 };
-      if (count === 31) { np.count = 0; np.pile = []; np.pileSuited = []; np.lastPlayer = -1; }
-      if (seats[seat].score >= TARGET) return { ...state, seats, peg: np, phase: "over", winner: seat, message };
+    case "PLAY_CARD": // direct commit (AI moves, tests)
+      return playCard(state, action.seat, action.card);
 
-      const remaining = hands.reduce((a, h) => a + h.length, 0);
-      if (remaining === 0) {
-        if (np.lastPlayer >= 0) { // not already reset by a 31; award last-card +1
-          seats = award(seats, seat, 1);
-          message += ` ${seatName(seat)} +1 for last card.`;
-          if (seats[seat].score >= TARGET) return { ...state, seats, peg: np, phase: "over", winner: seat, message };
-        }
-        return { ...state, seats, peg: np, phase: "show", show: initShow(state.dealerIdx), message };
-      }
-      np.turn = (seat + 1) % 4;
-      return { ...state, seats, peg: np, message };
+    case "SELECT_PLAY": {
+      // The human tapped a card to peg. Warn (if enabled) when a better-scoring legal
+      // card is available and at least one point is being passed up.
+      if (!state.settings.warn) return playCard(state, 0, action.card);
+      const e = evalPlay(state.peg, action.card);
+      if (e.delta >= 1) return { ...state, pendingPlay: { card: action.card, ...e } };
+      return playCard(state, 0, action.card);
     }
+
+    case "CONFIRM_PLAY":
+      return playCard({ ...state, pendingPlay: null }, 0, state.pendingPlay.card);
+
+    case "CANCEL_PLAY":
+      return { ...state, pendingPlay: null };
 
     case "PASS_GO": {
       const peg = state.peg, seat = action.seat;
@@ -483,9 +512,9 @@ function initGame() {
   return {
     seats: [0, 1, 2, 3].map((i) => ({ score: 0, isAI: i !== 0, dealt: [], kept: null, discard: null })),
     dealerIdx: (Math.random() * 4) | 0,
-    deck: [], starter: null, crib: [], hisHeels: false, pendingDiscard: null,
+    deck: [], starter: null, crib: [], hisHeels: false, pendingDiscard: null, pendingPlay: null,
     peg: null, show: null, winner: null, phase: "deal", message: "",
-    settings: { counting: "auto", autoGo: false, warnDiscard: true },
+    settings: { counting: "auto", autoGo: false, warn: true },
   };
 }
 
@@ -617,7 +646,7 @@ export default function CribbagePlay() {
             <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, lineHeight: 1.7 }}>
               counting <b style={{ color: T.cream }}>{settings.counting === "muggins" ? "muggins" : "auto"}</b> ·{" "}
               go on no card <b style={{ color: T.cream }}>{settings.autoGo ? "auto" : "manual"}</b> ·{" "}
-              weak-discard warnings <b style={{ color: T.cream }}>{settings.warnDiscard ? "on" : "off"}</b>
+              weak-play warnings <b style={{ color: T.cream }}>{settings.warn ? "on" : "off"}</b>
               <span> — tap ⚙ to change</span>
             </div>
             {bigBtn(dealer ? "Deal" : `Deal (${seatName(dealerIdx)}'s crib)`, () => dispatch({ type: "DEAL" }), "wood")}
@@ -630,7 +659,7 @@ export default function CribbagePlay() {
               <div style={{ fontWeight: 700, fontSize: 15 }}>{dealer ? "Your crib — be greedy" : `Feeds ${seatName(dealerIdx)}'s crib — defend`}</div>
               <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>Tap the card you'll throw to the crib.</div>
             </Panel>
-            <OpponentBacks dealerIdx={dealerIdx} n={5} label="5 cards" />
+            <OpponentBacks dealerIdx={dealerIdx} n={5} />
             <div className="dealwrap" style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "nowrap" }}>
               {seats[0].dealt.map((card, i) => {
                 const pd = state.pendingDiscard;
@@ -692,18 +721,17 @@ function StarterStrip({ starter }) {
 
 // A seat's played cards, fanned so each later card sits ~75% on top of the prior
 // one (only the newest is fully visible). Falls back to face-down backs pre-play.
-// Each later card sits partly on top of the previous one (newest on top). A small
-// Card's face is absolutely positioned, so each wrapper needs an explicit width or
-// it would collapse to 0px. Face-down backs fan the same way.
+// A fanned row of cards: each later item sits partly on top of the previous one
+// (rightmost on top). A small Card's face is absolutely positioned, so each wrapper
+// needs an explicit width or it would collapse to 0px.
 const STACK_VISIBLE = 0.5; // fraction of each overlapped card left showing
 const overlapMargin = (w) => -Math.round(w * (1 - STACK_VISIBLE));
-function PlayedStack({ cards, backs }) {
-  const items = (cards && cards.length)
-    ? cards.map((c) => ({ key: cardId(c), w: 44, el: <Card card={c} small /> }))
-    : Array.from({ length: backs || 0 }).map((_, k) => ({ key: "b" + k, w: 30, el: <CardBack small /> }));
+const cardItems = (cards) => (cards || []).map((c) => ({ key: cardId(c), w: 44, el: <Card card={c} small /> }));
+const backItems = (n) => Array.from({ length: n || 0 }).map((_, k) => ({ key: "b" + k, w: 30, el: <CardBack small /> }));
+function Fan({ items }) {
   if (!items.length) return null;
   return (
-    <div style={{ display: "flex", justifyContent: "center" }}>
+    <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
       {items.map((it, i) => (
         <div key={it.key} style={{ width: it.w, position: "relative", zIndex: i, marginLeft: i === 0 ? 0 : overlapMargin(it.w) }}>
           {it.el}
@@ -712,15 +740,20 @@ function PlayedStack({ cards, backs }) {
     </div>
   );
 }
+function PlayedStack({ cards, backs }) {
+  return <Fan items={(cards && cards.length) ? cardItems(cards) : backItems(backs)} />;
+}
 
-function SeatCell({ i, dealerIdx, active, played, backs, label }) {
+// A seat's cards: remaining cards face-down and layered to the left, the played
+// cards fanned on top to the right. No running count — the backs show what's left.
+function SeatCell({ i, dealerIdx, active, played, remaining }) {
   return (
     <div style={{ textAlign: "center", minWidth: 0 }}>
       <div style={{ fontFamily: mono, fontSize: 10, color: active ? T.selBlue : T.muted, marginBottom: 4 }}>
-        {seatName(i)}{dealerIdx === i ? " (D)" : ""}{label ? ` · ${label}` : ""}
+        {seatName(i)}{dealerIdx === i ? " (D)" : ""}
       </div>
       <div style={{ display: "flex", justifyContent: "center", minHeight: 64 }}>
-        <PlayedStack cards={played} backs={backs} />
+        <Fan items={[...backItems(remaining), ...cardItems(played)]} />
       </div>
     </div>
   );
@@ -738,9 +771,9 @@ function OpponentRows({ dealerIdx, render }) {
   );
 }
 
-function OpponentBacks({ dealerIdx, n, label }) {
+function OpponentBacks({ dealerIdx, n }) {
   return <OpponentRows dealerIdx={dealerIdx} render={(i) => (
-    <SeatCell key={i} i={i} dealerIdx={dealerIdx} backs={n} label={label} />
+    <SeatCell key={i} i={i} dealerIdx={dealerIdx} remaining={n} />
   )} />;
 }
 
@@ -752,7 +785,7 @@ function PlayScreen({ state, dispatch }) {
   const stuck = peg.turn === 0 && legalSet.size === 0 && yourHand.length > 0; // must say "go"
   const cell = (i) => (
     <SeatCell i={i} dealerIdx={dealerIdx} active={peg.turn === i}
-      played={peg.played[i]} backs={peg.hands[i].length} label={`${peg.hands[i].length} cards`} />
+      played={peg.played[i]} remaining={peg.hands[i].length} />
   );
   return (
     <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 14 }}>
@@ -766,6 +799,14 @@ function PlayScreen({ state, dispatch }) {
         </div>
         {cell(3)}
       </div>
+
+      {/* your own played cards, sitting just above the pile */}
+      {peg.played[0].length > 0 && (
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontFamily: mono, fontSize: 10, color: peg.turn === 0 ? T.selBlue : T.muted, marginBottom: 4 }}>You{dealerIdx === 0 ? " (D)" : ""}</div>
+          <PlayedStack cards={peg.played[0]} backs={0} />
+        </div>
+      )}
 
       {/* the running pile — cards fan with overlap; the running count sits beside them */}
       <div style={{ background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "10px 12px" }}>
@@ -792,11 +833,7 @@ function PlayScreen({ state, dispatch }) {
               : "Your cards are all played.")
             : `${seatName(peg.turn)} to play…`}
         </div>
-        {peg.played[0].length > 0 && (
-          <div style={{ marginBottom: 10 }}>
-            <PlayedStack cards={peg.played[0]} backs={0} />
-          </div>
-        )}
+        {state.pendingPlay && <div style={{ marginBottom: 10 }}><PlayWarning pp={state.pendingPlay} dispatch={dispatch} /></div>}
         {stuck && !state.settings.autoGo && (
           <div style={{ marginBottom: 10 }}>
             <button onClick={() => dispatch({ type: "PASS_GO", seat: 0 })} style={{
@@ -809,9 +846,13 @@ function PlayScreen({ state, dispatch }) {
         <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
           {yourHand.map((card) => {
             const legal = legalSet.has(cardId(card));
+            const pp = state.pendingPlay;
             return (
-              <Card key={cardId(card)} card={card} clickable={yourTurn && legal} dim={!legal && peg.turn === 0}
-                onClick={() => dispatch({ type: "PLAY_CARD", seat: 0, card })} />
+              <Card key={cardId(card)} card={card}
+                clickable={yourTurn && legal && !pp}
+                selected={pp ? sameCard(pp.card, card) : false}
+                dim={pp ? !sameCard(pp.card, card) : (!legal && peg.turn === 0)}
+                onClick={() => dispatch({ type: "SELECT_PLAY", card })} />
             );
           })}
           {yourHand.length === 0 && <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>your cards are all played</span>}
@@ -946,10 +987,33 @@ function SettingsPanel({ settings, dispatch, onClose }) {
       <Row title="Go on no playable card" k="autoGo"
         desc={'When you can’t play, Manual waits for you to tap “Go”; Auto passes for you.'}
         options={[["Manual", false], ["Auto", true]]} />
-      <Row title="Warn on a weak discard" k="warnDiscard"
-        desc="Pause and explain when your throw to the crib isn’t the best, with a chance to take it back."
+      <Row title="Warn on a weak play" k="warn"
+        desc="Pause and explain when your throw to the crib — or a pegging card that leaves a point on the table — isn’t the best, with a chance to take it back."
         options={[["On", true], ["Off", false]]} />
     </div>
+  );
+}
+
+// Shown when the human pegs a card that scores fewer points than the best legal
+// play (by at least one), with a chance to take it back.
+function PlayWarning({ pp, dispatch }) {
+  return (
+    <Panel tone="red">
+      <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>That leaves {pp.delta} point{pp.delta === 1 ? "" : "s"} on the table</div>
+      <div style={{ fontFamily: mono, fontSize: 11.5, lineHeight: 1.6, color: T.cream, marginBottom: 12 }}>
+        {tag(pp.card)} scores {pp.chosenPts} here · <b style={{ color: T.good }}>{tag(pp.bestCard)}</b> would score {pp.bestPts} (+{pp.delta}).
+      </div>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button onClick={() => dispatch({ type: "CONFIRM_PLAY" })} style={{
+          flex: 1, padding: "11px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer",
+          background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+        }}>Play {tag(pp.card)} anyway</button>
+        <button onClick={() => dispatch({ type: "CANCEL_PLAY" })} style={{
+          flex: 1, padding: "11px", borderRadius: 9, border: "none", cursor: "pointer",
+          background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+        }}>Pick again</button>
+      </div>
+    </Panel>
   );
 }
 

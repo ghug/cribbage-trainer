@@ -375,8 +375,54 @@ function dealNewHand(state) {
     }
     return {
         ...state, seats, deck, starter: null, crib: [], hisHeels: false,
-        peg: null, show: null, winner: null, phase: "discard", message: "", pendingDiscard: null,
+        peg: null, show: null, winner: null, phase: "discard", message: "", pendingDiscard: null, pendingPlay: null,
     };
+}
+function playCard(state, seat, card) {
+    const peg = state.peg;
+    const hands = peg.hands.map((h, i) => (i === seat ? h.filter((c) => !sameCard(c, card)) : h));
+    const count = peg.count + pval(card.r);
+    const pile = peg.pile.concat(card.r);
+    const pileSuited = peg.pileSuited.concat(card);
+    const played = peg.played.map((p, i) => (i === seat ? p.concat(card) : p));
+    const pts = pegScore(pile, count);
+    let seats = award(state.seats, seat, pts);
+    let message = pts > 0 ? `${seatName(seat)}: ${scoreCallout(pile, count, pts)}.` : `${sv(seat, "play", "plays")} ${tag(card)} (count ${count}).`;
+    const np = { ...peg, hands, count, pile, pileSuited, played, lastPlayer: seat, passes: 0 };
+    if (count === 31) {
+        np.count = 0;
+        np.pile = [];
+        np.pileSuited = [];
+        np.lastPlayer = -1;
+    }
+    if (seats[seat].score >= TARGET)
+        return { ...state, seats, peg: np, phase: "over", winner: seat, message };
+    const remaining = hands.reduce((a, h) => a + h.length, 0);
+    if (remaining === 0) {
+        if (np.lastPlayer >= 0) {
+            seats = award(seats, seat, 1);
+            message += ` ${seatName(seat)} +1 for last card.`;
+            if (seats[seat].score >= TARGET)
+                return { ...state, seats, peg: np, phase: "over", winner: seat, message };
+        }
+        return { ...state, seats, peg: np, phase: "show", show: initShow(state.dealerIdx), message };
+    }
+    np.turn = (seat + 1) % 4;
+    return { ...state, seats, peg: np, message };
+}
+function evalPlay(peg, card) {
+    const legal = peg.hands[0].filter((c) => pval(c.r) + peg.count <= 31);
+    const scoreOf = (c) => pegScore(peg.pile.concat(c.r), peg.count + pval(c.r));
+    let bestCard = card, bestPts = -1;
+    for (const c of legal) {
+        const p = scoreOf(c);
+        if (p > bestPts) {
+            bestPts = p;
+            bestCard = c;
+        }
+    }
+    const chosenPts = scoreOf(card);
+    return { chosenPts, bestCard, bestPts, delta: bestPts - chosenPts };
 }
 function reduce(state, action) {
     switch (action.type) {
@@ -387,7 +433,7 @@ function reduce(state, action) {
         case "DISCARD":
             return commitDiscard(state, action.idx);
         case "SELECT_DISCARD": {
-            if (!state.settings.warnDiscard)
+            if (!state.settings.warn)
                 return commitDiscard(state, action.idx);
             const { opts, best } = evalDiscards(state.seats[0].dealt, state.dealerIdx);
             const chosen = opts[action.idx];
@@ -414,39 +460,20 @@ function reduce(state, action) {
                 return { ...state, starter, hisHeels, seats, winner, phase: "over", message };
             return { ...state, starter, hisHeels, seats, peg: initPeg(seats, state.dealerIdx), phase: "play", message };
         }
-        case "PLAY_CARD": {
-            const { seat, card } = action;
-            const peg = state.peg;
-            const hands = peg.hands.map((h, i) => (i === seat ? h.filter((c) => !sameCard(c, card)) : h));
-            const count = peg.count + pval(card.r);
-            const pile = peg.pile.concat(card.r);
-            const pileSuited = peg.pileSuited.concat(card);
-            const played = peg.played.map((p, i) => (i === seat ? p.concat(card) : p));
-            const pts = pegScore(pile, count);
-            let seats = award(state.seats, seat, pts);
-            let message = pts > 0 ? `${seatName(seat)}: ${scoreCallout(pile, count, pts)}.` : `${sv(seat, "play", "plays")} ${tag(card)} (count ${count}).`;
-            let np = { ...peg, hands, count, pile, pileSuited, played, lastPlayer: seat, passes: 0 };
-            if (count === 31) {
-                np.count = 0;
-                np.pile = [];
-                np.pileSuited = [];
-                np.lastPlayer = -1;
-            }
-            if (seats[seat].score >= TARGET)
-                return { ...state, seats, peg: np, phase: "over", winner: seat, message };
-            const remaining = hands.reduce((a, h) => a + h.length, 0);
-            if (remaining === 0) {
-                if (np.lastPlayer >= 0) {
-                    seats = award(seats, seat, 1);
-                    message += ` ${seatName(seat)} +1 for last card.`;
-                    if (seats[seat].score >= TARGET)
-                        return { ...state, seats, peg: np, phase: "over", winner: seat, message };
-                }
-                return { ...state, seats, peg: np, phase: "show", show: initShow(state.dealerIdx), message };
-            }
-            np.turn = (seat + 1) % 4;
-            return { ...state, seats, peg: np, message };
+        case "PLAY_CARD":
+            return playCard(state, action.seat, action.card);
+        case "SELECT_PLAY": {
+            if (!state.settings.warn)
+                return playCard(state, 0, action.card);
+            const e = evalPlay(state.peg, action.card);
+            if (e.delta >= 1)
+                return { ...state, pendingPlay: { card: action.card, ...e } };
+            return playCard(state, 0, action.card);
         }
+        case "CONFIRM_PLAY":
+            return playCard({ ...state, pendingPlay: null }, 0, state.pendingPlay.card);
+        case "CANCEL_PLAY":
+            return { ...state, pendingPlay: null };
         case "PASS_GO": {
             const peg = state.peg, seat = action.seat;
             const passes = peg.passes + 1;
@@ -518,9 +545,9 @@ function initGame() {
     return {
         seats: [0, 1, 2, 3].map((i) => ({ score: 0, isAI: i !== 0, dealt: [], kept: null, discard: null })),
         dealerIdx: (Math.random() * 4) | 0,
-        deck: [], starter: null, crib: [], hisHeels: false, pendingDiscard: null,
+        deck: [], starter: null, crib: [], hisHeels: false, pendingDiscard: null, pendingPlay: null,
         peg: null, show: null, winner: null, phase: "deal", message: "",
-        settings: { counting: "auto", autoGo: false, warnDiscard: true },
+        settings: { counting: "auto", autoGo: false, warn: true },
     };
 }
 function ScoreRow({ seats, dealerIdx, turn, winner }) {
@@ -627,15 +654,15 @@ function CribbagePlay() {
                     React.createElement("b", { style: { color: T.cream } }, settings.autoGo ? "auto" : "manual"),
                     " \u00B7",
                     " ",
-                    "weak-discard warnings ",
-                    React.createElement("b", { style: { color: T.cream } }, settings.warnDiscard ? "on" : "off"),
+                    "weak-play warnings ",
+                    React.createElement("b", { style: { color: T.cream } }, settings.warn ? "on" : "off"),
                     React.createElement("span", null, " \u2014 tap \u2699 to change")),
                 bigBtn(dealer ? "Deal" : `Deal (${seatName(dealerIdx)}'s crib)`, () => dispatch({ type: "DEAL" }), "wood"))),
             phase === "discard" && (React.createElement("div", { style: { marginTop: 14, display: "flex", flexDirection: "column", gap: 14 } },
                 React.createElement(Panel, { tone: dealer ? "good" : "red" },
                     React.createElement("div", { style: { fontWeight: 700, fontSize: 15 } }, dealer ? "Your crib — be greedy" : `Feeds ${seatName(dealerIdx)}'s crib — defend`),
                     React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 } }, "Tap the card you'll throw to the crib.")),
-                React.createElement(OpponentBacks, { dealerIdx: dealerIdx, n: 5, label: "5 cards" }),
+                React.createElement(OpponentBacks, { dealerIdx: dealerIdx, n: 5 }),
                 React.createElement("div", { className: "dealwrap", style: { display: "flex", gap: 8, justifyContent: "center", flexWrap: "nowrap" } }, seats[0].dealt.map((card, i) => {
                     const pd = state.pendingDiscard;
                     return (React.createElement(Card, { key: cardId(card), card: card, clickable: !pd, selected: pd ? pd.idx === i : false, dim: pd ? pd.idx !== i : false, onClick: () => dispatch({ type: "SELECT_DISCARD", idx: i }) }));
@@ -670,22 +697,23 @@ function StarterStrip({ starter }) {
 }
 const STACK_VISIBLE = 0.5;
 const overlapMargin = (w) => -Math.round(w * (1 - STACK_VISIBLE));
-function PlayedStack({ cards, backs }) {
-    const items = (cards && cards.length)
-        ? cards.map((c) => ({ key: cardId(c), w: 44, el: React.createElement(Card, { card: c, small: true }) }))
-        : Array.from({ length: backs || 0 }).map((_, k) => ({ key: "b" + k, w: 30, el: React.createElement(CardBack, { small: true }) }));
+const cardItems = (cards) => (cards || []).map((c) => ({ key: cardId(c), w: 44, el: React.createElement(Card, { card: c, small: true }) }));
+const backItems = (n) => Array.from({ length: n || 0 }).map((_, k) => ({ key: "b" + k, w: 30, el: React.createElement(CardBack, { small: true }) }));
+function Fan({ items }) {
     if (!items.length)
         return null;
-    return (React.createElement("div", { style: { display: "flex", justifyContent: "center" } }, items.map((it, i) => (React.createElement("div", { key: it.key, style: { width: it.w, position: "relative", zIndex: i, marginLeft: i === 0 ? 0 : overlapMargin(it.w) } }, it.el)))));
+    return (React.createElement("div", { style: { display: "flex", alignItems: "flex-end", justifyContent: "center" } }, items.map((it, i) => (React.createElement("div", { key: it.key, style: { width: it.w, position: "relative", zIndex: i, marginLeft: i === 0 ? 0 : overlapMargin(it.w) } }, it.el)))));
 }
-function SeatCell({ i, dealerIdx, active, played, backs, label }) {
+function PlayedStack({ cards, backs }) {
+    return React.createElement(Fan, { items: (cards && cards.length) ? cardItems(cards) : backItems(backs) });
+}
+function SeatCell({ i, dealerIdx, active, played, remaining }) {
     return (React.createElement("div", { style: { textAlign: "center", minWidth: 0 } },
         React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: active ? T.selBlue : T.muted, marginBottom: 4 } },
             seatName(i),
-            dealerIdx === i ? " (D)" : "",
-            label ? ` · ${label}` : ""),
+            dealerIdx === i ? " (D)" : ""),
         React.createElement("div", { style: { display: "flex", justifyContent: "center", minHeight: 64 } },
-            React.createElement(PlayedStack, { cards: played, backs: backs }))));
+            React.createElement(Fan, { items: [...backItems(remaining), ...cardItems(played)] }))));
 }
 function OpponentRows({ dealerIdx, render }) {
     return (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10 } },
@@ -694,8 +722,8 @@ function OpponentRows({ dealerIdx, render }) {
             render(1),
             render(3))));
 }
-function OpponentBacks({ dealerIdx, n, label }) {
-    return React.createElement(OpponentRows, { dealerIdx: dealerIdx, render: (i) => (React.createElement(SeatCell, { key: i, i: i, dealerIdx: dealerIdx, backs: n, label: label })) });
+function OpponentBacks({ dealerIdx, n }) {
+    return React.createElement(OpponentRows, { dealerIdx: dealerIdx, render: (i) => (React.createElement(SeatCell, { key: i, i: i, dealerIdx: dealerIdx, remaining: n })) });
 }
 function PlayScreen({ state, dispatch }) {
     const { peg, starter, dealerIdx } = state;
@@ -703,7 +731,7 @@ function PlayScreen({ state, dispatch }) {
     const legalSet = new Set(yourHand.filter((c) => pval(c.r) + peg.count <= 31).map(cardId));
     const yourTurn = peg.turn === 0 && legalSet.size > 0;
     const stuck = peg.turn === 0 && legalSet.size === 0 && yourHand.length > 0;
-    const cell = (i) => (React.createElement(SeatCell, { i: i, dealerIdx: dealerIdx, active: peg.turn === i, played: peg.played[i], backs: peg.hands[i].length, label: `${peg.hands[i].length} cards` }));
+    const cell = (i) => (React.createElement(SeatCell, { i: i, dealerIdx: dealerIdx, active: peg.turn === i, played: peg.played[i], remaining: peg.hands[i].length }));
     return (React.createElement("div", { style: { marginTop: 12, display: "flex", flexDirection: "column", gap: 14 } },
         React.createElement("div", { style: { display: "flex", justifyContent: "center" } }, cell(2)),
         React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "0 6px" } },
@@ -713,6 +741,11 @@ function PlayScreen({ state, dispatch }) {
                 React.createElement("div", { style: { width: 44 } },
                     React.createElement(Card, { card: starter, small: true }))),
             cell(3)),
+        peg.played[0].length > 0 && (React.createElement("div", { style: { textAlign: "center" } },
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: peg.turn === 0 ? T.selBlue : T.muted, marginBottom: 4 } },
+                "You",
+                dealerIdx === 0 ? " (D)" : ""),
+            React.createElement(PlayedStack, { cards: peg.played[0], backs: 0 }))),
         React.createElement("div", { style: { background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "10px 12px" } },
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 6 } }, "the pile"),
             React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, minHeight: 64 } },
@@ -728,8 +761,8 @@ function PlayScreen({ state, dispatch }) {
                     : stuck ? (state.settings.autoGo ? "No legal card — passing…" : "No legal card — tap Go to pass.")
                         : "Your cards are all played.")
                 : `${seatName(peg.turn)} to play…`),
-            peg.played[0].length > 0 && (React.createElement("div", { style: { marginBottom: 10 } },
-                React.createElement(PlayedStack, { cards: peg.played[0], backs: 0 }))),
+            state.pendingPlay && React.createElement("div", { style: { marginBottom: 10 } },
+                React.createElement(PlayWarning, { pp: state.pendingPlay, dispatch: dispatch })),
             stuck && !state.settings.autoGo && (React.createElement("div", { style: { marginBottom: 10 } },
                 React.createElement("button", { onClick: () => dispatch({ type: "PASS_GO", seat: 0 }), style: {
                         width: "100%", padding: "12px", borderRadius: 10, border: "none", cursor: "pointer",
@@ -739,7 +772,8 @@ function PlayScreen({ state, dispatch }) {
             React.createElement("div", { style: { display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" } },
                 yourHand.map((card) => {
                     const legal = legalSet.has(cardId(card));
-                    return (React.createElement(Card, { key: cardId(card), card: card, clickable: yourTurn && legal, dim: !legal && peg.turn === 0, onClick: () => dispatch({ type: "PLAY_CARD", seat: 0, card }) }));
+                    const pp = state.pendingPlay;
+                    return (React.createElement(Card, { key: cardId(card), card: card, clickable: yourTurn && legal && !pp, selected: pp ? sameCard(pp.card, card) : false, dim: pp ? !sameCard(pp.card, card) : (!legal && peg.turn === 0), onClick: () => dispatch({ type: "SELECT_PLAY", card }) }));
                 }),
                 yourHand.length === 0 && React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: T.muted } }, "your cards are all played")))));
 }
@@ -845,7 +879,39 @@ function SettingsPanel({ settings, dispatch, onClose }) {
             React.createElement("button", { onClick: onClose, style: { padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 } }, "Done")),
         React.createElement(Row, { title: "Counting", k: "counting", desc: "Auto tallies every hand for you. Muggins: you claim your own hand (and crib when you deal) \u2014 miss points and the next opponent takes them.", options: [["Auto-count", "auto"], ["Muggins", "muggins"]] }),
         React.createElement(Row, { title: "Go on no playable card", k: "autoGo", desc: 'When you can’t play, Manual waits for you to tap “Go”; Auto passes for you.', options: [["Manual", false], ["Auto", true]] }),
-        React.createElement(Row, { title: "Warn on a weak discard", k: "warnDiscard", desc: "Pause and explain when your throw to the crib isn\u2019t the best, with a chance to take it back.", options: [["On", true], ["Off", false]] })));
+        React.createElement(Row, { title: "Warn on a weak play", k: "warn", desc: "Pause and explain when your throw to the crib \u2014 or a pegging card that leaves a point on the table \u2014 isn\u2019t the best, with a chance to take it back.", options: [["On", true], ["Off", false]] })));
+}
+function PlayWarning({ pp, dispatch }) {
+    return (React.createElement(Panel, { tone: "red" },
+        React.createElement("div", { style: { fontWeight: 700, fontSize: 15, marginBottom: 6 } },
+            "That leaves ",
+            pp.delta,
+            " point",
+            pp.delta === 1 ? "" : "s",
+            " on the table"),
+        React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, lineHeight: 1.6, color: T.cream, marginBottom: 12 } },
+            tag(pp.card),
+            " scores ",
+            pp.chosenPts,
+            " here \u00B7 ",
+            React.createElement("b", { style: { color: T.good } }, tag(pp.bestCard)),
+            " would score ",
+            pp.bestPts,
+            " (+",
+            pp.delta,
+            ")."),
+        React.createElement("div", { style: { display: "flex", gap: 8 } },
+            React.createElement("button", { onClick: () => dispatch({ type: "CONFIRM_PLAY" }), style: {
+                    flex: 1, padding: "11px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer",
+                    background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+                } },
+                "Play ",
+                tag(pp.card),
+                " anyway"),
+            React.createElement("button", { onClick: () => dispatch({ type: "CANCEL_PLAY" }), style: {
+                    flex: 1, padding: "11px", borderRadius: 9, border: "none", cursor: "pointer",
+                    background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+                } }, "Pick again"))));
 }
 function StepBtn({ children, onClick }) {
     return (React.createElement("button", { onClick: onClick, style: {

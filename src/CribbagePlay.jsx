@@ -217,15 +217,15 @@ function Card({ card, onClick, clickable, badge, dim, selected, small }) {
 }
 
 function CardBack({ small }) {
-  const base = small ? 30 : 50;
+  const base = small ? 44 : 68; // match the face-up Card sizes (44 small, 68 large)
   return (
     <div style={{
-      width: base, aspectRatio: "68 / 96", borderRadius: small ? 6 : 8,
+      width: base, aspectRatio: "68 / 96", borderRadius: small ? 7 : 9,
       background: `repeating-linear-gradient(45deg, ${T.woodD}, ${T.woodD} 5px, ${T.woodM} 5px, ${T.woodM} 10px)`,
       border: "1px solid rgba(0,0,0,0.4)", boxShadow: "0 3px 8px rgba(0,0,0,0.35)",
       position: "relative",
     }}>
-      <span style={{ position: "absolute", inset: small ? 3 : 5, border: "1px solid rgba(236,224,182,0.25)", borderRadius: 4 }} />
+      <span style={{ position: "absolute", inset: small ? 4 : 6, border: "1px solid rgba(236,224,182,0.25)", borderRadius: 5 }} />
     </div>
   );
 }
@@ -514,7 +514,7 @@ function initGame() {
     dealerIdx: (Math.random() * 4) | 0,
     deck: [], starter: null, crib: [], hisHeels: false, pendingDiscard: null, pendingPlay: null,
     peg: null, show: null, winner: null, phase: "deal", message: "",
-    settings: { counting: "auto", autoGo: false, warn: true },
+    settings: { counting: "auto", autoGo: false, warn: true, autoDeal: false, autoCut: false, autoContinue: false, autoPlayOne: false },
   };
 }
 
@@ -574,12 +574,19 @@ export default function CribbagePlay() {
     const legal = hand.filter((c) => pval(c.r) + peg.count <= 31);
     if (peg.turn === 0) {
       // The human acts by tapping: a legal card, or the "Go" button when stuck with
-      // cards in hand. Auto-pass only when there's no decision to make — out of cards,
-      // or the "auto-go" setting is on and there's no legal play.
+      // cards in hand. Auto-pass when there's no decision (out of cards, or auto-go
+      // on with no legal play); auto-play the only legal card if that setting is on.
       const out = hand.length === 0;
-      if (!(out || (legal.length === 0 && settings.autoGo))) return;
-      const t = setTimeout(() => dispatch({ type: "PASS_GO", seat: 0 }), 450);
-      return () => clearTimeout(t);
+      if (out || (legal.length === 0 && settings.autoGo)) {
+        const t = setTimeout(() => dispatch({ type: "PASS_GO", seat: 0 }), 450);
+        return () => clearTimeout(t);
+      }
+      if (legal.length === 1 && settings.autoPlayOne && !state.pendingPlay) {
+        const card = legal[0];
+        const t = setTimeout(() => dispatch({ type: "PLAY_CARD", seat: 0, card }), 450);
+        return () => clearTimeout(t);
+      }
+      return; // wait for the human
     }
     const t = setTimeout(() => {
       if (legal.length === 0) { dispatch({ type: "PASS_GO", seat: peg.turn }); return; }
@@ -588,7 +595,31 @@ export default function CribbagePlay() {
       dispatch({ type: "PLAY_CARD", seat: peg.turn, card: chosen });
     }, 760);
     return () => clearTimeout(t);
-  }, [phase, peg, settings.autoGo]);
+  }, [phase, peg, settings.autoGo, settings.autoPlayOne, state.pendingPlay]);
+
+  // Auto-deal the next hand, auto-cut the starter, and auto-advance the show —
+  // each gated by its own setting. The show auto-advance waits whenever the human
+  // still has a muggins claim to make.
+  useEffect(() => {
+    if (phase === "deal" && settings.autoDeal) {
+      const t = setTimeout(() => dispatch({ type: "DEAL" }), 650);
+      return () => clearTimeout(t);
+    }
+  }, [phase, settings.autoDeal]);
+  useEffect(() => {
+    if (phase === "cut" && settings.autoCut) {
+      const t = setTimeout(() => dispatch({ type: "CUT" }), 650);
+      return () => clearTimeout(t);
+    }
+  }, [phase, settings.autoCut]);
+  useEffect(() => {
+    if (phase !== "show" || !show || !settings.autoContinue) return;
+    const info = computeShow(state);
+    const needClaim = settings.counting === "muggins" && info.owner === 0 && !show.claimSubmitted;
+    if (needClaim) return; // let the human enter their claim
+    const t = setTimeout(() => dispatch({ type: "SHOW_NEXT" }), 1200);
+    return () => clearTimeout(t);
+  }, [phase, show, settings.autoContinue, settings.counting]);
 
   const dealer = dealerIdx === 0;
   const turnNow = phase === "play" && peg ? peg.turn : phase === "over" ? winner : -1;
@@ -663,10 +694,12 @@ export default function CribbagePlay() {
             <div className="dealwrap" style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "nowrap" }}>
               {seats[0].dealt.map((card, i) => {
                 const pd = state.pendingDiscard;
+                // While a warning is up, the cards stay live: tap the selected one to
+                // unselect, or tap a different one to re-pick (which re-warns if weak).
                 return (
                   <Card key={cardId(card)} card={card}
-                    clickable={!pd} selected={pd ? pd.idx === i : false} dim={pd ? pd.idx !== i : false}
-                    onClick={() => dispatch({ type: "SELECT_DISCARD", idx: i })} />
+                    clickable selected={pd ? pd.idx === i : false}
+                    onClick={() => dispatch(pd && pd.idx === i ? { type: "CANCEL_DISCARD" } : { type: "SELECT_DISCARD", idx: i })} />
                 );
               })}
             </div>
@@ -727,7 +760,7 @@ function StarterStrip({ starter }) {
 const STACK_VISIBLE = 0.5; // fraction of each overlapped card left showing
 const overlapMargin = (w) => -Math.round(w * (1 - STACK_VISIBLE));
 const cardItems = (cards) => (cards || []).map((c) => ({ key: cardId(c), w: 44, el: <Card card={c} small /> }));
-const backItems = (n) => Array.from({ length: n || 0 }).map((_, k) => ({ key: "b" + k, w: 30, el: <CardBack small /> }));
+const backItems = (n) => Array.from({ length: n || 0 }).map((_, k) => ({ key: "b" + k, w: 44, el: <CardBack small /> }));
 function Fan({ items }) {
   if (!items.length) return null;
   return (
@@ -990,6 +1023,18 @@ function SettingsPanel({ settings, dispatch, onClose }) {
       <Row title="Warn on a weak play" k="warn"
         desc="Pause and explain when your throw to the crib — or a pegging card that leaves a point on the table — isn’t the best, with a chance to take it back."
         options={[["On", true], ["Off", false]]} />
+      <Row title="Auto-play a forced card" k="autoPlayOne"
+        desc="When only one of your cards is legal to peg, play it for you."
+        options={[["Off", false], ["On", true]]} />
+      <Row title="Auto-cut the starter" k="autoCut"
+        desc="Cut the starter automatically instead of tapping the button."
+        options={[["Off", false], ["On", true]]} />
+      <Row title="Auto-continue the show" k="autoContinue"
+        desc="Advance the counting automatically (still pauses for your muggins claim)."
+        options={[["Off", false], ["On", true]]} />
+      <Row title="Auto-deal the next hand" k="autoDeal"
+        desc="Deal the next hand automatically once a hand is fully counted."
+        options={[["Off", false], ["On", true]]} />
     </div>
   );
 }

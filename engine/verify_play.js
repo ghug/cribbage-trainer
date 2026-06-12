@@ -234,6 +234,10 @@ function playHand(state, humanIdxPicker) {
     check(cancelled.phase === "discard" && !cancelled.pendingDiscard, "CANCEL_DISCARD takes the choice back");
     const confirmed = reduce(s2, { type: "CONFIRM_DISCARD" });
     check(confirmed.phase === "cut" && confirmed.seats[0].discard.r === worst.thrown.r, "CONFIRM_DISCARD throws the chosen card");
+
+    // from a warning, re-picking a different (best) card commits it straight away
+    const repick = reduce(s2, { type: "SELECT_DISCARD", idx: bestIdx });
+    check(repick.phase === "cut" && repick.seats[0].discard.r === ev.best.thrown.r, "re-picking the best throw from a warning commits it");
   }
 }
 

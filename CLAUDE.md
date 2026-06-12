@@ -324,21 +324,17 @@ or the REST API (route 2), or run Wrangler only inside a real Linux arm64 userla
 
 ## Good next steps (roughly in value order)
 
-0. **IN PROGRESS — playable game vs AI.** A full plan for a separate `play.html`
-   (4-player cutthroat cribbage you play against 3 computer opponents, with `index.html`
-   becoming a welcome page that links to the trainer and the game) is committed at
-   **`docs/cribbage-play-plan.md`**. To resume: re-paste the `ghug` GitHub PAT (it is never
-   stored — see deploy note above), check out branch `claude/claude-md-review-m77h8q`, and
-   build per that plan. Reachability caveat: the sandbox can only `curl` the live URL if
-   `*.gabrielhug.workers.dev` is added under the environment's Network access (Custom).
-1. Decide with the human whether they even want hosting — it already runs locally.
-2. If hosting: Cloudflare Pages Direct Upload (route 1 above) is the lowest-effort.
-3. Add an in-repo test runner (port the `engine/` checks to a `test/` dir, e.g.
+The trainer, the playable game, the live web deploy, and the Android APK pipeline are
+all done and shipped. Remaining ideas:
+
+1. Add an in-repo test runner (port the `engine/` checks to a `test/` dir, e.g.
    vitest) so changes are guarded.
-4. Stronger pegging: shallow expectiminimax or a learned policy instead of greedy.
-5. Real win-probability board model (game-to-121 race) to replace the σ heuristic.
-6. Exploit-mode: let the user enter observed opponent tendencies and re-weight the
+2. Stronger pegging: shallow expectiminimax or a learned policy instead of greedy.
+3. Real win-probability board model (game-to-121 race) to replace the σ heuristic.
+4. Exploit-mode: let the user enter observed opponent tendencies and re-weight the
    crib distributions away from the self-play equilibrium.
+5. Publish to IzzyOnDroid: the APK/CI and `fastlane/` listing are ready — file the
+   RFP (see `docs/ANDROID.md`).
 
 ## Style / working preferences carried over from the original session
 

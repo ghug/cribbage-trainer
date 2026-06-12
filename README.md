@@ -1,50 +1,46 @@
-# Cutthroat Cribbage Discard Trainer
+# Cribbage Trainer
 
-An interactive trainer for optimal discarding in **4-player cutthroat cribbage**.
-Deal a hand, pick your throw, and get a ranked, fully-explained breakdown of all
-five discards — hand EV (exact over every cut), crib EV (Monte Carlo against a
-calibrated opponent model), and pegging EV (simulated play), plus a board-position
-mode that re-ranks for chasing points or protecting a lead.
+Two cribbage tools behind a small landing page — all client-side, no install, no
+accounts, no tracking:
 
-## Files
+- **Discard Trainer** (`trainer.html`) — deal a hand and see every possible discard
+  ranked by expected points, each fully explained: exact hand value over all cuts,
+  the crib swing of the card(s) you throw, and pegging potential. Supports 4-/3-handed
+  "cutthroat" and 2-handed heads-up, as dealer or defender.
+- **Play a Game** (`play.html`) — a full game of 4-player cutthroat cribbage vs 3 AI:
+  cut for deal → discard → cut → interactive pegging → the show → race to 121.
 
-- `index.html` — **the whole app, ready to run.** Open it in any browser; no build or install. This is the file to host if you ever want a public link.
+**Live:** https://cribbage-trainer.gabrielhug.workers.dev
+**Android:** a signed APK is published on the [Releases](../../releases) page and
+installs via Obtainium — see [`docs/ANDROID.md`](docs/ANDROID.md).
 
-- `src/CribbageTrainer.jsx` — the entire app (single React component, inline
-  styles, no dependencies beyond React).
-- `engine/` — Node verification scripts the engine was validated against
-  (`pegging.js`, `breakdown.js`, `engine.js`, `calibrate_split.js`,
-  `state.json`). Not imported by the app; run them to re-prove the math.
-- `CLAUDE.md` — full project context and design decisions. **If you're an AI
-  assistant picking this up, read CLAUDE.md first.**
+## Run & build
 
-## Run it (Vite)
+Open `index.html` in any browser (or `trainer.html` / `play.html` directly). The
+pages are pre-compiled to plain JS and React is vendored in `vendor/` (no CDN), so
+everything runs fully offline.
+
+Edit the sources in `src/` (`CribbageTrainer.jsx`, `CribbagePlay.jsx`,
+`landing.html`), then regenerate the three root pages:
 
 ```bash
-npm create vite@latest cribbage-trainer -- --template react
-# put src/CribbageTrainer.jsx in place, render <CribbageTrainer/> from main.jsx
-npm install && npm run dev
+./build.sh      # needs a global `tsc`
 ```
-
-For GitHub Pages, set `base: '/<repo-name>/'` in `vite.config.js`, run
-`npm run build`, and publish `dist/`.
 
 ## Verify the engine
 
 ```bash
-node engine/pegging.js       # pegging scoring unit tests + full-game sanity
-node engine/breakdown.js     # show-scoring breakdown + perfect-29 check
+node engine/pegging.js          # pegging unit tests + full-game sanity
+node engine/breakdown.js        # show-scoring breakdown + perfect-29 check
+node engine/verify_players.js   # 2-/3-/4-handed regression + sanity
+node engine/verify_play.js      # play.html reducer: go/31/last-card, his-heels, the show
 ```
 
-See `CLAUDE.md` for the EV model, the calibrated discard distributions, the
-per-rank "crib swing" reference numbers, known limitations, and next steps.
+`CLAUDE.md` holds the full design notes — the EV model, the calibrated discard
+distributions, the per-rank "crib swing" reference, the game's architecture, the
+deploy pipeline, and known limitations.
 
 ## License
 
-This project is released into the **public domain** under
-[The Unlicense](LICENSE) (`SPDX-License-Identifier: Unlicense`). Do anything you
-like with it; it comes with NO WARRANTY, to the extent permitted by law.
-
-The only bundled third-party code is React / React-DOM, used under the MIT license.
-A public-domain dedication keeps the project compatible with FOSS distribution
-channels (F-Droid, IzzyOnDroid).
+Public domain — [The Unlicense](LICENSE) (`SPDX-License-Identifier: Unlicense`).
+The only bundled third-party code is React / React-DOM (MIT). No warranty.

@@ -131,7 +131,7 @@ function cribSeed(a, b) {
 }
 const twoCombos = (n) => { const out = []; for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) out.push([i, j]); return out; };
 
-// AI discard (two cards): maximise kept-hand EV plus the crib seed of the throw,
+// Bot discard (two cards): maximise kept-hand EV plus the crib seed of the throw,
 // signed by whether this seat owns the crib (dealer) or feeds it (defender).
 function aiDiscard(dealt6, seat, dealerIdx) {
   const sign = seat === dealerIdx ? 1 : -1;
@@ -323,7 +323,7 @@ const showLabel = (kind, acc) => {
 
 const sameSet = (a, b) => a.length === b.length && a.every((x) => b.includes(x));
 
-// Score the human's 15 possible two-card throws the way the AI does.
+// Score the human's 15 possible two-card throws the way the bot does.
 function evalDiscards(dealt6, dealerIdx) {
   const sign = dealerIdx === 0 ? 1 : -1; // human is seat 0
   const opts = twoCombos(6).map((idxs) => {
@@ -1011,7 +1011,7 @@ export default function CribbageHeadsUp() {
   useEffect(() => { if (!canPause && paused) setPaused(false); }, [canPause, paused]);
   useEffect(() => { if (phase !== "discard") setSel([]); }, [phase]);
 
-  // Self-clocking play loop: the AI moves and forced "go"s fire on a timer.
+  // Self-clocking play loop: the bot moves and forced "go"s fire on a timer.
   useEffect(() => {
     if (phase !== "play" || !peg || autoPaused) return;
     const hand = peg.hands[peg.turn];

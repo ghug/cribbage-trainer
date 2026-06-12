@@ -89,7 +89,7 @@ function handDetail(four, dealt5) {
 /* ===== Pegging (play phase) ===== suits are irrelevant to pegging, so the
    pile / hand arrays handed to pegScore & pegChoose are ranks 1..13. Scoring
    mechanics unit-tested in engine/pegging.js (15s, 31s, pair royals, in/out-of-
-   order runs, gos, last card). The AI plays a greedy point-grabbing policy with
+   order runs, gos, last card). The bots play a greedy point-grabbing policy with
    light defense — the same reference used by the trainer's pegging estimate. */
 const pval = (r) => Math.min(r, 10);
 function pegScore(pile, count) {
@@ -121,11 +121,11 @@ function pegChoose(legal, count, pile, hand) {
 
 /* Per-rank crib value ("crib swing"), the "your" row from CLAUDE.md: average crib
    points contributed when you throw that rank into a crib (index 0=A .. 12=K).
-   The 5 dominates; everything else is connectedness. The AI uses this to value a
+   The 5 dominates; everything else is connectedness. The bots use this to value a
    discard's crib impact without the (too-slow) Monte-Carlo cribDetail. */
 const CRIB_VALUE = [3.96, 3.95, 4.05, 4.06, 6.38, 4.10, 4.21, 4.34, 4.09, 3.74, 4.19, 3.73, 3.85];
 
-// AI discard: maximise kept-hand EV plus the crib swing of the thrown card,
+// Bot discard: maximise kept-hand EV plus the crib swing of the thrown card,
 // signed by whether this seat owns the crib (dealer) or feeds it (defender).
 function aiDiscard(dealt5, seat, dealerIdx) {
   const sign = seat === dealerIdx ? 1 : -1;
@@ -318,7 +318,7 @@ const showLabel = (kind, acc) => {
   return parts.length ? `${kind} · ${parts.join(", ")}` : kind;
 };
 
-// Score the human's 5 possible throws the same way the AI does: kept-hand EV over
+// Score the human's 5 possible throws the same way the bots do: kept-hand EV over
 // every cut, plus the thrown card's average crib value (signed for whose crib it is).
 function evalDiscards(dealt5, dealerIdx) {
   const sign = dealerIdx === 0 ? 1 : -1; // human is seat 0; +1 if it's their own crib
@@ -444,7 +444,7 @@ function reduce(state, action) {
       return { ...state, starter, hisHeels, seats, peg: initPeg(seats, state.dealerIdx), phase: "play", message };
     }
 
-    case "PLAY_CARD": // direct commit (AI moves, tests)
+    case "PLAY_CARD": // direct commit (bot moves, tests)
       return playCard(state, action.seat, action.card);
 
     case "SELECT_PLAY": {
@@ -679,7 +679,7 @@ export default function CribbagePlay3() {
   const autoPaused = paused || settingsOpen || historySeat !== null;
   useEffect(() => { if (!canPause && paused) setPaused(false); }, [canPause, paused]);
 
-  // Self-clocking play loop: AI moves and all forced "go"s fire on a timer; a
+  // Self-clocking play loop: bots move and all forced "go"s fire on a timer; a
   // human with a legal card blocks for a tap. Re-runs whenever the peg state changes.
   useEffect(() => {
     if (phase !== "play" || !peg || autoPaused) return;

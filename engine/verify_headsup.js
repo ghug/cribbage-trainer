@@ -60,11 +60,11 @@ check(pegScore([4, 5, 6, 7], 22) === 4, "run of 4 = 4");
   check(g.phase === "cutdeal" && g.seats.length === 2, "new game: cutdeal, 2 seats");
 }
 
-/* ---- AI discards exactly two; keeps four ---- */
+/* ---- bot discards exactly two; keeps four ---- */
 {
   let st = reduce(initGame(), { type: "DEAL" });
   check(st.phase === "discard", "DEAL -> discard");
-  check(st.seats[1].discard.length === 2 && st.seats[1].kept.length === 4, "AI throws two, keeps four");
+  check(st.seats[1].discard.length === 2 && st.seats[1].kept.length === 4, "bot throws two, keeps four");
   check(st.seats[0].dealt.length === 6, "you are dealt six");
 }
 

@@ -36,7 +36,7 @@ for React):
   table). Verified by `engine/verify_play3.js`.
 - **`headsup.html`** — **Heads-Up (vs 1 bot)**: classic 2-player cribbage (deal 6,
   discard 2, race to 121). `src/CribbageHeadsUp.jsx`; a 2-player adaptation of the
-  play app's reducer (P=2, show order [pone, dealer, CRIB], `cribSeed` two-card AI
+  play app's reducer (P=2, show order [pone, dealer, CRIB], `cribSeed` two-card bot
   discard). Verified by `engine/verify_headsup.js`.
 
 **To just use it: open `index.html` in any browser** (or jump straight to
@@ -211,12 +211,12 @@ also duplicates the math.
   (`{score, dealt, kept, discard, isAI}`, cards stay **suited** throughout), `crib`,
   `starter`, a `peg` sub-state during play, a `show` sub-state during counting, and
   `settings.counting`.
-- **AI discard** (`aiDiscard`): for each of the 5 throws, `handDetail(keptFour).ev +
+- **Bot discard** (`aiDiscard`): for each of the 5 throws, `handDetail(keptFour).ev +
   sign*CRIB_VALUE[rank]` (`sign=+1` if that seat deals, else `−1`); pick the best.
   `CRIB_VALUE` is the **"your" crib-swing row** from the reference table above
   (per rank A–K) — a fast stand-in for the trainer's Monte-Carlo `cribDetail`.
 - **Interactive pegging**: a self-clocking `useEffect` keyed on the peg state. A
-  human with a legal card blocks for a tap; AI moves and all forced "go"s fire on a
+  human with a legal card blocks for a tap; bots move and all forced "go"s fire on a
   timer. The reducer mirrors the verified `playPegging` mechanics exactly (15/31/
   pairs/runs, go, last card).
 - **The show**: counts in order `[pone, +2, +3, dealer, CRIB]`, **checking ≥121 after

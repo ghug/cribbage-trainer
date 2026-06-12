@@ -72,7 +72,7 @@ function playHand(state, humanIdxPicker) {
   state = reduce(state, { type: "DEAL" });
   check(state.phase === "discard", "DEAL -> discard");
   check(state.crib.length === 0, "crib empty before discard");
-  for (let i = 1; i < 4; i++) check(state.seats[i].kept.length === 4 && state.seats[i].discard, `seat ${i} AI discard computed`);
+  for (let i = 1; i < 4; i++) check(state.seats[i].kept.length === 4 && state.seats[i].discard, `seat ${i} bot discard computed`);
   const hi = humanIdxPicker ? humanIdxPicker(state) : 0;
   state = reduce(state, { type: "DISCARD", idx: hi });
   check(state.phase === "cut" && state.crib.length === 4, "DISCARD -> cut, crib of 4");

@@ -67,7 +67,7 @@ function playHand(state) {
   for (let i = 0; i < 6; i++) check(state.seats[i].dealt.length === (noThrow(i) ? 4 : 5), `seat ${i} dealt ${noThrow(i) ? 4 : 5}`);
   for (let i = 1; i < 6; i++) {
     if (noThrow(i)) check(state.seats[i].kept.length === 4 && !state.seats[i].discard, `non-thrower seat ${i} keeps 4, throws none`);
-    else check(state.seats[i].kept.length === 4 && state.seats[i].discard, `thrower seat ${i} AI throw computed`);
+    else check(state.seats[i].kept.length === 4 && state.seats[i].discard, `thrower seat ${i} bot throw computed`);
   }
   if (noThrow(0)) {
     check(state.phase === "cut", "human non-thrower -> straight to cut");

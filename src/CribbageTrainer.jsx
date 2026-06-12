@@ -289,7 +289,7 @@ const T = {
   pegRed: "#C8412B", pegIvory: "#ECDCB4",
   ivory: "#F6EFDE", ink: "#241D14", suitRed: "#A8362A",
   cream: "#ECE0C6", muted: "#A99873", line: "rgba(236,224,182,0.16)",
-  good: "#5FA47C", goodDeep: "#3F7E5E",
+  good: "#5FA47C", goodDeep: "#3F7E5E", selBlue: "#5B95C2",
 };
 const SUIT = ["♠", "♥", "♦", "♣"];
 const MODE_LABEL_X = { need: "chase points", protect: "protect lead" };
@@ -314,7 +314,7 @@ function Card({ card, onClick, phase, badge, dim, selected }) {
   const clickable = phase === "choose";
   const [hover, setHover] = useState(false);
   const lift = badge || selected ? -10 : hover && clickable ? -6 : 0;
-  const edge = badge ? badge.color : selected ? T.pegRed : null;
+  const edge = badge ? badge.color : selected ? T.selBlue : null;
   // Cards size to 68px when there's room but shrink to fit when a 6-card hand is wider
   // than the screen. The face is a container; its text uses cqw units so the rank/suit
   // scale with the box. (1px ≈ 1.47cqw at the 68px base width.)
@@ -329,13 +329,13 @@ function Card({ card, onClick, phase, badge, dim, selected }) {
         ) : selected ? (
           <span style={{
             fontFamily: mono, fontSize: 10, letterSpacing: 0.5, fontWeight: 700,
-            color: T.ivory, background: T.pegRed, padding: "2px 7px", borderRadius: 4, whiteSpace: "nowrap",
+            color: T.ivory, background: T.selBlue, padding: "2px 7px", borderRadius: 4, whiteSpace: "nowrap",
           }}>THROW</span>
         ) : null}
       </div>
       <button
         onClick={clickable ? onClick : undefined}
-        onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+        onPointerEnter={() => setHover(true)} onPointerLeave={() => setHover(false)}
         aria-label={`${rankLabel(card.r)} of ${["spades", "hearts", "diamonds", "clubs"][card.s]}`}
         aria-pressed={clickable ? !!selected : undefined}
         style={{

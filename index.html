@@ -402,7 +402,7 @@ const T = {
     pegRed: "#C8412B", pegIvory: "#ECDCB4",
     ivory: "#F6EFDE", ink: "#241D14", suitRed: "#A8362A",
     cream: "#ECE0C6", muted: "#A99873", line: "rgba(236,224,182,0.16)",
-    good: "#5FA47C", goodDeep: "#3F7E5E",
+    good: "#5FA47C", goodDeep: "#3F7E5E", selBlue: "#5B95C2",
 };
 const SUIT = ["♠", "♥", "♦", "♣"];
 const MODE_LABEL_X = { need: "chase points", protect: "protect lead" };
@@ -424,16 +424,16 @@ function Card({ card, onClick, phase, badge, dim, selected }) {
     const clickable = phase === "choose";
     const [hover, setHover] = useState(false);
     const lift = badge || selected ? -10 : hover && clickable ? -6 : 0;
-    const edge = badge ? badge.color : selected ? T.pegRed : null;
+    const edge = badge ? badge.color : selected ? T.selBlue : null;
     return (React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flex: "0 1 68px", minWidth: 0, maxWidth: 68 } },
         React.createElement("div", { style: { height: 18 } }, badge ? (React.createElement("span", { style: {
                 fontFamily: mono, fontSize: 10, letterSpacing: 0.5, fontWeight: 700,
                 color: T.ivory, background: badge.color, padding: "2px 7px", borderRadius: 4, whiteSpace: "nowrap",
             } }, badge.text)) : selected ? (React.createElement("span", { style: {
                 fontFamily: mono, fontSize: 10, letterSpacing: 0.5, fontWeight: 700,
-                color: T.ivory, background: T.pegRed, padding: "2px 7px", borderRadius: 4, whiteSpace: "nowrap",
+                color: T.ivory, background: T.selBlue, padding: "2px 7px", borderRadius: 4, whiteSpace: "nowrap",
             } }, "THROW")) : null),
-        React.createElement("button", { onClick: clickable ? onClick : undefined, onMouseEnter: () => setHover(true), onMouseLeave: () => setHover(false), "aria-label": `${rankLabel(card.r)} of ${["spades", "hearts", "diamonds", "clubs"][card.s]}`, "aria-pressed": clickable ? !!selected : undefined, style: {
+        React.createElement("button", { onClick: clickable ? onClick : undefined, onPointerEnter: () => setHover(true), onPointerLeave: () => setHover(false), "aria-label": `${rankLabel(card.r)} of ${["spades", "hearts", "diamonds", "clubs"][card.s]}`, "aria-pressed": clickable ? !!selected : undefined, style: {
                 width: "100%", aspectRatio: "68 / 96", containerType: "inline-size",
                 borderRadius: 9, padding: 0, background: T.ivory, position: "relative",
                 cursor: clickable ? "pointer" : "default",

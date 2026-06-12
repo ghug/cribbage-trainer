@@ -628,9 +628,11 @@ function CribbagePlay() {
     const [state, dispatch] = useReducer(reduce, undefined, initGame);
     const [settingsOpen, setSettingsOpen] = React.useState(false);
     const [historySeat, setHistorySeat] = React.useState(null);
+    const [paused, setPaused] = React.useState(false);
     const { phase, seats, dealerIdx, peg, show, starter, crib, winner, message, settings, dealDraw } = state;
+    const autoPaused = paused || settingsOpen || historySeat !== null;
     useEffect(() => {
-        if (phase !== "play" || !peg)
+        if (phase !== "play" || !peg || autoPaused)
             return;
         const hand = peg.hands[peg.turn];
         const legal = hand.filter((c) => pval(c.r) + peg.count <= 31);
@@ -657,9 +659,9 @@ function CribbagePlay() {
             dispatch({ type: "PLAY_CARD", seat: peg.turn, card: chosen });
         }, 760);
         return () => clearTimeout(t);
-    }, [phase, peg, settings.autoGo, settings.autoPlayOne, state.pendingPlay]);
+    }, [phase, peg, settings.autoGo, settings.autoPlayOne, state.pendingPlay, autoPaused]);
     useEffect(() => {
-        if (!settings.autoDeal)
+        if (autoPaused || !settings.autoDeal)
             return;
         if (phase === "cutdeal") {
             const t = setTimeout(() => dispatch({ type: "DEAL" }), 1600);
@@ -669,18 +671,18 @@ function CribbagePlay() {
             const t = setTimeout(() => dispatch({ type: "DEAL" }), 650);
             return () => clearTimeout(t);
         }
-    }, [phase, settings.autoDeal]);
+    }, [phase, settings.autoDeal, autoPaused]);
     useEffect(() => {
-        if (phase !== "cut")
+        if (phase !== "cut" || autoPaused)
             return;
         const cutter = (dealerIdx + 3) % 4;
         if (cutter !== 0 || settings.autoCut) {
             const t = setTimeout(() => dispatch({ type: "CUT" }), 650);
             return () => clearTimeout(t);
         }
-    }, [phase, dealerIdx, settings.autoCut]);
+    }, [phase, dealerIdx, settings.autoCut, autoPaused]);
     useEffect(() => {
-        if (phase !== "show" || !show || !settings.autoContinue)
+        if (phase !== "show" || !show || !settings.autoContinue || autoPaused)
             return;
         const info = computeShow(state);
         const needClaim = settings.counting === "muggins" && info.owner === 0 && !show.claimSubmitted;
@@ -688,7 +690,7 @@ function CribbagePlay() {
             return;
         const t = setTimeout(() => dispatch({ type: "SHOW_NEXT" }), 1200);
         return () => clearTimeout(t);
-    }, [phase, show, settings.autoContinue, settings.counting]);
+    }, [phase, show, settings.autoContinue, settings.counting, autoPaused]);
     const dealer = dealerIdx === 0;
     const cutter = (dealerIdx + 3) % 4;
     const turnNow = phase === "play" && peg ? peg.turn : phase === "over" ? winner : -1;
@@ -715,15 +717,22 @@ function CribbagePlay() {
                 React.createElement("div", null,
                     React.createElement("h1", { style: { margin: 0, fontSize: 22, color: "#2A1B0E", letterSpacing: 0.3, fontWeight: 700 } }, "Cribbage \u2014 Play"),
                     React.createElement("span", { style: { display: "block", fontFamily: mono, fontSize: 11, color: "rgba(42,27,14,0.75)", marginTop: 2 } }, "4-handed cutthroat \u00B7 first to 121")),
-                React.createElement("button", { onClick: () => setSettingsOpen((o) => !o), "aria-label": "Settings", "aria-expanded": settingsOpen, style: {
-                        flex: "0 0 auto", width: 40, height: 40, borderRadius: 10, cursor: "pointer",
-                        border: "1px solid rgba(0,0,0,0.28)", background: settingsOpen ? "rgba(42,27,14,0.28)" : "rgba(42,27,14,0.14)",
-                        color: "#2A1B0E", fontSize: 20, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
-                    } }, "\u2699"))),
+                React.createElement("div", { style: { display: "flex", gap: 8, flex: "0 0 auto" } },
+                    React.createElement("button", { onClick: () => setPaused((p) => !p), "aria-label": paused ? "Resume" : "Pause", "aria-pressed": paused, style: {
+                            width: 40, height: 40, borderRadius: 10, cursor: "pointer",
+                            border: "1px solid rgba(0,0,0,0.28)", background: paused ? "rgba(200,65,43,0.32)" : "rgba(42,27,14,0.14)",
+                            color: "#2A1B0E", fontSize: 17, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
+                        } }, paused ? "▶" : "⏸"),
+                    React.createElement("button", { onClick: () => setSettingsOpen((o) => !o), "aria-label": "Settings", "aria-expanded": settingsOpen, style: {
+                            width: 40, height: 40, borderRadius: 10, cursor: "pointer",
+                            border: "1px solid rgba(0,0,0,0.28)", background: settingsOpen ? "rgba(42,27,14,0.28)" : "rgba(42,27,14,0.14)",
+                            color: "#2A1B0E", fontSize: 20, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
+                        } }, "\u2699")))),
         React.createElement("main", { style: { maxWidth: 560, margin: "0 auto", padding: "16px 16px 0" } },
             settingsOpen && React.createElement(SettingsPanel, { settings: settings, dispatch: dispatch, onClose: () => setSettingsOpen(false) }),
             React.createElement(ScoreRow, { seats: seats, dealerIdx: dealerIdx, turn: turnNow, winner: phase === "over" ? winner : null, onPick: (i) => setHistorySeat((cur) => (cur === i ? null : i)) }),
             historySeat !== null && React.createElement(HistoryPanel, { seatIdx: historySeat, seats: seats, onClose: () => setHistorySeat(null) }),
+            paused && (React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.pegRed, textAlign: "center", marginTop: 8 } }, "\u23F8 Paused \u2014 automatic play is stopped. Tap \u25B6 to resume.")),
             message && (React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.cream, margin: "10px 2px 4px", minHeight: 16, lineHeight: 1.45 } }, message)),
             phase === "cutdeal" && (React.createElement("div", { style: { marginTop: 14, display: "flex", flexDirection: "column", gap: 16 } },
                 React.createElement(Panel, { tone: dealer ? "good" : null },

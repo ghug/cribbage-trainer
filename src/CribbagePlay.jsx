@@ -620,12 +620,15 @@ export default function CribbagePlay() {
   const [state, dispatch] = useReducer(reduce, undefined, initGame);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [historySeat, setHistorySeat] = React.useState(null);
+  const [paused, setPaused] = React.useState(false);
   const { phase, seats, dealerIdx, peg, show, starter, crib, winner, message, settings, dealDraw } = state;
+  // Nothing happens automatically while paused, or while the settings/history panels are open.
+  const autoPaused = paused || settingsOpen || historySeat !== null;
 
   // Self-clocking play loop: AI moves and all forced "go"s fire on a timer; a
   // human with a legal card blocks for a tap. Re-runs whenever the peg state changes.
   useEffect(() => {
-    if (phase !== "play" || !peg) return;
+    if (phase !== "play" || !peg || autoPaused) return;
     const hand = peg.hands[peg.turn];
     const legal = hand.filter((c) => pval(c.r) + peg.count <= 31);
     if (peg.turn === 0) {
@@ -651,18 +654,18 @@ export default function CribbagePlay() {
       dispatch({ type: "PLAY_CARD", seat: peg.turn, card: chosen });
     }, 760);
     return () => clearTimeout(t);
-  }, [phase, peg, settings.autoGo, settings.autoPlayOne, state.pendingPlay]);
+  }, [phase, peg, settings.autoGo, settings.autoPlayOne, state.pendingPlay, autoPaused]);
 
   // Auto-deal the next hand, auto-cut the starter, and auto-advance the show —
   // each gated by its own setting. The show auto-advance waits whenever the human
   // still has a muggins claim to make.
   useEffect(() => {
-    if (!settings.autoDeal) return;
+    if (autoPaused || !settings.autoDeal) return;
     if (phase === "cutdeal") { const t = setTimeout(() => dispatch({ type: "DEAL" }), 1600); return () => clearTimeout(t); }
     if (phase === "deal") { const t = setTimeout(() => dispatch({ type: "DEAL" }), 650); return () => clearTimeout(t); }
-  }, [phase, settings.autoDeal]);
+  }, [phase, settings.autoDeal, autoPaused]);
   useEffect(() => {
-    if (phase !== "cut") return;
+    if (phase !== "cut" || autoPaused) return;
     // The player to the dealer's right cuts. An AI cutter always cuts; the human
     // cutter (seat 0) only auto-cuts when the setting is on.
     const cutter = (dealerIdx + 3) % 4;
@@ -670,15 +673,15 @@ export default function CribbagePlay() {
       const t = setTimeout(() => dispatch({ type: "CUT" }), 650);
       return () => clearTimeout(t);
     }
-  }, [phase, dealerIdx, settings.autoCut]);
+  }, [phase, dealerIdx, settings.autoCut, autoPaused]);
   useEffect(() => {
-    if (phase !== "show" || !show || !settings.autoContinue) return;
+    if (phase !== "show" || !show || !settings.autoContinue || autoPaused) return;
     const info = computeShow(state);
     const needClaim = settings.counting === "muggins" && info.owner === 0 && !show.claimSubmitted;
     if (needClaim) return; // let the human enter their claim
     const t = setTimeout(() => dispatch({ type: "SHOW_NEXT" }), 1200);
     return () => clearTimeout(t);
-  }, [phase, show, settings.autoContinue, settings.counting]);
+  }, [phase, show, settings.autoContinue, settings.counting, autoPaused]);
 
   const dealer = dealerIdx === 0;
   const cutter = (dealerIdx + 3) % 4; // the player to the dealer's right cuts
@@ -710,11 +713,18 @@ export default function CribbagePlay() {
             <h1 style={{ margin: 0, fontSize: 22, color: "#2A1B0E", letterSpacing: 0.3, fontWeight: 700 }}>Cribbage — Play</h1>
             <span style={{ display: "block", fontFamily: mono, fontSize: 11, color: "rgba(42,27,14,0.75)", marginTop: 2 }}>4-handed cutthroat · first to 121</span>
           </div>
-          <button onClick={() => setSettingsOpen((o) => !o)} aria-label="Settings" aria-expanded={settingsOpen} style={{
-            flex: "0 0 auto", width: 40, height: 40, borderRadius: 10, cursor: "pointer",
-            border: "1px solid rgba(0,0,0,0.28)", background: settingsOpen ? "rgba(42,27,14,0.28)" : "rgba(42,27,14,0.14)",
-            color: "#2A1B0E", fontSize: 20, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
-          }}>⚙</button>
+          <div style={{ display: "flex", gap: 8, flex: "0 0 auto" }}>
+            <button onClick={() => setPaused((p) => !p)} aria-label={paused ? "Resume" : "Pause"} aria-pressed={paused} style={{
+              width: 40, height: 40, borderRadius: 10, cursor: "pointer",
+              border: "1px solid rgba(0,0,0,0.28)", background: paused ? "rgba(200,65,43,0.32)" : "rgba(42,27,14,0.14)",
+              color: "#2A1B0E", fontSize: 17, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
+            }}>{paused ? "▶" : "⏸"}</button>
+            <button onClick={() => setSettingsOpen((o) => !o)} aria-label="Settings" aria-expanded={settingsOpen} style={{
+              width: 40, height: 40, borderRadius: 10, cursor: "pointer",
+              border: "1px solid rgba(0,0,0,0.28)", background: settingsOpen ? "rgba(42,27,14,0.28)" : "rgba(42,27,14,0.14)",
+              color: "#2A1B0E", fontSize: 20, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
+            }}>⚙</button>
+          </div>
         </div>
       </header>
 
@@ -723,6 +733,12 @@ export default function CribbagePlay() {
         <ScoreRow seats={seats} dealerIdx={dealerIdx} turn={turnNow} winner={phase === "over" ? winner : null}
           onPick={(i) => setHistorySeat((cur) => (cur === i ? null : i))} />
         {historySeat !== null && <HistoryPanel seatIdx={historySeat} seats={seats} onClose={() => setHistorySeat(null)} />}
+
+        {paused && (
+          <div style={{ fontFamily: mono, fontSize: 11.5, color: T.pegRed, textAlign: "center", marginTop: 8 }}>
+            ⏸ Paused — automatic play is stopped. Tap ▶ to resume.
+          </div>
+        )}
 
         {message && (
           <div style={{ fontFamily: mono, fontSize: 12, color: T.cream, margin: "10px 2px 4px", minHeight: 16, lineHeight: 1.45 }}>

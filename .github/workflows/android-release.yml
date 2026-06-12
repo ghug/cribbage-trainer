@@ -7,7 +7,11 @@ name: Android Release APK
 
 on:
   push:
-    tags: ['v*']
+    tags:
+      - 'v*'        # v1.2.3
+      - '[0-9]*'    # 1.2.3 (digit-led tags too)
+  release:
+    types: [published]   # creating a Release in the UI triggers a build
   workflow_dispatch:
 
 permissions:

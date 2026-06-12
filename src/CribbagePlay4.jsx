@@ -658,7 +658,7 @@ function bigBtn(label, onClick, tone) {
 }
 
 /* ============================ APP ============================ */
-export default function CribbagePlay() {
+export default function CribbagePlay4() {
   const [state, dispatch] = useReducer(reduce, undefined, initGame);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [historySeat, setHistorySeat] = React.useState(null);

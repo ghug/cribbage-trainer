@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-/* Verifies the playable game (play.html) without a browser.
+/* Verifies the playable game (play4.html, 4-handed) without a browser.
  *
  * The game's reducer and pure helpers are top-level declarations in the compiled
- * play.html <script>. We eval that script in a vm sandbox with React/ReactDOM
+ * play4.html <script>. We eval that script in a vm sandbox with React/ReactDOM
  * stubs (so the final createRoot().render() is a no-op and the component body
  * never runs), which exposes `reduce`, `initGame`, `computeShow`, `scoreInto`,
  * `pegScore`, `pegChoose`, etc. We then drive whole hands through the reducer and
@@ -16,7 +16,7 @@ const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
 
-const html = fs.readFileSync(path.join(__dirname, "..", "play.html"), "utf8");
+const html = fs.readFileSync(path.join(__dirname, "..", "play4.html"), "utf8");
 const body = html.split("\n<script>\n").pop().split("\n</script>")[0];
 
 let ok = 0, fail = 0;
@@ -288,5 +288,5 @@ function playHand(state, humanIdxPicker) {
   check(reduce(g, { type: "DEAL" }).phase === "discard", "cutdeal -> DEAL deals the first hand");
 }
 
-console.log(`\nplay.html engine checks: ${ok} passed, ${fail} failed`);
+console.log(`\nplay4.html engine checks: ${ok} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

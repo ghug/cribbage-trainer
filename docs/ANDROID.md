@@ -29,7 +29,7 @@ vendor/react*.production.min.js  React/React-DOM bundled locally (no CDN) so the
 ## Source of truth & the asset sync
 
 The built web pages live at the **repo root** (`index.html`, `trainer.html`,
-`play.html`, `vendor/`), produced by `./build.sh`. The Gradle task `:app:syncWebAssets`
+`play4.html`, `vendor/`), produced by `./build.sh`. The Gradle task `:app:syncWebAssets`
 copies them into `android/app/src/main/assets/` before each build, so the APK always
 ships the current site. If you change `src/*.jsx`, run `./build.sh` and commit the
 regenerated root HTML *before* tagging a release.

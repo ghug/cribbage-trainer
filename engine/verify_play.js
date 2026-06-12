@@ -120,6 +120,8 @@ function playHand(state, humanIdxPicker) {
       state.seats.forEach((s, i) => {
         check(Number.isFinite(s.score), `seat ${i} score finite`);
         check(s.score >= prev[i], `seat ${i} score monotonic non-decreasing`);
+        const sum = (s.history || []).reduce((a, h) => a + h.pts, 0);
+        check(sum === s.score, `seat ${i} scoring history sums to the score (${sum} vs ${s.score})`);
       });
       // Reaching 121 must end the game (overshoot on the winning count is legal);
       // and no seat may sit at >=121 while we're still between hands.

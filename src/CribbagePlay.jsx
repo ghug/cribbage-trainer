@@ -268,7 +268,11 @@ function CatBars({ cats, scale, color }) {
 
 /* ============================ GAME STATE ============================ */
 const TARGET = 121;
-const award = (seats, i, delta) => seats.map((s, j) => (j === i ? { ...s, score: s.score + delta } : s));
+// Add points to a seat and log the award to that seat's per-game history (only when
+// points are actually scored), so a player can review where their tally came from.
+const addScore = (seats, i, pts, label) => seats.map((s, j) => (j === i
+  ? { ...s, score: s.score + pts, history: pts > 0 ? [...(s.history || []), { pts, label }] : (s.history || []) }
+  : s));
 const initPeg = (seats, dealerIdx) => ({
   hands: seats.map((s) => s.kept.slice()),
   turn: (dealerIdx + 1) % 4,
@@ -293,7 +297,7 @@ function computeShow(state) {
 }
 const entLabel = (info) => `${poss(info.owner)} ${info.isCrib ? "crib" : "hand"}`;
 
-function scoreCallout(pile, count, pts) {
+function pegReason(pile, count) {
   const parts = [];
   if (count === 15) parts.push("fifteen");
   if (count === 31) parts.push("thirty-one");
@@ -304,9 +308,9 @@ function scoreCallout(pile, count, pts) {
     const tail = pile.slice(n - m);
     if (new Set(tail).size === m && Math.max(...tail) - Math.min(...tail) === m - 1) { parts.push(`run of ${m}`); break; }
   }
-  const label = parts.length ? parts.join(" + ") : "points";
-  return `${label} for ${pts}`;
+  return parts.length ? parts.join(" + ") : "points";
 }
+const scoreCallout = (pile, count, pts) => `${pegReason(pile, count)} for ${pts}`;
 
 // Score the human's 5 possible throws the same way the AI does: kept-hand EV over
 // every cut, plus the thrown card's average crib value (signed for whose crib it is).
@@ -334,7 +338,7 @@ function commitDiscard(state, idx) {
 function dealNewHand(state) {
   const deck = freshDeck();
   const seats = [0, 1, 2, 3].map((i) => ({
-    score: state.seats[i].score, isAI: i !== 0,
+    score: state.seats[i].score, isAI: i !== 0, history: state.seats[i].history || [],
     dealt: sortHand(deck.slice(i * 5, i * 5 + 5)), kept: null, discard: null,
   }));
   for (let i = 1; i < 4; i++) {
@@ -357,7 +361,7 @@ function playCard(state, seat, card) {
   const pileSuited = peg.pileSuited.concat(card);
   const played = peg.played.map((p, i) => (i === seat ? p.concat(card) : p));
   const pts = pegScore(pile, count);
-  let seats = award(state.seats, seat, pts);
+  let seats = addScore(state.seats, seat, pts, pegReason(pile, count));
   let message = pts > 0 ? `${seatName(seat)}: ${scoreCallout(pile, count, pts)}.` : `${sv(seat, "play", "plays")} ${tag(card)} (count ${count}).`;
   const np = { ...peg, hands, count, pile, pileSuited, played, lastPlayer: seat, passes: 0 };
   if (count === 31) { np.count = 0; np.pile = []; np.pileSuited = []; np.lastPlayer = -1; }
@@ -366,7 +370,7 @@ function playCard(state, seat, card) {
   const remaining = hands.reduce((a, h) => a + h.length, 0);
   if (remaining === 0) {
     if (np.lastPlayer >= 0) { // not already reset by a 31; award last-card +1
-      seats = award(seats, seat, 1);
+      seats = addScore(seats, seat, 1, "last card");
       message += ` ${seatName(seat)} +1 for last card.`;
       if (seats[seat].score >= TARGET) return { ...state, seats, peg: np, phase: "over", winner: seat, message };
     }
@@ -420,7 +424,7 @@ function reduce(state, action) {
       const hisHeels = starter.r === 11;
       let seats = state.seats, winner = null, message = `Cut: ${tag(starter)}.`;
       if (hisHeels) {
-        seats = award(seats, state.dealerIdx, 2);
+        seats = addScore(seats, state.dealerIdx, 2, "his heels");
         message = `His heels — ${sv(state.dealerIdx, "peg", "pegs")} 2 for the Jack (${tag(starter)}).`;
         if (seats[state.dealerIdx].score >= TARGET) winner = state.dealerIdx;
       }
@@ -453,7 +457,7 @@ function reduce(state, action) {
         let seats = state.seats, message = `${sv(seat, "say", "says")} "go".`;
         const np = { ...peg, passes: 0, turn: (seat + 1) % 4 };
         if (peg.lastPlayer >= 0 && peg.count !== 31) {
-          seats = award(seats, peg.lastPlayer, 1);
+          seats = addScore(seats, peg.lastPlayer, 1, "go");
           message = `${seatName(peg.lastPlayer)} +1 for the go.`;
           if (seats[peg.lastPlayer].score >= TARGET) return { ...state, seats, peg: np, phase: "over", winner: peg.lastPlayer, message };
         }
@@ -474,21 +478,21 @@ function reduce(state, action) {
       if (humanCount) {
         const claim = state.show.claimValue || 0;
         const awarded = Math.min(claim, info.total);
-        seats = award(seats, info.owner, awarded);
+        seats = addScore(seats, info.owner, awarded, info.isCrib ? "crib (claimed)" : "hand (claimed)");
         if (seats[info.owner].score >= TARGET) winner = info.owner;
         const missed = info.total - awarded;
         if (missed > 0 && winner === null) {
           const rest = state.show.order.slice(state.show.step + 1).map((e) => (e === "CRIB" ? state.dealerIdx : e));
           let recip = rest.find((o) => o !== 0);
           if (recip === undefined) recip = (state.dealerIdx + 1) % 4; // no opponent left to count -> eldest
-          seats = award(seats, recip, missed);
+          seats = addScore(seats, recip, missed, "muggins");
           message = `Muggins! ${seatName(recip)} claims the ${missed} you missed (had ${info.total}).`;
           if (seats[recip].score >= TARGET) winner = recip;
         } else {
           message = `You count ${awarded}${claim > info.total ? " — over-claim corrected down" : ""}.`;
         }
       } else {
-        seats = award(seats, info.owner, info.total);
+        seats = addScore(seats, info.owner, info.total, info.isCrib ? "crib" : "hand");
         message = `${entLabel(info)} scores ${info.total}.`;
         if (seats[info.owner].score >= TARGET) winner = info.owner;
       }
@@ -525,7 +529,7 @@ function drawForDealer() {
 function newGameState(prev) {
   const { dealerIdx, draw } = drawForDealer();
   return {
-    seats: [0, 1, 2, 3].map((i) => ({ score: 0, isAI: i !== 0, dealt: [], kept: null, discard: null })),
+    seats: [0, 1, 2, 3].map((i) => ({ score: 0, isAI: i !== 0, dealt: [], kept: null, discard: null, history: [] })),
     dealerIdx, dealDraw: draw,
     deck: [], starter: null, crib: [], hisHeels: false, pendingDiscard: null, pendingPlay: null,
     peg: null, show: null, winner: null, phase: "cutdeal", message: "",
@@ -535,15 +539,15 @@ function newGameState(prev) {
 function initGame() { return newGameState(null); }
 
 /* ============================ UI BITS ============================ */
-function ScoreRow({ seats, dealerIdx, turn, winner }) {
+function ScoreRow({ seats, dealerIdx, turn, winner, onPick }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 6, margin: "0 0 6px" }}>
       {seats.map((s, i) => {
         const isTurn = turn === i;
         const isWin = winner === i;
         return (
-          <div key={i} style={{
-            padding: "8px 8px 9px", borderRadius: 9, textAlign: "center",
+          <button key={i} onClick={() => onPick(i)} title="tap for scoring history" style={{
+            padding: "8px 8px 9px", borderRadius: 9, textAlign: "center", cursor: "pointer", font: "inherit", color: "inherit",
             background: isWin ? "rgba(95,164,124,0.28)" : isTurn ? "rgba(91,149,194,0.22)" : "rgba(0,0,0,0.22)",
             border: `1px solid ${isWin ? T.good : isTurn ? T.selBlue : T.line}`,
           }}>
@@ -551,10 +555,45 @@ function ScoreRow({ seats, dealerIdx, turn, winner }) {
               {seatName(i)}{dealerIdx === i && <span style={{ color: T.pegIvory, fontWeight: 700 }} title="dealer">⬤D</span>}
             </div>
             <div style={{ fontFamily: serif, fontWeight: 700, fontSize: 22, color: isWin ? T.good : T.ivory }}>{s.score}</div>
-            <div style={{ marginTop: 4 }}><PegTrack pct={(s.score / TARGET) * 100} /></div>
-          </div>
+            <div style={{ marginTop: 4, display: "flex", justifyContent: "center" }}><PegTrack pct={(s.score / TARGET) * 100} /></div>
+          </button>
         );
       })}
+    </div>
+  );
+}
+
+function HistoryPanel({ seatIdx, seats, onClose }) {
+  const s = seats[seatIdx];
+  const hist = s.history || [];
+  let run = 0;
+  const cols = "1fr 34px 42px";
+  return (
+    <div style={{ background: "rgba(0,0,0,0.32)", border: `1px solid ${T.line}`, borderRadius: 12, padding: "14px 16px 12px", marginBottom: 14 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <span style={{ fontWeight: 700, fontSize: 15 }}>{seatName(seatIdx)} — scoring this game</span>
+        <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>Close</button>
+      </div>
+      {hist.length === 0 ? (
+        <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>No points yet.</div>
+      ) : (
+        <div style={{ display: "grid", gap: 3 }}>
+          <div style={{ display: "grid", gridTemplateColumns: cols, gap: 8, fontFamily: mono, fontSize: 10, color: T.muted, paddingBottom: 2 }}>
+            <span>for</span><span style={{ textAlign: "right" }}>pts</span><span style={{ textAlign: "right" }}>total</span>
+          </div>
+          {hist.map((h, k) => { run += h.pts; return (
+            <div key={k} style={{ display: "grid", gridTemplateColumns: cols, gap: 8, fontFamily: mono, fontSize: 11.5, alignItems: "baseline" }}>
+              <span style={{ color: T.cream }}>{h.label}</span>
+              <span style={{ textAlign: "right", color: T.good }}>+{h.pts}</span>
+              <span style={{ textAlign: "right", color: T.muted }}>{run}</span>
+            </div>
+          ); })}
+        </div>
+      )}
+      <div style={{ display: "flex", justifyContent: "space-between", borderTop: `1px solid ${T.line}`, marginTop: 8, paddingTop: 8, fontFamily: mono, fontSize: 12 }}>
+        <span style={{ color: T.muted }}>total</span>
+        <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 18, color: T.ivory }}>{s.score}</span>
+      </div>
     </div>
   );
 }
@@ -580,6 +619,7 @@ function bigBtn(label, onClick, tone) {
 export default function CribbagePlay() {
   const [state, dispatch] = useReducer(reduce, undefined, initGame);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
+  const [historySeat, setHistorySeat] = React.useState(null);
   const { phase, seats, dealerIdx, peg, show, starter, crib, winner, message, settings, dealDraw } = state;
 
   // Self-clocking play loop: AI moves and all forced "go"s fire on a timer; a
@@ -680,7 +720,9 @@ export default function CribbagePlay() {
 
       <main style={{ maxWidth: 560, margin: "0 auto", padding: "16px 16px 0" }}>
         {settingsOpen && <SettingsPanel settings={settings} dispatch={dispatch} onClose={() => setSettingsOpen(false)} />}
-        <ScoreRow seats={seats} dealerIdx={dealerIdx} turn={turnNow} winner={phase === "over" ? winner : null} />
+        <ScoreRow seats={seats} dealerIdx={dealerIdx} turn={turnNow} winner={phase === "over" ? winner : null}
+          onPick={(i) => setHistorySeat((cur) => (cur === i ? null : i))} />
+        {historySeat !== null && <HistoryPanel seatIdx={historySeat} seats={seats} onClose={() => setHistorySeat(null)} />}
 
         {message && (
           <div style={{ fontFamily: mono, fontSize: 12, color: T.cream, margin: "10px 2px 4px", minHeight: 16, lineHeight: 1.45 }}>
@@ -929,12 +971,17 @@ function PlayScreen({ state, dispatch }) {
           {yourHand.map((card) => {
             const legal = legalSet.has(cardId(card));
             const pp = state.pendingPlay;
+            // While a peg warning is up, every card stays live: tap the selected one
+            // (or an illegal one) to unselect, or tap a different legal card to re-pick.
             return (
               <Card key={cardId(card)} card={card}
-                clickable={yourTurn && legal && !pp}
+                clickable={pp ? true : (yourTurn && legal)}
                 selected={pp ? sameCard(pp.card, card) : false}
-                dim={pp ? !sameCard(pp.card, card) : (!legal && peg.turn === 0)}
-                onClick={() => dispatch({ type: "SELECT_PLAY", card })} />
+                dim={!pp && !legal && peg.turn === 0}
+                onClick={() => {
+                  if (!pp) { dispatch({ type: "SELECT_PLAY", card }); return; }
+                  dispatch(sameCard(pp.card, card) || !legal ? { type: "CANCEL_PLAY" } : { type: "SELECT_PLAY", card });
+                }} />
             );
           })}
           {yourHand.length === 0 && <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>your cards are all played</span>}

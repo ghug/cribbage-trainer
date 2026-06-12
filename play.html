@@ -382,11 +382,13 @@ function reduce(state, action) {
     switch (action.type) {
         case "DEAL":
             return dealNewHand(state);
-        case "TOGGLE_COUNTING":
-            return { ...state, settings: { ...state.settings, counting: state.settings.counting === "auto" ? "muggins" : "auto" } };
+        case "SET_SETTING":
+            return { ...state, settings: { ...state.settings, [action.key]: action.value } };
         case "DISCARD":
             return commitDiscard(state, action.idx);
         case "SELECT_DISCARD": {
+            if (!state.settings.warnDiscard)
+                return commitDiscard(state, action.idx);
             const { opts, best } = evalDiscards(state.seats[0].dealt, state.dealerIdx);
             const chosen = opts[action.idx];
             const delta = best.value - chosen.value;
@@ -517,7 +519,8 @@ function initGame() {
         seats: [0, 1, 2, 3].map((i) => ({ score: 0, isAI: i !== 0, dealt: [], kept: null, discard: null })),
         dealerIdx: (Math.random() * 4) | 0,
         deck: [], starter: null, crib: [], hisHeels: false, pendingDiscard: null,
-        peg: null, show: null, winner: null, phase: "deal", message: "", settings: { counting: "auto" },
+        peg: null, show: null, winner: null, phase: "deal", message: "",
+        settings: { counting: "auto", autoGo: false, warnDiscard: true },
     };
 }
 function ScoreRow({ seats, dealerIdx, turn, winner }) {
@@ -552,6 +555,7 @@ function bigBtn(label, onClick, tone) {
 }
 function CribbagePlay() {
     const [state, dispatch] = useReducer(reduce, undefined, initGame);
+    const [settingsOpen, setSettingsOpen] = React.useState(false);
     const { phase, seats, dealerIdx, peg, show, starter, crib, winner, message, settings } = state;
     useEffect(() => {
         if (phase !== "play" || !peg)
@@ -559,7 +563,8 @@ function CribbagePlay() {
         const hand = peg.hands[peg.turn];
         const legal = hand.filter((c) => pval(c.r) + peg.count <= 31);
         if (peg.turn === 0) {
-            if (hand.length > 0)
+            const out = hand.length === 0;
+            if (!(out || (legal.length === 0 && settings.autoGo)))
                 return;
             const t = setTimeout(() => dispatch({ type: "PASS_GO", seat: 0 }), 450);
             return () => clearTimeout(t);
@@ -574,7 +579,7 @@ function CribbagePlay() {
             dispatch({ type: "PLAY_CARD", seat: peg.turn, card: chosen });
         }, 760);
         return () => clearTimeout(t);
-    }, [phase, peg]);
+    }, [phase, peg, settings.autoGo]);
     const dealer = dealerIdx === 0;
     const turnNow = phase === "play" && peg ? peg.turn : phase === "over" ? winner : -1;
     return (React.createElement("div", { style: {
@@ -596,29 +601,35 @@ function CribbagePlay() {
                 background: `linear-gradient(180deg, ${T.woodL}, ${T.woodM} 55%, ${T.woodD})`,
                 padding: "14px 18px 16px", boxShadow: "0 6px 18px rgba(0,0,0,0.4)", borderBottom: "2px solid rgba(0,0,0,0.3)",
             } },
-            React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap" } },
-                React.createElement("h1", { style: { margin: 0, fontSize: 22, color: "#2A1B0E", letterSpacing: 0.3, fontWeight: 700 } }, "Cribbage \u2014 Play"),
-                React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: "rgba(42,27,14,0.75)" } }, "4-handed cutthroat \u00B7 first to 121"))),
+            React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 } },
+                React.createElement("div", null,
+                    React.createElement("h1", { style: { margin: 0, fontSize: 22, color: "#2A1B0E", letterSpacing: 0.3, fontWeight: 700 } }, "Cribbage \u2014 Play"),
+                    React.createElement("span", { style: { display: "block", fontFamily: mono, fontSize: 11, color: "rgba(42,27,14,0.75)", marginTop: 2 } }, "4-handed cutthroat \u00B7 first to 121")),
+                React.createElement("button", { onClick: () => setSettingsOpen((o) => !o), "aria-label": "Settings", "aria-expanded": settingsOpen, style: {
+                        flex: "0 0 auto", width: 40, height: 40, borderRadius: 10, cursor: "pointer",
+                        border: "1px solid rgba(0,0,0,0.28)", background: settingsOpen ? "rgba(42,27,14,0.28)" : "rgba(42,27,14,0.14)",
+                        color: "#2A1B0E", fontSize: 20, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
+                    } }, "\u2699"))),
         React.createElement("main", { style: { maxWidth: 560, margin: "0 auto", padding: "16px 16px 0" } },
+            settingsOpen && React.createElement(SettingsPanel, { settings: settings, dispatch: dispatch, onClose: () => setSettingsOpen(false) }),
             React.createElement(ScoreRow, { seats: seats, dealerIdx: dealerIdx, turn: turnNow, winner: phase === "over" ? winner : null }),
             message && (React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.cream, margin: "10px 2px 4px", minHeight: 16, lineHeight: 1.45 } }, message)),
             phase === "deal" && (React.createElement("div", { style: { marginTop: 14, display: "flex", flexDirection: "column", gap: 16 } },
                 React.createElement(Panel, { tone: dealer ? "good" : null },
                     React.createElement("div", { style: { fontWeight: 700, fontSize: 15 } }, dealer ? "Your deal — the crib is yours." : `${seatName(dealerIdx)} deals — the crib is theirs.`),
                     React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 } }, "Each player gets 5 cards and throws one to the crib. First to 121 wins.")),
-                React.createElement("div", null,
-                    React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 } }, "counting"),
-                    React.createElement("div", { style: { display: "flex", gap: 6 } }, [["auto", "Auto-count"], ["muggins", "Muggins"]].map(([k, label]) => {
-                        const on = settings.counting === k;
-                        return (React.createElement("button", { key: k, onClick: () => settings.counting !== k && dispatch({ type: "TOGGLE_COUNTING" }), style: {
-                                flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: 11.5,
-                                background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
-                                border: `1px solid ${on ? T.pegIvory : T.line}`, fontWeight: on ? 700 : 400,
-                            } }, label));
-                    })),
-                    React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 6, lineHeight: 1.5 } }, settings.counting === "muggins"
-                        ? "Muggins: you claim your own hand (and crib when you deal). Miss points and the next opponent takes them; over-claims are corrected down."
-                        : "Auto-count: every hand is tallied for you, in order, so nothing is missed.")),
+                React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, lineHeight: 1.7 } },
+                    "counting ",
+                    React.createElement("b", { style: { color: T.cream } }, settings.counting === "muggins" ? "muggins" : "auto"),
+                    " \u00B7",
+                    " ",
+                    "go on no card ",
+                    React.createElement("b", { style: { color: T.cream } }, settings.autoGo ? "auto" : "manual"),
+                    " \u00B7",
+                    " ",
+                    "weak-discard warnings ",
+                    React.createElement("b", { style: { color: T.cream } }, settings.warnDiscard ? "on" : "off"),
+                    React.createElement("span", null, " \u2014 tap \u2699 to change")),
                 bigBtn(dealer ? "Deal" : `Deal (${seatName(dealerIdx)}'s crib)`, () => dispatch({ type: "DEAL" }), "wood"))),
             phase === "discard" && (React.createElement("div", { style: { marginTop: 14, display: "flex", flexDirection: "column", gap: 14 } },
                 React.createElement(Panel, { tone: dealer ? "good" : "red" },
@@ -705,19 +716,21 @@ function PlayScreen({ state, dispatch }) {
         React.createElement("div", { style: { background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "10px 12px" } },
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 6 } }, "the pile"),
             React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, minHeight: 64 } },
-                React.createElement("div", { style: { flex: "1 1 auto", display: "flex", justifyContent: "center" } }, peg.pileSuited.length
-                    ? React.createElement(PlayedStack, { cards: peg.pileSuited, backs: 0 })
-                    : React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: T.muted } }, "cleared \u2014 new count from 0")),
                 React.createElement("div", { style: { flex: "0 0 auto", display: "flex", flexDirection: "column", alignItems: "center", padding: "4px 14px", borderRadius: 9, background: "rgba(0,0,0,0.3)", border: `1px solid ${T.line}` } },
                     React.createElement("span", { style: { fontFamily: mono, fontSize: 10, color: T.muted } }, "count"),
-                    React.createElement("span", { style: { fontFamily: serif, fontWeight: 700, fontSize: 28, lineHeight: 1, color: peg.count === 31 ? T.good : T.ivory } }, peg.count)))),
+                    React.createElement("span", { style: { fontFamily: serif, fontWeight: 700, fontSize: 28, lineHeight: 1, color: peg.count === 31 ? T.good : T.ivory } }, peg.count)),
+                React.createElement("div", { style: { flex: "1 1 auto", display: "flex", justifyContent: "center" } }, peg.pileSuited.length
+                    ? React.createElement(PlayedStack, { cards: peg.pileSuited, backs: 0 })
+                    : React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: T.muted } }, "cleared \u2014 new count from 0")))),
         React.createElement("div", null,
             React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: (yourTurn || stuck) ? T.selBlue : T.muted, marginBottom: 6 } }, peg.turn === 0
-                ? (yourTurn ? "Your turn — tap a card to play." : stuck ? "No legal card — tap Go to pass." : "Your cards are all played.")
+                ? (yourTurn ? "Your turn — tap a card to play."
+                    : stuck ? (state.settings.autoGo ? "No legal card — passing…" : "No legal card — tap Go to pass.")
+                        : "Your cards are all played.")
                 : `${seatName(peg.turn)} to play…`),
             peg.played[0].length > 0 && (React.createElement("div", { style: { marginBottom: 10 } },
                 React.createElement(PlayedStack, { cards: peg.played[0], backs: 0 }))),
-            stuck && (React.createElement("div", { style: { marginBottom: 10 } },
+            stuck && !state.settings.autoGo && (React.createElement("div", { style: { marginBottom: 10 } },
                 React.createElement("button", { onClick: () => dispatch({ type: "PASS_GO", seat: 0 }), style: {
                         width: "100%", padding: "12px", borderRadius: 10, border: "none", cursor: "pointer",
                         background: `linear-gradient(180deg, ${T.pegRed}, #9c3120)`, color: T.ivory,
@@ -815,6 +828,24 @@ function DiscardWarning({ pd, dealer, dispatch }) {
                     flex: 1, padding: "11px", borderRadius: 9, border: "none", cursor: "pointer",
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, "Pick again"))));
+}
+const segStyle = (on) => ({
+    flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: 11.5,
+    background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
+    border: `1px solid ${on ? T.pegIvory : T.line}`, fontWeight: on ? 700 : 400,
+});
+function SettingsPanel({ settings, dispatch, onClose }) {
+    const Row = ({ title, desc, k, options }) => (React.createElement("div", { style: { marginBottom: 14 } },
+        React.createElement("div", { style: { fontWeight: 700, fontSize: 13.5 } }, title),
+        React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, margin: "2px 0 7px", lineHeight: 1.45 } }, desc),
+        React.createElement("div", { style: { display: "flex", gap: 6 } }, options.map(([label, val]) => (React.createElement("button", { key: String(val), onClick: () => dispatch({ type: "SET_SETTING", key: k, value: val }), style: segStyle(settings[k] === val) }, label))))));
+    return (React.createElement("div", { style: { background: "rgba(0,0,0,0.32)", border: `1px solid ${T.line}`, borderRadius: 12, padding: "14px 16px 4px", marginBottom: 14 } },
+        React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 } },
+            React.createElement("span", { style: { fontWeight: 700, fontSize: 16 } }, "Settings"),
+            React.createElement("button", { onClick: onClose, style: { padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 } }, "Done")),
+        React.createElement(Row, { title: "Counting", k: "counting", desc: "Auto tallies every hand for you. Muggins: you claim your own hand (and crib when you deal) \u2014 miss points and the next opponent takes them.", options: [["Auto-count", "auto"], ["Muggins", "muggins"]] }),
+        React.createElement(Row, { title: "Go on no playable card", k: "autoGo", desc: 'When you can’t play, Manual waits for you to tap “Go”; Auto passes for you.', options: [["Manual", false], ["Auto", true]] }),
+        React.createElement(Row, { title: "Warn on a weak discard", k: "warnDiscard", desc: "Pause and explain when your throw to the crib isn\u2019t the best, with a chance to take it back.", options: [["On", true], ["Off", false]] })));
 }
 function StepBtn({ children, onClick }) {
     return (React.createElement("button", { onClick: onClick, style: {

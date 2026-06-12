@@ -352,15 +352,17 @@ function reduce(state, action) {
     case "DEAL":
       return dealNewHand(state);
 
-    case "TOGGLE_COUNTING":
-      return { ...state, settings: { ...state.settings, counting: state.settings.counting === "auto" ? "muggins" : "auto" } };
+    case "SET_SETTING":
+      return { ...state, settings: { ...state.settings, [action.key]: action.value } };
 
     case "DISCARD": // commit straight away (used programmatically / by tests)
       return commitDiscard(state, action.idx);
 
     case "SELECT_DISCARD": {
-      // The human tapped a throw. If it's optimal (or a near-tie), throw it; if it
-      // gives up real value, pause and explain so they can take it back.
+      // The human tapped a throw. If warnings are off, just throw it. Otherwise, if
+      // it's optimal (or a near-tie) throw it; if it gives up real value, pause and
+      // explain so they can take it back.
+      if (!state.settings.warnDiscard) return commitDiscard(state, action.idx);
       const { opts, best } = evalDiscards(state.seats[0].dealt, state.dealerIdx);
       const chosen = opts[action.idx];
       const delta = best.value - chosen.value;
@@ -482,7 +484,8 @@ function initGame() {
     seats: [0, 1, 2, 3].map((i) => ({ score: 0, isAI: i !== 0, dealt: [], kept: null, discard: null })),
     dealerIdx: (Math.random() * 4) | 0,
     deck: [], starter: null, crib: [], hisHeels: false, pendingDiscard: null,
-    peg: null, show: null, winner: null, phase: "deal", message: "", settings: { counting: "auto" },
+    peg: null, show: null, winner: null, phase: "deal", message: "",
+    settings: { counting: "auto", autoGo: false, warnDiscard: true },
   };
 }
 
@@ -531,6 +534,7 @@ function bigBtn(label, onClick, tone) {
 /* ============================ APP ============================ */
 export default function CribbagePlay() {
   const [state, dispatch] = useReducer(reduce, undefined, initGame);
+  const [settingsOpen, setSettingsOpen] = React.useState(false);
   const { phase, seats, dealerIdx, peg, show, starter, crib, winner, message, settings } = state;
 
   // Self-clocking play loop: AI moves and all forced "go"s fire on a timer; a
@@ -540,10 +544,11 @@ export default function CribbagePlay() {
     const hand = peg.hands[peg.turn];
     const legal = hand.filter((c) => pval(c.r) + peg.count <= 31);
     if (peg.turn === 0) {
-      // The human always acts by tapping: a legal card, or the "Go" button when
-      // stuck with cards in hand. Only auto-skip once they're out of cards (no
-      // decision to make), mirroring how an empty seat just passes the rotation.
-      if (hand.length > 0) return;
+      // The human acts by tapping: a legal card, or the "Go" button when stuck with
+      // cards in hand. Auto-pass only when there's no decision to make — out of cards,
+      // or the "auto-go" setting is on and there's no legal play.
+      const out = hand.length === 0;
+      if (!(out || (legal.length === 0 && settings.autoGo))) return;
       const t = setTimeout(() => dispatch({ type: "PASS_GO", seat: 0 }), 450);
       return () => clearTimeout(t);
     }
@@ -554,7 +559,7 @@ export default function CribbagePlay() {
       dispatch({ type: "PLAY_CARD", seat: peg.turn, card: chosen });
     }, 760);
     return () => clearTimeout(t);
-  }, [phase, peg]);
+  }, [phase, peg, settings.autoGo]);
 
   const dealer = dealerIdx === 0;
   const turnNow = phase === "play" && peg ? peg.turn : phase === "over" ? winner : -1;
@@ -580,13 +585,21 @@ export default function CribbagePlay() {
         background: `linear-gradient(180deg, ${T.woodL}, ${T.woodM} 55%, ${T.woodD})`,
         padding: "14px 18px 16px", boxShadow: "0 6px 18px rgba(0,0,0,0.4)", borderBottom: "2px solid rgba(0,0,0,0.3)",
       }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-          <h1 style={{ margin: 0, fontSize: 22, color: "#2A1B0E", letterSpacing: 0.3, fontWeight: 700 }}>Cribbage — Play</h1>
-          <span style={{ fontFamily: mono, fontSize: 11, color: "rgba(42,27,14,0.75)" }}>4-handed cutthroat · first to 121</span>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+          <div>
+            <h1 style={{ margin: 0, fontSize: 22, color: "#2A1B0E", letterSpacing: 0.3, fontWeight: 700 }}>Cribbage — Play</h1>
+            <span style={{ display: "block", fontFamily: mono, fontSize: 11, color: "rgba(42,27,14,0.75)", marginTop: 2 }}>4-handed cutthroat · first to 121</span>
+          </div>
+          <button onClick={() => setSettingsOpen((o) => !o)} aria-label="Settings" aria-expanded={settingsOpen} style={{
+            flex: "0 0 auto", width: 40, height: 40, borderRadius: 10, cursor: "pointer",
+            border: "1px solid rgba(0,0,0,0.28)", background: settingsOpen ? "rgba(42,27,14,0.28)" : "rgba(42,27,14,0.14)",
+            color: "#2A1B0E", fontSize: 20, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
+          }}>⚙</button>
         </div>
       </header>
 
       <main style={{ maxWidth: 560, margin: "0 auto", padding: "16px 16px 0" }}>
+        {settingsOpen && <SettingsPanel settings={settings} dispatch={dispatch} onClose={() => setSettingsOpen(false)} />}
         <ScoreRow seats={seats} dealerIdx={dealerIdx} turn={turnNow} winner={phase === "over" ? winner : null} />
 
         {message && (
@@ -601,25 +614,11 @@ export default function CribbagePlay() {
               <div style={{ fontWeight: 700, fontSize: 15 }}>{dealer ? "Your deal — the crib is yours." : `${seatName(dealerIdx)} deals — the crib is theirs.`}</div>
               <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>Each player gets 5 cards and throws one to the crib. First to 121 wins.</div>
             </Panel>
-            <div>
-              <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 }}>counting</div>
-              <div style={{ display: "flex", gap: 6 }}>
-                {[["auto", "Auto-count"], ["muggins", "Muggins"]].map(([k, label]) => {
-                  const on = settings.counting === k;
-                  return (
-                    <button key={k} onClick={() => settings.counting !== k && dispatch({ type: "TOGGLE_COUNTING" })} style={{
-                      flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: 11.5,
-                      background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
-                      border: `1px solid ${on ? T.pegIvory : T.line}`, fontWeight: on ? 700 : 400,
-                    }}>{label}</button>
-                  );
-                })}
-              </div>
-              <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 6, lineHeight: 1.5 }}>
-                {settings.counting === "muggins"
-                  ? "Muggins: you claim your own hand (and crib when you deal). Miss points and the next opponent takes them; over-claims are corrected down."
-                  : "Auto-count: every hand is tallied for you, in order, so nothing is missed."}
-              </div>
+            <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, lineHeight: 1.7 }}>
+              counting <b style={{ color: T.cream }}>{settings.counting === "muggins" ? "muggins" : "auto"}</b> ·{" "}
+              go on no card <b style={{ color: T.cream }}>{settings.autoGo ? "auto" : "manual"}</b> ·{" "}
+              weak-discard warnings <b style={{ color: T.cream }}>{settings.warnDiscard ? "on" : "off"}</b>
+              <span> — tap ⚙ to change</span>
             </div>
             {bigBtn(dealer ? "Deal" : `Deal (${seatName(dealerIdx)}'s crib)`, () => dispatch({ type: "DEAL" }), "wood")}
           </div>
@@ -772,14 +771,14 @@ function PlayScreen({ state, dispatch }) {
       <div style={{ background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "10px 12px" }}>
         <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 6 }}>the pile</div>
         <div style={{ display: "flex", alignItems: "center", gap: 14, minHeight: 64 }}>
+          <div style={{ flex: "0 0 auto", display: "flex", flexDirection: "column", alignItems: "center", padding: "4px 14px", borderRadius: 9, background: "rgba(0,0,0,0.3)", border: `1px solid ${T.line}` }}>
+            <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>count</span>
+            <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 28, lineHeight: 1, color: peg.count === 31 ? T.good : T.ivory }}>{peg.count}</span>
+          </div>
           <div style={{ flex: "1 1 auto", display: "flex", justifyContent: "center" }}>
             {peg.pileSuited.length
               ? <PlayedStack cards={peg.pileSuited} backs={0} />
               : <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>cleared — new count from 0</span>}
-          </div>
-          <div style={{ flex: "0 0 auto", display: "flex", flexDirection: "column", alignItems: "center", padding: "4px 14px", borderRadius: 9, background: "rgba(0,0,0,0.3)", border: `1px solid ${T.line}` }}>
-            <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>count</span>
-            <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 28, lineHeight: 1, color: peg.count === 31 ? T.good : T.ivory }}>{peg.count}</span>
           </div>
         </div>
       </div>
@@ -788,7 +787,9 @@ function PlayScreen({ state, dispatch }) {
       <div>
         <div style={{ fontFamily: mono, fontSize: 11, color: (yourTurn || stuck) ? T.selBlue : T.muted, marginBottom: 6 }}>
           {peg.turn === 0
-            ? (yourTurn ? "Your turn — tap a card to play." : stuck ? "No legal card — tap Go to pass." : "Your cards are all played.")
+            ? (yourTurn ? "Your turn — tap a card to play."
+              : stuck ? (state.settings.autoGo ? "No legal card — passing…" : "No legal card — tap Go to pass.")
+              : "Your cards are all played.")
             : `${seatName(peg.turn)} to play…`}
         </div>
         {peg.played[0].length > 0 && (
@@ -796,7 +797,7 @@ function PlayScreen({ state, dispatch }) {
             <PlayedStack cards={peg.played[0]} backs={0} />
           </div>
         )}
-        {stuck && (
+        {stuck && !state.settings.autoGo && (
           <div style={{ marginBottom: 10 }}>
             <button onClick={() => dispatch({ type: "PASS_GO", seat: 0 })} style={{
               width: "100%", padding: "12px", borderRadius: 10, border: "none", cursor: "pointer",
@@ -912,6 +913,43 @@ function DiscardWarning({ pd, dealer, dispatch }) {
         }}>Pick again</button>
       </div>
     </Panel>
+  );
+}
+
+const segStyle = (on) => ({
+  flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: 11.5,
+  background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
+  border: `1px solid ${on ? T.pegIvory : T.line}`, fontWeight: on ? 700 : 400,
+});
+
+function SettingsPanel({ settings, dispatch, onClose }) {
+  const Row = ({ title, desc, k, options }) => (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ fontWeight: 700, fontSize: 13.5 }}>{title}</div>
+      <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, margin: "2px 0 7px", lineHeight: 1.45 }}>{desc}</div>
+      <div style={{ display: "flex", gap: 6 }}>
+        {options.map(([label, val]) => (
+          <button key={String(val)} onClick={() => dispatch({ type: "SET_SETTING", key: k, value: val })} style={segStyle(settings[k] === val)}>{label}</button>
+        ))}
+      </div>
+    </div>
+  );
+  return (
+    <div style={{ background: "rgba(0,0,0,0.32)", border: `1px solid ${T.line}`, borderRadius: 12, padding: "14px 16px 4px", marginBottom: 14 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <span style={{ fontWeight: 700, fontSize: 16 }}>Settings</span>
+        <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>Done</button>
+      </div>
+      <Row title="Counting" k="counting"
+        desc="Auto tallies every hand for you. Muggins: you claim your own hand (and crib when you deal) — miss points and the next opponent takes them."
+        options={[["Auto-count", "auto"], ["Muggins", "muggins"]]} />
+      <Row title="Go on no playable card" k="autoGo"
+        desc={'When you can’t play, Manual waits for you to tap “Go”; Auto passes for you.'}
+        options={[["Manual", false], ["Auto", true]]} />
+      <Row title="Warn on a weak discard" k="warnDiscard"
+        desc="Pause and explain when your throw to the crib isn’t the best, with a chance to take it back."
+        options={[["On", true], ["Off", false]]} />
+    </div>
   );
 }
 

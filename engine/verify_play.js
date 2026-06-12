@@ -215,11 +215,18 @@ function playHand(state, humanIdxPicker) {
   const bestIdx = ev.best.idx;
   check(ev.opts.length === 5, "evalDiscards rates all 5 throws");
 
+  // SET_SETTING updates a single setting
+  const toggled = reduce(base, { type: "SET_SETTING", key: "autoGo", value: true });
+  check(toggled.settings.autoGo === true && toggled.settings.counting === base.settings.counting, "SET_SETTING updates one setting, leaves the rest");
+
   // selecting the best throw commits straight to the cut, no pause
   const s1 = reduce(base, { type: "SELECT_DISCARD", idx: bestIdx });
   check(s1.phase === "cut" && !s1.pendingDiscard, "best throw commits with no warning");
 
   if (ev.best.value - worst.value > 0.1) {
+    // with warnings off, even a bad throw commits immediately
+    const noWarn = reduce({ ...base, settings: { ...base.settings, warnDiscard: false } }, { type: "SELECT_DISCARD", idx: worst.idx });
+    check(noWarn.phase === "cut" && !noWarn.pendingDiscard, "warnings off: a weak throw commits with no pause");
     const s2 = reduce(base, { type: "SELECT_DISCARD", idx: worst.idx });
     check(s2.phase === "discard" && s2.pendingDiscard && s2.pendingDiscard.idx === worst.idx, "bad throw pauses with a warning");
     check(s2.pendingDiscard.delta > 0.1, "warning carries the points given up");

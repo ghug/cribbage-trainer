@@ -50,8 +50,8 @@ build_one() {
 <meta name="theme-color" content="#0f2417" />
 <title>${TITLE}</title>
 <style>html,body{margin:0;background:#0f2417;min-height:100%}#root{min-height:100vh}</style>
-<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="vendor/react.production.min.js"></script>
+<script src="vendor/react-dom.production.min.js"></script>
 </head>
 <body>
 ${HOMEHTML}

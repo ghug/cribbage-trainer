@@ -1,0 +1,45 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'dev.cribbage.cutthroat'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "dev.cribbage.cutthroat"
+        minSdk 26          // adaptive icons; covers ~95%+ of devices
+        targetSdk 34
+        versionCode 1      // bump by 1 on every release (IzzyOnDroid/F-Droid require this)
+        versionName "1.0.0"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false   // nothing to strip; pure-asset WebView app
+            // Intentionally no signingConfig here: no key material lives in the repo.
+            // CI signs the unsigned release APK with apksigner (see
+            // .github/workflows/android-release.yml and docs/ANDROID.md). For a local
+            // signed build, sign app-release-unsigned.apk yourself with apksigner.
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+// Bundle the built web app (committed at the repo root) into the APK's assets before
+// every build, so the wrapper always ships the current pages + vendored React. The
+// repo root holds the source of truth (index.html / trainer.html / play.html / vendor),
+// produced by ../build.sh; these copies under src/main/assets are git-ignored.
+tasks.register('syncWebAssets', Copy) {
+    def repoRoot = rootProject.projectDir.parentFile
+    into layout.projectDirectory.dir('src/main/assets')
+    from(repoRoot) {
+        include 'index.html', 'trainer.html', 'play.html'
+        include 'vendor/**'
+    }
+}
+tasks.named('preBuild') { dependsOn 'syncWebAssets' }

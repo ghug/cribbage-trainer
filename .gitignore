@@ -1,0 +1,24 @@
+# ── Android / Gradle build outputs ───────────────────────────────────────────
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/captures/
+*.iml
+.idea/
+
+# Web app copied into the APK by :app:syncWebAssets (source of truth is the repo
+# root). Regenerated on every Android build; don't commit the duplicates.
+android/app/src/main/assets/index.html
+android/app/src/main/assets/trainer.html
+android/app/src/main/assets/play.html
+android/app/src/main/assets/vendor/
+
+# ── Signing material — NEVER commit ──────────────────────────────────────────
+*.jks
+*.keystore
+android/keystore.properties
+
+# ── Misc ─────────────────────────────────────────────────────────────────────
+node_modules/
+.DS_Store

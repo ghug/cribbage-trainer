@@ -241,8 +241,12 @@ change `src/CribbagePlay.jsx`.
 
 **Run locally (already works):** open `index.html` in a browser (the welcome page),
 or `trainer.html` / `play.html` directly. They are pre-compiled to plain JS (no
-Babel, no in-browser build); React/ReactDOM load from a CDN. The editable sources
-are `src/CribbageTrainer.jsx`, `src/CribbagePlay.jsx`, and `src/landing.html`.
+Babel, no in-browser build). React/ReactDOM are **vendored locally** in `vendor/`
+(`react@18.3.1` UMD), referenced as `<script src="vendor/react*.min.js">` — **no
+CDN**, so everything works fully offline (this matters for the APK wrapper below).
+The editable sources are `src/CribbageTrainer.jsx`, `src/CribbagePlay.jsx`, and
+`src/landing.html`. The `vendor/` files must be served alongside the HTML (they are
+not in `.assetsignore`).
 
 **Rebuild after editing any source:** run `./build.sh` (needs a global `tsc`; one is
 present in this environment). It regenerates **all three** root pages from `src/`:
@@ -292,6 +296,24 @@ browser, so for actual gameplay/visual checks, ask the human to eyeball it.
 Legacy fallback routes (only if the pipeline above is ever torn down): Cloudflare
 Direct Upload (drag `index.html` in the dashboard), or the REST API with an
 `Account → Cloudflare Pages → Edit` token + Account ID.
+
+## Android / APK packaging (`android/` + `docs/ANDROID.md`)
+
+Scaffolded for Obtainium / IzzyOnDroid. `android/` is a self-contained Gradle
+project: a single full-screen `WebView` (`MainActivity.java`, no third-party libs,
+**no INTERNET permission** — fully offline) loading `file:///android_asset/index.html`.
+The Gradle task `:app:syncWebAssets` copies the repo-root build outputs
+(`index.html`/`trainer.html`/`play.html`/`vendor/`) into the APK at build time, so the
+**committed root HTML is the source of truth** — run `./build.sh` and commit before
+tagging. `applicationId = dev.cribbage.cutthroat` (name-free; immutable once
+published). The CI workflow (template at `docs/ci-android-release.yml` — move it to
+`.github/workflows/android-release.yml` once a `workflow`-scoped token is available;
+the ghug Contents PAT can't push under `.github/workflows/`) builds + signs + attaches
+the APK to a GitHub Release on a `v*` tag (needs `KEYSTORE_*` repo secrets). Full how-to
+(keystore, secrets, Obtainium add-by-URL, IzzyOnDroid RFP) in **`docs/ANDROID.md`**.
+Known caveat: the UI's CSS container queries need WebView ≥105 (old/de-Googled
+WebViews may mis-size cards). The wrapper couldn't be fully built in-sandbox (no
+Android SDK); CI provisions it.
 
 **ANDROID / TERMUX CAVEAT (important, learned the hard way):** `npm install -g
 wrangler` FAILS on Android/Termux — Wrangler bundles `workerd`, a native binary

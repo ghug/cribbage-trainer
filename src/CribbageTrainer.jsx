@@ -315,8 +315,11 @@ function Card({ card, onClick, phase, badge, dim, selected }) {
   const [hover, setHover] = useState(false);
   const lift = badge || selected ? -10 : hover && clickable ? -6 : 0;
   const edge = badge ? badge.color : selected ? T.pegRed : null;
+  // Cards size to 68px when there's room but shrink to fit when a 6-card hand is wider
+  // than the screen. The face is a container; its text uses cqw units so the rank/suit
+  // scale with the box. (1px ≈ 1.47cqw at the 68px base width.)
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flex: "0 1 68px", minWidth: 0, maxWidth: 68 }}>
       <div style={{ height: 18 }}>
         {badge ? (
           <span style={{
@@ -336,7 +339,8 @@ function Card({ card, onClick, phase, badge, dim, selected }) {
         aria-label={`${rankLabel(card.r)} of ${["spades", "hearts", "diamonds", "clubs"][card.s]}`}
         aria-pressed={clickable ? !!selected : undefined}
         style={{
-          width: 68, height: 96, borderRadius: 9, padding: 0, background: T.ivory, position: "relative",
+          width: "100%", aspectRatio: "68 / 96", containerType: "inline-size",
+          borderRadius: 9, padding: 0, background: T.ivory, position: "relative",
           cursor: clickable ? "pointer" : "default",
           border: edge ? `2px solid ${edge}` : "1px solid rgba(0,0,0,0.25)",
           boxShadow: badge || selected ? "0 8px 18px rgba(0,0,0,0.45)" : "0 4px 10px rgba(0,0,0,0.35)",
@@ -345,15 +349,15 @@ function Card({ card, onClick, phase, badge, dim, selected }) {
         }}
       >
         <span style={{
-          position: "absolute", top: 6, left: 7, lineHeight: 1, textAlign: "center",
+          position: "absolute", top: "8.8cqw", left: "10.3cqw", lineHeight: 1, textAlign: "center",
           color: isRed(card.s) ? T.suitRed : T.ink, fontFamily: serif, fontWeight: 700,
         }}>
-          <span style={{ fontSize: 17, display: "block" }}>{rankLabel(card.r)}</span>
-          <span style={{ fontSize: 13 }}>{SUIT[card.s]}</span>
+          <span style={{ fontSize: "25cqw", display: "block" }}>{rankLabel(card.r)}</span>
+          <span style={{ fontSize: "19cqw" }}>{SUIT[card.s]}</span>
         </span>
         <span style={{
           position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 34, color: isRed(card.s) ? T.suitRed : T.ink,
+          fontSize: "50cqw", color: isRed(card.s) ? T.suitRed : T.ink,
         }}>{SUIT[card.s]}</span>
       </button>
     </div>
@@ -609,7 +613,7 @@ export default function CribbageTrainer() {
                 : "Tap the card you'd throw to the crib.")
             : `Ranked by ${MODE_LABEL[mode]}${mode === "ev" ? "" : " (net " + (mode === "need" ? "+" : "−") + " risk·σ)"} — tap any row for the why.`}
         </p>
-        <div className={phase === "choose" ? "dealwrap" : ""} style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+        <div className={phase === "choose" ? "dealwrap" : ""} style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "nowrap" }}>
           {hand.map((card, i) => {
             let badge = null, dim = false, sel = false;
             if (phase === "revealed") {
@@ -682,7 +686,7 @@ export default function CribbageTrainer() {
           <div>
             <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 }}>players at the table</div>
             <div style={{ display: "flex", gap: 6 }}>
-              {[[4, "4-handed"], [3, "3-handed"], [2, "2-handed"]].map(([n, label]) => {
+              {[[2, "2-handed"], [3, "3-handed"], [4, "4-handed"]].map(([n, label]) => {
                 const on = players === n;
                 return (<button key={n} onClick={() => changePlayers(n)} style={{
                   flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: 11.5,

@@ -424,8 +424,11 @@ function reduce(state, action) {
     case "DEAL":
       return dealNewHand(state);
 
-    case "SET_SETTING":
-      return { ...state, settings: { ...state.settings, [action.key]: action.value } };
+    case "SET_SETTING": {
+      const settings = { ...state.settings, [action.key]: action.value };
+      saveSettings(settings);
+      return { ...state, settings };
+    }
 
     case "DISCARD": // commit straight away (used programmatically / by tests)
       return commitDiscard(state, action.idx);
@@ -549,6 +552,15 @@ function reduce(state, action) {
 }
 
 const DEFAULT_SETTINGS = { counting: "auto", autoGo: false, warn: true, autoDeal: false, autoContinue: false, autoPlayOne: false };
+// Settings persist across pages (and game sizes) in localStorage under a shared key,
+// so toggling one in any game keeps it set everywhere. The try/catch keeps the engine
+// verification harness (no localStorage) and private-mode browsers happy.
+const SETTINGS_KEY = "cribbage:settings";
+function loadSettings() {
+  try { const raw = localStorage.getItem(SETTINGS_KEY); if (raw) return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) }; } catch (e) {}
+  return { ...DEFAULT_SETTINGS };
+}
+function saveSettings(s) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (e) {} }
 
 // Cut for deal at the start of a game: each seat draws one card from a shuffled
 // deck; the lowest rank deals. Re-draw all four on a tie for lowest, until unique.
@@ -569,7 +581,7 @@ function newGameState(prev) {
     dealerIdx, dealDraw: draw,
     deck: [], starter: null, crib: [], hisHeels: false, pendingDiscard: null, pendingPlay: null,
     peg: null, show: null, winner: null, phase: "cutdeal", message: "",
-    settings: prev ? prev.settings : DEFAULT_SETTINGS,
+    settings: prev ? prev.settings : loadSettings(),
   };
 }
 function initGame() { return newGameState(null); }

@@ -14,7 +14,9 @@ accounts, no tracking:
 
 **Two ways to use it:**
 
-- **In a browser** (nothing to install) — the web release: https://cribbage-trainer.gabrielhug.workers.dev
+- **In a browser** (nothing to install) — the web release, on either mirror:
+  - https://cribbage-trainer.gabrielhug.workers.dev (Cloudflare)
+  - https://ghug.github.io/cribbage-trainer/ (GitHub Pages)
 - **As an Android app** — a signed APK on the [Releases](../../releases) page,
   installable directly or via Obtainium. The APK is fully self-contained and offline;
   see [`docs/ANDROID.md`](docs/ANDROID.md).

@@ -1,5 +1,6 @@
-# Only the built index.html should be served. Keep source, docs, tooling, and
-# any install artifacts out of the deployed asset bundle.
+# Only the built HTML pages (index.html / trainer.html / play.html) should be
+# served. Keep source, docs, tooling, and any install artifacts out of the
+# deployed asset bundle.
 .git
 .gitignore
 .assetsignore

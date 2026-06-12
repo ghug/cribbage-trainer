@@ -1,7 +1,8 @@
 {
   // Cloudflare Workers static-assets deploy config (used by `npx wrangler deploy`
   // in Workers Builds). Pins the project so each deploy is deterministic instead
-  // of auto-generated. This site is a single static file; no Worker script.
+  // of auto-generated. This site is a few static HTML pages (index/trainer/play),
+  // served straight from the directory; no Worker script.
   "name": "cribbage-trainer",
   "compatibility_date": "2024-11-01",
   "assets": {

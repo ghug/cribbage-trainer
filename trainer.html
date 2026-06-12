@@ -1,0 +1,903 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0f2417" />
+<title>Cribbage Discard Trainer</title>
+<style>html,body{margin:0;background:#0f2417;min-height:100%}#root{min-height:100vh}</style>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+</head>
+<body>
+<a href="index.html" aria-label="Back to home" style="position:fixed;right:10px;bottom:10px;z-index:9999;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:#ECE0C6;text-decoration:none;background:rgba(15,36,23,0.85);border:1px solid rgba(236,224,182,0.28);padding:7px 11px;border-radius:9px;box-shadow:0 3px 10px rgba(0,0,0,0.45)">&#8962; Home</a>
+<div id="root"></div>
+<script>
+"use strict";
+const { useState, useMemo, useCallback } = React;
+const fifteenVal = (r) => Math.min(r, 10);
+function scoreInto(four, starter, isCrib, acc) {
+    const all = [...four, starter];
+    let f = 0, p = 0, ru = 0, fl = 0, no = 0;
+    for (let m = 1; m < 32; m++) {
+        let s = 0;
+        for (let i = 0; i < 5; i++)
+            if (m & (1 << i))
+                s += fifteenVal(all[i].r);
+        if (s === 15)
+            f += 2;
+    }
+    for (let i = 0; i < 5; i++)
+        for (let j = i + 1; j < 5; j++)
+            if (all[i].r === all[j].r)
+                p += 2;
+    const c = new Array(14).fill(0);
+    for (const x of all)
+        c[x.r]++;
+    let r = 1;
+    while (r <= 13) {
+        if (!c[r]) {
+            r++;
+            continue;
+        }
+        let len = 0, pr = 1, rr = r;
+        while (rr <= 13 && c[rr] > 0) {
+            len++;
+            pr *= c[rr];
+            rr++;
+        }
+        if (len >= 3)
+            ru += len * pr;
+        r = rr;
+    }
+    const s0 = four[0].s;
+    if (four.every((x) => x.s === s0)) {
+        if (starter.s === s0)
+            fl += 5;
+        else if (!isCrib)
+            fl += 4;
+    }
+    for (const x of four)
+        if (x.r === 11 && x.s === starter.s)
+            no += 1;
+    acc[0] += f;
+    acc[1] += p;
+    acc[2] += ru;
+    acc[3] += fl;
+    acc[4] += no;
+    return f + p + ru + fl + no;
+}
+function lockedFour(four) {
+    let f = 0, p = 0, ru = 0, fl = 0;
+    for (let m = 1; m < 16; m++) {
+        let s = 0;
+        for (let i = 0; i < 4; i++)
+            if (m & (1 << i))
+                s += fifteenVal(four[i].r);
+        if (s === 15)
+            f += 2;
+    }
+    for (let i = 0; i < 4; i++)
+        for (let j = i + 1; j < 4; j++)
+            if (four[i].r === four[j].r)
+                p += 2;
+    const c = new Array(14).fill(0);
+    for (const x of four)
+        c[x.r]++;
+    let r = 1;
+    while (r <= 13) {
+        if (!c[r]) {
+            r++;
+            continue;
+        }
+        let len = 0, pr = 1, rr = r;
+        while (rr <= 13 && c[rr] > 0) {
+            len++;
+            pr *= c[rr];
+            rr++;
+        }
+        if (len >= 3)
+            ru += len * pr;
+        r = rr;
+    }
+    if (four.every((x) => x.s === four[0].s))
+        fl += 4;
+    return f + p + ru + fl;
+}
+const cardId = (c) => (c.r - 1) * 4 + c.s;
+function deckExcluding(cards) {
+    const used = new Set(cards.map(cardId));
+    const d = [];
+    for (let r = 1; r <= 13; r++)
+        for (let s = 0; s < 4; s++) {
+            const c = { r, s };
+            if (!used.has(cardId(c)))
+                d.push(c);
+        }
+    return d;
+}
+function mulberry32(a) {
+    return function () {
+        a |= 0;
+        a = (a + 0x6d2b79f5) | 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+}
+function handDetail(four, dealt5) {
+    const deck = deckExcluding(dealt5);
+    const acc = [0, 0, 0, 0, 0];
+    let total = 0, sq = 0, mn = 99, mx = 0;
+    const byRank = {};
+    const vals = [];
+    for (const st of deck) {
+        const t = scoreInto(four, st, false, acc);
+        total += t;
+        sq += t * t;
+        if (t < mn)
+            mn = t;
+        if (t > mx)
+            mx = t;
+        vals.push(t);
+        const b = byRank[st.r] || (byRank[st.r] = { sum: 0, n: 0 });
+        b.sum += t;
+        b.n++;
+    }
+    const n = deck.length;
+    const ev = total / n;
+    const sd = Math.sqrt(Math.max(0, sq / n - ev * ev));
+    vals.sort((a, b) => a - b);
+    const locked = lockedFour(four);
+    const top = Object.keys(byRank)
+        .map((r) => ({ r: +r, avg: byRank[r].sum / byRank[r].n, p: byRank[r].n / n }))
+        .sort((a, b) => b.avg - a.avg).slice(0, 3);
+    return { ev, sd, mn, mx, p10: vals[(n * 0.1) | 0], p90: vals[(n * 0.9) | 0], cats: acc.map((x) => x / n), locked, fromCut: ev - locked, top };
+}
+const DEALER_DISCARD_PROBS = [0.0639, 0.08325, 0.09032, 0.05659, 0.07681, 0.06226, 0.08103, 0.0937, 0.06772, 0.04889, 0.09511, 0.07993, 0.10046];
+const DEFENDER_DISCARD_PROBS = [0.09388, 0.06719, 0.04547, 0.04428, 0.00398, 0.06537, 0.0818, 0.08531, 0.08712, 0.09632, 0.0411, 0.11445, 0.17376];
+const cumOf = (p) => { const c = []; let s = 0; for (const x of p) {
+    s += x;
+    c.push(s);
+} return c; };
+const DEALER_CUM = cumOf(DEALER_DISCARD_PROBS);
+const DEFENDER_CUM = cumOf(DEFENDER_DISCARD_PROBS);
+function pickWeightedRank(rng, cum) {
+    const u = rng() * cum[12];
+    for (let i = 0; i < 13; i++)
+        if (u <= cum[i])
+            return i + 1;
+    return 13;
+}
+function cribDetail(discards, dealt, N, rng, role, players) {
+    const pool = deckExcluding(dealt);
+    const suitsByRank = Array.from({ length: 14 }, () => []);
+    for (const c of pool)
+        suitsByRank[c.r].push(c.s);
+    const nUniform = players === 3 ? 1 : 0;
+    const nThrows = 4 - discards.length - nUniform;
+    let weighted;
+    if (role === "deal") {
+        weighted = new Array(nThrows).fill(DEFENDER_CUM);
+    }
+    else {
+        const nDealer = players === 2 ? nThrows : 1;
+        weighted = new Array(nDealer).fill(DEALER_CUM).concat(new Array(nThrows - nDealer).fill(DEFENDER_CUM));
+    }
+    const acc = [0, 0, 0, 0, 0];
+    let total = 0, sq = 0, hits = 0;
+    const used = new Set();
+    const drawUniform = () => {
+        for (let t = 0; t < 80; t++) {
+            const c = pool[(rng() * pool.length) | 0];
+            if (!used.has(c.r * 4 + c.s)) {
+                used.add(c.r * 4 + c.s);
+                return c;
+            }
+        }
+        return pool[0];
+    };
+    for (let k = 0; k < N; k++) {
+        used.clear();
+        const draw = discards.slice();
+        for (let d = 0; d < weighted.length; d++) {
+            let card = null;
+            for (let tries = 0; tries < 48 && !card; tries++) {
+                const r = pickWeightedRank(rng, weighted[d]);
+                const suits = suitsByRank[r];
+                if (!suits.length)
+                    continue;
+                const free = suits.filter((s) => !used.has(r * 4 + s));
+                if (!free.length)
+                    continue;
+                const s = free[(rng() * free.length) | 0];
+                card = { r, s };
+                used.add(r * 4 + s);
+            }
+            if (!card)
+                card = drawUniform();
+            draw.push(card);
+        }
+        for (let u = 0; u < nUniform; u++)
+            draw.push(drawUniform());
+        const starter = drawUniform();
+        const t = scoreInto([draw[0], draw[1], draw[2], draw[3]], starter, true, acc);
+        total += t;
+        sq += t * t;
+        if (t > 0)
+            hits++;
+    }
+    const ev = total / N;
+    return { ev, sd: Math.sqrt(Math.max(0, sq / N - ev * ev)), cats: acc.map((x) => x / N), hitRate: hits / N };
+}
+const pval = (r) => Math.min(r, 10);
+function pegScore(pile, count) {
+    let pts = 0;
+    if (count === 15)
+        pts += 2;
+    if (count === 31)
+        pts += 2;
+    const n = pile.length, last = pile[n - 1];
+    let k = 1;
+    for (let i = n - 2; i >= 0; i--) {
+        if (pile[i] === last)
+            k++;
+        else
+            break;
+    }
+    if (k >= 2)
+        pts += k * (k - 1);
+    for (let m = Math.min(n, 7); m >= 3; m--) {
+        const tail = pile.slice(n - m);
+        if (new Set(tail).size === m && Math.max(...tail) - Math.min(...tail) === m - 1) {
+            pts += m;
+            break;
+        }
+    }
+    return pts;
+}
+function pegChoose(legal, count, pile, hand) {
+    let best = null, bestKey = -1e9;
+    for (const c of legal) {
+        const nc = count + pval(c);
+        const key0 = pegScore(pile.concat(c), nc) * 10;
+        let key = key0;
+        if (nc === 5 || nc === 21)
+            key -= 2;
+        if (count === 0) {
+            if (c === 5)
+                key -= 2;
+            key -= pval(c) * 0.1;
+            if (hand.filter((x) => x === c).length >= 2)
+                key += 0.5;
+        }
+        else
+            key -= pval(c) * 0.02;
+        if (key > bestKey) {
+            bestKey = key;
+            best = c;
+        }
+    }
+    return best;
+}
+function playPegging(hands, dealerIdx) {
+    hands = hands.map((h) => h.slice());
+    const P = hands.length;
+    const pts = new Array(P).fill(0);
+    let turn = (dealerIdx + 1) % P, count = 0, pile = [], passes = 0, last = -1;
+    let remaining = hands.reduce((s, h) => s + h.length, 0);
+    while (remaining > 0) {
+        const hand = hands[turn];
+        const legal = hand.filter((c) => pval(c) + count <= 31);
+        if (legal.length === 0) {
+            if (++passes >= P) {
+                if (last >= 0 && count !== 31)
+                    pts[last] += 1;
+                count = 0;
+                pile = [];
+                passes = 0;
+                last = -1;
+            }
+            turn = (turn + 1) % P;
+            continue;
+        }
+        const card = pegChoose(legal, count, pile, hand);
+        hand.splice(hand.indexOf(card), 1);
+        remaining--;
+        count += pval(card);
+        pile.push(card);
+        pts[turn] += pegScore(pile, count);
+        last = turn;
+        passes = 0;
+        if (count === 31) {
+            count = 0;
+            pile = [];
+            last = -1;
+        }
+        turn = (turn + 1) % P;
+    }
+    if (last >= 0)
+        pts[last] += 1;
+    return pts;
+}
+function pegDetail(four, dealt5, N, rng, role, players) {
+    const pool = deckExcluding(dealt5);
+    const ourR = four.map((c) => c.r);
+    const dealerSeat = players - 1;
+    const oppCards = (players - 1) * 4;
+    let total = 0, sq = 0;
+    for (let k = 0; k < N; k++) {
+        const seen = new Set();
+        const opp = [];
+        while (opp.length < oppCards) {
+            const i = (rng() * pool.length) | 0;
+            if (!seen.has(i)) {
+                seen.add(i);
+                opp.push(pool[i].r);
+            }
+        }
+        const ourSeat = role === "deal" ? dealerSeat : (rng() * (players - 1)) | 0;
+        const hands = Array.from({ length: players }, () => []);
+        hands[ourSeat] = ourR.slice();
+        let oi = 0;
+        for (let s = 0; s < players; s++) {
+            if (s === ourSeat)
+                continue;
+            hands[s] = opp.slice(oi, oi + 4);
+            oi += 4;
+        }
+        const p = playPegging(hands, dealerSeat)[ourSeat];
+        total += p;
+        sq += p * p;
+    }
+    const ev = total / N;
+    return { ev, sd: Math.sqrt(Math.max(0, sq / N - ev * ev)) };
+}
+const RISK = 0.5;
+function discardCombos(handLen, k) {
+    const out = [];
+    if (k === 1) {
+        for (let i = 0; i < handLen; i++)
+            out.push([i]);
+        return out;
+    }
+    for (let i = 0; i < handLen; i++)
+        for (let j = i + 1; j < handLen; j++)
+            out.push([i, j]);
+    return out;
+}
+function analyze(hand, role, mode, players = 4, N = 10000, Npeg = 700) {
+    const rng = mulberry32(hand.reduce((a, c) => (a * 53 + cardId(c) + 1) >>> 0, 7));
+    const sign = role === "deal" ? 1 : -1;
+    const cribW = (mode === "protect" && role === "defend") ? 1.3 : (mode === "need" && role === "defend") ? 0.9 : 1.0;
+    const riskSign = mode === "need" ? 1 : mode === "protect" ? -1 : 0;
+    const k = players === 2 ? 2 : 1;
+    const opts = [];
+    for (const idxs of discardCombos(hand.length, k)) {
+        const drop = new Set(idxs);
+        const four = hand.filter((_, j) => !drop.has(j));
+        const discards = idxs.map((j) => hand[j]);
+        const hd = handDetail(four, hand);
+        const cd = cribDetail(discards, hand, N, rng, role, players);
+        const pd = pegDetail(four, hand, Npeg, rng, role, players);
+        const net = hd.ev + pd.ev + sign * cd.ev;
+        const sd = Math.sqrt(hd.sd * hd.sd + cd.sd * cd.sd + pd.sd * pd.sd);
+        const adj = hd.ev + pd.ev + sign * cribW * cd.ev + riskSign * RISK * sd;
+        opts.push({ id: idxs.join(","), idxs, cards: discards, hand: hd, crib: cd, peg: pd, handEV: hd.ev, cribEV: cd.ev, pegEV: pd.ev, netEV: net, sd, adj });
+    }
+    opts.sort((a, b) => b.adj - a.adj);
+    return opts;
+}
+function suggestMode(you, leader) {
+    if (!you && !leader)
+        return "ev";
+    if (leader >= 106 && you < leader)
+        return "need";
+    if (you >= leader + 15 && you >= 95)
+        return "protect";
+    return "ev";
+}
+const T = {
+    baize: "#1F423A", baizeHi: "#28534A",
+    woodD: "#5E3F26", woodM: "#8A5E37", woodL: "#B9824B",
+    pegRed: "#C8412B", pegIvory: "#ECDCB4",
+    ivory: "#F6EFDE", ink: "#241D14", suitRed: "#A8362A",
+    cream: "#ECE0C6", muted: "#A99873", line: "rgba(236,224,182,0.16)",
+    good: "#5FA47C", goodDeep: "#3F7E5E", selBlue: "#5B95C2",
+};
+const SUIT = ["♠", "♥", "♦", "♣"];
+const MODE_LABEL_X = { need: "chase points", protect: "protect lead" };
+const CATS = ["fifteens", "pairs", "runs", "flush", "nobs"];
+const isRed = (s) => s === 1 || s === 2;
+const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
+const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
+const mono = "ui-monospace, 'SF Mono', Menlo, Consolas, monospace";
+const serif = "'Hoefler Text', 'Iowan Old Style', Georgia, 'Times New Roman', serif";
+function randomHand(count = 5) {
+    const deck = deckExcluding([]);
+    for (let i = deck.length - 1; i > 0; i--) {
+        const j = (Math.random() * (i + 1)) | 0;
+        [deck[i], deck[j]] = [deck[j], deck[i]];
+    }
+    return deck.slice(0, count).sort((a, b) => a.r - b.r || a.s - b.s);
+}
+function Card({ card, onClick, phase, badge, dim, selected }) {
+    const clickable = phase === "choose";
+    const [hover, setHover] = useState(false);
+    const lift = badge || selected ? -10 : hover && clickable ? -6 : 0;
+    const edge = badge ? badge.color : selected ? T.selBlue : null;
+    return (React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flex: "0 1 68px", minWidth: 0, maxWidth: 68 } },
+        React.createElement("div", { style: { height: 18 } }, badge ? (React.createElement("span", { style: {
+                fontFamily: mono, fontSize: 10, letterSpacing: 0.5, fontWeight: 700,
+                color: T.ivory, background: badge.color, padding: "2px 7px", borderRadius: 4, whiteSpace: "nowrap",
+            } }, badge.text)) : selected ? (React.createElement("span", { style: {
+                fontFamily: mono, fontSize: 10, letterSpacing: 0.5, fontWeight: 700,
+                color: T.ivory, background: T.selBlue, padding: "2px 7px", borderRadius: 4, whiteSpace: "nowrap",
+            } }, "THROW")) : null),
+        React.createElement("button", { onClick: clickable ? onClick : undefined, onPointerEnter: () => setHover(true), onPointerLeave: () => setHover(false), "aria-label": `${rankLabel(card.r)} of ${["spades", "hearts", "diamonds", "clubs"][card.s]}`, "aria-pressed": clickable ? !!selected : undefined, style: {
+                width: "100%", aspectRatio: "68 / 96", containerType: "inline-size",
+                borderRadius: 9, padding: 0, background: T.ivory, position: "relative",
+                cursor: clickable ? "pointer" : "default",
+                border: edge ? `2px solid ${edge}` : "1px solid rgba(0,0,0,0.25)",
+                boxShadow: badge || selected ? "0 8px 18px rgba(0,0,0,0.45)" : "0 4px 10px rgba(0,0,0,0.35)",
+                transform: `translateY(${lift}px)`, transition: "transform 140ms ease, box-shadow 140ms ease",
+                opacity: dim ? 0.5 : 1, outlineOffset: 3,
+            } },
+            React.createElement("span", { style: {
+                    position: "absolute", top: "8.8cqw", left: "10.3cqw", lineHeight: 1, textAlign: "center",
+                    color: isRed(card.s) ? T.suitRed : T.ink, fontFamily: serif, fontWeight: 700,
+                } },
+                React.createElement("span", { style: { fontSize: "25cqw", display: "block" } }, rankLabel(card.r)),
+                React.createElement("span", { style: { fontSize: "19cqw" } }, SUIT[card.s])),
+            React.createElement("span", { style: {
+                    position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: "50cqw", color: isRed(card.s) ? T.suitRed : T.ink,
+                } }, SUIT[card.s]))));
+}
+function PegTrack({ pct }) {
+    const holes = 26;
+    const pegAt = Math.round((pct / 100) * (holes - 1));
+    return (React.createElement("div", { style: { display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" } }, Array.from({ length: holes }).map((_, i) => {
+        const on = i === pegAt;
+        return (React.createElement("span", { key: i, style: {
+                width: on ? 11 : 7, height: on ? 11 : 7, borderRadius: "50%",
+                background: on ? T.pegRed : "rgba(0,0,0,0.4)",
+                boxShadow: on ? "0 0 0 2px rgba(236,220,180,0.5)" : "inset 0 1px 2px rgba(0,0,0,0.6)",
+                transition: "all 200ms ease",
+            } }));
+    })));
+}
+function CatBars({ cats, scale, color }) {
+    const max = Math.max(scale, ...cats, 0.001);
+    return (React.createElement("div", { style: { display: "grid", gap: 4 } }, cats.map((v, i) => v < 0.005 ? null : (React.createElement("div", { key: i, style: { display: "grid", gridTemplateColumns: "58px 1fr 44px", gap: 8, alignItems: "center" } },
+        React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: T.muted } }, CATS[i]),
+        React.createElement("span", { style: { height: 7, background: "rgba(0,0,0,0.28)", borderRadius: 4, overflow: "hidden" } },
+            React.createElement("span", { style: { display: "block", height: "100%", width: `${(v / max) * 100}%`, background: color } })),
+        React.createElement("span", { style: { fontFamily: mono, fontSize: 11.5, textAlign: "right" } }, v.toFixed(2)))))));
+}
+function dominant(cats) {
+    let bi = 0;
+    for (let i = 1; i < cats.length; i++)
+        if (cats[i] > cats[bi])
+            bi = i;
+    return cats[bi] > 0.01 ? CATS[bi] : "spread-out points";
+}
+function Explain({ opt, dealer, mode, players = 4 }) {
+    const h = opt.hand, cr = opt.crib, pg = opt.peg;
+    const topStr = h.top.map((c) => `${rankLabel(c.r)}→${c.avg.toFixed(1)}`).join("   ");
+    const pegWhy = pg.ev >= 3.6
+        ? "Low, connected cards peg well — flexible counts and pairing/run chances."
+        : pg.ev <= 2.6
+            ? "Awkward pegging shape — stiff high cards or a lonely 5 give you little to work with."
+            : "Middling pegging potential.";
+    return (React.createElement("div", { style: { padding: "12px 12px 14px", background: "rgba(0,0,0,0.26)", borderRadius: 9, marginTop: 6, lineHeight: 1.5 } },
+        React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 } },
+            "KEPT HAND \u2014 averages ",
+            h.ev.toFixed(2),
+            " over all ",
+            players === 2 ? 46 : 47,
+            " cuts"),
+        React.createElement("div", { style: { fontSize: 13.5, marginBottom: 8 } },
+            h.locked.toFixed(0),
+            " locked in already, +",
+            h.fromCut.toFixed(2),
+            " on average from the cut. Points are mostly ",
+            dominant(h.cats),
+            "."),
+        React.createElement(CatBars, { cats: h.cats, scale: h.ev, color: T.good }),
+        React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 8 } },
+            "best cuts (rank \u2192 avg total):\u00A0 ",
+            React.createElement("span", { style: { color: T.cream } }, topStr)),
+        React.createElement("div", { style: { height: 1, background: T.line, margin: "13px 0" } }),
+        React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 } },
+            "CRIB \u2014 your ",
+            opt.cards.map(tag).join(" + "),
+            " average",
+            opt.cards.length > 1 ? "" : "s",
+            " ",
+            cr.ev.toFixed(2),
+            " ",
+            dealer ? "FOR you" : "AGAINST you"),
+        React.createElement("div", { style: { fontSize: 13.5, marginBottom: 8 } },
+            "Lands points in ",
+            (cr.hitRate * 100).toFixed(0),
+            "% of random cribs, mostly via ",
+            dominant(cr.cats),
+            ".",
+            dealer ? " Added to your score." : " Handed to the dealer, so subtracted from yours."),
+        React.createElement(CatBars, { cats: cr.cats, scale: cr.ev, color: dealer ? T.good : T.pegRed }),
+        React.createElement("div", { style: { height: 1, background: T.line, margin: "13px 0" } }),
+        React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 } },
+            "PEGGING \u2014 these four average ",
+            pg.ev.toFixed(2),
+            " in play ",
+            dealer ? "(you peg last — best seat)" : ""),
+        React.createElement("div", { style: { fontSize: 13.5, marginBottom: 4 } }, pegWhy),
+        React.createElement("div", { style: { height: 1, background: T.line, margin: "13px 0" } }),
+        React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.cream, lineHeight: 1.7 } },
+            React.createElement("div", null,
+                "hand ",
+                h.ev.toFixed(2),
+                " \u00A0 crib ",
+                dealer ? "+" : "−",
+                cr.ev.toFixed(2),
+                " \u00A0 peg +",
+                pg.ev.toFixed(2),
+                " \u00A0\u2192\u00A0 ",
+                React.createElement("b", null,
+                    "net ",
+                    opt.netEV.toFixed(2))),
+            React.createElement("div", { style: { color: T.muted } },
+                "spread \u03C3 ",
+                opt.sd.toFixed(2),
+                " \u00A0 range ",
+                h.mn,
+                "\u2013",
+                h.mx,
+                " \u00A0 typical ",
+                h.p10,
+                "\u2013",
+                h.p90,
+                " (hand only)"),
+            mode !== "ev" && (React.createElement("div", { style: { color: mode === "need" ? T.good : T.pegRed } },
+                MODE_LABEL_X[mode],
+                ": net ",
+                mode === "need" ? "+" : "−",
+                " ",
+                RISK,
+                "\u00B7\u03C3 \u2192 adj ",
+                opt.adj.toFixed(2)))),
+        React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, marginTop: 10, lineHeight: 1.5 } },
+            "Crib uses role-split discard models",
+            players === 3 ? " plus one card dealt straight off the deck" : "",
+            "; pegging simulates ",
+            players,
+            "-handed play from your seat (",
+            dealer ? "dealer, last to play" : "a non-dealer seat",
+            ") against greedy opponents.")));
+}
+function buildNote(role, best, chosen) {
+    const optimal = best.id === chosen.id;
+    const bestLabel = best.cards.map((c) => rankLabel(c.r)).join("+");
+    const multi = best.cards.length > 1;
+    const phrase = multi ? bestLabel : `the ${bestLabel}`;
+    const bestHas5 = best.cards.some((c) => c.r === 5);
+    const allHigh = best.cards.every((c) => c.r >= 11 && c.r <= 13);
+    if (optimal) {
+        if (role === "deal") {
+            if (bestHas5)
+                return "Best line. A 5 in your own crib is gold — it pairs with every ten-card for fifteens.";
+            return "Best line — you keep your strongest four and the throwaway lands in your own crib anyway.";
+        }
+        if (bestHas5)
+            return "Best available, though even your safest throw includes a 5 here — sometimes unavoidable.";
+        if (allHigh)
+            return "Best line. High cards can't stretch into long runs, so they're the cheapest gift to the dealer.";
+        return `Best line — you ${multi ? "shed your loners" : "shed a loner"} and starve the dealer's crib.`;
+    }
+    const delta = best.adj - chosen.adj;
+    if (role === "defend" && chosen.cards.some((c) => c.r === 5) && !bestHas5)
+        return `You fed the dealer a 5 — the richest crib card (~${chosen.cribEV.toFixed(1)} pts to them). On defense, almost never do this. Throw ${phrase} instead (−${delta.toFixed(2)}).`;
+    if (chosen.handEV > best.handEV)
+        return `You kept more hand points, but the crib swing more than canceled it. ${multi ? phrase : "The " + bestLabel} is better by ${delta.toFixed(2)}.`;
+    return `Close, but ${phrase} edges it by ${delta.toFixed(2)} expected points.`;
+}
+function CribbageTrainer() {
+    const [players, setPlayers] = useState(4);
+    const [roleMode, setRoleMode] = useState("random");
+    const [hand, setHand] = useState(() => randomHand(5));
+    const [role, setRole] = useState(() => (Math.random() < 0.25 ? "deal" : "defend"));
+    const [phase, setPhase] = useState("choose");
+    const [selected, setSelected] = useState([]);
+    const [chosenId, setChosenId] = useState(null);
+    const [expanded, setExpanded] = useState(null);
+    const [showModel, setShowModel] = useState(false);
+    const [showBoard, setShowBoard] = useState(false);
+    const [yourPips, setYourPips] = useState(0);
+    const [leaderPips, setLeaderPips] = useState(0);
+    const [modeOverride, setModeOverride] = useState(null);
+    const [stats, setStats] = useState({ hands: 0, optimal: 0, lost: 0 });
+    const suggested = suggestMode(yourPips, leaderPips);
+    const mode = modeOverride || suggested;
+    const discardCount = players === 2 ? 2 : 1;
+    const opts = useMemo(() => (phase === "revealed" ? analyze(hand, role, mode, players) : null), [phase, hand, role, mode, players]);
+    const dealHand = useCallback((p) => {
+        const r = roleMode === "random" ? (Math.random() < 1 / p ? "deal" : "defend") : roleMode;
+        setHand(randomHand(p === 2 ? 6 : 5));
+        setRole(r);
+        setSelected([]);
+        setChosenId(null);
+        setExpanded(null);
+        setPhase("choose");
+    }, [roleMode]);
+    const deal = useCallback(() => dealHand(players), [dealHand, players]);
+    const changePlayers = useCallback((n) => {
+        setPlayers(n);
+        if ((n === 2 ? 6 : 5) !== hand.length)
+            dealHand(n);
+        else
+            setSelected([]);
+    }, [hand.length, dealHand]);
+    const pick = useCallback((idxs) => {
+        const id = idxs.slice().sort((a, b) => a - b).join(",");
+        const res = analyze(hand, role, mode, players);
+        const best = res[0];
+        const chosen = res.find((o) => o.id === id);
+        const delta = best.adj - chosen.adj;
+        setChosenId(id);
+        setExpanded(id);
+        setPhase("revealed");
+        setStats((s) => ({ hands: s.hands + 1, optimal: s.optimal + (delta < 0.1 ? 1 : 0), lost: s.lost + delta }));
+    }, [hand, role, mode, players]);
+    const toggleSelect = useCallback((i) => {
+        if (selected.includes(i)) {
+            setSelected(selected.filter((x) => x !== i));
+            return;
+        }
+        const next = [...selected, i];
+        if (next.length >= discardCount) {
+            setSelected([]);
+            pick(next);
+        }
+        else
+            setSelected(next);
+    }, [selected, discardCount, pick]);
+    const best = opts ? opts[0] : null;
+    const chosen = opts ? opts.find((o) => o.id === chosenId) : null;
+    const acc = stats.hands ? (stats.optimal / stats.hands) * 100 : 0;
+    const avgLost = stats.hands ? stats.lost / stats.hands : 0;
+    const maxAdj = opts ? Math.max(...opts.map((o) => o.adj)) : 1;
+    const dealer = role === "deal";
+    const gridCols = `16px ${discardCount === 2 ? "58px" : "30px"} 1fr 38px 40px 34px 46px`;
+    const MODE_LABEL = { ev: "max EV", need: "chase points", protect: "protect lead" };
+    return (React.createElement("div", { style: {
+            minHeight: "100%", background: `radial-gradient(120% 90% at 50% 0%, ${T.baizeHi}, ${T.baize})`,
+            color: T.cream, fontFamily: serif, padding: "0 0 28px",
+        } },
+        React.createElement("style", null, `
+        @keyframes dealIn {from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+        .dealwrap > * {animation:dealIn 260ms ease both}
+        .dealwrap > *:nth-child(2){animation-delay:40ms}
+        .dealwrap > *:nth-child(3){animation-delay:80ms}
+        .dealwrap > *:nth-child(4){animation-delay:120ms}
+        .dealwrap > *:nth-child(5){animation-delay:160ms}
+        .dealwrap > *:nth-child(6){animation-delay:200ms}
+        button{font-family:inherit}
+        button:focus-visible{outline:2px solid ${T.pegIvory}}
+        @media (prefers-reduced-motion: reduce){.dealwrap > *{animation:none}}
+      `),
+        React.createElement("header", { style: {
+                background: `linear-gradient(180deg, ${T.woodL}, ${T.woodM} 55%, ${T.woodD})`,
+                padding: "14px 18px 16px", boxShadow: "0 6px 18px rgba(0,0,0,0.4)", borderBottom: "2px solid rgba(0,0,0,0.3)",
+            } },
+            React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap" } },
+                React.createElement("h1", { style: { margin: 0, fontSize: 22, color: "#2A1B0E", letterSpacing: 0.3, fontWeight: 700 } }, "Cribbage Discard Trainer"),
+                React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: "rgba(42,27,14,0.75)" } }, players === 2 ? "heads-up · 6 cards, discard two" : `${players}-handed · every player for themselves`)),
+            React.createElement("div", { style: { marginTop: 12 } },
+                React.createElement(PegTrack, { pct: acc })),
+            React.createElement("div", { style: { marginTop: 10, display: "flex", gap: 18, flexWrap: "wrap", fontFamily: mono, fontSize: 12, color: "#2A1B0E" } },
+                React.createElement("span", null,
+                    React.createElement("b", { style: { fontSize: 15 } }, stats.hands),
+                    " hands"),
+                React.createElement("span", null,
+                    React.createElement("b", { style: { fontSize: 15 } },
+                        stats.hands ? acc.toFixed(0) : "–",
+                        "%"),
+                    " optimal"),
+                React.createElement("span", null,
+                    React.createElement("b", { style: { fontSize: 15 } }, stats.hands ? avgLost.toFixed(2) : "–"),
+                    " avg pts lost"))),
+        React.createElement("main", { style: { maxWidth: 560, margin: "0 auto", padding: "18px 16px 0" } },
+            React.createElement("div", { style: {
+                    display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", borderRadius: 10,
+                    background: dealer ? "rgba(95,164,124,0.16)" : "rgba(200,65,43,0.14)",
+                    border: `1px solid ${dealer ? "rgba(95,164,124,0.5)" : "rgba(200,65,43,0.45)"}`,
+                } },
+                React.createElement("span", { style: { width: 12, height: 12, borderRadius: "50%", background: dealer ? T.good : T.pegRed, flex: "0 0 auto", boxShadow: "0 0 0 3px rgba(0,0,0,0.2)" } }),
+                React.createElement("div", null,
+                    React.createElement("div", { style: { fontWeight: 700, fontSize: 15 } }, dealer ? "Your crib — you're the dealer" : "Not your crib — it feeds the dealer"),
+                    React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 2 } }, dealer ? "Be greedy: discard to fatten your own crib." : "Play defense: surrender the least to your opponent."))),
+            React.createElement("p", { style: { fontFamily: mono, fontSize: 12, color: T.muted, margin: "18px 2px 6px" } }, phase === "choose"
+                ? (discardCount === 2
+                    ? `Tap two cards you'd throw to the crib.${selected.length === 1 ? " One more…" : ""}`
+                    : "Tap the card you'd throw to the crib.")
+                : `Ranked by ${MODE_LABEL[mode]}${mode === "ev" ? "" : " (net " + (mode === "need" ? "+" : "−") + " risk·σ)"} — tap any row for the why.`),
+            React.createElement("div", { className: phase === "choose" ? "dealwrap" : "", style: { display: "flex", gap: 8, justifyContent: "center", flexWrap: "nowrap" } }, hand.map((card, i) => {
+                let badge = null, dim = false, sel = false;
+                if (phase === "revealed") {
+                    const isBest = best.idxs.includes(i), isPick = chosen ? chosen.idxs.includes(i) : false;
+                    if (isBest && isPick)
+                        badge = { text: "BEST ✓", color: T.goodDeep };
+                    else if (isBest)
+                        badge = { text: "BEST", color: T.goodDeep };
+                    else if (isPick)
+                        badge = { text: "YOUR PICK", color: T.pegRed };
+                    else
+                        dim = true;
+                }
+                else {
+                    sel = selected.includes(i);
+                }
+                return React.createElement(Card, { key: cardId(card), card: card, phase: phase, badge: badge, dim: dim, selected: sel, onClick: () => toggleSelect(i) });
+            })),
+            phase === "revealed" && opts && (React.createElement("div", { style: { marginTop: 20 } },
+                React.createElement("div", { style: {
+                        padding: "12px 14px", borderRadius: 10, marginBottom: 14, lineHeight: 1.5, fontSize: 14.5,
+                        background: chosenId === best.id ? "rgba(95,164,124,0.14)" : "rgba(0,0,0,0.22)",
+                        border: `1px solid ${chosenId === best.id ? "rgba(95,164,124,0.4)" : T.line}`,
+                    } }, buildNote(role, best, chosen)),
+                React.createElement("div", { style: { display: "grid", gridTemplateColumns: gridCols, gap: 5, fontFamily: mono, fontSize: 10, color: T.muted, padding: "0 4px 2px" } },
+                    React.createElement("span", null),
+                    React.createElement("span", null, "throw"),
+                    React.createElement("span", null,
+                        mode === "ev" ? "net" : "adj",
+                        " (bar)"),
+                    React.createElement("span", { style: { textAlign: "right" } }, "hand"),
+                    React.createElement("span", { style: { textAlign: "right" } }, "crib"),
+                    React.createElement("span", { style: { textAlign: "right" } }, "peg"),
+                    React.createElement("span", { style: { textAlign: "right" } }, mode === "ev" ? "net" : "adj")),
+                React.createElement("div", { style: { display: "grid", gap: 4 } }, opts.map((o) => {
+                    const isBest = o.id === best.id, isPick = o.id === chosenId, isOpen = expanded === o.id;
+                    const scoreVal = mode === "ev" ? o.netEV : o.adj;
+                    return (React.createElement("div", { key: o.id },
+                        React.createElement("button", { onClick: () => setExpanded(isOpen ? null : o.id), style: {
+                                width: "100%", textAlign: "left", cursor: "pointer",
+                                display: "grid", gridTemplateColumns: gridCols, gap: 5, alignItems: "center",
+                                padding: "8px 4px", borderRadius: 8,
+                                background: isBest ? "rgba(95,164,124,0.12)" : "rgba(0,0,0,0.12)",
+                                border: isPick && !isBest ? `1px solid ${T.pegRed}` : "1px solid transparent",
+                            } },
+                            React.createElement("span", { style: { fontFamily: mono, fontSize: 12, color: T.muted, transform: isOpen ? "rotate(90deg)" : "none", transition: "transform 150ms" } }, "›"),
+                            React.createElement("span", { style: { fontFamily: serif, fontWeight: 700, fontSize: discardCount === 2 ? 13 : 15, display: "flex", gap: 4, flexWrap: "wrap" } }, o.cards.map((c) => React.createElement("span", { key: cardId(c), style: { color: isRed(c.s) ? T.suitRed : T.ivory } }, tag(c)))),
+                            React.createElement("span", { style: { height: 9, background: "rgba(0,0,0,0.28)", borderRadius: 5, overflow: "hidden" } },
+                                React.createElement("span", { style: { display: "block", height: "100%", width: `${Math.max(4, (scoreVal / maxAdj) * 100)}%`, background: isBest ? T.good : isPick ? T.pegRed : "rgba(236,224,182,0.45)" } })),
+                            React.createElement("span", { style: { fontFamily: mono, fontSize: 11.5, textAlign: "right", color: T.cream } }, o.handEV.toFixed(2)),
+                            React.createElement("span", { style: { fontFamily: mono, fontSize: 11.5, textAlign: "right", color: T.muted } },
+                                dealer ? "+" : "−",
+                                o.cribEV.toFixed(2)),
+                            React.createElement("span", { style: { fontFamily: mono, fontSize: 11.5, textAlign: "right", color: T.muted } },
+                                "+",
+                                o.pegEV.toFixed(2)),
+                            React.createElement("span", { style: { fontFamily: mono, fontSize: 12.5, fontWeight: 700, textAlign: "right", color: isBest ? T.good : T.cream } }, scoreVal.toFixed(2))),
+                        isOpen && React.createElement(Explain, { opt: o, dealer: dealer, mode: mode, players: players })));
+                })))),
+            React.createElement("div", { style: { marginTop: 22, display: "flex", flexDirection: "column", gap: 14 } },
+                React.createElement("button", { onClick: deal, style: {
+                        width: "100%", padding: "13px", borderRadius: 10, border: "none", cursor: "pointer",
+                        background: `linear-gradient(180deg, ${T.woodL}, ${T.woodM})`, color: "#2A1B0E",
+                        fontSize: 16, fontWeight: 700, letterSpacing: 0.3, boxShadow: "0 4px 12px rgba(0,0,0,0.35)",
+                    } }, phase === "choose" ? "Deal a different hand" : "Deal next hand"),
+                React.createElement("div", null,
+                    React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 } }, "players at the table"),
+                    React.createElement("div", { style: { display: "flex", gap: 6 } }, [[2, "2-handed"], [3, "3-handed"], [4, "4-handed"]].map(([n, label]) => {
+                        const on = players === n;
+                        return (React.createElement("button", { key: n, onClick: () => changePlayers(n), style: {
+                                flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: 11.5,
+                                background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
+                                border: `1px solid ${on ? T.pegIvory : T.line}`, fontWeight: on ? 700 : 400,
+                            } }, label));
+                    })),
+                    React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 6, lineHeight: 1.5 } }, players === 2
+                        ? "2-handed (heads-up): 6 cards each, discard two. The 4-card crib is your two + the opponent's two."
+                        : players === 3
+                            ? "3-handed: everyone discards one, and the dealer adds one card off the deck to fill the 4-card crib."
+                            : "4-handed: the 4-card crib is one discard from each player.")),
+                React.createElement("div", null,
+                    React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 } }, "practice as"),
+                    React.createElement("div", { style: { display: "flex", gap: 6 } }, [["random", `Random (1-in-${players} deal)`], ["deal", "Always dealer"], ["defend", "Always defend"]].map(([k, label]) => {
+                        const on = roleMode === k;
+                        return (React.createElement("button", { key: k, onClick: () => setRoleMode(k), style: {
+                                flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: 11.5,
+                                background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
+                                border: `1px solid ${on ? T.pegIvory : T.line}`, fontWeight: on ? 700 : 400,
+                            } }, label));
+                    }))),
+                React.createElement("div", null,
+                    React.createElement("button", { onClick: () => setShowBoard((v) => !v), style: {
+                            width: "100%", textAlign: "left", cursor: "pointer", padding: "10px 12px", borderRadius: 8,
+                            background: mode === "ev" ? "rgba(0,0,0,0.2)" : (mode === "need" ? "rgba(95,164,124,0.18)" : "rgba(200,65,43,0.16)"),
+                            border: `1px solid ${mode === "ev" ? T.line : (mode === "need" ? "rgba(95,164,124,0.5)" : "rgba(200,65,43,0.45)")}`,
+                            color: T.cream, fontFamily: mono, fontSize: 11.5, display: "flex", justifyContent: "space-between", alignItems: "center",
+                        } },
+                        React.createElement("span", null,
+                            "board position \u2014 ",
+                            MODE_LABEL[mode],
+                            modeOverride ? " (manual)" : " (auto)"),
+                        React.createElement("span", { style: { transform: showBoard ? "rotate(90deg)" : "none", transition: "transform 150ms" } }, "›")),
+                    showBoard && (React.createElement("div", { style: { padding: "12px 12px 14px", background: "rgba(0,0,0,0.26)", borderRadius: 9, marginTop: 6 } },
+                        React.createElement("div", { style: { fontSize: 13, lineHeight: 1.5, marginBottom: 12 } }, "Enter the pips (game to 121). The recommendation re-ranks: chase upside when you're behind and someone's near out, or play safe and defend the crib harder when protecting a lead. Leave at 0 for a neutral, max-EV game."),
+                        React.createElement("div", { style: { display: "flex", gap: 12, marginBottom: 12 } }, [["your pips", yourPips, setYourPips], ["leader's pips", leaderPips, setLeaderPips]].map(([lbl, val, set]) => (React.createElement("label", { key: lbl, style: { flex: 1, fontFamily: mono, fontSize: 11, color: T.muted } },
+                            lbl,
+                            React.createElement("input", { type: "number", min: 0, max: 120, value: val, onChange: (e) => set(Math.max(0, Math.min(120, parseInt(e.target.value || "0", 10)))), style: {
+                                    width: "100%", marginTop: 4, padding: "8px 10px", borderRadius: 7, boxSizing: "border-box",
+                                    background: "rgba(0,0,0,0.35)", border: `1px solid ${T.line}`, color: T.cream,
+                                    fontFamily: mono, fontSize: 15,
+                                } }))))),
+                        React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 10 } }, yourPips || leaderPips
+                            ? `you need ${Math.max(0, 121 - yourPips)} to peg out · leader needs ${Math.max(0, 121 - leaderPips)} · auto-suggests ${MODE_LABEL[suggested]}`
+                            : "no score entered — neutral game"),
+                        React.createElement("div", { style: { display: "flex", gap: 6 } }, [["auto", null], ["ev", "ev"], ["need", "need"], ["protect", "protect"]].map(([lbl, val]) => {
+                            const on = val === modeOverride;
+                            const txt = val === null ? "Auto" : MODE_LABEL[val];
+                            return (React.createElement("button", { key: lbl, onClick: () => setModeOverride(val), style: {
+                                    flex: 1, padding: "9px 4px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: 10.5,
+                                    background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
+                                    border: `1px solid ${on ? T.pegIvory : T.line}`, fontWeight: on ? 700 : 400,
+                                } }, txt));
+                        })),
+                        React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 8, lineHeight: 1.5 } },
+                            "A heuristic risk posture, not a full win-probability solve: chase = net + ",
+                            RISK,
+                            "\u00B7\u03C3 (reward upside); protect = net \u2212 ",
+                            RISK,
+                            "\u00B7\u03C3 and defend the crib ~30% harder.")))),
+                React.createElement("div", null,
+                    React.createElement("button", { onClick: () => setShowModel((v) => !v), style: {
+                            width: "100%", textAlign: "left", cursor: "pointer", padding: "10px 12px", borderRadius: 8,
+                            background: "rgba(0,0,0,0.2)", border: `1px solid ${T.line}`, color: T.cream,
+                            fontFamily: mono, fontSize: 11.5, display: "flex", justifyContent: "space-between", alignItems: "center",
+                        } },
+                        React.createElement("span", null, "crib model \u2014 role-split discards (passes 2-3 avg)"),
+                        React.createElement("span", { style: { transform: showModel ? "rotate(90deg)" : "none", transition: "transform 150ms" } }, "›")),
+                    showModel && (React.createElement("div", { style: { padding: "12px 12px 14px", background: "rgba(0,0,0,0.26)", borderRadius: 9, marginTop: 6 } },
+                        React.createElement("div", { style: { fontSize: 13, lineHeight: 1.5, marginBottom: 12 } },
+                            "How often each rank is thrown, from a fixed-point self-play calibration (10,000 hands/pass). Two behaviors: ",
+                            React.createElement("b", null, "dealers"),
+                            " feed their own crib, ",
+                            React.createElement("b", null, "defenders"),
+                            "surrender junk to an opponent's.",
+                            " ",
+                            players === 2
+                                ? "Heads-up, the crib is your two discards + the opponent's two — defender throws when you deal, the dealer's own throws when you defend."
+                                : players === 3
+                                    ? "Your crib draws two defender throws plus one card dealt off the deck; when you defend, the dealer's crib draws one dealer + one defender throw plus one deck card."
+                                    : "Your crib draws three defender throws; when you defend, the dealer's crib draws one dealer + two defender throws.",
+                            " ",
+                            "The cut stays uniform.",
+                            players !== 4 && (React.createElement("span", { style: { color: T.muted } },
+                                " \u00A0(",
+                                players,
+                                "-handed reuses the 4-handed discard model \u2014 a close approximation, since how players dump junk barely shifts with table size.)"))),
+                        React.createElement("div", { style: { display: "grid", gridTemplateColumns: "16px 1fr 1fr", gap: 6, alignItems: "center", marginBottom: 6 } },
+                            React.createElement("span", null),
+                            React.createElement("span", { style: { fontFamily: mono, fontSize: 10, color: T.good } }, "DEALER \u2192 own crib"),
+                            React.createElement("span", { style: { fontFamily: mono, fontSize: 10, color: T.pegRed } }, "DEFENDER \u2192 opp crib")),
+                        DEALER_DISCARD_PROBS.map((dp, i) => {
+                            const r = i + 1;
+                            const fp = DEFENDER_DISCARD_PROBS[i];
+                            const mx = Math.max(...DEALER_DISCARD_PROBS, ...DEFENDER_DISCARD_PROBS);
+                            const Bar = ({ v, color }) => (React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 5 } },
+                                React.createElement("span", { style: { height: 8, flex: 1, background: "rgba(0,0,0,0.28)", borderRadius: 4, overflow: "hidden" } },
+                                    React.createElement("span", { style: { display: "block", height: "100%", width: `${(v / mx) * 100}%`, background: color } })),
+                                React.createElement("span", { style: { fontFamily: mono, fontSize: 9.5, color: T.muted, width: 30, textAlign: "right" } }, (v * 100).toFixed(1))));
+                            return (React.createElement("div", { key: r, style: { display: "grid", gridTemplateColumns: "16px 1fr 1fr", gap: 6, alignItems: "center", marginBottom: 3 } },
+                                React.createElement("span", { style: { fontFamily: serif, fontWeight: 700, fontSize: 13 } }, rankLabel(r)),
+                                React.createElement(Bar, { v: dp, color: T.good }),
+                                React.createElement(Bar, { v: fp, color: T.pegRed })));
+                        }))))))));
+}
+ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(CribbageTrainer));
+
+</script>
+</body>
+</html>

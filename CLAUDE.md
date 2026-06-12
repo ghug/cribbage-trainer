@@ -5,30 +5,47 @@
 
 ## START HERE (plain version)
 
-You already have a finished, working app. It's the file **`index.html`** in this
-folder — fully self-contained (no in-browser build, no install, no internet needed
-beyond a CDN for React). **To just use it: open `index.html` in any browser.**
+You have **two finished, working tools** behind a small welcome page, all
+self-contained (no in-browser build, no install, no internet needed beyond a CDN
+for React):
+
+- **`index.html`** — the landing page. Two choices: the trainer and the game.
+- **`trainer.html`** — the **Discard Trainer** (analyzes/ranks discards).
+- **`play.html`** — **Play a Game (vs 3 AI)**: a full game of 4-player cutthroat.
+
+**To just use it: open `index.html` in any browser** (or jump straight to
+`trainer.html` / `play.html`).
 
 **It is also deployed** to a live, public link via Cloudflare (see Running and
-deploying below): **`https://cribbage-trainer.gabrielhug.workers.dev`**. Pushing to
-`main` on the `ghug/cribbage-trainer` repo auto-redeploys. Edit the source, run
-`./build.sh`, commit, push — that's the whole update loop.
+deploying below): **`https://cribbage-trainer.gabrielhug.workers.dev`** (the root is
+now the welcome page; the trainer is at `/trainer.html`, the game at `/play.html`).
+Pushing to `main` on the `ghug/cribbage-trainer` repo auto-redeploys. Edit the
+source, run `./build.sh`, commit, push — that's the whole update loop.
 
-If you're a Claude Code session picking this up: the app runs locally, is published,
-and the current direction is **(c) keep improving it** (see Good next steps).
+If you're a Claude Code session picking this up: everything runs locally, is
+published, and the current direction is **(c) keep improving it** (see Good next
+steps).
 
 ## What this is
 
-An interactive React trainer for practicing **optimal discarding** in cribbage —
-**4-/3-handed "cutthroat"** (every player for themselves) or **2-handed heads-up**,
-selectable in the UI. It deals a hand, lets the user pick the card(s) to throw, then
-reveals a ranked, fully-explained analysis of every possible discard (5 single-card
-throws when dealt 5 cards, all 15 two-card combos when dealt 6).
+Two single-component React apps that share the same verified cribbage engine and
+cribbage-board aesthetic (inline styles, no dependencies beyond React):
 
-The whole app is a single component: `src/CribbageTrainer.jsx` (inline styles,
-cribbage-board aesthetic, no dependencies beyond React). The `engine/` folder
-holds the Node verification scripts the engine was validated against — they are
-not imported by the app, but they document and re-prove the math.
+1. **Discard Trainer** (`src/CribbageTrainer.jsx` → `trainer.html`) — practice
+   **optimal discarding** in **4-/3-handed "cutthroat"** (every player for
+   themselves) or **2-handed heads-up**, selectable in the UI. Deals a hand, lets
+   the user pick the card(s) to throw, then reveals a ranked, fully-explained
+   analysis of every possible discard (5 single-card throws when dealt 5 cards, all
+   15 two-card combos when dealt 6).
+2. **Play a Game** (`src/CribbagePlay.jsx` → `play.html`) — a complete, playable
+   game of **4-player cutthroat cribbage vs 3 AI**: deal → discard → cut →
+   interactive pegging → the show → race to 121 → rotate dealer. See "The playable
+   game" below.
+
+A static **landing page** (`src/landing.html` → `index.html`) links to the two.
+
+The `engine/` folder holds the Node verification scripts the engine was validated
+against — they are not imported by the apps, but they document and re-prove the math.
 
 ## Game rules being modeled
 
@@ -155,6 +172,39 @@ your card + three defensive junk throws.
 the 4-handed column still matches (tol 0.12). 3-handed runs ~0.1–0.2 richer across
 the board because the deck card beats a defender's junk throw on average.
 
+## The playable game (`src/CribbagePlay.jsx` → `play.html`)
+
+A complete game of **4-player cutthroat cribbage vs 3 AI**, first to 121. It is a
+second self-contained React page that **copies the engine primitives verbatim** from
+the trainer (`scoreInto`, `handDetail`, `pegScore`, `pegChoose`, `deckExcluding`,
+the theme/UI atoms) — the two pages never share a module, matching how `engine/`
+also duplicates the math.
+
+- **Phase machine** (`useReducer`): `deal → discard → cut → play → show → over`.
+  Human is always seat 0; `dealerIdx` rotates +1 each hand. State carries `seats[4]`
+  (`{score, dealt, kept, discard, isAI}`, cards stay **suited** throughout), `crib`,
+  `starter`, a `peg` sub-state during play, a `show` sub-state during counting, and
+  `settings.counting`.
+- **AI discard** (`aiDiscard`): for each of the 5 throws, `handDetail(keptFour).ev +
+  sign*CRIB_VALUE[rank]` (`sign=+1` if that seat deals, else `−1`); pick the best.
+  `CRIB_VALUE` is the **"your" crib-swing row** from the reference table above
+  (per rank A–K) — a fast stand-in for the trainer's Monte-Carlo `cribDetail`.
+- **Interactive pegging**: a self-clocking `useEffect` keyed on the peg state. A
+  human with a legal card blocks for a tap; AI moves and all forced "go"s fire on a
+  timer. The reducer mirrors the verified `playPegging` mechanics exactly (15/31/
+  pairs/runs, go, last card).
+- **The show**: counts in order `[pone, +2, +3, dealer, CRIB]`, **checking ≥121 after
+  every award and stopping immediately** (a non-dealer to the dealer's left can peg
+  out first). Auto-count or **muggins** (you claim your own hand/crib; missed points
+  go to the next opponent in counting order; over-claims are corrected down).
+- **Correctness pitfalls guarded** (see `engine/verify_play.js`): go/31/last-card
+  never double-count; his heels = **+2** at the cut; the 121 counting-order
+  short-circuit; suits survive pegging (only the rank arrays handed to
+  `pegScore`/`pegChoose` drop suits).
+
+Same scope notes as the trainer apply, plus: opponents are 3 AI (greedy pegging, no
+lookahead), and partners/teams mode and 2-/3-handed play are out of scope here.
+
 ## Known limitations (be honest about these in the UI)
 
 - **Pegging is an estimate, not a solve.** Greedy opponent policy; no lookahead.
@@ -172,25 +222,37 @@ node engine/pegging.js          # pegging unit tests + full-game sanity (dealer 
 node engine/breakdown.js        # category breakdown reconciles to totals; perfect-29 check
 node engine/calibrate_split.js  # one self-play calibration pass (mutates state.json)
 node engine/verify_players.js   # 2-/3-/4-handed: regression (players=4 == original) + crib/peg sanity
+node engine/verify_play.js      # play.html: evals the built game's reducer, drives whole hands,
+                                #   asserts go/31/last-card, his-heels +2, the 121 show short-circuit
 ```
 If you change `scoreInto`, re-run breakdown/pegging tests AND re-check the crib
 swing table above before trusting `analyze()`. If you touch `cribDetail`,
 `pegDetail`, or `playPegging`, also run `verify_players.js` — it guarantees the
 4-handed path is bit-for-bit unchanged and the 3-/2-handed paths stay sane.
+`verify_play.js` reads the **built** `play.html`, so run `./build.sh` first when you
+change `src/CribbagePlay.jsx`.
 
 ## Running and deploying
 
-**Run locally (already works):** open `index.html` in a browser. It is the whole
-app, pre-compiled to plain JS (no Babel, no in-browser build). React/ReactDOM load
-from a CDN. `src/CribbageTrainer.jsx` is the editable source.
+**Run locally (already works):** open `index.html` in a browser (the welcome page),
+or `trainer.html` / `play.html` directly. They are pre-compiled to plain JS (no
+Babel, no in-browser build); React/ReactDOM load from a CDN. The editable sources
+are `src/CribbageTrainer.jsx`, `src/CribbagePlay.jsx`, and `src/landing.html`.
 
-**Rebuild after editing the source:** run `./build.sh` (needs a global `tsc`; one is
-present in this environment). It transpiles the JSX → `React.createElement` with
-`tsc --jsx react --target es2020 --removeComments`, swaps the ESM import/export for
-CDN globals, and wraps it in the HTML shell — regenerating `index.html`
-deterministically. The script was validated to reproduce the committed `index.html`
-**byte-for-byte** from the source, so its output is trustworthy. Deploy = commit the
-regenerated `index.html` (see below); never hand-edit `index.html`.
+**Rebuild after editing any source:** run `./build.sh` (needs a global `tsc`; one is
+present in this environment). It regenerates **all three** root pages from `src/`:
+- `index.html` ← `src/landing.html` (plain static HTML, copied verbatim).
+- `trainer.html` ← `src/CribbageTrainer.jsx`; `play.html` ← `src/CribbagePlay.jsx`,
+  each via a `build_one` helper: transpile JSX → `React.createElement`
+  (`tsc --jsx react --target es2020 --removeComments`), swap the ESM import/export
+  for CDN globals, wrap in the HTML shell (which adds a small fixed **⌂ Home** link
+  back to `index.html`).
+
+The trainer's compiled `<script>` body is **byte-for-byte identical** to the old
+single-page `index.html` — only the filename, `<title>`, and the shell's Home link
+differ (the Home link is in the shell, never in the compiled script). Verify with
+`diff <(sed -n '/^<script>$/,/^<\/script>$/p' trainer.html) <old-script>`. Deploy =
+commit the regenerated HTML files (see below); never hand-edit them.
 
 **Deploying is now SET UP — a live Cloudflare pipeline exists.** The app is published
 via **Cloudflare Pages/Workers Git integration** connected to the GitHub repo

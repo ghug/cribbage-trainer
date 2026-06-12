@@ -1,1 +1,1 @@
-Practice optimal cribbage discards and play a full game against 3 AI.
+Practice optimal cribbage discards and play a full game against 3 bots.

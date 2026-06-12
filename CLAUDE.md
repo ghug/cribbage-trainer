@@ -16,25 +16,25 @@ for React):
 
 - **`index.html`** — the landing page. Six choices: the trainer and five games.
 - **`trainer.html`** — the **Discard Trainer** (analyzes/ranks discards).
-- **`play4.html`** — **Four-Handed (vs 3 AI)**: a full game of 4-player cutthroat.
-- **`play6.html`** — **Six-Handed (vs 5 AI)**: 6-player cutthroat. The **dealer and the
+- **`play4.html`** — **Four-Handed (vs 3 bots)**: a full game of 4-player cutthroat.
+- **`play6.html`** — **Six-Handed (vs 5 bots)**: 6-player cutthroat. The **dealer and the
   player to their right** are each dealt 4 and throw none; the other four are dealt 5
   and throw one, so the crib is those **four throws** (no deck card). When the human is
   either non-thrower they skip the discard phase. Starter is deck[28]. `src/CribbagePlay6.jsx`;
   a 6-seat adaptation (show order [pone, +2…+5, dealer, CRIB], three opponents across
   the top + two flanking). Verified by `engine/verify_play6.js`.
-- **`play5.html`** — **Five-Handed (vs 4 AI)**: 5-player cutthroat. The **dealer is
+- **`play5.html`** — **Five-Handed (vs 4 bots)**: 5-player cutthroat. The **dealer is
   dealt 4 and throws none**; the other four are dealt 5 and throw one, so the crib is
   the **four non-dealer throws** (no deck card). When the human deals they skip the
   discard phase. Starter is deck[24]. `src/CribbagePlay5.jsx`; a 5-seat adaptation of
   the play app's reducer (show order [pone, +2, +3, +4, dealer, CRIB], two opponents
   across the top + two flanking). Verified by `engine/verify_play5.js`.
-- **`play3.html`** — **Three-Handed (vs 2 AI)**: 3-player cutthroat (deal 5, discard
+- **`play3.html`** — **Three-Handed (vs 2 bots)**: 3-player cutthroat (deal 5, discard
   1; the crib is the three discards **plus one card off the deck**, deck[15], to make
   four; starter is deck[16]). `src/CribbagePlay3.jsx`; a 3-seat adaptation of the play
   app's reducer (show order [pone, +2, dealer, CRIB], two opponents flanking the
   table). Verified by `engine/verify_play3.js`.
-- **`headsup.html`** — **Heads-Up (vs 1 AI)**: classic 2-player cribbage (deal 6,
+- **`headsup.html`** — **Heads-Up (vs 1 bot)**: classic 2-player cribbage (deal 6,
   discard 2, race to 121). `src/CribbageHeadsUp.jsx`; a 2-player adaptation of the
   play app's reducer (P=2, show order [pone, dealer, CRIB], `cribSeed` two-card AI
   discard). Verified by `engine/verify_headsup.js`.
@@ -64,7 +64,7 @@ cribbage-board aesthetic (inline styles, no dependencies beyond React):
    analysis of every possible discard (5 single-card throws when dealt 5 cards, all
    15 two-card combos when dealt 6).
 2. **Play a Game** (`src/CribbagePlay4.jsx` → `play4.html`) — a complete, playable
-   game of **4-player cutthroat cribbage vs 3 AI**: deal → discard → cut →
+   game of **4-player cutthroat cribbage vs 3 bots**: deal → discard → cut →
    interactive pegging → the show → race to 121 → rotate dealer. See "The playable
    game" below.
 
@@ -200,7 +200,7 @@ the board because the deck card beats a defender's junk throw on average.
 
 ## The playable game (`src/CribbagePlay4.jsx` → `play4.html`)
 
-A complete game of **4-player cutthroat cribbage vs 3 AI**, first to 121. It is a
+A complete game of **4-player cutthroat cribbage vs 3 bots**, first to 121. It is a
 second self-contained React page that **copies the engine primitives verbatim** from
 the trainer (`scoreInto`, `handDetail`, `pegScore`, `pegChoose`, `deckExcluding`,
 the theme/UI atoms) — the two pages never share a module, matching how `engine/`
@@ -228,7 +228,7 @@ also duplicates the math.
   short-circuit; suits survive pegging (only the rank arrays handed to
   `pegScore`/`pegChoose` drop suits).
 
-Same scope notes as the trainer apply, plus: opponents are 3 AI (greedy pegging, no
+Same scope notes as the trainer apply, plus: opponents are 3 bots (greedy pegging, no
 lookahead), and partners/teams mode and 2-/3-handed play are out of scope here.
 
 ## Known limitations (be honest about these in the UI)

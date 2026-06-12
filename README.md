@@ -7,18 +7,18 @@ accounts, no tracking:
   ranked by expected points, each fully explained: exact hand value over all cuts,
   the crib swing of the card(s) you throw, and pegging potential. Supports 4-/3-handed
   "cutthroat" and 2-handed heads-up, as dealer or defender.
-- **Four-Handed** (`play4.html`) — 4-player cutthroat cribbage vs 3 AI: cut for deal →
+- **Four-Handed** (`play4.html`) — 4-player cutthroat cribbage vs 3 bots: cut for deal →
   discard → cut → interactive pegging → the show → race to 121.
-- **Six-Handed** (`play6.html`) — 6-player cutthroat cribbage vs 5 AI: everyone throws
+- **Six-Handed** (`play6.html`) — 6-player cutthroat cribbage vs 5 bots: everyone throws
   one to the crib except the dealer and the player to their right (each dealt four,
   throw none), then cut, peg, and count to 121.
-- **Five-Handed** (`play5.html`) — 5-player cutthroat cribbage vs 4 AI: everyone is
+- **Five-Handed** (`play5.html`) — 5-player cutthroat cribbage vs 4 bots: everyone is
   dealt five and throws one to the crib, except the dealer (dealt four, throws none),
   then cut, peg, and count to 121.
-- **Three-Handed** (`play3.html`) — 3-player cutthroat cribbage vs 2 AI: each player
+- **Three-Handed** (`play3.html`) — 3-player cutthroat cribbage vs 2 bots: each player
   throws one to the crib and the dealer tops it up with a card off the deck, then cut,
   peg, and count to 121.
-- **Heads-Up** (`headsup.html`) — classic two-player cribbage vs 1 AI: deal six,
+- **Heads-Up** (`headsup.html`) — classic two-player cribbage vs 1 bot: deal six,
   throw two to the crib, then cut, peg, and count to 121.
 
 **Two ways to use it:**

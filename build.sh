@@ -80,4 +80,5 @@ build_one "src/CribbageTrainer.jsx" "trainer.html" "Cribbage Discard Trainer" "C
 build_one "src/CribbagePlay.jsx"    "play.html"    "Cribbage — Play"          "CribbagePlay"   "no"
 build_one "src/CribbagePlay3.jsx"   "play3.html"   "Cribbage — 3-Handed"      "CribbagePlay3"  "no"
 build_one "src/CribbagePlay5.jsx"   "play5.html"   "Cribbage — 5-Handed"      "CribbagePlay5"  "no"
+build_one "src/CribbagePlay6.jsx"   "play6.html"   "Cribbage — 6-Handed"      "CribbagePlay6"  "no"
 build_one "src/CribbageHeadsUp.jsx" "headsup.html" "Cribbage — Heads-Up"      "CribbageHeadsUp" "no"

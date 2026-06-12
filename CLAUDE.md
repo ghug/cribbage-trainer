@@ -14,9 +14,15 @@ You have **two finished, working tools** behind a small welcome page, all
 self-contained (no in-browser build, no install, no internet needed beyond a CDN
 for React):
 
-- **`index.html`** — the landing page. Five choices: the trainer and four games.
+- **`index.html`** — the landing page. Six choices: the trainer and five games.
 - **`trainer.html`** — the **Discard Trainer** (analyzes/ranks discards).
 - **`play.html`** — **Play a Game (vs 3 AI)**: a full game of 4-player cutthroat.
+- **`play6.html`** — **Six-Handed (vs 5 AI)**: 6-player cutthroat. The **dealer and the
+  player to their right** are each dealt 4 and throw none; the other four are dealt 5
+  and throw one, so the crib is those **four throws** (no deck card). When the human is
+  either non-thrower they skip the discard phase. Starter is deck[28]. `src/CribbagePlay6.jsx`;
+  a 6-seat adaptation (show order [pone, +2…+5, dealer, CRIB], three opponents across
+  the top + two flanking). Verified by `engine/verify_play6.js`.
 - **`play5.html`** — **Five-Handed (vs 4 AI)**: 5-player cutthroat. The **dealer is
   dealt 4 and throws none**; the other four are dealt 5 and throw one, so the crib is
   the **four non-dealer throws** (no deck card). When the human deals they skip the
@@ -248,6 +254,8 @@ node engine/verify_play3.js     # play3.html: same harness for 3-handed (crib = 
                                 #   show order pone/+2/dealer/crib, turn rotates over three seats)
 node engine/verify_play5.js     # play5.html: same harness for 5-handed (dealer dealt 4/throws none,
                                 #   crib = 4 non-dealer throws, human-dealer skips discard, 5-seat show)
+node engine/verify_play6.js     # play6.html: same harness for 6-handed (dealer + seat-to-right dealt 4/
+                                #   throw none, crib = 4 throws, non-throwers skip discard, 6-seat show)
 node engine/verify_headsup.js   # headsup.html: same harness for the 2-player game (deal-6/discard-2,
                                 #   heads-up pegging & show, his-heels, history sums to score)
 ```

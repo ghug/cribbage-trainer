@@ -12,6 +12,7 @@ on:
     paths:
       - "index.html"
       - "trainer.html"
+      - "play.html"
       - "play4.html"
       - "play3.html"
       - "play5.html"
@@ -44,7 +45,7 @@ jobs:
       - name: Assemble site
         run: |
           mkdir -p _site/vendor
-          cp index.html trainer.html play4.html play3.html play5.html play6.html headsup.html _site/
+          cp index.html trainer.html play.html play4.html play3.html play5.html play6.html headsup.html _site/
           cp vendor/react.production.min.js vendor/react-dom.production.min.js _site/vendor/
           touch _site/.nojekyll   # skip Jekyll; serve files verbatim
 

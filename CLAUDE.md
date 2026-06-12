@@ -14,8 +14,15 @@ You have **two finished, working tools** behind a small welcome page, all
 self-contained (no in-browser build, no install, no internet needed beyond a CDN
 for React):
 
-- **`index.html`** — the landing page. Six choices: the trainer and five games.
+- **`index.html`** — the landing page. The trainer, the consolidated Play page, and
+  the fixed-size games.
 - **`trainer.html`** — the **Discard Trainer** (analyzes/ranks discards).
+- **`play.html`** — **Play**: a *consolidated* game that adapts to `settings.players`
+  (the global "Players" setting). Currently supports **2 (heads-up)** and **3 (3-handed)**;
+  the reducer is general (deal/crib/show/pegging/layout all computed from the player
+  count via `plan(P, dealerIdx)`), so adding 4/5/6 is mostly widening `PLAYER_OPTIONS`.
+  `discard` is stored as an **array** (1 or 2 cards) to unify the heads-up two-card throw.
+  `src/CribbagePlay.jsx`. Verified by `engine/verify_play.js` (drives P=2 and P=3).
 - **`play4.html`** — **Four-Handed (vs 3 bots)**: a full game of 4-player cutthroat.
 - **`play6.html`** — **Six-Handed (vs 5 bots)**: 6-player cutthroat. The **dealer and the
   player to their right** are each dealt 4 and throw none; the other four are dealt 5

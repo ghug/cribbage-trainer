@@ -185,6 +185,19 @@
           hand value over every cut, crib swing, and pegging potential, each fully explained.
           Supports 4-, 3-, and 2-handed.</div>
       </a>
+      <a class="option" href="play.html">
+        <div class="opt-row">
+          <span class="pip play">♥</span>
+          <div>
+            <div class="opt-title">Play</div>
+            <div class="opt-sub">one game, your choice of table size</div>
+          </div>
+          <span class="arrow">›</span>
+        </div>
+        <div class="opt-desc">A single game that adapts to the number of players you pick in
+          its settings — heads-up (2) or three-handed (3) for now. Cut for deal, discard, cut,
+          interactive pegging, the show, and the race to 121.</div>
+      </a>
       <a class="option" href="headsup.html">
         <div class="opt-row">
           <span class="pip duel">♠</span>
@@ -294,8 +307,9 @@
       // Game settings, shared across every page via localStorage (same key the games
       // read/write), so a toggle here — or in any game — sticks everywhere.
       var SETTINGS_KEY = "cribbage:settings";
-      var DEFAULTS = { counting: "auto", autoGo: false, warn: true, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false, autoContinue: false, autoDeal: false };
+      var DEFAULTS = { players: 2, counting: "auto", autoGo: false, warn: true, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false, autoContinue: false, autoDeal: false };
       var ROWS = [
+        { k: "players", title: "Players (in “Play”)", desc: "Table size for the consolidated Play game. 2 = heads-up; 3 = three-handed cutthroat. Changing it starts a new game.", opts: [["2", 2], ["3", 3]] },
         { k: "counting", title: "Counting", desc: "Auto tallies every hand. Muggins: you claim your own hand (and crib when you deal) — miss points and the next opponent takes them.", opts: [["Auto-count", "auto"], ["Muggins", "muggins"]] },
         { k: "autoGo", title: "Go on no playable card", desc: "When you can’t play, Manual waits for you to tap “Go”; Auto passes for you.", opts: [["Manual", false], ["Auto", true]] },
         { k: "warn", title: "Warn on a weak play", desc: "Pause and explain when a throw to the crib, or a pegging card that leaves a point on the table, isn’t the best — with a chance to take it back.", opts: [["On", true], ["Off", false]] },

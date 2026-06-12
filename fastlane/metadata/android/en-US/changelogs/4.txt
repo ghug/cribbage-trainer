@@ -1,0 +1,7 @@
+New in 1.1.0:
+- Three new game modes: 3-handed, 5-handed, and 6-handed cutthroat vs AI
+- Basic rules of cribbage on the home screen
+- About & feedback link (the source lives on GitHub)
+- Settings are now global — saved on your device and shared across every game
+- Full autopilot options: auto-play the best peg, and auto-discard the best throw
+- Tap the corner logo to go home; tidier menus and assorted polish

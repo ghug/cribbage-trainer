@@ -74,6 +74,9 @@
   .btn-sm{ width:auto; padding:6px 14px; border-radius:8px; font-size:11.5px }
   .repo-url{ font-family:var(--mono); font-size:10.5px; color:var(--muted); text-align:center;
     margin:8px 0 16px; word-break:break-all }
+  .link-btn{ background:none; border:none; padding:0; cursor:pointer; font:inherit;
+    color:var(--cream); text-decoration:underline; text-underline-offset:2px }
+  .link-btn:hover{ color:var(--ivory) }
 </style>
 </head>
 <body>
@@ -134,7 +137,7 @@
     </nav>
   </main>
   <footer>
-    Open-source cribbage practice.
+    Open-source cribbage practice. <button id="footerAbout" class="link-btn" type="button">About</button>
   </footer>
 
   <div class="overlay" id="settingsOverlay" role="dialog" aria-modal="true" aria-label="Settings">
@@ -175,6 +178,7 @@
       document.getElementById('gear').addEventListener('click', function () { open(s); });
       document.getElementById('settingsDone').addEventListener('click', function () { close(s); });
       document.getElementById('openAbout').addEventListener('click', function () { close(s); open(a); });
+      document.getElementById('footerAbout').addEventListener('click', function () { open(a); });
       document.getElementById('aboutClose').addEventListener('click', function () { close(a); });
       [s, a].forEach(function (el) {
         el.addEventListener('click', function (e) { if (e.target === el) close(el); });

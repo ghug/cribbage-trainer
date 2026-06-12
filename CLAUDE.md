@@ -275,8 +275,8 @@ authorize Cloudflare). Live URL: **`https://cribbage-trainer.gabrielhug.workers.
 to `main` on the `ghug/cribbage-trainer` remote. Cloudflare auto-builds and the live
 URL updates in ~30s. No tokens, no manual upload. (Pushing requires a fine-grained
 GitHub PAT for the `ghug` account scoped to that repo's Contents; the human pastes it
-per session — it is not stored.) The canonical dev repo is still
-`vanderoi/cribbage-trainer`; `ghug` is the deploy mirror. The exact deploy push (no
+per session — it is not stored.) The canonical dev repo is a separate,
+private repo on the human's primary account; `ghug` is the public deploy mirror. The exact deploy push (no
 named remote; the PAT goes inline in the URL and must not be committed/logged):
 
 ```

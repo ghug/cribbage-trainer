@@ -1,7 +1,7 @@
 # New-Session Bootstrap — Cribbage Trainer
 
 Paste this (with your PAT filled in) as the **first message** to a fresh Claude Code
-session on the `vanderoi/cribbage-trainer` repo. It tells the session which GitHub
+session on the private dev repo (the human's primary GitHub account). It tells the session which GitHub
 accounts/repos to use and how to deploy. Full project context lives in `CLAUDE.md`
 (auto-loaded) and the build plan in `docs/cribbage-play-plan.md`.
 
@@ -18,8 +18,8 @@ git checkout claude/claude-md-review-m77h8q
 ```
 
 ## Repos & accounts
-- **Dev repo (this session's clone):** `vanderoi/cribbage-trainer` — reached
-  automatically via the session's GitHub integration. Push dev work to branch
+- **Dev repo (this session's clone):** the private dev repo on the human's primary
+  GitHub account — reached automatically via the session's GitHub integration. Push dev work to branch
   `claude/claude-md-review-m77h8q` on `origin`.
 - **Deploy repo (the live site):** `ghug/cribbage-trainer` — a **separate, public**
   GitHub account (`ghug`), used only for deploy. NOT part of the session's

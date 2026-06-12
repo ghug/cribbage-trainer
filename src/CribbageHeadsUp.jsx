@@ -185,7 +185,7 @@ function Card({ card, onClick, clickable, badge, dim, selected, small }) {
   const lift = badge || selected ? -8 : hover && clickable ? -6 : 0;
   const edge = badge ? badge.color : selected ? T.selBlue : null;
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flex: `0 0 ${base}px`, maxWidth: base }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flex: `0 1 ${base}px`, minWidth: 0, maxWidth: base }}>
       {(badge || selected) && (
         <span style={{
           fontFamily: mono, fontSize: 9.5, letterSpacing: 0.4, fontWeight: 700,

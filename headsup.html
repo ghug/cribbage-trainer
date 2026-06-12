@@ -249,7 +249,7 @@ function Card({ card, onClick, clickable, badge, dim, selected, small }) {
     const base = small ? 44 : 68;
     const lift = badge || selected ? -8 : hover && clickable ? -6 : 0;
     const edge = badge ? badge.color : selected ? T.selBlue : null;
-    return (React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flex: `0 0 ${base}px`, maxWidth: base } },
+    return (React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flex: `0 1 ${base}px`, minWidth: 0, maxWidth: base } },
         (badge || selected) && (React.createElement("span", { style: {
                 fontFamily: mono, fontSize: 9.5, letterSpacing: 0.4, fontWeight: 700,
                 color: T.ivory, background: badge ? badge.color : T.selBlue, padding: "2px 6px", borderRadius: 4, whiteSpace: "nowrap",

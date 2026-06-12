@@ -714,15 +714,14 @@ function PlayScreen({ state, dispatch }) {
           {yourHand.map((card) => {
             const legal = legalSet.has(cardId(card));
             const pp = state.pendingPlay;
+            // While a peg warning is up, tapping any card just unselects (clears the
+            // warning) — it never plays. Tap again afterward to play normally.
             return (
               <Card key={cardId(card)} card={card}
                 clickable={pp ? true : (yourTurn && legal)}
                 selected={pp ? sameCard(pp.card, card) : false}
                 dim={!pp && !legal && peg.turn === 0}
-                onClick={() => {
-                  if (!pp) { dispatch({ type: "SELECT_PLAY", card }); return; }
-                  dispatch(sameCard(pp.card, card) || !legal ? { type: "CANCEL_PLAY" } : { type: "SELECT_PLAY", card });
-                }} />
+                onClick={() => dispatch(pp ? { type: "CANCEL_PLAY" } : { type: "SELECT_PLAY", card })} />
             );
           })}
           {yourHand.length === 0 && <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>your cards are all played</span>}

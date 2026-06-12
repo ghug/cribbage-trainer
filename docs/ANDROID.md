@@ -143,10 +143,11 @@ Per release: bump `versionCode` and add a matching `changelogs/<code>.txt`. Drop
 few PNG screenshots into `images/phoneScreenshots/` to fill out the listing (the icon
 comes from the APK's adaptive icon, so no `icon.png` is needed).
 
-## Caveat: WebView age
+## WebView compatibility
 
-The UI uses CSS **container queries** (`container-type` / `cqw`), which need
-**WebView ≥ 105** (late 2022). On older/de-Googled devices with a stale system
-WebView, card sizing can break. `minSdk` is 26, but the WebView version matters more
-than the OS — consider documenting it or adding a non-`cqw` fallback before a wide
-release.
+Card faces render as scalable inline SVG (`viewBox`) with a padding-bottom aspect
+spacer — no CSS container queries (`cqw`) and no `aspect-ratio`, so they size
+correctly on essentially any WebView, including the frozen/old ones on de-Googled
+devices. (Earlier versions used container queries, which needed WebView ≥105 — that
+dependency is gone.) `minSdk` is 26; the WebView's Chromium version matters more than
+the OS, but the SVG approach degrades gracefully on old ones.

@@ -339,8 +339,7 @@ function Card({ card, onClick, phase, badge, dim, selected }) {
         aria-label={`${rankLabel(card.r)} of ${["spades", "hearts", "diamonds", "clubs"][card.s]}`}
         aria-pressed={clickable ? !!selected : undefined}
         style={{
-          width: "100%", aspectRatio: "68 / 96", containerType: "inline-size",
-          borderRadius: 9, padding: 0, background: T.ivory, position: "relative",
+          width: "100%", borderRadius: 9, padding: 0, background: T.ivory, position: "relative",
           cursor: clickable ? "pointer" : "default",
           border: edge ? `2px solid ${edge}` : "1px solid rgba(0,0,0,0.25)",
           boxShadow: badge || selected ? "0 8px 18px rgba(0,0,0,0.45)" : "0 4px 10px rgba(0,0,0,0.35)",
@@ -348,17 +347,15 @@ function Card({ card, onClick, phase, badge, dim, selected }) {
           opacity: dim ? 0.5 : 1, outlineOffset: 3,
         }}
       >
-        <span style={{
-          position: "absolute", top: "8.8cqw", left: "10.3cqw", lineHeight: 1, textAlign: "center",
-          color: isRed(card.s) ? T.suitRed : T.ink, fontFamily: serif, fontWeight: 700,
-        }}>
-          <span style={{ fontSize: "25cqw", display: "block" }}>{rankLabel(card.r)}</span>
-          <span style={{ fontSize: "19cqw" }}>{SUIT[card.s]}</span>
-        </span>
-        <span style={{
-          position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: "50cqw", color: isRed(card.s) ? T.suitRed : T.ink,
-        }}>{SUIT[card.s]}</span>
+        {/* aspect ratio via a padding spacer (no aspect-ratio CSS); the face is a
+            scalable SVG (no container queries) so cards render on any WebView. */}
+        <span style={{ display: "block", paddingBottom: "141.18%" }} />
+        <svg viewBox="0 0 68 96" preserveAspectRatio="xMidYMid meet" aria-hidden="true"
+          style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", display: "block" }}>
+          <text x="13" y="15" textAnchor="middle" dominantBaseline="central" fontFamily={serif} fontWeight="700" fontSize="17" fill={isRed(card.s) ? T.suitRed : T.ink}>{rankLabel(card.r)}</text>
+          <text x="13" y="30" textAnchor="middle" dominantBaseline="central" fontFamily={serif} fontWeight="700" fontSize="13" fill={isRed(card.s) ? T.suitRed : T.ink}>{SUIT[card.s]}</text>
+          <text x="34" y="49" textAnchor="middle" dominantBaseline="central" fontFamily={serif} fontSize="34" fill={isRed(card.s) ? T.suitRed : T.ink}>{SUIT[card.s]}</text>
+        </svg>
       </button>
     </div>
   );

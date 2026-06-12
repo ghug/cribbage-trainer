@@ -41,13 +41,10 @@ per-rank "crib swing" reference numbers, known limitations, and next steps.
 
 ## License
 
-Copyright (C) 2026 Gabriel Hug
+This project is released into the **public domain** under
+[The Unlicense](LICENSE) (`SPDX-License-Identifier: Unlicense`). Do anything you
+like with it; it comes with NO WARRANTY, to the extent permitted by law.
 
-This project is free software, licensed under the **GNU General Public License,
-version 3 or (at your option) any later version** (`SPDX-License-Identifier:
-GPL-3.0-or-later`). See the [`LICENSE`](LICENSE) file for the full text. It comes
-with NO WARRANTY, to the extent permitted by law.
-
-The only bundled third-party code is React / React-DOM, used under the MIT license
-(GPL-compatible). Chosen for compatibility with FOSS distribution channels
-(F-Droid, IzzyOnDroid).
+The only bundled third-party code is React / React-DOM, used under the MIT license.
+A public-domain dedication keeps the project compatible with FOSS distribution
+channels (F-Droid, IzzyOnDroid).

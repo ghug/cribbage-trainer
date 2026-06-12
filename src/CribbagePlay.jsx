@@ -520,7 +520,7 @@ function reduce(state, action) {
   }
 }
 
-const DEFAULT_SETTINGS = { counting: "auto", autoGo: false, warn: true, autoDeal: false, autoCut: false, autoContinue: false, autoPlayOne: false };
+const DEFAULT_SETTINGS = { counting: "auto", autoGo: false, warn: true, autoDeal: false, autoContinue: false, autoPlayOne: false };
 
 // Cut for deal at the start of a game: each seat draws one card from a shuffled
 // deck; the lowest rank deals. Re-draw all four on a tie for lowest, until unique.
@@ -634,7 +634,7 @@ export default function CribbagePlay() {
   // The pause control only matters when at least one auto setting is on (auto-count
   // doesn't count). Nothing happens automatically while paused, or while the
   // settings/history panels are open.
-  const canPause = settings.autoGo || settings.autoDeal || settings.autoCut || settings.autoContinue || settings.autoPlayOne;
+  const canPause = settings.autoGo || settings.autoDeal || settings.autoContinue || settings.autoPlayOne;
   const autoPaused = paused || settingsOpen || historySeat !== null;
   useEffect(() => { if (!canPause && paused) setPaused(false); }, [canPause, paused]);
 
@@ -679,14 +679,10 @@ export default function CribbagePlay() {
   }, [phase, settings.autoDeal, autoPaused]);
   useEffect(() => {
     if (phase !== "cut" || autoPaused) return;
-    // The player to the dealer's right cuts. An AI cutter always cuts; the human
-    // cutter (seat 0) only auto-cuts when the setting is on.
-    const cutter = (dealerIdx + 3) % 4;
-    if (cutter !== 0 || settings.autoCut) {
-      const t = setTimeout(() => dispatch({ type: "CUT" }), 650);
-      return () => clearTimeout(t);
-    }
-  }, [phase, dealerIdx, settings.autoCut, autoPaused]);
+    // The starter is always cut automatically, after a brief beat.
+    const t = setTimeout(() => dispatch({ type: "CUT" }), 650);
+    return () => clearTimeout(t);
+  }, [phase, autoPaused]);
   useEffect(() => {
     if (phase !== "show" || !show || !settings.autoContinue || autoPaused) return;
     const info = computeShow(state);
@@ -835,16 +831,15 @@ export default function CribbagePlay() {
             <Panel>
               <div style={{ fontWeight: 700, fontSize: 15 }}>The crib is set</div>
               <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>
-                Four cards in {dealer ? "your" : `${seatName(dealerIdx)}'s`} crib.{" "}
-                {cutter === 0 ? "It's yours to cut the starter." : `${seatName(cutter)} cuts the starter.`}
+                Four cards in {dealer ? "your" : `${seatName(dealerIdx)}'s`} crib.
               </div>
             </Panel>
             <div style={{ display: "flex", justifyContent: "center", gap: 8 }}>
               {[0, 1, 2, 3].map((i) => <CardBack key={i} />)}
             </div>
-            {cutter === 0
-              ? bigBtn("Cut the starter", () => dispatch({ type: "CUT" }), "wood")
-              : <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" }}>{seatName(cutter)} is cutting…</div>}
+            <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" }}>
+              {cutter === 0 ? "You cut" : `${seatName(cutter)} cuts`} the starter…
+            </div>
           </div>
         )}
 
@@ -1174,9 +1169,6 @@ function SettingsPanel({ settings, dispatch, onClose }) {
         options={[["On", true], ["Off", false]]} />
       <Row title="Auto-play a forced card" k="autoPlayOne"
         desc="When only one of your cards is legal to peg, play it for you."
-        options={[["Off", false], ["On", true]]} />
-      <Row title="Auto-cut the starter" k="autoCut"
-        desc="Cut the starter automatically instead of tapping the button."
         options={[["Off", false], ["On", true]]} />
       <Row title="Auto-continue the show" k="autoContinue"
         desc="Advance the counting automatically (still pauses for your muggins claim)."

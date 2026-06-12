@@ -548,7 +548,7 @@ function reduce(state, action) {
             return state;
     }
 }
-const DEFAULT_SETTINGS = { counting: "auto", autoGo: false, warn: true, autoDeal: false, autoCut: false, autoContinue: false, autoPlayOne: false };
+const DEFAULT_SETTINGS = { counting: "auto", autoGo: false, warn: true, autoDeal: false, autoContinue: false, autoPlayOne: false };
 function drawForDealer() {
     for (let attempt = 0; attempt < 500; attempt++) {
         const draw = freshDeck().slice(0, 4);
@@ -636,7 +636,7 @@ function CribbagePlay() {
     const [paused, setPaused] = React.useState(false);
     const [confirmHome, setConfirmHome] = React.useState(false);
     const { phase, seats, dealerIdx, peg, show, starter, crib, winner, message, settings, dealDraw } = state;
-    const canPause = settings.autoGo || settings.autoDeal || settings.autoCut || settings.autoContinue || settings.autoPlayOne;
+    const canPause = settings.autoGo || settings.autoDeal || settings.autoContinue || settings.autoPlayOne;
     const autoPaused = paused || settingsOpen || historySeat !== null;
     useEffect(() => { if (!canPause && paused)
         setPaused(false); }, [canPause, paused]);
@@ -684,12 +684,9 @@ function CribbagePlay() {
     useEffect(() => {
         if (phase !== "cut" || autoPaused)
             return;
-        const cutter = (dealerIdx + 3) % 4;
-        if (cutter !== 0 || settings.autoCut) {
-            const t = setTimeout(() => dispatch({ type: "CUT" }), 650);
-            return () => clearTimeout(t);
-        }
-    }, [phase, dealerIdx, settings.autoCut, autoPaused]);
+        const t = setTimeout(() => dispatch({ type: "CUT" }), 650);
+        return () => clearTimeout(t);
+    }, [phase, autoPaused]);
     useEffect(() => {
         if (phase !== "show" || !show || !settings.autoContinue || autoPaused)
             return;
@@ -798,15 +795,11 @@ function CribbagePlay() {
                     React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 } },
                         "Four cards in ",
                         dealer ? "your" : `${seatName(dealerIdx)}'s`,
-                        " crib.",
-                        " ",
-                        cutter === 0 ? "It's yours to cut the starter." : `${seatName(cutter)} cuts the starter.`)),
+                        " crib.")),
                 React.createElement("div", { style: { display: "flex", justifyContent: "center", gap: 8 } }, [0, 1, 2, 3].map((i) => React.createElement(CardBack, { key: i }))),
-                cutter === 0
-                    ? bigBtn("Cut the starter", () => dispatch({ type: "CUT" }), "wood")
-                    : React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" } },
-                        seatName(cutter),
-                        " is cutting\u2026"))),
+                React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" } },
+                    cutter === 0 ? "You cut" : `${seatName(cutter)} cuts`,
+                    " the starter\u2026"))),
             phase === "play" && peg && (React.createElement(PlayScreen, { state: state, dispatch: dispatch })),
             phase === "show" && show && (React.createElement(ShowScreen, { state: state, dispatch: dispatch })),
             phase === "over" && (React.createElement("div", { style: { marginTop: 16, display: "flex", flexDirection: "column", gap: 16 } },
@@ -1023,7 +1016,6 @@ function SettingsPanel({ settings, dispatch, onClose }) {
         React.createElement(Row, { title: "Go on no playable card", k: "autoGo", desc: 'When you can’t play, Manual waits for you to tap “Go”; Auto passes for you.', options: [["Manual", false], ["Auto", true]] }),
         React.createElement(Row, { title: "Warn on a weak play", k: "warn", desc: "Pause and explain when your throw to the crib \u2014 or a pegging card that leaves a point on the table \u2014 isn\u2019t the best, with a chance to take it back.", options: [["On", true], ["Off", false]] }),
         React.createElement(Row, { title: "Auto-play a forced card", k: "autoPlayOne", desc: "When only one of your cards is legal to peg, play it for you.", options: [["Off", false], ["On", true]] }),
-        React.createElement(Row, { title: "Auto-cut the starter", k: "autoCut", desc: "Cut the starter automatically instead of tapping the button.", options: [["Off", false], ["On", true]] }),
         React.createElement(Row, { title: "Auto-continue the show", k: "autoContinue", desc: "Advance the counting automatically (still pauses for your muggins claim).", options: [["Off", false], ["On", true]] }),
         React.createElement(Row, { title: "Auto-deal the next hand", k: "autoDeal", desc: "Deal the next hand automatically once a hand is fully counted.", options: [["Off", false], ["On", true]] })));
 }

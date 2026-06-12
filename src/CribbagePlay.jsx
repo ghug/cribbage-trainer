@@ -158,6 +158,8 @@ const serif = "'Hoefler Text', 'Iowan Old Style', Georgia, 'Times New Roman', se
 
 const SEAT_NAMES = ["You", "West", "North", "East"];
 const seatName = (i) => SEAT_NAMES[i];
+const poss = (i) => (i === 0 ? "Your" : `${seatName(i)}'s`);          // possessive: "Your hand" / "West's hand"
+const sv = (i, first, third) => (i === 0 ? `You ${first}` : `${seatName(i)} ${third}`); // subject+verb agreement
 const sameCard = (a, b) => a.r === b.r && a.s === b.s;
 
 function freshDeck() {
@@ -289,7 +291,7 @@ function computeShow(state) {
   const total = scoreInto(cards, starter, isCrib, acc);
   return { ent, owner, cards, acc, total, isCrib };
 }
-const entLabel = (info) => `${seatName(info.owner)}'s ${info.isCrib ? "crib" : "hand"}`;
+const entLabel = (info) => `${poss(info.owner)} ${info.isCrib ? "crib" : "hand"}`;
 
 function scoreCallout(pile, count, pts) {
   const parts = [];
@@ -345,7 +347,7 @@ function reduce(state, action) {
       let seats = state.seats, winner = null, message = `Cut: ${tag(starter)}.`;
       if (hisHeels) {
         seats = award(seats, state.dealerIdx, 2);
-        message = `His heels — ${seatName(state.dealerIdx)} pegs 2 for the Jack (${tag(starter)}).`;
+        message = `His heels — ${sv(state.dealerIdx, "peg", "pegs")} 2 for the Jack (${tag(starter)}).`;
         if (seats[state.dealerIdx].score >= TARGET) winner = state.dealerIdx;
       }
       if (winner !== null) return { ...state, starter, hisHeels, seats, winner, phase: "over", message };
@@ -362,7 +364,7 @@ function reduce(state, action) {
       const played = peg.played.map((p, i) => (i === seat ? p.concat(card) : p));
       const pts = pegScore(pile, count);
       let seats = award(state.seats, seat, pts);
-      let message = pts > 0 ? `${seatName(seat)}: ${scoreCallout(pile, count, pts)}.` : `${seatName(seat)} plays ${tag(card)} (count ${count}).`;
+      let message = pts > 0 ? `${seatName(seat)}: ${scoreCallout(pile, count, pts)}.` : `${sv(seat, "play", "plays")} ${tag(card)} (count ${count}).`;
       let np = { ...peg, hands, count, pile, pileSuited, played, lastPlayer: seat, passes: 0 };
       if (count === 31) { np.count = 0; np.pile = []; np.pileSuited = []; np.lastPlayer = -1; }
       if (seats[seat].score >= TARGET) return { ...state, seats, peg: np, phase: "over", winner: seat, message };
@@ -384,7 +386,7 @@ function reduce(state, action) {
       const peg = state.peg, seat = action.seat;
       const passes = peg.passes + 1;
       if (passes >= 4) { // a full rotation with nobody able to play -> award the go
-        let seats = state.seats, message = `${seatName(seat)} says "go".`;
+        let seats = state.seats, message = `${sv(seat, "say", "says")} "go".`;
         const np = { ...peg, passes: 0, turn: (seat + 1) % 4 };
         if (peg.lastPlayer >= 0 && peg.count !== 31) {
           seats = award(seats, peg.lastPlayer, 1);
@@ -394,7 +396,7 @@ function reduce(state, action) {
         np.count = 0; np.pile = []; np.pileSuited = []; np.lastPlayer = -1;
         return { ...state, seats, peg: np, message };
       }
-      return { ...state, peg: { ...peg, passes, turn: (seat + 1) % 4 }, message: `${seatName(seat)} says "go".` };
+      return { ...state, peg: { ...peg, passes, turn: (seat + 1) % 4 }, message: `${sv(seat, "say", "says")} "go".` };
     }
 
     case "SHOW_CLAIM":
@@ -504,13 +506,20 @@ export default function CribbagePlay() {
     if (phase !== "play" || !peg) return;
     const hand = peg.hands[peg.turn];
     const legal = hand.filter((c) => pval(c.r) + peg.count <= 31);
-    if (peg.turn === 0 && legal.length > 0) return; // wait for the human
+    if (peg.turn === 0) {
+      // The human always acts by tapping: a legal card, or the "Go" button when
+      // stuck with cards in hand. Only auto-skip once they're out of cards (no
+      // decision to make), mirroring how an empty seat just passes the rotation.
+      if (hand.length > 0) return;
+      const t = setTimeout(() => dispatch({ type: "PASS_GO", seat: 0 }), 450);
+      return () => clearTimeout(t);
+    }
     const t = setTimeout(() => {
       if (legal.length === 0) { dispatch({ type: "PASS_GO", seat: peg.turn }); return; }
       const rank = pegChoose(legal.map((c) => c.r), peg.count, peg.pile, hand.map((c) => c.r));
       const chosen = legal.find((c) => c.r === rank) || legal[0];
       dispatch({ type: "PLAY_CARD", seat: peg.turn, card: chosen });
-    }, peg.turn === 0 ? 450 : 760);
+    }, 760);
     return () => clearTimeout(t);
   }, [phase, peg]);
 
@@ -589,7 +598,7 @@ export default function CribbagePlay() {
               <div style={{ fontWeight: 700, fontSize: 15 }}>{dealer ? "Your crib — be greedy" : `Feeds ${seatName(dealerIdx)}'s crib — defend`}</div>
               <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>Tap the card you'll throw to the crib.</div>
             </Panel>
-            <OpponentBacks seats={seats} dealerIdx={dealerIdx} n={5} label="holding 5" />
+            <OpponentBacks dealerIdx={dealerIdx} n={5} label="5 cards" />
             <div className="dealwrap" style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "nowrap" }}>
               {seats[0].dealt.map((card, i) => (
                 <Card key={cardId(card)} card={card} clickable onClick={() => dispatch({ type: "DISCARD", idx: i })} />
@@ -643,22 +652,52 @@ function StarterStrip({ starter }) {
   );
 }
 
-function OpponentBacks({ seats, dealerIdx, n, label }) {
+// A seat's played cards, fanned so each later card sits ~75% on top of the prior
+// one (only the newest is fully visible). Falls back to face-down backs pre-play.
+function PlayedStack({ cards, backs }) {
+  if (!cards || cards.length === 0) {
+    return <div style={{ display: "flex", gap: 2, justifyContent: "center" }}>{Array.from({ length: backs }).map((_, k) => <CardBack key={k} small />)}</div>;
+  }
   return (
-    <div style={{ display: "flex", justifyContent: "space-around", gap: 6, flexWrap: "wrap" }}>
-      {[1, 2, 3].map((i) => (
-        <div key={i} style={{ textAlign: "center" }}>
-          <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 4 }}>
-            {seatName(i)}{dealerIdx === i ? " (D)" : ""}
-          </div>
-          <div style={{ display: "flex", gap: 2, justifyContent: "center" }}>
-            {Array.from({ length: n }).map((_, k) => <CardBack key={k} small />)}
-          </div>
-          <div style={{ fontFamily: mono, fontSize: 9.5, color: T.muted, marginTop: 3 }}>{label}</div>
+    <div style={{ display: "flex", justifyContent: "center" }}>
+      {cards.map((c, i) => (
+        <div key={cardId(c)} style={{ position: "relative", zIndex: i, marginLeft: i === 0 ? 0 : -33 }}>
+          <Card card={c} small />
         </div>
       ))}
     </div>
   );
+}
+
+function SeatCell({ i, dealerIdx, active, played, backs, label }) {
+  return (
+    <div style={{ textAlign: "center", minWidth: 0 }}>
+      <div style={{ fontFamily: mono, fontSize: 10, color: active ? T.selBlue : T.muted, marginBottom: 4 }}>
+        {seatName(i)}{dealerIdx === i ? " (D)" : ""}{label ? ` · ${label}` : ""}
+      </div>
+      <div style={{ display: "flex", justifyContent: "center", minHeight: 64 }}>
+        <PlayedStack cards={played} backs={backs} />
+      </div>
+    </div>
+  );
+}
+
+// North (seat 2) centered on top; West (1) and East (3) flanking below.
+function OpponentRows({ dealerIdx, render }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "flex", justifyContent: "center" }}>{render(2)}</div>
+      <div style={{ display: "flex", justifyContent: "space-between", padding: "0 6px" }}>
+        {render(1)}{render(3)}
+      </div>
+    </div>
+  );
+}
+
+function OpponentBacks({ dealerIdx, n, label }) {
+  return <OpponentRows dealerIdx={dealerIdx} render={(i) => (
+    <SeatCell key={i} i={i} dealerIdx={dealerIdx} backs={n} label={label} />
+  )} />;
 }
 
 function PlayScreen({ state, dispatch }) {
@@ -666,31 +705,23 @@ function PlayScreen({ state, dispatch }) {
   const yourHand = peg.hands[0];
   const legalSet = new Set(yourHand.filter((c) => pval(c.r) + peg.count <= 31).map(cardId));
   const yourTurn = peg.turn === 0 && legalSet.size > 0;
+  const stuck = peg.turn === 0 && legalSet.size === 0 && yourHand.length > 0; // must say "go"
   return (
     <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 14 }}>
+      {/* starter + count, held well apart so the count never tucks under the card */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 34 }}>
         <StarterStrip starter={starter} />
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "5px 16px", borderRadius: 10, background: "rgba(0,0,0,0.28)", border: `1px solid ${T.line}` }}>
           <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>count</span>
-          <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 30, color: peg.count === 31 ? T.good : T.ivory }}>{peg.count}</span>
+          <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 30, lineHeight: 1.05, color: peg.count === 31 ? T.good : T.ivory }}>{peg.count}</span>
         </div>
       </div>
 
-      {/* opponents' laid cards */}
-      <div style={{ display: "flex", justifyContent: "space-around", gap: 6, flexWrap: "wrap" }}>
-        {[1, 2, 3].map((i) => (
-          <div key={i} style={{ textAlign: "center", flex: 1, minWidth: 0 }}>
-            <div style={{ fontFamily: mono, fontSize: 10, color: peg.turn === i ? T.selBlue : T.muted, marginBottom: 4 }}>
-              {seatName(i)}{dealerIdx === i ? " (D)" : ""} · {peg.hands[i].length} left
-            </div>
-            <div style={{ display: "flex", gap: 2, justifyContent: "center", minHeight: 30 }}>
-              {peg.played[i].length
-                ? peg.played[i].map((c) => <Card key={cardId(c)} card={c} small />)
-                : Array.from({ length: peg.hands[i].length }).map((_, k) => <CardBack key={k} small />)}
-            </div>
-          </div>
-        ))}
-      </div>
+      {/* opponents' laid cards — North centered above West & East */}
+      <OpponentRows dealerIdx={dealerIdx} render={(i) => (
+        <SeatCell key={i} i={i} dealerIdx={dealerIdx} active={peg.turn === i}
+          played={peg.played[i]} backs={peg.hands[i].length} label={`${peg.hands[i].length} left`} />
+      )} />
 
       {/* the running pile */}
       <div style={{ background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "10px 12px" }}>
@@ -702,13 +733,27 @@ function PlayScreen({ state, dispatch }) {
         </div>
       </div>
 
-      {/* your hand */}
+      {/* your seat: status, played stack, remaining hand */}
       <div>
-        <div style={{ fontFamily: mono, fontSize: 11, color: yourTurn ? T.selBlue : T.muted, marginBottom: 6 }}>
+        <div style={{ fontFamily: mono, fontSize: 11, color: (yourTurn || stuck) ? T.selBlue : T.muted, marginBottom: 6 }}>
           {peg.turn === 0
-            ? (legalSet.size > 0 ? "Your turn — tap a card to play." : "No legal card — you must say go…")
+            ? (yourTurn ? "Your turn — tap a card to play." : stuck ? "No legal card — tap Go to pass." : "Your cards are all played.")
             : `${seatName(peg.turn)} to play…`}
         </div>
+        {peg.played[0].length > 0 && (
+          <div style={{ marginBottom: 10 }}>
+            <PlayedStack cards={peg.played[0]} backs={0} />
+          </div>
+        )}
+        {stuck && (
+          <div style={{ marginBottom: 10 }}>
+            <button onClick={() => dispatch({ type: "PASS_GO", seat: 0 })} style={{
+              width: "100%", padding: "12px", borderRadius: 10, border: "none", cursor: "pointer",
+              background: `linear-gradient(180deg, ${T.pegRed}, #9c3120)`, color: T.ivory,
+              fontSize: 15, fontWeight: 700, letterSpacing: 0.3, boxShadow: "0 4px 12px rgba(0,0,0,0.35)",
+            }}>Say "Go"</button>
+          </div>
+        )}
         <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
           {yourHand.map((card) => {
             const legal = legalSet.has(cardId(card));

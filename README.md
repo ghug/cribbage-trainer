@@ -1,6 +1,6 @@
 # Cribbage Trainer
 
-Four cribbage tools behind a small landing page — all client-side, no install, no
+Five cribbage tools behind a small landing page — all client-side, no install, no
 accounts, no tracking:
 
 - **Discard Trainer** (`trainer.html`) — deal a hand and see every possible discard
@@ -9,6 +9,9 @@ accounts, no tracking:
   "cutthroat" and 2-handed heads-up, as dealer or defender.
 - **Play a Game** (`play.html`) — a full game of 4-player cutthroat cribbage vs 3 AI:
   cut for deal → discard → cut → interactive pegging → the show → race to 121.
+- **Five-Handed** (`play5.html`) — 5-player cutthroat cribbage vs 4 AI: everyone is
+  dealt five and throws one to the crib, except the dealer (dealt four, throws none),
+  then cut, peg, and count to 121.
 - **Three-Handed** (`play3.html`) — 3-player cutthroat cribbage vs 2 AI: each player
   throws one to the crib and the dealer tops it up with a card off the deck, then cut,
   peg, and count to 121.
@@ -45,6 +48,7 @@ node engine/breakdown.js        # show-scoring breakdown + perfect-29 check
 node engine/verify_players.js   # 2-/3-/4-handed regression + sanity
 node engine/verify_play.js      # play.html reducer: go/31/last-card, his-heels, the show
 node engine/verify_play3.js     # play3.html reducer: 3-handed crib (3 throws + deck card), show order
+node engine/verify_play5.js     # play5.html reducer: dealer dealt 4/throws none, crib = 4 non-dealer throws
 node engine/verify_headsup.js   # headsup.html reducer: deal-6/discard-2, heads-up pegging & show
 ```
 

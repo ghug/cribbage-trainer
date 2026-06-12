@@ -14,9 +14,15 @@ You have **two finished, working tools** behind a small welcome page, all
 self-contained (no in-browser build, no install, no internet needed beyond a CDN
 for React):
 
-- **`index.html`** — the landing page. Four choices: the trainer and three games.
+- **`index.html`** — the landing page. Five choices: the trainer and four games.
 - **`trainer.html`** — the **Discard Trainer** (analyzes/ranks discards).
 - **`play.html`** — **Play a Game (vs 3 AI)**: a full game of 4-player cutthroat.
+- **`play5.html`** — **Five-Handed (vs 4 AI)**: 5-player cutthroat. The **dealer is
+  dealt 4 and throws none**; the other four are dealt 5 and throw one, so the crib is
+  the **four non-dealer throws** (no deck card). When the human deals they skip the
+  discard phase. Starter is deck[24]. `src/CribbagePlay5.jsx`; a 5-seat adaptation of
+  the play app's reducer (show order [pone, +2, +3, +4, dealer, CRIB], two opponents
+  across the top + two flanking). Verified by `engine/verify_play5.js`.
 - **`play3.html`** — **Three-Handed (vs 2 AI)**: 3-player cutthroat (deal 5, discard
   1; the crib is the three discards **plus one card off the deck**, deck[15], to make
   four; starter is deck[16]). `src/CribbagePlay3.jsx`; a 3-seat adaptation of the play
@@ -240,6 +246,8 @@ node engine/verify_play.js      # play.html: evals the built game's reducer, dri
                                 #   asserts go/31/last-card, his-heels +2, the 121 show short-circuit
 node engine/verify_play3.js     # play3.html: same harness for 3-handed (crib = 3 throws + deck[15],
                                 #   show order pone/+2/dealer/crib, turn rotates over three seats)
+node engine/verify_play5.js     # play5.html: same harness for 5-handed (dealer dealt 4/throws none,
+                                #   crib = 4 non-dealer throws, human-dealer skips discard, 5-seat show)
 node engine/verify_headsup.js   # headsup.html: same harness for the 2-player game (deal-6/discard-2,
                                 #   heads-up pegging & show, his-heels, history sums to score)
 ```

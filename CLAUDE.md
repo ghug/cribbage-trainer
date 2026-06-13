@@ -212,7 +212,13 @@ the board because the deck card beats a defender's junk throw on average.
 ## The playable game (`src/CribbagePlay.jsx` → `play.html`)
 
 A complete game of cribbage vs bots that **adapts to the table size** (2–6, from
-`settings.players`), first to 121. It is a second self-contained React page that
+`settings.players`), first to the **win target** for that size: **2–4 handed play to
+121**, but **5- and 6-handed are short games to 61** (`targetFor(P) = P>=5 ? 61 : 121`,
+the conventional short game for a crowded table). The skunk lines scale with the target
+(`skunkLines(P)`): at 121 a loser is skunked under 91 / double-skunked under 61; at 61
+those halve to **skunk ≤ 30, double skunk ≤ 15**. Every win check in the reducer
+(pegging, go, last-card, his-heels, the show) and the peg-track fill use `targetFor(P)`.
+It is a second self-contained React page that
 **copies the engine primitives verbatim** from the trainer (`scoreInto`, `handDetail`,
 `pegScore`, `pegChoose`, `deckExcluding`, the theme/UI atoms) — the two pages never
 share a module, matching how `engine/` also duplicates the math. Everything per-size

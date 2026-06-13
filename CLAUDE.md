@@ -261,8 +261,24 @@ layout) is derived from the player count via `plan(P, dealerIdx)` / `tableSeats(
   short-circuit; suits survive pegging (only the rank arrays handed to
   `pegScore`/`pegChoose` drop suits).
 
-Same scope notes as the trainer apply, plus: opponents are 3 bots (greedy pegging, no
-lookahead), and partners/teams mode and 2-/3-handed play are out of scope here.
+Same scope notes as the trainer apply, plus: bot opponents play greedy pegging with no
+lookahead.
+
+- **Mixed human/bot seats** (hot-seat). The landing page's seat diagram writes
+  `settings.seats` (per-seat `"human"`/`"bot"`; seat 0 is always you). `seatIsHuman(i,
+  settings)` drives it. With **2+ human seats** the game becomes hot-seat with the same
+  device hand-off as Pass & Play: a `holder` field + a `needHandoff` gate (computed in the
+  App: a human actor whose seat ≠ `holder`, with cards to act) shows a `PassPanel` in place
+  of that player's hand; `TAKE_DEVICE` sets `holder`. Throwing **bots auto-discard at deal**
+  (as before); throwing **humans discard interactively** one at a time via `state.discardSeat`
+  (`commitDiscard` advances to the next human thrower, then builds the crib). Pegging blocks
+  for each human seat (the self-clocking effect auto-plays bots / auto-goes empties);
+  `PlayScreen` renders from the device holder's seat via `seatsAround(P, me)` (rotates the
+  ring so the active human sits at the bottom). The show is public; **muggins** applies to
+  any human owner. With **only seat 0 human (the default)** none of this engages — `holder`
+  stays 0, `needHandoff` is always false, and the reducer/UI are bit-for-bit the old
+  you-vs-bots game (guaranteed by `engine/verify_play.js`, which also drives mixed 4/6/2
+  configs).
 
 ## Known limitations (be honest about these in the UI)
 

@@ -421,8 +421,8 @@ const showLabel = (kind, acc) => {
 // Rate the human's throws (single or two-card) the way the bots do: kept-hand EV
 // plus the thrown card(s)' crib value, signed +1 when the crib is on your team
 // (you or a partner deals) and −1 when it feeds the opponents. n = throw count.
-function evalDiscards(dealt, dealerIdx, n, P, teams) {
-  const sign = teamOf(0, P, teams) === teamOf(dealerIdx, P, teams) ? 1 : -1;
+function evalDiscards(dealt, dealerIdx, n, P, teams, seat = 0) {
+  const sign = teamOf(seat, P, teams) === teamOf(dealerIdx, P, teams) ? 1 : -1;
   const combos = n === 2 ? twoCombos(dealt.length) : dealt.map((_, i) => [i]);
   const opts = combos.map((idxs) => {
     const four = dealt.filter((_, j) => !idxs.includes(j));
@@ -435,15 +435,26 @@ function evalDiscards(dealt, dealerIdx, n, P, teams) {
   return { opts, best, sign };
 }
 
-// Commit the human's throw (idxs into their dealt hand): build the crib and cut next.
+// Seat 0 is always the human at this device; other seats are bots unless the landing
+// page's seat diagram marked them human (settings.seats[i] === "human"). A game with
+// 2+ human seats becomes hot-seat: the device passes between them (like Pass & Play).
+const seatIsHuman = (i, settings) => i === 0 || !!(settings && settings.seats && settings.seats[i] === "human");
+function nHumans(P, settings) { let c = 0; for (let i = 0; i < P; i++) if (seatIsHuman(i, settings)) c++; return c; }
+
+// Commit the active discarder's throw (idxs into seats[discardSeat].dealt). With several
+// human throwers, advance to the next; once they're all in, build the crib and cut.
 function commitDiscard(state, idxs) {
   const P = clampPlayers(state.settings.players);
   const pl = plan(P, state.dealerIdx);
-  const dealt = state.seats[0].dealt;
+  const seat = state.discardSeat;
+  const dealt = state.seats[seat].dealt;
   const discard = idxs.map((i) => dealt[i]);
   const kept = sortHand(dealt.filter((_, j) => !idxs.includes(j)));
-  const seats = state.seats.map((s, i) => (i === 0 ? { ...s, discard, kept } : s));
-  return { ...state, seats, crib: assembleCrib(seats, state.deck, pl), pendingDiscard: null, phase: "cut" };
+  const seats = state.seats.map((s, i) => (i === seat ? { ...s, discard, kept } : s));
+  let next = null;
+  for (let i = seat + 1; i < P; i++) if (pl.throws[i] > 0 && seatIsHuman(i, state.settings) && seats[i].discard == null) { next = i; break; }
+  if (next != null) return { ...state, seats, discardSeat: next, pendingDiscard: null };
+  return { ...state, seats, crib: assembleCrib(seats, state.deck, pl), pendingDiscard: null, phase: "cut", discardSeat: null };
 }
 
 function dealNewHand(state) {
@@ -456,23 +467,25 @@ function dealNewHand(state) {
   const seats = [];
   for (let i = 0; i < P; i++) {
     const dealt = sortHand(deck.slice(off, off + pl.sizes[i])); off += pl.sizes[i];
-    seats.push({ score: state.seats[i].score, isAI: i !== 0, history: state.seats[i].history || [], dealt, kept: null, discard: null });
+    seats.push({ score: state.seats[i].score, isAI: !seatIsHuman(i, state.settings), history: state.seats[i].history || [], dealt, kept: null, discard: null });
   }
-  // Non-throwers keep their hand; every throwing bot throws now. The human (seat 0),
-  // when a thrower, throws during the discard phase.
+  // Non-throwers keep their hand; throwing BOTS throw now; throwing HUMANS throw
+  // interactively during the discard phase (one at a time, passing the device).
   for (let i = 0; i < P; i++) {
     if (pl.throws[i] === 0) { seats[i].kept = sortHand(seats[i].dealt); seats[i].discard = []; }
-    else if (i !== 0) { const r = aiDiscardN(seats[i].dealt, i, d, pl.throws[i], P, teams); seats[i].discard = r.discard; seats[i].kept = sortHand(r.kept); }
+    else if (!seatIsHuman(i, state.settings)) { const r = aiDiscardN(seats[i].dealt, i, d, pl.throws[i], P, teams); seats[i].discard = r.discard; seats[i].kept = sortHand(r.kept); }
   }
+  const humanThrowers = [];
+  for (let i = 0; i < P; i++) if (pl.throws[i] > 0 && seatIsHuman(i, state.settings)) humanThrowers.push(i);
   const base = {
     ...state, seats, deck, starter: null, crib: [], hisHeels: false,
     peg: null, show: null, winner: null, phase: "discard", message: "", pendingDiscard: null, pendingPlay: null,
+    holder: 0, discardSeat: humanThrowers.length ? humanThrowers[0] : null,
   };
-  if (pl.throws[0] === 0) {
-    // The human makes no throw this hand (dealer in 5/6, or the seat to the dealer's
-    // right in 6) — the crib is already complete, so skip the discard phase.
-    const msg = d === 0 ? "Your deal — no throw. The crib is yours." : "You make no throw this hand (to the dealer's right).";
-    return { ...base, crib: assembleCrib(seats, deck, pl), phase: "cut", message: msg };
+  if (humanThrowers.length === 0) {
+    // No human throws this hand — the crib is already complete, so skip to the cut.
+    const msg = d === 0 ? "Your deal — no throw. The crib is yours." : "No throw for you this hand — on to the cut.";
+    return { ...base, crib: assembleCrib(seats, deck, pl), phase: "cut", message: msg, discardSeat: null };
   }
   return base;
 }
@@ -509,7 +522,7 @@ function playCard(state, seat, card) {
 }
 
 function evalPlay(peg, card) {
-  const legal = peg.hands[0].filter((c) => pval(c.r) + peg.count <= 31);
+  const legal = peg.hands[peg.turn].filter((c) => pval(c.r) + peg.count <= 31);
   const scoreOf = (c) => pegScore(peg.pile.concat(c.r), peg.count + pval(c.r));
   let bestCard = card, bestPts = -1;
   for (const c of legal) { const p = scoreOf(c); if (p > bestPts) { bestPts = p; bestCard = c; } }
@@ -538,9 +551,10 @@ function reduce(state, action) {
       return commitDiscard(state, action.idxs);
 
     case "SELECT_DISCARD": {
-      const n = plan(P, state.dealerIdx).throws[0];
+      const seat = state.discardSeat;
+      const n = plan(P, state.dealerIdx).throws[seat];
       if (!state.settings.warn) return commitDiscard(state, action.idxs);
-      const { opts, best } = evalDiscards(state.seats[0].dealt, state.dealerIdx, n, P, teams);
+      const { opts, best } = evalDiscards(state.seats[seat].dealt, state.dealerIdx, n, P, teams, seat);
       const chosen = opts.find((o) => sameSet(o.idxs, action.idxs));
       const delta = best.value - chosen.value;
       if (delta <= 0.1) return commitDiscard(state, action.idxs);
@@ -571,14 +585,18 @@ function reduce(state, action) {
       return playCard(state, action.seat, action.card);
 
     case "SELECT_PLAY": {
-      if (!state.settings.warn) return playCard(state, 0, action.card);
+      const seat = state.peg.turn;
+      if (!state.settings.warn) return playCard(state, seat, action.card);
       const e = evalPlay(state.peg, action.card);
       if (e.delta >= 1) return { ...state, pendingPlay: { card: action.card, ...e } };
-      return playCard(state, 0, action.card);
+      return playCard(state, seat, action.card);
     }
 
+    case "TAKE_DEVICE":
+      return { ...state, holder: state.phase === "discard" ? state.discardSeat : (state.peg ? state.peg.turn : state.holder) };
+
     case "CONFIRM_PLAY":
-      return playCard({ ...state, pendingPlay: null }, 0, state.pendingPlay.card);
+      return playCard({ ...state, pendingPlay: null }, state.peg.turn, state.pendingPlay.card);
 
     case "CANCEL_PLAY":
       return { ...state, pendingPlay: null };
@@ -608,8 +626,8 @@ function reduce(state, action) {
       const info = computeShow(state);
       const counting = state.settings.counting;
       let seats = state.seats, message = "", winner = null;
-      const humanCount = counting === "muggins" && info.owner === 0;
-      if (humanCount) {
+      const humanClaim = counting === "muggins" && seatIsHuman(info.owner, state.settings);
+      if (humanClaim) {
         const claim = state.show.claimValue || 0;
         const awarded = Math.min(claim, info.total);
         seats = addScore(seats, info.owner, awarded, info.isCrib ? "crib (claimed)" : "hand (claimed)", P, teams);
@@ -708,11 +726,11 @@ function newGameState(prev) {
   setSeatNames(P);
   const { dealerIdx, draw } = drawForDealer(P);
   return {
-    seats: Array.from({ length: P }, (_, i) => ({ score: 0, isAI: i !== 0, dealt: [], kept: null, discard: null, history: [] })),
+    seats: Array.from({ length: P }, (_, i) => ({ score: 0, isAI: !seatIsHuman(i, settings), dealt: [], kept: null, discard: null, history: [] })),
     dealerIdx, dealDraw: draw,
     deck: [], starter: null, crib: [], hisHeels: false, pendingDiscard: null, pendingPlay: null,
     peg: null, show: null, winner: null, phase: "cutdeal", message: "",
-    settings,
+    holder: 0, discardSeat: null, settings,
   };
 }
 function initGame() { return newGameState(null); }
@@ -799,6 +817,20 @@ function Panel({ children, tone }) {
   return <div style={{ padding: "11px 14px", borderRadius: 10, background: bg, border: `1px solid ${bd}` }}>{children}</div>;
 }
 
+// The "pass the device" privacy block for hot-seat games with 2+ humans. It replaces the
+// active human's hand area (the rest of the table stays visible) so the previous player's
+// hand is withheld until the named player taps to take over.
+function PassPanel({ to, dispatch }) {
+  return (
+    <div style={{ textAlign: "center", padding: "20px 16px", borderRadius: 12, background: "rgba(0,0,0,0.3)", border: `1px solid ${T.line}` }}>
+      <div style={{ fontSize: 30, marginBottom: 8 }}>🤝</div>
+      <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6 }}>Pass the device to {seatName(to)}</div>
+      <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 14, lineHeight: 1.5 }}>{seatName(to)}’s hand stays hidden until they’re holding it.</div>
+      <ConfirmButton label={`I’m ${seatName(to)} — show my hand`} enabled onClick={() => dispatch({ type: "TAKE_DEVICE" })} />
+    </div>
+  );
+}
+
 function SkunkPanel({ seats, winner, P, teams }) {
   const groups = teamsList(P, teams);
   const { skunk: skLine, dbl: dblLine } = skunkLines(P);
@@ -864,7 +896,14 @@ export default function CribbagePlay() {
   const players = clampPlayers(settings.players);
   const teams = clampTeams(players, settings.teams);
   setSeatNames(players);
-  const humanThrows = plan(players, dealerIdx).throws[0];
+  const multiHuman = nHumans(players, settings) > 1;            // 2+ humans → hot-seat hand-off
+  const ds = state.discardSeat != null ? state.discardSeat : 0; // active discarder
+  const humanThrows = plan(players, dealerIdx).throws[ds];
+  const playMe = state.holder == null ? 0 : state.holder;       // device-holder perspective in play
+  const needHandoff = multiHuman && (
+    phase === "discard" ? (state.discardSeat != null && state.holder !== state.discardSeat)
+    : (phase === "play" && peg) ? (seatIsHuman(peg.turn, settings) && state.holder !== peg.turn && peg.hands[peg.turn].length > 0)
+    : false);
 
   // Record each finished game once (when the board reaches "over" with a winner).
   const recordedRef = React.useRef(false);
@@ -878,55 +917,57 @@ export default function CribbagePlay() {
   const canPause = settings.autoCut || settings.autoGo || settings.autoDeal || settings.autoContinue || settings.autoPlayOne || settings.autoPlayBest || settings.autoDiscardBest;
   const autoPaused = paused || settingsOpen || historySeat !== null;
   useEffect(() => { if (!canPause && paused) setPaused(false); }, [canPause, paused]);
-  useEffect(() => { if (phase !== "discard") setSel([]); }, [phase]);
+  useEffect(() => { setSel([]); }, [phase, state.discardSeat]);
 
   // Self-clocking play loop: bots move and forced "go"s fire on a timer; a human with
   // a legal card blocks for a tap. Re-runs whenever the peg state changes.
   useEffect(() => {
     if (phase !== "play" || !peg || autoPaused) return;
-    const hand = peg.hands[peg.turn];
+    const seat = peg.turn;
+    const hand = peg.hands[seat];
     const legal = hand.filter((c) => pval(c.r) + peg.count <= 31);
-    if (peg.turn === 0) {
+    if (seatIsHuman(seat, settings)) {
+      if (needHandoff) return;               // wait for the device to be handed to this player
       const out = hand.length === 0;
       if (out || (legal.length === 0 && settings.autoGo)) {
-        const t = setTimeout(() => dispatch({ type: "PASS_GO", seat: 0 }), 450);
+        const t = setTimeout(() => dispatch({ type: "PASS_GO", seat }), 450);
         return () => clearTimeout(t);
       }
       if (settings.autoPlayBest && legal.length >= 1 && !state.pendingPlay) {
         const rank = pegChoose(legal.map((c) => c.r), peg.count, peg.pile, hand.map((c) => c.r));
         const card = legal.find((c) => c.r === rank) || legal[0];
-        const t = setTimeout(() => dispatch({ type: "PLAY_CARD", seat: 0, card }), 450);
+        const t = setTimeout(() => dispatch({ type: "PLAY_CARD", seat, card }), 450);
         return () => clearTimeout(t);
       }
       if (legal.length === 1 && settings.autoPlayOne && !state.pendingPlay) {
-        const card = legal[0];
-        const t = setTimeout(() => dispatch({ type: "PLAY_CARD", seat: 0, card }), 450);
+        const t = setTimeout(() => dispatch({ type: "PLAY_CARD", seat, card: legal[0] }), 450);
         return () => clearTimeout(t);
       }
       return; // wait for the human
     }
     const t = setTimeout(() => {
-      if (legal.length === 0) { dispatch({ type: "PASS_GO", seat: peg.turn }); return; }
+      if (legal.length === 0) { dispatch({ type: "PASS_GO", seat }); return; }
       const rank = pegChoose(legal.map((c) => c.r), peg.count, peg.pile, hand.map((c) => c.r));
       const chosen = legal.find((c) => c.r === rank) || legal[0];
-      dispatch({ type: "PLAY_CARD", seat: peg.turn, card: chosen });
+      dispatch({ type: "PLAY_CARD", seat, card: chosen });
     }, 760);
     return () => clearTimeout(t);
-  }, [phase, peg, settings.autoGo, settings.autoPlayOne, settings.autoPlayBest, state.pendingPlay, autoPaused]);
+  }, [phase, peg, settings, state.pendingPlay, autoPaused, needHandoff]);
 
   useEffect(() => {
     if (autoPaused || !settings.autoDeal) return;
     if (phase === "cutdeal") { const t = setTimeout(() => dispatch({ type: "DEAL" }), 1600); return () => clearTimeout(t); }
     if (phase === "deal") { const t = setTimeout(() => dispatch({ type: "DEAL" }), 650); return () => clearTimeout(t); }
   }, [phase, settings.autoDeal, autoPaused]);
-  // Auto-discard the best throw for the human at the discard, when enabled.
+  // Auto-discard the best throw for the active human discarder, when enabled (and once
+  // they've taken the device in a hot-seat game).
   useEffect(() => {
-    if (phase !== "discard" || autoPaused || !settings.autoDiscardBest || state.pendingDiscard) return;
-    const n = plan(players, dealerIdx).throws[0];
-    const best = evalDiscards(state.seats[0].dealt, dealerIdx, n, players, teams).best;
+    if (phase !== "discard" || autoPaused || !settings.autoDiscardBest || state.pendingDiscard || needHandoff) return;
+    const n = plan(players, dealerIdx).throws[ds];
+    const best = evalDiscards(state.seats[ds].dealt, dealerIdx, n, players, teams, ds).best;
     const t = setTimeout(() => dispatch({ type: "DISCARD", idxs: best.idxs }), 550);
     return () => clearTimeout(t);
-  }, [phase, settings.autoDiscardBest, autoPaused]);
+  }, [phase, settings.autoDiscardBest, autoPaused, ds, needHandoff]);
   useEffect(() => {
     if (phase !== "cut" || autoPaused || !settings.autoCut) return;
     const t = setTimeout(() => dispatch({ type: "CUT" }), 650);
@@ -935,7 +976,7 @@ export default function CribbagePlay() {
   useEffect(() => {
     if (phase !== "show" || !show || show.scored) return;
     const info = computeShow(state);
-    const needClaim = settings.counting === "muggins" && info.owner === 0 && !show.claimSubmitted;
+    const needClaim = settings.counting === "muggins" && seatIsHuman(info.owner, settings) && !show.claimSubmitted;
     if (needClaim) return;
     dispatch({ type: "SHOW_SCORE" });
   }, [phase, show, settings.counting]);
@@ -951,6 +992,10 @@ export default function CribbagePlay() {
   // (not me) is the dealer this hand.
   const cribIsOurs = teamOf(dealerIdx, players, teams) === teamOf(0, players, teams);
   const teammateDeals = cribIsOurs && !dealer;
+  // Same three, but from the active discarder's seat (= seat 0 in the default solo game).
+  const dsIsDealer = ds === dealerIdx;
+  const dsCribOurs = teamOf(dealerIdx, players, teams) === teamOf(ds, players, teams);
+  const dsTeammateDeals = dsCribOurs && !dsIsDealer;
   const cutter = (dealerIdx + players - 1) % players;
   const turnNow = phase === "play" && peg ? peg.turn : phase === "over" ? winner : -1;
   const discardPrompt = `Tap the ${humanThrows === 2 ? "two cards" : "card"} you'll throw to the crib.${humanThrows === 2 && sel.length === 1 ? " One more…" : ""}`;
@@ -1068,22 +1113,23 @@ export default function CribbagePlay() {
           </div>
         )}
 
-        {phase === "discard" && (
+        {phase === "discard" && needHandoff && <div style={{ marginTop: 14 }}><PassPanel to={state.discardSeat} dispatch={dispatch} /></div>}
+        {phase === "discard" && !needHandoff && (
           <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 14 }}>
-            <Panel tone={cribIsOurs ? "good" : "red"}>
-              <div style={{ fontWeight: 700, fontSize: 15 }}>{dealer ? "Your crib — be greedy" : teammateDeals ? `${seatName(dealerIdx)}'s crib — your team's, be greedy` : `Feeds ${seatName(dealerIdx)}'s crib — defend`}</div>
+            <Panel tone={dsCribOurs ? "good" : "red"}>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>{multiHuman && ds !== 0 ? `${seatName(ds)} — ` : ""}{dsIsDealer ? "Your crib — be greedy" : dsTeammateDeals ? `${seatName(dealerIdx)}'s crib — your team's, be greedy` : `Feeds ${seatName(dealerIdx)}'s crib — defend`}</div>
               {/* Reserve two lines in heads-up so appending "One more…" can't reflow and
                   shove the whole table down when it wraps. */}
               <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3, lineHeight: 1.45, minHeight: humanThrows === 2 ? "2.9em" : undefined }}>{discardPrompt}</div>
             </Panel>
-            <OpponentBacks dealerIdx={dealerIdx} P={players} sizes={plan(players, dealerIdx).sizes} />
+            <OpponentBacks dealerIdx={dealerIdx} P={players} sizes={plan(players, dealerIdx).sizes} me={ds} />
             {settings.tapToSelect && !state.pendingDiscard && (
               <ConfirmButton label={`Throw to crib${humanThrows === 2 ? ` (${sel.length}/2)` : ""}`}
                 enabled={sel.length === humanThrows}
                 onClick={() => { const idxs = sel.slice().sort((a, b) => a - b); setSel([]); dispatch({ type: "SELECT_DISCARD", idxs }); }} />
             )}
             <div className="dealwrap" style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "nowrap" }}>
-              {seats[0].dealt.map((card, i) => {
+              {seats[ds].dealt.map((card, i) => {
                 const pd = state.pendingDiscard;
                 const selected = pd ? pd.idxs.includes(i) : sel.includes(i);
                 const onClick = () => {
@@ -1131,7 +1177,7 @@ export default function CribbagePlay() {
           </div>
         )}
 
-        {phase === "play" && peg && (<PlayScreen state={state} dispatch={dispatch} />)}
+        {phase === "play" && peg && (<PlayScreen state={state} dispatch={dispatch} me={playMe} needHandoff={needHandoff} />)}
         {phase === "show" && show && (<ShowScreen state={state} dispatch={dispatch} />)}
 
         {phase === "over" && (
@@ -1221,13 +1267,20 @@ function tableSeats(P) {
   const top = []; for (let i = 2; i <= P - 2; i++) top.push(i);
   return { top, left: 1, right: P - 1 };
 }
+// The table seen from seat `me` (at the bottom): the other seats keep their relative
+// places around the ring. For me=0 this is exactly tableSeats; for another (human) seat
+// it rotates so that seat sits at the bottom, the rest around it.
+function seatsAround(P, me) {
+  const ts = tableSeats(P), at = (rel) => (me + rel) % P;
+  return { top: ts.top.map(at), left: ts.left != null ? at(ts.left) : null, right: ts.right != null ? at(ts.right) : null };
+}
 
 // During the discard, show each other seat holding its full dealt hand face down —
 // the four it will keep plus the card(s) it's throwing (so a 6-handed thrower shows 5,
 // a non-throwing seat — the 5-/6-handed dealer or the seat to their right at 6 — shows 4,
 // and a heads-up opponent shows 6). That mirrors the human's own face-up hand.
-function OpponentBacks({ dealerIdx, P, sizes }) {
-  const ts = tableSeats(P);
+function OpponentBacks({ dealerIdx, P, sizes, me = 0 }) {
+  const ts = seatsAround(P, me);
   const cell = (i) => <SeatCell key={i} i={i} dealerIdx={dealerIdx} remaining={sizes[i]} />;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -1241,19 +1294,20 @@ function OpponentBacks({ dealerIdx, P, sizes }) {
   );
 }
 
-function PlayScreen({ state, dispatch }) {
+function PlayScreen({ state, dispatch, me, needHandoff }) {
   const { peg, starter, dealerIdx } = state;
   const P = peg.hands.length;
-  const ts = tableSeats(P);
-  const yourHand = peg.hands[0];
+  const ts = seatsAround(P, me);
+  const yourHand = peg.hands[me];
+  const meName = me === 0 ? "You" : seatName(me);
   const legalSet = new Set(yourHand.filter((c) => pval(c.r) + peg.count <= 31).map(cardId));
-  const yourTurn = peg.turn === 0 && legalSet.size > 0;
-  const stuck = peg.turn === 0 && legalSet.size === 0 && yourHand.length > 0;
+  const myTurn = peg.turn === me && legalSet.size > 0;
+  const stuck = peg.turn === me && legalSet.size === 0 && yourHand.length > 0;
   const tapSelect = state.settings.tapToSelect;
   const [selCard, setSelCard] = React.useState(null);
   // Drop a stale lifted selection once it's no longer a legal play on your turn (turn
   // passed, count changed, or the card was played).
-  const selValid = tapSelect && selCard && yourTurn && legalSet.has(cardId(selCard));
+  const selValid = tapSelect && selCard && myTurn && legalSet.has(cardId(selCard));
   useEffect(() => { if (selCard && !selValid) setSelCard(null); }, [selValid, selCard]);
   const cell = (i) => (
     <SeatCell key={i} i={i} dealerIdx={dealerIdx} active={peg.turn === i}
@@ -1275,9 +1329,9 @@ function PlayScreen({ state, dispatch }) {
           stack appearing on your first play doesn't shove the pile and hand downward
           (the opponents' stacks already live in fixed-height seat cells). */}
       <div style={{ textAlign: "center", minHeight: 80 }}>
-        {peg.played[0].length > 0 && (<>
-          <div style={{ fontFamily: mono, fontSize: 10, color: peg.turn === 0 ? T.selBlue : T.muted, marginBottom: 4 }}>You{dealerIdx === 0 ? " (D)" : ""}</div>
-          <PlayedStack cards={peg.played[0]} backs={0} />
+        {peg.played[me].length > 0 && (<>
+          <div style={{ fontFamily: mono, fontSize: 10, color: peg.turn === me ? T.selBlue : T.muted, marginBottom: 4 }}>{meName}{dealerIdx === me ? " (D)" : ""}</div>
+          <PlayedStack cards={peg.played[me]} backs={0} />
         </>)}
       </div>
 
@@ -1295,10 +1349,11 @@ function PlayScreen({ state, dispatch }) {
         </div>
       </div>
 
+      {needHandoff ? <PassPanel to={peg.turn} dispatch={dispatch} /> : (
       <div>
-        <div style={{ fontFamily: mono, fontSize: 11, color: (yourTurn || stuck) ? T.selBlue : T.muted, marginBottom: 6 }}>
-          {peg.turn === 0
-            ? (yourTurn ? (tapSelect ? "Your turn — tap a card to select, then Play." : "Your turn — tap a card to play.")
+        <div style={{ fontFamily: mono, fontSize: 11, color: (myTurn || stuck) ? T.selBlue : T.muted, marginBottom: 6 }}>
+          {peg.turn === me
+            ? (myTurn ? (tapSelect ? "Your turn — tap a card to select, then Play." : "Your turn — tap a card to play.")
               : stuck ? (state.settings.autoGo ? "No legal card — passing…" : "No legal card — tap Go to pass.")
               : "Your cards are all played.")
             : `${seatName(peg.turn)} to play…`}
@@ -1306,13 +1361,13 @@ function PlayScreen({ state, dispatch }) {
         {state.pendingPlay && <div style={{ marginBottom: 10 }}><PlayWarning pp={state.pendingPlay} dispatch={dispatch} /></div>}
         {(() => {
           const goBtn = stuck && !state.settings.autoGo
-            ? <button onClick={() => dispatch({ type: "PASS_GO", seat: 0 })} style={{
+            ? <button onClick={() => dispatch({ type: "PASS_GO", seat: me })} style={{
                 width: "100%", padding: "12px", borderRadius: 10, border: "none", cursor: "pointer",
                 background: `linear-gradient(180deg, ${T.pegRed}, #9c3120)`, color: T.ivory,
                 fontSize: 15, fontWeight: 700, letterSpacing: 0.3, boxShadow: "0 4px 12px rgba(0,0,0,0.35)",
               }}>Say "Go"</button>
             : null;
-          const playBtn = tapSelect && yourTurn && !state.pendingPlay
+          const playBtn = tapSelect && myTurn && !state.pendingPlay
             ? <ConfirmButton label="Play" enabled={!!selValid}
                 onClick={() => { const c = selCard; setSelCard(null); dispatch({ type: "SELECT_PLAY", card: c }); }} />
             : null;
@@ -1333,16 +1388,17 @@ function PlayScreen({ state, dispatch }) {
             };
             return (
               <Card key={cardId(card)} card={card} selLabel="PLAY"
-                clickable={pp ? true : (yourTurn && legal)}
+                clickable={pp ? true : (myTurn && legal)}
                 selected={pp ? sameCard(pp.card, card) : false}
                 raised={!pp && tapSelect && !!selCard && sameCard(selCard, card)}
-                dim={!pp && !legal && peg.turn === 0}
+                dim={!pp && !legal && peg.turn === me}
                 onClick={onClick} />
             );
           })}
           {yourHand.length === 0 && <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>your cards are all played</span>}
         </div>
       </div>
+      )}
     </div>
   );
 }
@@ -1350,7 +1406,7 @@ function PlayScreen({ state, dispatch }) {
 function ShowScreen({ state, dispatch }) {
   const info = computeShow(state);
   const { show, settings } = state;
-  const muggins = settings.counting === "muggins" && info.owner === 0;
+  const muggins = settings.counting === "muggins" && seatIsHuman(info.owner, settings);
   const needClaim = muggins && !show.claimSubmitted;
   const [claim, setClaim] = React.useState(0);
   React.useEffect(() => { setClaim(0); }, [show.step]);
@@ -1392,7 +1448,7 @@ function ShowScreen({ state, dispatch }) {
             <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 20, color: T.ivory }}>{info.total}</span>
           </div>
           {info.total > 0
-            ? <CatBars cats={info.acc} scale={info.total} color={info.isCrib ? (info.owner === 0 ? T.good : T.pegRed) : T.good} />
+            ? <CatBars cats={info.acc} scale={info.total} color={info.isCrib ? (seatIsHuman(info.owner, settings) ? T.good : T.pegRed) : T.good} />
             : <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>nineteen — no points.</div>}
           {muggins && show.claimSubmitted && (
             <div style={{ fontFamily: mono, fontSize: 11.5, color: show.claimValue >= info.total ? T.good : T.pegRed, marginTop: 10 }}>

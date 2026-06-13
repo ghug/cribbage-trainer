@@ -43,7 +43,7 @@ function loadSandbox(seed) {
 }
 
 const S = loadSandbox(1);
-const { reduce, initGame, scoreInto, pegScore, pegChoose, gameRecord } = S;
+const { reduce, initGame, scoreInto, pegScore, pegChoose, gameRecord, plan } = S;
 const pval = (r) => Math.min(r, 10);
 const sameCard = (a, b) => a.r === b.r && a.s === b.s;
 
@@ -270,6 +270,46 @@ teamsCheck(6, 2, [[0, 2, 4], [1, 3, 5]]);   // every other seat, three to a team
   check(lossAt(2, 2, 100) === "lost" && lossAt(2, 2, 90) === "skunked" && lossAt(2, 2, 60) === "doubleSkunked", "gameRecord 121 skunk lines 90/60");
   check(lossAt(6, 6, 31) === "lost" && lossAt(6, 6, 30) === "skunked" && lossAt(6, 6, 15) === "doubleSkunked", "gameRecord 61 skunk lines 30/15");
 }
+
+/* ---- Mixed human/bot games (settings.seats): with 2+ human seats the discard phase
+       cycles through each human thrower (discardSeat) and the rest still auto-throw; the
+       reducer otherwise drives identically. Drive whole games through the reducer. ---- */
+function seatHuman(i, roles) { return i === 0 || roles[i] === "human"; }
+function mixedGame(P, roles, seed) {
+  // build a cutdeal state then inject the seat roles before dealing
+  let state = reduce(initGame(), { type: "SET_SETTING", key: "players", value: P });
+  state = reduce(state, { type: "SET_SETTING", key: "seats", value: roles });
+  check(state.settings.seats === roles, `mixed P=${P}: seats stored`);
+  let guard = 0, hands = 0;
+  while (state.phase !== "over" && guard++ < 4000) {
+    if (state.phase === "cutdeal" || state.phase === "deal") { state = reduce(state, { type: "DEAL" }); }
+    else if (state.phase === "discard") {
+      const seat = state.discardSeat;
+      check(seatHuman(seat, roles), `mixed P=${P}: discardSeat ${seat} is human`);
+      const n = plan(P, state.dealerIdx).throws[seat];
+      check(n > 0, `mixed P=${P}: discardSeat ${seat} actually throws`);
+      state = reduce(state, { type: "DISCARD", idxs: n === 2 ? [0, 1] : [0] });
+    } else if (state.phase === "cut") {
+      // every human thrower committed; bots already threw → crib full
+      check(state.crib.length === 4 && state.discardSeat === null, `mixed P=${P}: crib of 4, discard done`);
+      state = reduce(state, { type: "CUT" });
+    } else if (state.phase === "play") {
+      const { hands: h, turn, count } = state.peg;
+      const legal = h[turn].filter((c) => pval(c.r) + count <= 31);
+      if (legal.length === 0) { state = reduce(state, { type: "PASS_GO", seat: turn }); continue; }
+      const rank = pegChoose(legal.map((c) => c.r), count, state.peg.pile, h[turn].map((c) => c.r));
+      state = reduce(state, { type: "PLAY_CARD", seat: turn, card: legal.find((c) => c.r === rank) || legal[0] });
+    } else if (state.phase === "show") {
+      state = reduce(state, state.show.scored ? { type: "SHOW_NEXT" } : { type: "SHOW_SCORE" });
+      if (state.phase === "deal") hands++;
+    } else break;
+  }
+  check(state.phase === "over", `mixed P=${P} seed=${seed}: reaches a winner (phase ${state.phase})`);
+  check(state.seats.every((s, i) => s.isAI === !seatHuman(i, roles)), `mixed P=${P}: each seat's isAI matches its configured role`);
+}
+mixedGame(4, ["human", "bot", "human", "bot"], 1);  // you + across partner human, others bots
+mixedGame(6, ["human", "bot", "bot", "human", "bot", "bot"], 2);
+mixedGame(2, ["human", "human"], 3);                 // both human (hot-seat heads-up)
 
 console.log(`\nplay.html engine checks: ${ok} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

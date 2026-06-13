@@ -1125,17 +1125,7 @@ function CribbagePlay() {
             historySeat !== null && React.createElement(HistoryPanel, { seatIdx: historySeat, seats: seats, onClose: () => setHistorySeat(null), P: players, teams: teams }),
             paused && (React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.pegRed, textAlign: "center", marginTop: 8 } }, "\u23F8 Paused \u2014 automatic play is stopped. Tap \u25B6 to resume.")),
             message && (React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.cream, margin: "10px 2px 4px", minHeight: 16, lineHeight: 1.45 } }, message)),
-            (phase === "cutdeal" || phase === "deal" || phase === "discard" || phase === "cut" || (phase === "show" && show) || (phase === "play" && peg)) && (React.createElement(PlayScreen, { state: state, dispatch: dispatch, me: phase === "discard" ? ds : playMe, needHandoff: needHandoff })),
-            phase === "over" && (React.createElement("div", { style: { marginTop: 16, display: "flex", flexDirection: "column", gap: 16 } },
-                React.createElement(Panel, { tone: "good" },
-                    React.createElement("div", { style: { fontWeight: 700, fontSize: 18 } }, winner !== null && teamOf(winner, players, teams) === teamOf(0, players, teams) ? "You win! 🎉" : `${teamLabel(teamsList(players, teams).find((m) => m.includes(winner)) || [winner])} wins.`),
-                    React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 } },
-                        "First to ",
-                        targetFor(players),
-                        ". Final: ",
-                        teamsList(players, teams).map((m) => `${teamLabel(m)} ${seats[m[0]].score}`).join(" · "))),
-                React.createElement(SkunkPanel, { seats: seats, winner: winner, P: players, teams: teams }),
-                bigBtn("Play again", () => dispatch({ type: "PLAY_AGAIN" }), "good")))),
+            (phase === "cutdeal" || phase === "deal" || phase === "discard" || phase === "cut" || (phase === "show" && show) || (phase === "play" && peg) || phase === "over") && (React.createElement(PlayScreen, { state: state, dispatch: dispatch, me: phase === "discard" ? ds : playMe, needHandoff: needHandoff }))),
         aboutOpen && React.createElement(AboutModal, { onClose: () => setAboutOpen(false) }),
         historyOpen && React.createElement(HistoryModal, { onClose: () => setHistoryOpen(false) }),
         confirmHome && (React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }, onClick: () => setConfirmHome(false) },
@@ -1207,13 +1197,15 @@ function DeckBack() {
             React.createElement(CardBack, null))));
 }
 function PlayScreen({ state, dispatch, me, needHandoff }) {
-    const { peg, starter, dealerIdx, crib, seats, settings, phase, dealDraw } = state;
+    const { peg, starter, dealerIdx, crib, seats, settings, phase, dealDraw, winner } = state;
     const discardPhase = phase === "discard";
     const cutPhase = phase === "cut";
     const cutdealPhase = phase === "cutdeal";
     const dealPhase = phase === "deal";
     const showPhase = phase === "show";
+    const overPhase = phase === "over";
     const preDeal = cutdealPhase || dealPhase;
+    const emptyTable = preDeal || overPhase;
     const P = peg ? peg.hands.length : seats.length;
     const teams = clampTeams(P, settings.teams);
     const pl = plan(P, dealerIdx);
@@ -1221,7 +1213,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
     const info = showPhase ? computeShow(state) : null;
     const showHand = showPhase && !info.isCrib;
     const stepLabel = showPhase ? `${state.show.step + 1} of ${state.show.order.length}` : "";
-    const hands = (peg && !showPhase) ? peg.hands : seats.map((s) => (preDeal ? [] : discardPhase ? s.dealt : (s.kept || [])));
+    const hands = overPhase ? seats.map(() => []) : (peg && !showPhase) ? peg.hands : seats.map((s) => (preDeal ? [] : discardPhase ? s.dealt : (s.kept || [])));
     const yourHand = hands[me];
     const meName = seatShort(me);
     const turn = peg ? peg.turn : -1;
@@ -1279,18 +1271,19 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
         if (cutdealPhase)
             return React.createElement(DrawCell, { key: i, i: i, dealerIdx: dealerIdx, card: dealDraw ? dealDraw[i] : null });
         const faceUp = showHand && i === info.owner;
-        const played = faceUp ? seats[i].kept : (peg && !showPhase ? peg.played[i] : []);
+        const played = (faceUp ? seats[i].kept : (peg && !showPhase && !emptyTable ? peg.played[i] : []));
         const remaining = faceUp ? 0 : hands[i].length;
-        return React.createElement(SeatCell, { key: i, i: i, dealerIdx: dealerIdx, active: showPhase ? i === info.owner : turn === i, played: played, remaining: remaining });
+        const lit = overPhase ? teamOf(i, P, teams) === teamOf(winner, P, teams) : showPhase ? i === info.owner : turn === i;
+        return React.createElement(SeatCell, { key: i, i: i, dealerIdx: dealerIdx, active: lit, played: played, remaining: remaining });
     };
-    const ownFaceDown = !showPhase && (cutPhase || needHandoff || (!!peg && peg.played[me].length > 0));
+    const ownFaceDown = !showPhase && !overPhase && (cutPhase || needHandoff || (!!peg && peg.played[me].length > 0));
     return (React.createElement("div", { style: { marginTop: 12, display: "flex", flexDirection: "column", gap: 14 } },
         ts.top.length > 0 && React.createElement("div", { style: { display: "flex", justifyContent: "space-around" } }, ts.top.map(cell)),
         React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: ts.left != null ? "space-between" : "center", gap: 8, padding: "0 6px" } },
             ts.left != null && cell(ts.left),
             React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", flex: "0 0 auto" } },
                 React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 4 } }, "starter"),
-                starter && !preDeal ? React.createElement(Card, { card: starter }) : React.createElement(DeckBack, null)),
+                starter && !emptyTable ? React.createElement(Card, { card: starter }) : React.createElement(DeckBack, null)),
             ts.right != null && cell(ts.right)),
         cutdealPhase ? (React.createElement(DrawCell, { i: me, dealerIdx: dealerIdx, card: dealDraw ? dealDraw[me] : null })) : dealPhase ? (React.createElement("div", { style: { textAlign: "center", minHeight: 64 } },
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 4 } },
@@ -1304,7 +1297,13 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
                 meName,
                 dealerIdx === me ? " (D)" : ""),
             React.createElement(Fan, { items: [...backItems(peg ? (needHandoff ? peg.hands[me].length : 0) : hands[me].length), ...cardItems(peg ? peg.played[me] : [])] }))),
-        cutdealPhase ? (React.createElement(Panel, { tone: isDealer ? "good" : null },
+        overPhase ? (React.createElement(Panel, { tone: "good" },
+            React.createElement("div", { style: { fontWeight: 700, fontSize: 18 } }, winner !== null && teamOf(winner, P, teams) === teamOf(me, P, teams) ? "You win! 🎉" : `${teamLabel(teamsList(P, teams).find((m) => m.includes(winner)) || [winner])} wins.`),
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 } },
+                "First to ",
+                targetFor(P),
+                ". Final: ",
+                teamsList(P, teams).map((m) => `${teamLabel(m)} ${seats[m[0]].score}`).join(" · ")))) : cutdealPhase ? (React.createElement(Panel, { tone: isDealer ? "good" : null },
             React.createElement("div", { style: { fontWeight: 700, fontSize: 15 } }, "Cut for deal"),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 } },
                 "Lowest card deals \u2014 ",
@@ -1337,7 +1336,9 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
                 React.createElement("div", { style: { flex: "1 1 auto", minWidth: 0, overflow: "hidden", display: "flex", justifyContent: "center" } }, peg.pileSuited.length
                     ? React.createElement(PlayedStack, { cards: peg.pileSuited, backs: 0, vis: fitVisible(peg.pileSuited.length, 180) })
                     : React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: T.muted } }, "cleared \u2014 new count from 0"))))),
-        showPhase ? (needClaim ? (React.createElement("div", { style: { background: "rgba(0,0,0,0.26)", borderRadius: 10, padding: "14px 14px 16px" } },
+        overPhase ? (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 16 } },
+            React.createElement(SkunkPanel, { seats: seats, winner: winner, P: P, teams: teams }),
+            bigBtn("Play again", () => dispatch({ type: "PLAY_AGAIN" }), "good"))) : showPhase ? (needClaim ? (React.createElement("div", { style: { background: "rgba(0,0,0,0.26)", borderRadius: 10, padding: "14px 14px 16px" } },
             React.createElement("div", { style: { fontSize: 13.5, lineHeight: 1.5, marginBottom: 12 } },
                 "Count ",
                 info.isCrib ? "your crib" : "your hand",
@@ -1574,7 +1575,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, "Source, bugs & feedback \u2197"),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.8-dev.11"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.8-dev.12"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

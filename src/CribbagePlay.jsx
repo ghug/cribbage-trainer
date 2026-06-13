@@ -1097,19 +1097,8 @@ export default function CribbagePlay() {
         )}
 
 
-        {(phase === "cutdeal" || phase === "deal" || phase === "discard" || phase === "cut" || (phase === "show" && show) || (phase === "play" && peg)) && (
+        {(phase === "cutdeal" || phase === "deal" || phase === "discard" || phase === "cut" || (phase === "show" && show) || (phase === "play" && peg) || phase === "over") && (
           <PlayScreen state={state} dispatch={dispatch} me={phase === "discard" ? ds : playMe} needHandoff={needHandoff} />
-        )}
-
-        {phase === "over" && (
-          <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 16 }}>
-            <Panel tone="good">
-              <div style={{ fontWeight: 700, fontSize: 18 }}>{winner !== null && teamOf(winner, players, teams) === teamOf(0, players, teams) ? "You win! 🎉" : `${teamLabel(teamsList(players, teams).find((m) => m.includes(winner)) || [winner])} wins.`}</div>
-              <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>First to {targetFor(players)}. Final: {teamsList(players, teams).map((m) => `${teamLabel(m)} ${seats[m[0]].score}`).join(" · ")}</div>
-            </Panel>
-            <SkunkPanel seats={seats} winner={winner} P={players} teams={teams} />
-            {bigBtn("Play again", () => dispatch({ type: "PLAY_AGAIN" }), "good")}
-          </div>
         )}
       </main>
 
@@ -1230,13 +1219,15 @@ function DeckBack() {
 // bottom — a card grid with tap-to-select and a confirm. Only a small per-phase config
 // (how many cards, what's legal, where the throw goes, the labels) differs.
 function PlayScreen({ state, dispatch, me, needHandoff }) {
-  const { peg, starter, dealerIdx, crib, seats, settings, phase, dealDraw } = state;
+  const { peg, starter, dealerIdx, crib, seats, settings, phase, dealDraw, winner } = state;
   const discardPhase = phase === "discard";
   const cutPhase = phase === "cut";
   const cutdealPhase = phase === "cutdeal";              // the opening cut-for-deal reveal
   const dealPhase = phase === "deal";                    // the between-hands "ready to deal" rest
   const showPhase = phase === "show";                    // counting the hands + crib, one at a time
+  const overPhase = phase === "over";                    // game won — final banner + play again
   const preDeal = cutdealPhase || dealPhase;             // no live hand yet: seats hold no cards
+  const emptyTable = preDeal || overPhase;               // bare ring + deck placeholder, no hands
   const P = peg ? peg.hands.length : seats.length;
   const teams = clampTeams(P, settings.teams);
   const pl = plan(P, dealerIdx);
@@ -1249,7 +1240,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
   // the full dealt hand during the discard, the kept four during the show/after it, the
   // live peg hand during play. (Pre-deal the seats' stale cards from the last hand are
   // ignored; during the show the played piles are set aside for the kept four.)
-  const hands = (peg && !showPhase) ? peg.hands : seats.map((s) => (preDeal ? [] : discardPhase ? s.dealt : (s.kept || [])));
+  const hands = overPhase ? seats.map(() => []) : (peg && !showPhase) ? peg.hands : seats.map((s) => (preDeal ? [] : discardPhase ? s.dealt : (s.kept || [])));
   const yourHand = hands[me];
   const meName = seatShort(me);
   const turn = peg ? peg.turn : -1;
@@ -1301,16 +1292,17 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
   const cell = (i) => {
     if (cutdealPhase) return <DrawCell key={i} i={i} dealerIdx={dealerIdx} card={dealDraw ? dealDraw[i] : null} />;
     // During the show the owner whose hand is up turns it face up; everyone else stays
-    // face down. Otherwise: live peg hand (backs) + played pile (face up).
+    // face down. Otherwise: live peg hand (backs) + played pile (face up). The empty table
+    // (pre-deal / game over) shows bare seats.
     const faceUp = showHand && i === info.owner;
-    const played = faceUp ? seats[i].kept : (peg && !showPhase ? peg.played[i] : []);
+    const played = (faceUp ? seats[i].kept : (peg && !showPhase && !emptyTable ? peg.played[i] : []));
     const remaining = faceUp ? 0 : hands[i].length;
-    return <SeatCell key={i} i={i} dealerIdx={dealerIdx} active={showPhase ? i === info.owner : turn === i}
-      played={played} remaining={remaining} />;
+    const lit = overPhase ? teamOf(i, P, teams) === teamOf(winner, P, teams) : showPhase ? i === info.owner : turn === i;
+    return <SeatCell key={i} i={i} dealerIdx={dealerIdx} active={lit} played={played} remaining={remaining} />;
   };
   // Your own seat at the bottom shows face down: before the cut, while waiting to pass the
   // device, or (during play) your played stack. Hidden while you're actively choosing.
-  const ownFaceDown = !showPhase && (cutPhase || needHandoff || (!!peg && peg.played[me].length > 0));
+  const ownFaceDown = !showPhase && !overPhase && (cutPhase || needHandoff || (!!peg && peg.played[me].length > 0));
   return (
     <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 14 }}>
       {ts.top.length > 0 && <div style={{ display: "flex", justifyContent: "space-around" }}>{ts.top.map(cell)}</div>}
@@ -1318,7 +1310,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
         {ts.left != null && cell(ts.left)}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: "0 0 auto" }}>
           <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 4 }}>starter</div>
-          {starter && !preDeal ? <Card card={starter} /> : <DeckBack />}
+          {starter && !emptyTable ? <Card card={starter} /> : <DeckBack />}
         </div>
         {ts.right != null && cell(ts.right)}
       </div>
@@ -1343,7 +1335,12 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
 
       {/* middle zone: the crib (face down) before play, the live pile during it. The
           discard shows the crib-intent banner here instead, the cut-for-deal its own. */}
-      {cutdealPhase ? (
+      {overPhase ? (
+        <Panel tone="good">
+          <div style={{ fontWeight: 700, fontSize: 18 }}>{winner !== null && teamOf(winner, P, teams) === teamOf(me, P, teams) ? "You win! 🎉" : `${teamLabel(teamsList(P, teams).find((m) => m.includes(winner)) || [winner])} wins.`}</div>
+          <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>First to {targetFor(P)}. Final: {teamsList(P, teams).map((m) => `${teamLabel(m)} ${seats[m[0]].score}`).join(" · ")}</div>
+        </Panel>
+      ) : cutdealPhase ? (
         <Panel tone={isDealer ? "good" : null}>
           <div style={{ fontWeight: 700, fontSize: 15 }}>Cut for deal</div>
           <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>
@@ -1396,7 +1393,12 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
         </div>
       )}
 
-      {showPhase ? (
+      {overPhase ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <SkunkPanel seats={seats} winner={winner} P={P} teams={teams} />
+          {bigBtn("Play again", () => dispatch({ type: "PLAY_AGAIN" }), "good")}
+        </div>
+      ) : showPhase ? (
         needClaim ? (
           <div style={{ background: "rgba(0,0,0,0.26)", borderRadius: 10, padding: "14px 14px 16px" }}>
             <div style={{ fontSize: 13.5, lineHeight: 1.5, marginBottom: 12 }}>

@@ -916,7 +916,7 @@ export default function CribbagePlay() {
   const [confirmHome, setConfirmHome] = React.useState(false);
   const [aboutOpen, setAboutOpen] = React.useState(false);
   const [historyOpen, setHistoryOpen] = React.useState(false);
-  const { phase, seats, dealerIdx, peg, show, starter, winner, message, settings, dealDraw } = state;
+  const { phase, seats, dealerIdx, peg, show, starter, winner, message, settings } = state;
   const players = clampPlayers(settings.players);
   const teams = clampTeams(players, settings.teams);
   const multiHuman = nHumans(players, settings) > 1;            // 2+ humans → hot-seat hand-off
@@ -1098,31 +1098,6 @@ export default function CribbagePlay() {
           </div>
         )}
 
-        {phase === "cutdeal" && (
-          <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 16 }}>
-            <Panel tone={dealer ? "good" : null}>
-              <div style={{ fontWeight: 700, fontSize: 15 }}>Cut for deal</div>
-              <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>
-                Lowest card deals — {dealer ? "you deal first" : `${seatName(dealerIdx)} deals first`} this game.
-              </div>
-            </Panel>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 6 }}>
-              {seats.map((_, i) => {
-                const isD = i === dealerIdx;
-                return (
-                  <div key={i} style={{ flex: 1, minWidth: 0, textAlign: "center" }}>
-                    <div style={{ fontFamily: mono, fontSize: 10, color: isD ? T.good : T.muted, marginBottom: 4, whiteSpace: "nowrap" }}>{seatShort(i)}{isD ? " (D)" : ""}</div>
-                    <div style={{ display: "flex", justifyContent: "center", opacity: isD ? 1 : 0.65 }}>
-                      {dealDraw ? <div style={{ width: "100%", maxWidth: 44 }}><Card card={dealDraw[i]} small /></div> : <CardBack small />}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            {bigBtn(dealer ? "Deal" : `Deal (${seatName(dealerIdx)}'s crib)`, () => dispatch({ type: "DEAL" }), "wood")}
-          </div>
-        )}
-
         {phase === "deal" && (
           <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 16 }}>
             <Panel tone={dealer ? "good" : null}>
@@ -1139,7 +1114,7 @@ export default function CribbagePlay() {
           </div>
         )}
 
-        {(phase === "discard" || phase === "cut" || (phase === "play" && peg)) && (
+        {(phase === "cutdeal" || phase === "discard" || phase === "cut" || (phase === "play" && peg)) && (
           <PlayScreen state={state} dispatch={dispatch} me={phase === "discard" ? ds : playMe} needHandoff={needHandoff} />
         )}
         {phase === "show" && show && (<ShowScreen state={state} dispatch={dispatch} />)}
@@ -1224,6 +1199,22 @@ function SeatCell({ i, dealerIdx, active, played, remaining }) {
   );
 }
 
+// A seat during the opening cut-for-deal: its single face-up draw card. The lowest draw
+// (the dealer) is highlighted; the rest are dimmed.
+function DrawCell({ i, dealerIdx, card }) {
+  const isD = i === dealerIdx;
+  return (
+    <div style={{ textAlign: "center", minWidth: 0, opacity: isD ? 1 : 0.7 }}>
+      <div style={{ fontFamily: mono, fontSize: 10, color: isD ? T.good : T.muted, marginBottom: 4, whiteSpace: "nowrap" }}>
+        {seatShort(i)}{isD ? " (D)" : ""}
+      </div>
+      <div style={{ display: "flex", justifyContent: "center", minHeight: 64 }}>
+        {card ? <div style={{ width: 44 }}><Card card={card} small /></div> : <CardBack small />}
+      </div>
+    </div>
+  );
+}
+
 // Opponent layout for a table of P: up to three seats across the top, the West (1)
 // and East (P-1) seats flanking. Heads-up shows the single opponent on top.
 function tableSeats(P) {
@@ -1257,9 +1248,10 @@ function DeckBack() {
 // bottom — a card grid with tap-to-select and a confirm. Only a small per-phase config
 // (how many cards, what's legal, where the throw goes, the labels) differs.
 function PlayScreen({ state, dispatch, me, needHandoff }) {
-  const { peg, starter, dealerIdx, crib, seats, settings, phase } = state;
+  const { peg, starter, dealerIdx, crib, seats, settings, phase, dealDraw } = state;
   const discardPhase = phase === "discard";
   const cutPhase = phase === "cut";
+  const cutdealPhase = phase === "cutdeal";              // the opening cut-for-deal reveal
   const P = peg ? peg.hands.length : seats.length;
   const teams = clampTeams(P, settings.teams);
   const pl = plan(P, dealerIdx);
@@ -1310,9 +1302,10 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
   const teammateDeals = cribOurs && !isDealer;
   const discardPrompt = `Tap the ${count === 2 ? "two cards" : "card"} you'll throw to the crib.${count === 2 && sel.length === 1 ? " One more…" : ""}`;
 
-  const cell = (i) => (
-    <SeatCell key={i} i={i} dealerIdx={dealerIdx} active={turn === i}
-      played={peg ? peg.played[i] : []} remaining={hands[i].length} />
+  const cell = (i) => (cutdealPhase
+    ? <DrawCell key={i} i={i} dealerIdx={dealerIdx} card={dealDraw ? dealDraw[i] : null} />
+    : <SeatCell key={i} i={i} dealerIdx={dealerIdx} active={turn === i}
+        played={peg ? peg.played[i] : []} remaining={hands[i].length} />
   );
   // Your own seat at the bottom shows face down: before the cut, while waiting to pass the
   // device, or (during play) your played stack. Hidden while you're actively choosing.
@@ -1329,7 +1322,9 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
         {ts.right != null && cell(ts.right)}
       </div>
 
-      {ownFaceDown && (
+      {cutdealPhase ? (
+        <DrawCell i={me} dealerIdx={dealerIdx} card={dealDraw ? dealDraw[me] : null} />
+      ) : ownFaceDown && (
         <div style={{ textAlign: "center", minHeight: 80 }}>
           <div style={{ fontFamily: mono, fontSize: 10, color: turn === me ? T.selBlue : T.muted, marginBottom: 4 }}>{meName}{dealerIdx === me ? " (D)" : ""}</div>
           <Fan items={[...backItems(peg ? (needHandoff ? peg.hands[me].length : 0) : hands[me].length), ...cardItems(peg ? peg.played[me] : [])]} />
@@ -1337,8 +1332,15 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
       )}
 
       {/* middle zone: the crib (face down) before play, the live pile during it. The
-          discard shows the crib-intent banner here instead. */}
-      {discardPhase ? (
+          discard shows the crib-intent banner here instead, the cut-for-deal its own. */}
+      {cutdealPhase ? (
+        <Panel tone={isDealer ? "good" : null}>
+          <div style={{ fontWeight: 700, fontSize: 15 }}>Cut for deal</div>
+          <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>
+            Lowest card deals — {isDealer ? "you deal" : `${seatName(dealerIdx)} deals`} first this game.
+          </div>
+        </Panel>
+      ) : discardPhase ? (
         <Panel tone={cribOurs ? "good" : "red"}>
           <div style={{ fontWeight: 700, fontSize: 15 }}>{multiHuman ? `${seatName(me)}: ` : ""}{isDealer ? "Your crib — be greedy" : teammateDeals ? `${seatName(dealerIdx)}'s crib — your team's, be greedy` : `Feeds ${seatName(dealerIdx)}'s crib — defend`}</div>
         </Panel>
@@ -1363,7 +1365,11 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
         </div>
       )}
 
-      {cutPhase ? (
+      {cutdealPhase ? (
+        settings.autoDeal
+          ? <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" }}>Dealing…</div>
+          : bigBtn(isDealer ? "Deal" : `Deal (${seatName(dealerIdx)}'s crib)`, () => dispatch({ type: "DEAL" }), "wood")
+      ) : cutPhase ? (
         settings.autoCut
           ? <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" }}>{cutter === me ? "You cut" : `${seatName(cutter)} cuts`} the starter…</div>
           : bigBtn(cutter === me ? "Cut the deck" : `Cut the deck (${seatName(cutter)} turns the starter)`, () => dispatch({ type: "CUT" }), "wood")

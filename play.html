@@ -955,7 +955,6 @@ function CribbagePlay() {
     const players = clampPlayers(settings.players);
     const teams = clampTeams(players, settings.teams);
     const multiHuman = nHumans(players, settings) > 1;
-    const youRef = soleHuman(players, settings) >= 0 ? soleHuman(players, settings) : 0;
     setSeatNames(players, soleHuman(players, settings));
     const ds = state.discardSeat != null ? state.discardSeat : 0;
     const playMe = state.holder == null ? firstHuman(players, settings) : state.holder;
@@ -1066,9 +1065,6 @@ function CribbagePlay() {
         const t = setTimeout(() => dispatch({ type: "SHOW_NEXT" }), 1200);
         return () => clearTimeout(t);
     }, [phase, show, settings.autoContinue, autoPaused]);
-    const dealer = dealerIdx === youRef;
-    const cribIsOurs = teamOf(dealerIdx, players, teams) === teamOf(youRef, players, teams);
-    const teammateDeals = cribIsOurs && !dealer;
     const turnNow = phase === "play" && peg ? peg.turn : phase === "over" ? winner : -1;
     return (React.createElement("div", { style: {
             minHeight: "100%", background: `radial-gradient(120% 90% at 50% 0%, ${T.baizeHi}, ${T.baize})`,
@@ -1129,24 +1125,7 @@ function CribbagePlay() {
             historySeat !== null && React.createElement(HistoryPanel, { seatIdx: historySeat, seats: seats, onClose: () => setHistorySeat(null), P: players, teams: teams }),
             paused && (React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.pegRed, textAlign: "center", marginTop: 8 } }, "\u23F8 Paused \u2014 automatic play is stopped. Tap \u25B6 to resume.")),
             message && (React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.cream, margin: "10px 2px 4px", minHeight: 16, lineHeight: 1.45 } }, message)),
-            phase === "deal" && (React.createElement("div", { style: { marginTop: 14, display: "flex", flexDirection: "column", gap: 16 } },
-                React.createElement(Panel, { tone: dealer ? "good" : null },
-                    React.createElement("div", { style: { fontWeight: 700, fontSize: 15 } }, dealer ? "Your deal — the crib is yours." : teammateDeals ? `${seatName(dealerIdx)} deals — your team's crib.` : `${seatName(dealerIdx)} deals — the crib is theirs.`),
-                    React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 } }, dealBlurb(players))),
-                React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, lineHeight: 1.7 } },
-                    "counting ",
-                    React.createElement("b", { style: { color: T.cream } }, mugginsActive(settings) ? "muggins" : "auto"),
-                    " \u00B7",
-                    " ",
-                    "go on no card ",
-                    React.createElement("b", { style: { color: T.cream } }, settings.autoGo ? "auto" : "manual"),
-                    " \u00B7",
-                    " ",
-                    "weak-play warnings ",
-                    React.createElement("b", { style: { color: T.cream } }, settings.warn ? "on" : "off"),
-                    React.createElement("span", null, " \u2014 tap \u2699 to change")),
-                bigBtn(dealer ? "Deal" : `Deal (${seatName(dealerIdx)}'s crib)`, () => dispatch({ type: "DEAL" }), "wood"))),
-            (phase === "cutdeal" || phase === "discard" || phase === "cut" || (phase === "play" && peg)) && (React.createElement(PlayScreen, { state: state, dispatch: dispatch, me: phase === "discard" ? ds : playMe, needHandoff: needHandoff })),
+            (phase === "cutdeal" || phase === "deal" || phase === "discard" || phase === "cut" || (phase === "play" && peg)) && (React.createElement(PlayScreen, { state: state, dispatch: dispatch, me: phase === "discard" ? ds : playMe, needHandoff: needHandoff })),
             phase === "show" && show && (React.createElement(ShowScreen, { state: state, dispatch: dispatch })),
             phase === "over" && (React.createElement("div", { style: { marginTop: 16, display: "flex", flexDirection: "column", gap: 16 } },
                 React.createElement(Panel, { tone: "good" },
@@ -1233,11 +1212,13 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
     const discardPhase = phase === "discard";
     const cutPhase = phase === "cut";
     const cutdealPhase = phase === "cutdeal";
+    const dealPhase = phase === "deal";
+    const preDeal = cutdealPhase || dealPhase;
     const P = peg ? peg.hands.length : seats.length;
     const teams = clampTeams(P, settings.teams);
     const pl = plan(P, dealerIdx);
     const ts = seatsAround(P, me);
-    const hands = peg ? peg.hands : seats.map((s) => (discardPhase ? s.dealt : (s.kept || [])));
+    const hands = peg ? peg.hands : seats.map((s) => (preDeal ? [] : discardPhase ? s.dealt : (s.kept || [])));
     const yourHand = hands[me];
     const meName = seatShort(me);
     const turn = peg ? peg.turn : -1;
@@ -1297,9 +1278,12 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
             ts.left != null && cell(ts.left),
             React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", flex: "0 0 auto" } },
                 React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 4 } }, "starter"),
-                starter ? React.createElement(Card, { card: starter }) : React.createElement(DeckBack, null)),
+                starter && !preDeal ? React.createElement(Card, { card: starter }) : React.createElement(DeckBack, null)),
             ts.right != null && cell(ts.right)),
-        cutdealPhase ? (React.createElement(DrawCell, { i: me, dealerIdx: dealerIdx, card: dealDraw ? dealDraw[me] : null })) : ownFaceDown && (React.createElement("div", { style: { textAlign: "center", minHeight: 80 } },
+        cutdealPhase ? (React.createElement(DrawCell, { i: me, dealerIdx: dealerIdx, card: dealDraw ? dealDraw[me] : null })) : dealPhase ? (React.createElement("div", { style: { textAlign: "center", minHeight: 64 } },
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 4 } },
+                meName,
+                dealerIdx === me ? " (D)" : ""))) : ownFaceDown && (React.createElement("div", { style: { textAlign: "center", minHeight: 80 } },
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: turn === me ? T.selBlue : T.muted, marginBottom: 4 } },
                 meName,
                 dealerIdx === me ? " (D)" : ""),
@@ -1309,7 +1293,9 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
             React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 } },
                 "Lowest card deals \u2014 ",
                 isDealer ? "you deal" : `${seatName(dealerIdx)} deals`,
-                " first this game."))) : discardPhase ? (React.createElement(Panel, { tone: cribOurs ? "good" : "red" },
+                " first this game."))) : dealPhase ? (React.createElement(Panel, { tone: cribOurs ? "good" : null },
+            React.createElement("div", { style: { fontWeight: 700, fontSize: 15 } }, isDealer ? "Your deal — the crib is yours." : teammateDeals ? `${seatName(dealerIdx)} deals — your team's crib.` : `${seatName(dealerIdx)} deals — the crib is theirs.`),
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 } }, dealBlurb(P)))) : discardPhase ? (React.createElement(Panel, { tone: cribOurs ? "good" : "red" },
             React.createElement("div", { style: { fontWeight: 700, fontSize: 15 } },
                 multiHuman ? `${seatName(me)}: ` : "",
                 isDealer ? "Your crib — be greedy" : teammateDeals ? `${seatName(dealerIdx)}'s crib — your team's, be greedy` : `Feeds ${seatName(dealerIdx)}'s crib — defend`))) : cutPhase ? (React.createElement("div", { style: { background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "12px", minHeight: 88, display: "flex", alignItems: "center", justifyContent: "center", gap: 14 } },
@@ -1322,9 +1308,22 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
                 React.createElement("div", { style: { flex: "1 1 auto", minWidth: 0, overflow: "hidden", display: "flex", justifyContent: "center" } }, peg.pileSuited.length
                     ? React.createElement(PlayedStack, { cards: peg.pileSuited, backs: 0, vis: fitVisible(peg.pileSuited.length, 180) })
                     : React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: T.muted } }, "cleared \u2014 new count from 0"))))),
-        cutdealPhase ? (settings.autoDeal
+        preDeal ? (settings.autoDeal
             ? React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" } }, "Dealing\u2026")
-            : bigBtn(isDealer ? "Deal" : `Deal (${seatName(dealerIdx)}'s crib)`, () => dispatch({ type: "DEAL" }), "wood")) : cutPhase ? (settings.autoCut
+            : (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 } },
+                dealPhase && (React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, lineHeight: 1.7, textAlign: "center" } },
+                    "counting ",
+                    React.createElement("b", { style: { color: T.cream } }, mugginsActive(settings) ? "muggins" : "auto"),
+                    " \u00B7",
+                    " ",
+                    "go on no card ",
+                    React.createElement("b", { style: { color: T.cream } }, settings.autoGo ? "auto" : "manual"),
+                    " \u00B7",
+                    " ",
+                    "weak-play warnings ",
+                    React.createElement("b", { style: { color: T.cream } }, settings.warn ? "on" : "off"),
+                    React.createElement("span", null, " \u2014 tap \u2699 to change"))),
+                bigBtn(isDealer ? "Deal" : `Deal (${seatName(dealerIdx)}'s crib)`, () => dispatch({ type: "DEAL" }), "wood")))) : cutPhase ? (settings.autoCut
             ? React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" } },
                 cutter === me ? "You cut" : `${seatName(cutter)} cuts`,
                 " the starter\u2026")
@@ -1570,7 +1569,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, "Source, bugs & feedback \u2197"),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.8-dev.7"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.8-dev.8"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

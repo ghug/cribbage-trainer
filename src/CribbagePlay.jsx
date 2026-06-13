@@ -920,7 +920,6 @@ export default function CribbagePlay() {
   const players = clampPlayers(settings.players);
   const teams = clampTeams(players, settings.teams);
   const multiHuman = nHumans(players, settings) > 1;            // 2+ humans → hot-seat hand-off
-  const youRef = soleHuman(players, settings) >= 0 ? soleHuman(players, settings) : 0; // "you" = the lone human (else South)
   setSeatNames(players, soleHuman(players, settings));
   const ds = state.discardSeat != null ? state.discardSeat : 0; // active discarder
   const playMe = state.holder == null ? firstHuman(players, settings) : state.holder; // device-holder perspective in play
@@ -1017,13 +1016,6 @@ export default function CribbagePlay() {
     return () => clearTimeout(t);
   }, [phase, show, settings.autoContinue, autoPaused]);
 
-  // Banners are framed from "you" = the lone human's seat (or South when hot-seat/spectating).
-  const dealer = dealerIdx === youRef;
-  // The dealer is always an individual; with teams, the crib's points go to the
-  // dealer's team. "ours" = the crib lands on my team; "teammateDeals" = a partner
-  // (not me) is the dealer this hand.
-  const cribIsOurs = teamOf(dealerIdx, players, teams) === teamOf(youRef, players, teams);
-  const teammateDeals = cribIsOurs && !dealer;
   const turnNow = phase === "play" && peg ? peg.turn : phase === "over" ? winner : -1;
 
   return (
@@ -1104,23 +1096,8 @@ export default function CribbagePlay() {
           </div>
         )}
 
-        {phase === "deal" && (
-          <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 16 }}>
-            <Panel tone={dealer ? "good" : null}>
-              <div style={{ fontWeight: 700, fontSize: 15 }}>{dealer ? "Your deal — the crib is yours." : teammateDeals ? `${seatName(dealerIdx)} deals — your team's crib.` : `${seatName(dealerIdx)} deals — the crib is theirs.`}</div>
-              <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>{dealBlurb(players)}</div>
-            </Panel>
-            <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, lineHeight: 1.7 }}>
-              counting <b style={{ color: T.cream }}>{mugginsActive(settings) ? "muggins" : "auto"}</b> ·{" "}
-              go on no card <b style={{ color: T.cream }}>{settings.autoGo ? "auto" : "manual"}</b> ·{" "}
-              weak-play warnings <b style={{ color: T.cream }}>{settings.warn ? "on" : "off"}</b>
-              <span> — tap ⚙ to change</span>
-            </div>
-            {bigBtn(dealer ? "Deal" : `Deal (${seatName(dealerIdx)}'s crib)`, () => dispatch({ type: "DEAL" }), "wood")}
-          </div>
-        )}
 
-        {(phase === "cutdeal" || phase === "discard" || phase === "cut" || (phase === "play" && peg)) && (
+        {(phase === "cutdeal" || phase === "deal" || phase === "discard" || phase === "cut" || (phase === "play" && peg)) && (
           <PlayScreen state={state} dispatch={dispatch} me={phase === "discard" ? ds : playMe} needHandoff={needHandoff} />
         )}
         {phase === "show" && show && (<ShowScreen state={state} dispatch={dispatch} />)}
@@ -1258,13 +1235,16 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
   const discardPhase = phase === "discard";
   const cutPhase = phase === "cut";
   const cutdealPhase = phase === "cutdeal";              // the opening cut-for-deal reveal
+  const dealPhase = phase === "deal";                    // the between-hands "ready to deal" rest
+  const preDeal = cutdealPhase || dealPhase;             // no live hand yet: seats hold no cards
   const P = peg ? peg.hands.length : seats.length;
   const teams = clampTeams(P, settings.teams);
   const pl = plan(P, dealerIdx);
   const ts = seatsAround(P, me);
-  // What each seat is holding (face down for the others): the full dealt hand during the
-  // discard, the kept four after it, the live peg hand during play.
-  const hands = peg ? peg.hands : seats.map((s) => (discardPhase ? s.dealt : (s.kept || [])));
+  // What each seat is holding (face down for the others): nothing before a hand is dealt,
+  // the full dealt hand during the discard, the kept four after it, the live peg hand
+  // during play. (Pre-deal the seats' stale cards from the last hand are ignored.)
+  const hands = peg ? peg.hands : seats.map((s) => (preDeal ? [] : discardPhase ? s.dealt : (s.kept || [])));
   const yourHand = hands[me];
   const meName = seatShort(me);
   const turn = peg ? peg.turn : -1;
@@ -1323,13 +1303,17 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
         {ts.left != null && cell(ts.left)}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: "0 0 auto" }}>
           <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 4 }}>starter</div>
-          {starter ? <Card card={starter} /> : <DeckBack />}
+          {starter && !preDeal ? <Card card={starter} /> : <DeckBack />}
         </div>
         {ts.right != null && cell(ts.right)}
       </div>
 
       {cutdealPhase ? (
         <DrawCell i={me} dealerIdx={dealerIdx} card={dealDraw ? dealDraw[me] : null} />
+      ) : dealPhase ? (
+        <div style={{ textAlign: "center", minHeight: 64 }}>
+          <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 4 }}>{meName}{dealerIdx === me ? " (D)" : ""}</div>
+        </div>
       ) : ownFaceDown && (
         <div style={{ textAlign: "center", minHeight: 80 }}>
           <div style={{ fontFamily: mono, fontSize: 10, color: turn === me ? T.selBlue : T.muted, marginBottom: 4 }}>{meName}{dealerIdx === me ? " (D)" : ""}</div>
@@ -1345,6 +1329,11 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
           <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>
             Lowest card deals — {isDealer ? "you deal" : `${seatName(dealerIdx)} deals`} first this game.
           </div>
+        </Panel>
+      ) : dealPhase ? (
+        <Panel tone={cribOurs ? "good" : null}>
+          <div style={{ fontWeight: 700, fontSize: 15 }}>{isDealer ? "Your deal — the crib is yours." : teammateDeals ? `${seatName(dealerIdx)} deals — your team's crib.` : `${seatName(dealerIdx)} deals — the crib is theirs.`}</div>
+          <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>{dealBlurb(P)}</div>
         </Panel>
       ) : discardPhase ? (
         <Panel tone={cribOurs ? "good" : "red"}>
@@ -1371,10 +1360,20 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
         </div>
       )}
 
-      {cutdealPhase ? (
+      {preDeal ? (
         settings.autoDeal
           ? <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" }}>Dealing…</div>
-          : bigBtn(isDealer ? "Deal" : `Deal (${seatName(dealerIdx)}'s crib)`, () => dispatch({ type: "DEAL" }), "wood")
+          : (<div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {dealPhase && (
+                <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, lineHeight: 1.7, textAlign: "center" }}>
+                  counting <b style={{ color: T.cream }}>{mugginsActive(settings) ? "muggins" : "auto"}</b> ·{" "}
+                  go on no card <b style={{ color: T.cream }}>{settings.autoGo ? "auto" : "manual"}</b> ·{" "}
+                  weak-play warnings <b style={{ color: T.cream }}>{settings.warn ? "on" : "off"}</b>
+                  <span> — tap ⚙ to change</span>
+                </div>
+              )}
+              {bigBtn(isDealer ? "Deal" : `Deal (${seatName(dealerIdx)}'s crib)`, () => dispatch({ type: "DEAL" }), "wood")}
+            </div>)
       ) : cutPhase ? (
         settings.autoCut
           ? <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" }}>{cutter === me ? "You cut" : `${seatName(cutter)} cuts`} the starter…</div>

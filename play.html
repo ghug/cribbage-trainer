@@ -1159,26 +1159,18 @@ function fitVisible(n, budget) {
         return STACK_VISIBLE;
     return Math.max(0.24, Math.min(STACK_VISIBLE, (budget - 68) / ((n - 1) * 68)));
 }
-function SeatCell({ i, dealerIdx, active, played, remaining }) {
-    return (React.createElement("div", { style: { textAlign: "center", minWidth: 0 } },
-        React.createElement("div", { style: { marginBottom: 4, whiteSpace: "nowrap" } },
-            React.createElement(SeatLabel, { i: i, dealerIdx: dealerIdx, active: active })),
+function Seat({ i, dealerIdx, active, dim, items, name }) {
+    return (React.createElement("div", { style: { textAlign: "center", minWidth: 0, opacity: dim ? 0.7 : 1 } },
+        React.createElement("div", { style: { height: 18, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 4 } },
+            React.createElement(SeatLabel, { i: i, dealerIdx: dealerIdx, active: active, name: name })),
         React.createElement("div", { style: { display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" } },
-            React.createElement(Fan, { items: [...backItems(remaining), ...cardItems(played)] }))));
+            React.createElement(Fan, { items: items }))));
 }
 function SeatLabel({ i, dealerIdx, active, name }) {
     const text = `${name != null ? name : seatShort(i)}${dealerIdx === i ? " (D)" : ""}`;
     return (React.createElement("span", { style: active
             ? { fontFamily: mono, fontSize: 10, fontWeight: 700, letterSpacing: 0.3, color: T.ivory, background: T.selBlue, padding: "2px 8px", borderRadius: 999, boxShadow: "0 1px 4px rgba(0,0,0,0.45)" }
             : { fontFamily: mono, fontSize: 10, color: T.muted } }, text));
-}
-function DrawCell({ i, dealerIdx, card }) {
-    const isD = i === dealerIdx;
-    return (React.createElement("div", { style: { textAlign: "center", minWidth: 0, opacity: isD ? 1 : 0.7 } },
-        React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: isD ? T.good : T.muted, marginBottom: 4, whiteSpace: "nowrap" } },
-            seatShort(i),
-            isD ? " (D)" : ""),
-        React.createElement("div", { style: { display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" } }, card ? React.createElement(Card, { card: card }) : React.createElement(CardBack, null))));
 }
 function tableSeats(P) {
     if (P === 2)
@@ -1273,12 +1265,13 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
     const teammateDeals = cribOurs && !isDealer;
     const discardPrompt = `Tap the ${count === 2 ? "two cards" : "card"} you'll throw to the crib.${count === 2 && sel.length === 1 ? " One more…" : ""}`;
     const cell = (i) => {
-        if (cutdealPhase)
-            return React.createElement(DrawCell, { key: i, i: i, dealerIdx: dealerIdx, card: dealDraw ? dealDraw[i] : null });
-        const played = peg ? peg.played[i] : [];
-        const remaining = hands[i].length;
+        if (cutdealPhase) {
+            const draw = dealDraw ? dealDraw[i] : null;
+            return React.createElement(Seat, { key: i, i: i, dealerIdx: dealerIdx, active: i === dealerIdx, dim: i !== dealerIdx, items: draw ? cardItems([draw]) : backItems(1) });
+        }
+        const played = (peg && !overPhase) ? peg.played[i] : [];
         const active = overPhase ? teamOf(i, P, teams) === teamOf(winner, P, teams) : showPhase ? i === info.owner : turn === i;
-        return React.createElement(SeatCell, { key: i, i: i, dealerIdx: dealerIdx, active: active, played: played, remaining: remaining });
+        return React.createElement(Seat, { key: i, i: i, dealerIdx: dealerIdx, active: active, items: [...backItems(hands[i].length), ...cardItems(played)] });
     };
     const actionPrompt = discardPhase ? discardPrompt
         : (phase === "play" && peg)
@@ -1288,14 +1281,16 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
                         : "Your cards are all played.")
                 : `${seatName(peg.turn)} to play…`)
             : null;
-    const ownCardItems = cutPhase ? backItems(hands[me].length)
-        : needHandoff ? backItems((peg ? peg.hands[me] : seats[me].dealt).length)
-            : (peg && (phase === "play" || showPhase)) ? cardItems(peg.played[me])
-                : [];
-    const ownActive = overPhase ? teamOf(me, P, teams) === teamOf(winner, P, teams)
-        : showPhase ? info.owner === me
-            : discardPhase ? myTurn
-                : turn === me;
+    const ownCardItems = cutdealPhase ? (dealDraw ? cardItems([dealDraw[me]]) : backItems(1))
+        : cutPhase ? backItems(hands[me].length)
+            : needHandoff ? backItems((peg ? peg.hands[me] : seats[me].dealt).length)
+                : (peg && (phase === "play" || showPhase)) ? cardItems(peg.played[me])
+                    : [];
+    const ownActive = cutdealPhase ? me === dealerIdx
+        : overPhase ? teamOf(me, P, teams) === teamOf(winner, P, teams)
+            : showPhase ? info.owner === me
+                : discardPhase ? myTurn
+                    : turn === me;
     return (React.createElement("div", { style: { marginTop: 12, display: "flex", flexDirection: "column", gap: 14 } },
         ts.top.length > 0 && (React.createElement("div", { style: { display: "grid", gridTemplateColumns: `repeat(${ts.top.length}, 1fr)`, gap: 8 } }, ts.top.map(cell))),
         React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 8, padding: "0 6px" } },
@@ -1304,10 +1299,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
                 React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 4 } }, "starter"),
                 React.createElement("div", { style: { display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" } }, starter && !emptyTable ? React.createElement(Card, { card: starter }) : React.createElement(DeckBack, null))),
             React.createElement("div", { style: { minWidth: 0 } }, ts.right != null ? cell(ts.right) : null)),
-        cutdealPhase ? (React.createElement(DrawCell, { i: me, dealerIdx: dealerIdx, card: dealDraw ? dealDraw[me] : null })) : (React.createElement("div", { style: { textAlign: "center" } },
-            React.createElement("div", { style: { marginBottom: 4 } },
-                React.createElement(SeatLabel, { i: me, dealerIdx: dealerIdx, active: ownActive, name: meName })),
-            React.createElement("div", { style: { display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)", padding: "0 8px" } }, ownCardItems.length ? React.createElement(Fan, { items: ownCardItems }) : null))),
+        React.createElement(Seat, { i: me, dealerIdx: dealerIdx, active: ownActive, dim: cutdealPhase && me !== dealerIdx, name: meName, items: ownCardItems }),
         overPhase ? (React.createElement(Panel, { tone: "good" },
             React.createElement("div", { style: { fontWeight: 700, fontSize: 18 } }, winner !== null && teamOf(winner, P, teams) === teamOf(me, P, teams) ? "You win! 🎉" : `${teamLabel(teamsList(P, teams).find((m) => m.includes(winner)) || [winner])} wins.`),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 } },
@@ -1581,7 +1573,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, "Source, bugs & feedback \u2197"),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.8-dev.21"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.8-dev.22"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

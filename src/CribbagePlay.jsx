@@ -1158,41 +1158,30 @@ function fitVisible(n, budget) {
   return Math.max(0.24, Math.min(STACK_VISIBLE, (budget - 68) / ((n - 1) * 68)));
 }
 
-function SeatCell({ i, dealerIdx, active, played, remaining }) {
+// One seat, used everywhere — the ring, the cut-for-deal, and your own bottom seat. A
+// fixed-height label row (so the active chip's padding never nudges the cards) sits above
+// a fixed --ch card slot holding a fan of whatever the seat is showing.
+function Seat({ i, dealerIdx, active, dim, items, name }) {
   return (
-    <div style={{ textAlign: "center", minWidth: 0 }}>
-      <div style={{ marginBottom: 4, whiteSpace: "nowrap" }}><SeatLabel i={i} dealerIdx={dealerIdx} active={active} /></div>
+    <div style={{ textAlign: "center", minWidth: 0, opacity: dim ? 0.7 : 1 }}>
+      <div style={{ height: 18, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 4 }}>
+        <SeatLabel i={i} dealerIdx={dealerIdx} active={active} name={name} />
+      </div>
       <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" }}>
-        <Fan items={[...backItems(remaining), ...cardItems(played)]} />
+        <Fan items={items} />
       </div>
     </div>
   );
 }
 
-// One seat's label. The active seat (current pegger / hand being counted) gets a filled
-// chip so it clearly stands out from the dimmed inactive seats in any phase.
+// One seat's label. The active seat (current pegger / hand being counted / dealer at the
+// cut-for-deal) gets a filled chip so it clearly stands out from the dimmed inactive seats.
 function SeatLabel({ i, dealerIdx, active, name }) {
   const text = `${name != null ? name : seatShort(i)}${dealerIdx === i ? " (D)" : ""}`;
   return (
     <span style={active
       ? { fontFamily: mono, fontSize: 10, fontWeight: 700, letterSpacing: 0.3, color: T.ivory, background: T.selBlue, padding: "2px 8px", borderRadius: 999, boxShadow: "0 1px 4px rgba(0,0,0,0.45)" }
       : { fontFamily: mono, fontSize: 10, color: T.muted }}>{text}</span>
-  );
-}
-
-// A seat during the opening cut-for-deal: its single face-up draw card. The lowest draw
-// (the dealer) is highlighted; the rest are dimmed.
-function DrawCell({ i, dealerIdx, card }) {
-  const isD = i === dealerIdx;
-  return (
-    <div style={{ textAlign: "center", minWidth: 0, opacity: isD ? 1 : 0.7 }}>
-      <div style={{ fontFamily: mono, fontSize: 10, color: isD ? T.good : T.muted, marginBottom: 4, whiteSpace: "nowrap" }}>
-        {seatShort(i)}{isD ? " (D)" : ""}
-      </div>
-      <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" }}>
-        {card ? <Card card={card} /> : <CardBack />}
-      </div>
-    </div>
   );
 }
 
@@ -1300,14 +1289,18 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
   const discardPrompt = `Tap the ${count === 2 ? "two cards" : "card"} you'll throw to the crib.${count === 2 && sel.length === 1 ? " One more…" : ""}`;
 
   const cell = (i) => {
-    if (cutdealPhase) return <DrawCell key={i} i={i} dealerIdx={dealerIdx} card={dealDraw ? dealDraw[i] : null} />;
+    if (cutdealPhase) {                                    // cut for deal: each seat's single draw, dealer lit
+      const draw = dealDraw ? dealDraw[i] : null;
+      return <Seat key={i} i={i} dealerIdx={dealerIdx} active={i === dealerIdx} dim={i !== dealerIdx}
+        items={draw ? cardItems([draw]) : backItems(1)} />;
+    }
     // Play and show share one render: each seat's played pile (face up) plus any cards
     // still in hand (face down). The active seat — whose turn it is, or whose hand is being
-    // counted — is highlighted.
-    const played = peg ? peg.played[i] : [];
-    const remaining = hands[i].length;
+    // counted (or the winning team at game over) — is chip-highlighted.
+    const played = (peg && !overPhase) ? peg.played[i] : [];
     const active = overPhase ? teamOf(i, P, teams) === teamOf(winner, P, teams) : showPhase ? i === info.owner : turn === i;
-    return <SeatCell key={i} i={i} dealerIdx={dealerIdx} active={active} played={played} remaining={remaining} />;
+    return <Seat key={i} i={i} dealerIdx={dealerIdx} active={active}
+      items={[...backItems(hands[i].length), ...cardItems(played)]} />;
   };
   // The discard/play status line. A bot in the bottom seat (all-bot game) gets the same
   // spectator line as any other seat — it just plays/goes on its own, no human prompts.
@@ -1320,14 +1313,17 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
           : `${seatName(peg.turn)} to play…`)
       : null;
   // Your own seat at the bottom is always pinned (a fixed card slot, so the table never
-  // shifts). Like any seat it shows your cards — your played pile through play and the show,
-  // your kept four (face down) at the cut — and nothing pre-deal/over/while choosing.
-  const ownCardItems = cutPhase ? backItems(hands[me].length)                    // your kept four, face down
+  // shifts). It renders through the same Seat component as every other seat: your draw at
+  // the cut-for-deal, your played pile through play and the show, your kept four (face down)
+  // at the cut — and nothing pre-deal/over/while choosing.
+  const ownCardItems = cutdealPhase ? (dealDraw ? cardItems([dealDraw[me]]) : backItems(1))
+    : cutPhase ? backItems(hands[me].length)                                     // your kept four, face down
     : needHandoff ? backItems((peg ? peg.hands[me] : seats[me].dealt).length)    // hidden while waiting to pass
     : (peg && (phase === "play" || showPhase)) ? cardItems(peg.played[me])       // your played pile, like every seat
     : [];                                                                        // discard active, deal, over
-  // The active seat (your turn / your hand being counted / your winning team) — highlighted.
-  const ownActive = overPhase ? teamOf(me, P, teams) === teamOf(winner, P, teams)
+  // The active seat (your turn / your hand being counted / dealer at the cut / winning team).
+  const ownActive = cutdealPhase ? me === dealerIdx
+    : overPhase ? teamOf(me, P, teams) === teamOf(winner, P, teams)
     : showPhase ? info.owner === me
     : discardPhase ? myTurn
     : turn === me;
@@ -1353,16 +1349,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
 
       {/* your own seat at the bottom — always a pinned, fixed-height slot so the table never
           shifts, holding your cards (or nothing) just like every other seat. */}
-      {cutdealPhase ? (
-        <DrawCell i={me} dealerIdx={dealerIdx} card={dealDraw ? dealDraw[me] : null} />
-      ) : (
-        <div style={{ textAlign: "center" }}>
-          <div style={{ marginBottom: 4 }}><SeatLabel i={me} dealerIdx={dealerIdx} active={ownActive} name={meName} /></div>
-          <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)", padding: "0 8px" }}>
-            {ownCardItems.length ? <Fan items={ownCardItems} /> : null}
-          </div>
-        </div>
-      )}
+      <Seat i={me} dealerIdx={dealerIdx} active={ownActive} dim={cutdealPhase && me !== dealerIdx} name={meName} items={ownCardItems} />
 
       {/* middle zone: the crib (face down) before play, the live pile during it. The
           discard shows the crib-intent banner here instead, the cut-for-deal its own. */}

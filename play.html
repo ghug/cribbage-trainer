@@ -199,8 +199,8 @@ function cribSeed(a, b) {
 const twoCombos = (n) => { const out = []; for (let i = 0; i < n; i++)
     for (let j = i + 1; j < n; j++)
         out.push([i, j]); return out; };
-function aiDiscardN(dealt, seat, dealerIdx, n) {
-    const sign = seat === dealerIdx ? 1 : -1;
+function aiDiscardN(dealt, seat, dealerIdx, n, P, teams) {
+    const sign = teamOf(seat, P, teams) === teamOf(dealerIdx, P, teams) ? 1 : -1;
     if (n === 2) {
         let best = null, bv = -1e9;
         for (const idxs of twoCombos(dealt.length)) {
@@ -470,8 +470,8 @@ const showLabel = (kind, acc) => {
     const parts = acc.map((v, i) => (v > 0 ? `${CAT_SHORT[i]} ${v}` : null)).filter(Boolean);
     return parts.length ? `${kind} · ${parts.join(", ")}` : kind;
 };
-function evalDiscards(dealt, dealerIdx, n) {
-    const sign = dealerIdx === 0 ? 1 : -1;
+function evalDiscards(dealt, dealerIdx, n, P, teams) {
+    const sign = teamOf(0, P, teams) === teamOf(dealerIdx, P, teams) ? 1 : -1;
     const combos = n === 2 ? twoCombos(dealt.length) : dealt.map((_, i) => [i]);
     const opts = combos.map((idxs) => {
         const four = dealt.filter((_, j) => !idxs.includes(j));
@@ -494,6 +494,7 @@ function commitDiscard(state, idxs) {
 }
 function dealNewHand(state) {
     const P = clampPlayers(state.settings.players);
+    const teams = clampTeams(P, state.settings.teams);
     const deck = freshDeck();
     const d = state.dealerIdx;
     const pl = plan(P, d);
@@ -510,7 +511,7 @@ function dealNewHand(state) {
             seats[i].discard = [];
         }
         else if (i !== 0) {
-            const r = aiDiscardN(seats[i].dealt, i, d, pl.throws[i]);
+            const r = aiDiscardN(seats[i].dealt, i, d, pl.throws[i], P, teams);
             seats[i].discard = r.discard;
             seats[i].kept = sortHand(r.kept);
         }
@@ -594,7 +595,7 @@ function reduce(state, action) {
             const n = plan(P, state.dealerIdx).throws[0];
             if (!state.settings.warn)
                 return commitDiscard(state, action.idxs);
-            const { opts, best } = evalDiscards(state.seats[0].dealt, state.dealerIdx, n);
+            const { opts, best } = evalDiscards(state.seats[0].dealt, state.dealerIdx, n, P, teams);
             const chosen = opts.find((o) => sameSet(o.idxs, action.idxs));
             const delta = best.value - chosen.value;
             if (delta <= 0.1)
@@ -754,15 +755,16 @@ function ScoreRow({ seats, dealerIdx, turn, winner, onPick, P, teams }) {
         const score = seats[members[0]].score;
         const isTurn = members.includes(turn);
         const isWin = winner !== null && members.includes(winner);
-        const isDealer = members.includes(dealerIdx);
         return (React.createElement("button", { key: gi, onClick: () => onPick(members[0]), title: "tap for scoring history", style: {
                 padding: "8px 6px 9px", borderRadius: 9, textAlign: "center", cursor: "pointer", font: "inherit", color: "inherit",
                 background: isWin ? "rgba(95,164,124,0.28)" : isTurn ? "rgba(91,149,194,0.22)" : "rgba(0,0,0,0.22)",
                 border: `1px solid ${isWin ? T.good : isTurn ? T.selBlue : T.line}`,
             } },
-            React.createElement("div", { style: { fontFamily: mono, fontSize: members.length > 1 ? 9.5 : 10.5, color: T.muted, display: "flex", justifyContent: "center", gap: 4, alignItems: "center", flexWrap: "wrap" } },
-                teamLabel(members),
-                isDealer && React.createElement("span", { style: { color: T.pegIvory, fontWeight: 700 }, title: "dealer" }, "\u2B24D")),
+            React.createElement("div", { style: { fontFamily: mono, fontSize: members.length > 1 ? 9.5 : 10.5, color: T.muted, display: "flex", justifyContent: "center", gap: 3, alignItems: "center", flexWrap: "wrap" } }, members.map((m, k) => (React.createElement(React.Fragment, { key: m },
+                k > 0 && React.createElement("span", null, "&"),
+                React.createElement("span", { style: { display: "inline-flex", alignItems: "center" } },
+                    seatName(m),
+                    m === dealerIdx && React.createElement("span", { style: { color: T.pegIvory, fontWeight: 700 }, title: "dealer \u2014 gets the crib this hand" }, "\u2B24D")))))),
             React.createElement("div", { style: { fontFamily: serif, fontWeight: 700, fontSize: 22, color: isWin ? T.good : T.ivory } }, score),
             React.createElement("div", { style: { marginTop: 4, display: "flex", justifyContent: "center" } },
                 React.createElement(PegTrack, { pct: (score / TARGET) * 100 }))));
@@ -917,7 +919,7 @@ function CribbagePlay() {
         if (phase !== "discard" || autoPaused || !settings.autoDiscardBest || state.pendingDiscard)
             return;
         const n = plan(players, dealerIdx).throws[0];
-        const best = evalDiscards(state.seats[0].dealt, dealerIdx, n).best;
+        const best = evalDiscards(state.seats[0].dealt, dealerIdx, n, players, teams).best;
         const t = setTimeout(() => dispatch({ type: "DISCARD", idxs: best.idxs }), 550);
         return () => clearTimeout(t);
     }, [phase, settings.autoDiscardBest, autoPaused]);
@@ -943,6 +945,8 @@ function CribbagePlay() {
         return () => clearTimeout(t);
     }, [phase, show, settings.autoContinue, autoPaused]);
     const dealer = dealerIdx === 0;
+    const cribIsOurs = teamOf(dealerIdx, players, teams) === teamOf(0, players, teams);
+    const teammateDeals = cribIsOurs && !dealer;
     const cutter = (dealerIdx + players - 1) % players;
     const turnNow = phase === "play" && peg ? peg.turn : phase === "over" ? winner : -1;
     const discardPrompt = `Tap the ${humanThrows === 2 ? "two cards" : "card"} you'll throw to the crib.${humanThrows === 2 && sel.length === 1 ? " One more…" : ""}`;
@@ -1023,7 +1027,7 @@ function CribbagePlay() {
                 bigBtn(dealer ? "Deal" : `Deal (${seatName(dealerIdx)}'s crib)`, () => dispatch({ type: "DEAL" }), "wood"))),
             phase === "deal" && (React.createElement("div", { style: { marginTop: 14, display: "flex", flexDirection: "column", gap: 16 } },
                 React.createElement(Panel, { tone: dealer ? "good" : null },
-                    React.createElement("div", { style: { fontWeight: 700, fontSize: 15 } }, dealer ? "Your deal — the crib is yours." : `${seatName(dealerIdx)} deals — the crib is theirs.`),
+                    React.createElement("div", { style: { fontWeight: 700, fontSize: 15 } }, dealer ? "Your deal — the crib is yours." : teammateDeals ? `${seatName(dealerIdx)} deals — your team's crib.` : `${seatName(dealerIdx)} deals — the crib is theirs.`),
                     React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 } }, dealBlurb(players))),
                 React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, lineHeight: 1.7 } },
                     "counting ",
@@ -1039,8 +1043,8 @@ function CribbagePlay() {
                     React.createElement("span", null, " \u2014 tap \u2699 to change")),
                 bigBtn(dealer ? "Deal" : `Deal (${seatName(dealerIdx)}'s crib)`, () => dispatch({ type: "DEAL" }), "wood"))),
             phase === "discard" && (React.createElement("div", { style: { marginTop: 14, display: "flex", flexDirection: "column", gap: 14 } },
-                React.createElement(Panel, { tone: dealer ? "good" : "red" },
-                    React.createElement("div", { style: { fontWeight: 700, fontSize: 15 } }, dealer ? "Your crib — be greedy" : `Feeds ${seatName(dealerIdx)}'s crib — defend`),
+                React.createElement(Panel, { tone: cribIsOurs ? "good" : "red" },
+                    React.createElement("div", { style: { fontWeight: 700, fontSize: 15 } }, dealer ? "Your crib — be greedy" : teammateDeals ? `${seatName(dealerIdx)}'s crib — your team's, be greedy` : `Feeds ${seatName(dealerIdx)}'s crib — defend`),
                     React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 } }, discardPrompt)),
                 React.createElement(OpponentBacks, { dealerIdx: dealerIdx, P: players, n: 4 }),
                 React.createElement("div", { className: "dealwrap", style: { display: "flex", gap: 8, justifyContent: "center", flexWrap: "nowrap" } }, seats[0].dealt.map((card, i) => {
@@ -1067,14 +1071,16 @@ function CribbagePlay() {
                     };
                     return React.createElement(Card, { key: cardId(card), card: card, clickable: true, selected: selected, onClick: onClick });
                 })),
-                state.pendingDiscard && React.createElement(DiscardWarning, { pd: state.pendingDiscard, dealer: dealer, dispatch: dispatch, onCancel: () => setSel([]) }))),
+                state.pendingDiscard && React.createElement(DiscardWarning, { pd: state.pendingDiscard, cribIsOurs: cribIsOurs, dispatch: dispatch, onCancel: () => setSel([]) }))),
             phase === "cut" && (React.createElement("div", { style: { marginTop: 14, display: "flex", flexDirection: "column", gap: 16 } },
                 React.createElement(Panel, null,
                     React.createElement("div", { style: { fontWeight: 700, fontSize: 15 } }, "The crib is set"),
                     React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 } },
                         "Four cards in ",
                         dealer ? "your" : `${seatName(dealerIdx)}'s`,
-                        " crib.")),
+                        " crib",
+                        teammateDeals ? " (your team's)" : "",
+                        ".")),
                 React.createElement("div", { style: { display: "flex", justifyContent: "center", gap: 8 } }, [0, 1, 2, 3].map((i) => React.createElement(CardBack, { key: i }))),
                 React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" } },
                     cutter === 0 ? "You cut" : `${seatName(cutter)} cuts`,
@@ -1240,9 +1246,9 @@ function ShowScreen({ state, dispatch }) {
                 show.claimValue < info.total ? ` · missed ${info.total - show.claimValue}` : show.claimValue > info.total ? " · over-claim, corrected down" : " · spot on")),
             bigBtn("Continue", () => dispatch({ type: "SHOW_NEXT" }), "wood")))));
 }
-function DiscardWarning({ pd, dealer, dispatch, onCancel }) {
+function DiscardWarning({ pd, cribIsOurs, dispatch, onCancel }) {
     const { chosen, best, delta } = pd;
-    const side = dealer ? "for you" : "to the dealer";
+    const side = cribIsOurs ? "for your side" : "to the opponents";
     const thrownTag = (o) => o.thrown.map(tag).join(" ");
     const Line = ({ label, o, strong }) => (React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, lineHeight: 1.6, color: strong ? T.cream : T.muted } },
         React.createElement("b", { style: { color: strong ? T.good : T.ivory } }, label),
@@ -1268,7 +1274,7 @@ function DiscardWarning({ pd, dealer, dispatch, onCancel }) {
             React.createElement(Line, { label: "Yours:", o: chosen })),
         React.createElement("div", { style: { fontSize: 12.5, lineHeight: 1.5, color: T.cream, marginBottom: 12 } },
             "\u201Chand\u201D = your kept cards averaged over every cut; \u201Ccrib\u201D = the thrown card(s)' average value in the crib (",
-            dealer ? "added to your score" : "given to the dealer, so subtracted",
+            cribIsOurs ? "added to your side's score" : "given to the opponents, so subtracted",
             "). Net is the two combined."),
         React.createElement("div", { style: { display: "flex", gap: 8 } },
             React.createElement("button", { onClick: () => dispatch({ type: "CONFIRM_DISCARD" }), style: {

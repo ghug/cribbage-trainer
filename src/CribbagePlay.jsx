@@ -136,10 +136,11 @@ function cribSeed(a, b) {
 const twoCombos = (n) => { const out = []; for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) out.push([i, j]); return out; };
 
 // Bot discard: throw `n` cards (1 or 2) maximising kept-hand EV plus the crib swing
-// of the throw, signed by whether this seat owns the crib (dealer) or feeds it.
+// of the throw. The crib helps whoever's TEAM the dealer is on, so a throw is +EV
+// when this seat is on the dealer's team (the crib is "ours"), −EV otherwise.
 // Returns { discard: [cards], kept: [cards] } — discard is always an array.
-function aiDiscardN(dealt, seat, dealerIdx, n) {
-  const sign = seat === dealerIdx ? 1 : -1;
+function aiDiscardN(dealt, seat, dealerIdx, n, P, teams) {
+  const sign = teamOf(seat, P, teams) === teamOf(dealerIdx, P, teams) ? 1 : -1;
   if (n === 2) {
     let best = null, bv = -1e9;
     for (const idxs of twoCombos(dealt.length)) {
@@ -411,9 +412,10 @@ const showLabel = (kind, acc) => {
 };
 
 // Rate the human's throws (single or two-card) the way the bots do: kept-hand EV
-// plus the thrown card(s)' crib value, signed for whose crib it is. n = throw count.
-function evalDiscards(dealt, dealerIdx, n) {
-  const sign = dealerIdx === 0 ? 1 : -1;
+// plus the thrown card(s)' crib value, signed +1 when the crib is on your team
+// (you or a partner deals) and −1 when it feeds the opponents. n = throw count.
+function evalDiscards(dealt, dealerIdx, n, P, teams) {
+  const sign = teamOf(0, P, teams) === teamOf(dealerIdx, P, teams) ? 1 : -1;
   const combos = n === 2 ? twoCombos(dealt.length) : dealt.map((_, i) => [i]);
   const opts = combos.map((idxs) => {
     const four = dealt.filter((_, j) => !idxs.includes(j));
@@ -439,6 +441,7 @@ function commitDiscard(state, idxs) {
 
 function dealNewHand(state) {
   const P = clampPlayers(state.settings.players);
+  const teams = clampTeams(P, state.settings.teams);
   const deck = freshDeck();
   const d = state.dealerIdx;
   const pl = plan(P, d);
@@ -452,7 +455,7 @@ function dealNewHand(state) {
   // when a thrower, throws during the discard phase.
   for (let i = 0; i < P; i++) {
     if (pl.throws[i] === 0) { seats[i].kept = sortHand(seats[i].dealt); seats[i].discard = []; }
-    else if (i !== 0) { const r = aiDiscardN(seats[i].dealt, i, d, pl.throws[i]); seats[i].discard = r.discard; seats[i].kept = sortHand(r.kept); }
+    else if (i !== 0) { const r = aiDiscardN(seats[i].dealt, i, d, pl.throws[i], P, teams); seats[i].discard = r.discard; seats[i].kept = sortHand(r.kept); }
   }
   const base = {
     ...state, seats, deck, starter: null, crib: [], hisHeels: false,
@@ -530,7 +533,7 @@ function reduce(state, action) {
     case "SELECT_DISCARD": {
       const n = plan(P, state.dealerIdx).throws[0];
       if (!state.settings.warn) return commitDiscard(state, action.idxs);
-      const { opts, best } = evalDiscards(state.seats[0].dealt, state.dealerIdx, n);
+      const { opts, best } = evalDiscards(state.seats[0].dealt, state.dealerIdx, n, P, teams);
       const chosen = opts.find((o) => sameSet(o.idxs, action.idxs));
       const delta = best.value - chosen.value;
       if (delta <= 0.1) return commitDiscard(state, action.idxs);
@@ -688,15 +691,22 @@ function ScoreRow({ seats, dealerIdx, turn, winner, onPick, P, teams }) {
         const score = seats[members[0]].score;       // shared across the team
         const isTurn = members.includes(turn);
         const isWin = winner !== null && members.includes(winner);
-        const isDealer = members.includes(dealerIdx);
         return (
           <button key={gi} onClick={() => onPick(members[0])} title="tap for scoring history" style={{
             padding: "8px 6px 9px", borderRadius: 9, textAlign: "center", cursor: "pointer", font: "inherit", color: "inherit",
             background: isWin ? "rgba(95,164,124,0.28)" : isTurn ? "rgba(91,149,194,0.22)" : "rgba(0,0,0,0.22)",
             border: `1px solid ${isWin ? T.good : isTurn ? T.selBlue : T.line}`,
           }}>
-            <div style={{ fontFamily: mono, fontSize: members.length > 1 ? 9.5 : 10.5, color: T.muted, display: "flex", justifyContent: "center", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
-              {teamLabel(members)}{isDealer && <span style={{ color: T.pegIvory, fontWeight: 700 }} title="dealer">⬤D</span>}
+            {/* the dealer is still an individual: mark whichever member deals/has the crib */}
+            <div style={{ fontFamily: mono, fontSize: members.length > 1 ? 9.5 : 10.5, color: T.muted, display: "flex", justifyContent: "center", gap: 3, alignItems: "center", flexWrap: "wrap" }}>
+              {members.map((m, k) => (
+                <React.Fragment key={m}>
+                  {k > 0 && <span>&amp;</span>}
+                  <span style={{ display: "inline-flex", alignItems: "center" }}>
+                    {seatName(m)}{m === dealerIdx && <span style={{ color: T.pegIvory, fontWeight: 700 }} title="dealer — gets the crib this hand">⬤D</span>}
+                  </span>
+                </React.Fragment>
+              ))}
             </div>
             <div style={{ fontFamily: serif, fontWeight: 700, fontSize: 22, color: isWin ? T.good : T.ivory }}>{score}</div>
             <div style={{ marginTop: 4, display: "flex", justifyContent: "center" }}><PegTrack pct={(score / TARGET) * 100} /></div>
@@ -852,7 +862,7 @@ export default function CribbagePlay() {
   useEffect(() => {
     if (phase !== "discard" || autoPaused || !settings.autoDiscardBest || state.pendingDiscard) return;
     const n = plan(players, dealerIdx).throws[0];
-    const best = evalDiscards(state.seats[0].dealt, dealerIdx, n).best;
+    const best = evalDiscards(state.seats[0].dealt, dealerIdx, n, players, teams).best;
     const t = setTimeout(() => dispatch({ type: "DISCARD", idxs: best.idxs }), 550);
     return () => clearTimeout(t);
   }, [phase, settings.autoDiscardBest, autoPaused]);
@@ -875,6 +885,11 @@ export default function CribbagePlay() {
   }, [phase, show, settings.autoContinue, autoPaused]);
 
   const dealer = dealerIdx === 0;
+  // The dealer is always an individual; with teams, the crib's points go to the
+  // dealer's team. "ours" = the crib lands on my team; "teammateDeals" = a partner
+  // (not me) is the dealer this hand.
+  const cribIsOurs = teamOf(dealerIdx, players, teams) === teamOf(0, players, teams);
+  const teammateDeals = cribIsOurs && !dealer;
   const cutter = (dealerIdx + players - 1) % players;
   const turnNow = phase === "play" && peg ? peg.turn : phase === "over" ? winner : -1;
   const discardPrompt = `Tap the ${humanThrows === 2 ? "two cards" : "card"} you'll throw to the crib.${humanThrows === 2 && sel.length === 1 ? " One more…" : ""}`;
@@ -979,7 +994,7 @@ export default function CribbagePlay() {
         {phase === "deal" && (
           <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 16 }}>
             <Panel tone={dealer ? "good" : null}>
-              <div style={{ fontWeight: 700, fontSize: 15 }}>{dealer ? "Your deal — the crib is yours." : `${seatName(dealerIdx)} deals — the crib is theirs.`}</div>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>{dealer ? "Your deal — the crib is yours." : teammateDeals ? `${seatName(dealerIdx)} deals — your team's crib.` : `${seatName(dealerIdx)} deals — the crib is theirs.`}</div>
               <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>{dealBlurb(players)}</div>
             </Panel>
             <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, lineHeight: 1.7 }}>
@@ -994,8 +1009,8 @@ export default function CribbagePlay() {
 
         {phase === "discard" && (
           <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 14 }}>
-            <Panel tone={dealer ? "good" : "red"}>
-              <div style={{ fontWeight: 700, fontSize: 15 }}>{dealer ? "Your crib — be greedy" : `Feeds ${seatName(dealerIdx)}'s crib — defend`}</div>
+            <Panel tone={cribIsOurs ? "good" : "red"}>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>{dealer ? "Your crib — be greedy" : teammateDeals ? `${seatName(dealerIdx)}'s crib — your team's, be greedy` : `Feeds ${seatName(dealerIdx)}'s crib — defend`}</div>
               <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>{discardPrompt}</div>
             </Panel>
             <OpponentBacks dealerIdx={dealerIdx} P={players} n={4} />
@@ -1016,7 +1031,7 @@ export default function CribbagePlay() {
                 return <Card key={cardId(card)} card={card} clickable selected={selected} onClick={onClick} />;
               })}
             </div>
-            {state.pendingDiscard && <DiscardWarning pd={state.pendingDiscard} dealer={dealer} dispatch={dispatch} onCancel={() => setSel([])} />}
+            {state.pendingDiscard && <DiscardWarning pd={state.pendingDiscard} cribIsOurs={cribIsOurs} dispatch={dispatch} onCancel={() => setSel([])} />}
           </div>
         )}
 
@@ -1025,7 +1040,7 @@ export default function CribbagePlay() {
             <Panel>
               <div style={{ fontWeight: 700, fontSize: 15 }}>The crib is set</div>
               <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>
-                Four cards in {dealer ? "your" : `${seatName(dealerIdx)}'s`} crib.
+                Four cards in {dealer ? "your" : `${seatName(dealerIdx)}'s`} crib{teammateDeals ? " (your team's)" : ""}.
               </div>
             </Panel>
             <div style={{ display: "flex", justifyContent: "center", gap: 8 }}>
@@ -1275,9 +1290,9 @@ function ShowScreen({ state, dispatch }) {
 }
 
 // Warning when the human's throw isn't the best available. thrown is an array (1 or 2).
-function DiscardWarning({ pd, dealer, dispatch, onCancel }) {
+function DiscardWarning({ pd, cribIsOurs, dispatch, onCancel }) {
   const { chosen, best, delta } = pd;
-  const side = dealer ? "for you" : "to the dealer";
+  const side = cribIsOurs ? "for your side" : "to the opponents";
   const thrownTag = (o) => o.thrown.map(tag).join(" ");
   const Line = ({ label, o, strong }) => (
     <div style={{ fontFamily: mono, fontSize: 11.5, lineHeight: 1.6, color: strong ? T.cream : T.muted }}>
@@ -1293,7 +1308,7 @@ function DiscardWarning({ pd, dealer, dispatch, onCancel }) {
       </div>
       <div style={{ fontSize: 12.5, lineHeight: 1.5, color: T.cream, marginBottom: 12 }}>
         “hand” = your kept cards averaged over every cut; “crib” = the thrown card(s)' average value in the crib
-        ({dealer ? "added to your score" : "given to the dealer, so subtracted"}). Net is the two combined.
+        ({cribIsOurs ? "added to your side's score" : "given to the opponents, so subtracted"}). Net is the two combined.
       </div>
       <div style={{ display: "flex", gap: 8 }}>
         <button onClick={() => dispatch({ type: "CONFIRM_DISCARD" })} style={{

@@ -1170,8 +1170,14 @@ function CribbagePlay() {
                     React.createElement("b", { style: { color: T.cream } }, settings.warn ? "on" : "off"),
                     React.createElement("span", null, " \u2014 tap \u2699 to change")),
                 bigBtn(dealer ? "Deal" : `Deal (${seatName(dealerIdx)}'s crib)`, () => dispatch({ type: "DEAL" }), "wood"))),
-            phase === "discard" && needHandoff && React.createElement("div", { style: { marginTop: 14 } },
-                React.createElement(PassPanel, { to: state.discardSeat, dispatch: dispatch })),
+            phase === "discard" && needHandoff && (React.createElement("div", { style: { marginTop: 14, display: "flex", flexDirection: "column", gap: 14 } },
+                React.createElement(OpponentBacks, { dealerIdx: dealerIdx, P: players, sizes: plan(players, dealerIdx).sizes, me: ds }),
+                React.createElement("div", { style: { textAlign: "center" } },
+                    React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 4 } },
+                        seatShort(ds),
+                        dealerIdx === ds ? " (D)" : ""),
+                    React.createElement(Fan, { items: backItems(seats[ds].dealt.length) })),
+                React.createElement(PassPanel, { to: ds, dispatch: dispatch }))),
             phase === "discard" && !needHandoff && (React.createElement("div", { style: { marginTop: 14, display: "flex", flexDirection: "column", gap: 14 } },
                 React.createElement(Panel, { tone: dsCribOurs ? "good" : "red" },
                     React.createElement("div", { style: { fontWeight: 700, fontSize: 15 } },
@@ -1587,7 +1593,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, "Source, bugs & feedback \u2197"),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.8-dev.2"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.8-dev.3"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

@@ -1148,7 +1148,17 @@ export default function CribbagePlay() {
           </div>
         )}
 
-        {phase === "discard" && needHandoff && <div style={{ marginTop: 14 }}><PassPanel to={state.discardSeat} dispatch={dispatch} /></div>}
+        {phase === "discard" && needHandoff && (
+          <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 14 }}>
+            <OpponentBacks dealerIdx={dealerIdx} P={players} sizes={plan(players, dealerIdx).sizes} me={ds} />
+            {/* the incoming player's own hand sits face down while waiting to pass */}
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 4 }}>{seatShort(ds)}{dealerIdx === ds ? " (D)" : ""}</div>
+              <Fan items={backItems(seats[ds].dealt.length)} />
+            </div>
+            <PassPanel to={ds} dispatch={dispatch} />
+          </div>
+        )}
         {phase === "discard" && !needHandoff && (
           <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 14 }}>
             <Panel tone={dsCribOurs ? "good" : "red"}>

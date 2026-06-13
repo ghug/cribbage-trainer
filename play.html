@@ -954,7 +954,6 @@ function CribbagePlay() {
     const [confirmHome, setConfirmHome] = React.useState(false);
     const [aboutOpen, setAboutOpen] = React.useState(false);
     const [historyOpen, setHistoryOpen] = React.useState(false);
-    const [sel, setSel] = React.useState([]);
     const { phase, seats, dealerIdx, peg, show, starter, winner, message, settings, dealDraw } = state;
     const players = clampPlayers(settings.players);
     const teams = clampTeams(players, settings.teams);
@@ -962,7 +961,6 @@ function CribbagePlay() {
     const youRef = soleHuman(players, settings) >= 0 ? soleHuman(players, settings) : 0;
     setSeatNames(players, soleHuman(players, settings));
     const ds = state.discardSeat != null ? state.discardSeat : 0;
-    const humanThrows = plan(players, dealerIdx).throws[ds];
     const playMe = state.holder == null ? firstHuman(players, settings) : state.holder;
     const needHandoff = multiHuman && (phase === "discard" ? (state.discardSeat != null && state.holder !== state.discardSeat)
         : (phase === "play" && peg) ? (seatIsHuman(peg.turn, settings) && state.holder !== peg.turn && peg.hands[peg.turn].length > 0)
@@ -993,7 +991,6 @@ function CribbagePlay() {
     const autoPaused = paused || settingsOpen || historySeat !== null;
     useEffect(() => { if (!canPause && paused)
         setPaused(false); }, [canPause, paused]);
-    useEffect(() => { setSel([]); }, [phase, state.discardSeat]);
     useEffect(() => {
         if (phase !== "play" || !peg || autoPaused)
             return;
@@ -1075,12 +1072,7 @@ function CribbagePlay() {
     const dealer = dealerIdx === youRef;
     const cribIsOurs = teamOf(dealerIdx, players, teams) === teamOf(youRef, players, teams);
     const teammateDeals = cribIsOurs && !dealer;
-    const dsIsDealer = ds === dealerIdx;
-    const dsCribOurs = teamOf(dealerIdx, players, teams) === teamOf(ds, players, teams);
-    const dsTeammateDeals = dsCribOurs && !dsIsDealer;
-    const cutter = (dealerIdx + players - 1) % players;
     const turnNow = phase === "play" && peg ? peg.turn : phase === "over" ? winner : -1;
-    const discardPrompt = `Tap the ${humanThrows === 2 ? "two cards" : "card"} you'll throw to the crib.${humanThrows === 2 && sel.length === 1 ? " One more…" : ""}`;
     return (React.createElement("div", { style: {
             minHeight: "100%", background: `radial-gradient(120% 90% at 50% 0%, ${T.baizeHi}, ${T.baize})`,
             color: T.cream, fontFamily: serif, padding: "0 0 40px",
@@ -1170,54 +1162,7 @@ function CribbagePlay() {
                     React.createElement("b", { style: { color: T.cream } }, settings.warn ? "on" : "off"),
                     React.createElement("span", null, " \u2014 tap \u2699 to change")),
                 bigBtn(dealer ? "Deal" : `Deal (${seatName(dealerIdx)}'s crib)`, () => dispatch({ type: "DEAL" }), "wood"))),
-            phase === "discard" && needHandoff && (React.createElement("div", { style: { marginTop: 14, display: "flex", flexDirection: "column", gap: 14 } },
-                React.createElement(OpponentBacks, { dealerIdx: dealerIdx, P: players, sizes: plan(players, dealerIdx).sizes, me: ds }),
-                React.createElement("div", { style: { textAlign: "center" } },
-                    React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 4 } },
-                        seatShort(ds),
-                        dealerIdx === ds ? " (D)" : ""),
-                    React.createElement(Fan, { items: backItems(seats[ds].dealt.length) })),
-                React.createElement(PassPanel, { to: ds, dispatch: dispatch }))),
-            phase === "discard" && !needHandoff && (React.createElement("div", { style: { marginTop: 14, display: "flex", flexDirection: "column", gap: 14 } },
-                React.createElement(Panel, { tone: dsCribOurs ? "good" : "red" },
-                    React.createElement("div", { style: { fontWeight: 700, fontSize: 15 } },
-                        multiHuman ? `${seatName(ds)}: ` : "",
-                        dsIsDealer ? "Your crib — be greedy" : dsTeammateDeals ? `${seatName(dealerIdx)}'s crib — your team's, be greedy` : `Feeds ${seatName(dealerIdx)}'s crib — defend`),
-                    React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3, lineHeight: 1.45, minHeight: humanThrows === 2 ? "2.9em" : undefined } }, discardPrompt)),
-                React.createElement(OpponentBacks, { dealerIdx: dealerIdx, P: players, sizes: plan(players, dealerIdx).sizes, me: ds }),
-                settings.tapToSelect && !state.pendingDiscard && (React.createElement(ConfirmButton, { label: `Throw to crib${humanThrows === 2 ? ` (${sel.length}/2)` : ""}`, enabled: sel.length === humanThrows, onClick: () => { const idxs = sel.slice().sort((a, b) => a - b); setSel([]); dispatch({ type: "SELECT_DISCARD", idxs }); } })),
-                React.createElement("div", { className: "dealwrap", style: { display: "flex", gap: 8, justifyContent: "center", flexWrap: "nowrap" } }, seats[ds].dealt.map((card, i) => {
-                    const pd = state.pendingDiscard;
-                    const selected = pd ? pd.idxs.includes(i) : sel.includes(i);
-                    const onClick = () => {
-                        if (pd) {
-                            dispatch({ type: "CANCEL_DISCARD" });
-                            setSel([]);
-                            return;
-                        }
-                        if (settings.tapToSelect) {
-                            setSel((s) => s.includes(i) ? s.filter((x) => x !== i)
-                                : s.length >= humanThrows ? (humanThrows === 1 ? [i] : s)
-                                    : [...s, i]);
-                            return;
-                        }
-                        if (humanThrows === 2) {
-                            const next = sel.includes(i) ? sel.filter((x) => x !== i) : [...sel, i];
-                            if (next.length === 2) {
-                                setSel([]);
-                                dispatch({ type: "SELECT_DISCARD", idxs: next });
-                            }
-                            else
-                                setSel(next);
-                        }
-                        else {
-                            dispatch({ type: "SELECT_DISCARD", idxs: [i] });
-                        }
-                    };
-                    return React.createElement(Card, { key: cardId(card), card: card, clickable: true, selected: !settings.tapToSelect && selected, raised: settings.tapToSelect && selected, onClick: onClick });
-                })),
-                state.pendingDiscard && React.createElement(DiscardWarning, { pd: state.pendingDiscard, cribIsOurs: cribIsOurs, dispatch: dispatch, onCancel: () => setSel([]) }))),
-            (phase === "cut" || (phase === "play" && peg)) && (React.createElement(PlayScreen, { state: state, dispatch: dispatch, me: playMe, needHandoff: needHandoff })),
+            (phase === "discard" || phase === "cut" || (phase === "play" && peg)) && (React.createElement(PlayScreen, { state: state, dispatch: dispatch, me: phase === "discard" ? ds : playMe, needHandoff: needHandoff })),
             phase === "show" && show && (React.createElement(ShowScreen, { state: state, dispatch: dispatch })),
             phase === "over" && (React.createElement("div", { style: { marginTop: 16, display: "flex", flexDirection: "column", gap: 16 } },
                 React.createElement(Panel, { tone: "good" },
@@ -1283,15 +1228,6 @@ function seatsAround(P, me) {
     const ts = tableSeats(P), at = (rel) => (me + rel) % P;
     return { top: ts.top.map(at), left: ts.left != null ? at(ts.left) : null, right: ts.right != null ? at(ts.right) : null };
 }
-function OpponentBacks({ dealerIdx, P, sizes, me = 0 }) {
-    const ts = seatsAround(P, me);
-    const cell = (i) => React.createElement(SeatCell, { key: i, i: i, dealerIdx: dealerIdx, remaining: sizes[i] });
-    return (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10 } },
-        ts.top.length > 0 && React.createElement("div", { style: { display: "flex", justifyContent: "space-around" } }, ts.top.map(cell)),
-        (ts.left != null || ts.right != null) && (React.createElement("div", { style: { display: "flex", justifyContent: "space-between", padding: "0 6px" } },
-            ts.left != null && cell(ts.left),
-            ts.right != null && cell(ts.right)))));
-}
 function DeckBack() {
     const h = Math.round(44 * 96 / 68);
     return (React.createElement("div", { style: { position: "relative", width: 50, height: h + 4, margin: "0 auto" } },
@@ -1303,24 +1239,65 @@ function DeckBack() {
             React.createElement(CardBack, { small: true }))));
 }
 function PlayScreen({ state, dispatch, me, needHandoff }) {
-    const { peg, starter, dealerIdx, crib, seats, settings } = state;
-    const cutPhase = !peg;
+    const { peg, starter, dealerIdx, crib, seats, settings, phase } = state;
+    const discardPhase = phase === "discard";
+    const cutPhase = phase === "cut";
     const P = peg ? peg.hands.length : seats.length;
+    const teams = clampTeams(P, settings.teams);
+    const pl = plan(P, dealerIdx);
     const ts = seatsAround(P, me);
-    const hands = peg ? peg.hands : seats.map((s) => s.kept || []);
+    const hands = peg ? peg.hands : seats.map((s) => (discardPhase ? s.dealt : (s.kept || [])));
     const yourHand = hands[me];
     const meName = seatShort(me);
     const turn = peg ? peg.turn : -1;
-    const legalSet = new Set((peg ? yourHand.filter((c) => pval(c.r) + peg.count <= 31) : []).map(cardId));
-    const myTurn = !!peg && turn === me && legalSet.size > 0;
-    const stuck = !!peg && turn === me && legalSet.size === 0 && yourHand.length > 0;
     const tapSelect = settings.tapToSelect;
     const cutter = (dealerIdx + P - 1) % P;
-    const [selCard, setSelCard] = React.useState(null);
-    const selValid = tapSelect && selCard && myTurn && legalSet.has(cardId(selCard));
-    useEffect(() => { if (selCard && !selValid)
-        setSelCard(null); }, [selValid, selCard]);
+    const multiHuman = nHumans(P, settings) > 1;
+    const [sel, setSel] = React.useState([]);
+    const legalSet = peg ? new Set(yourHand.filter((c) => pval(c.r) + peg.count <= 31).map(cardId)) : null;
+    const count = discardPhase ? pl.throws[me] : 1;
+    const myTurn = discardPhase ? !needHandoff : (!!peg && turn === me && legalSet.size > 0);
+    const stuck = !!peg && turn === me && legalSet.size === 0 && yourHand.length > 0;
+    const pending = discardPhase ? state.pendingDiscard : state.pendingPlay;
+    const pendIdxs = !pending ? null
+        : discardPhase ? pending.idxs
+            : [yourHand.findIndex((c) => sameCard(c, pending.card))];
+    const isLegal = (c) => discardPhase || legalSet.has(cardId(c));
+    useEffect(() => { setSel([]); }, [me, phase, turn]);
+    const commit = (idxs) => dispatch(discardPhase
+        ? { type: "SELECT_DISCARD", idxs: idxs.slice().sort((a, b) => a - b) }
+        : { type: "SELECT_PLAY", card: yourHand[idxs[0]] });
+    const tapCard = (i) => {
+        if (pending) {
+            dispatch({ type: discardPhase ? "CANCEL_DISCARD" : "CANCEL_PLAY" });
+            setSel([]);
+            return;
+        }
+        if (!myTurn || !isLegal(yourHand[i]))
+            return;
+        if (tapSelect) {
+            setSel((s) => s.includes(i) ? s.filter((x) => x !== i)
+                : s.length >= count ? (count === 1 ? [i] : s) : [...s, i]);
+            return;
+        }
+        if (count === 1) {
+            commit([i]);
+            return;
+        }
+        const next = sel.includes(i) ? sel.filter((x) => x !== i) : [...sel, i];
+        if (next.length === count) {
+            setSel([]);
+            commit(next);
+        }
+        else
+            setSel(next);
+    };
+    const cribOurs = teamOf(dealerIdx, P, teams) === teamOf(me, P, teams);
+    const isDealer = me === dealerIdx;
+    const teammateDeals = cribOurs && !isDealer;
+    const discardPrompt = `Tap the ${count === 2 ? "two cards" : "card"} you'll throw to the crib.${count === 2 && sel.length === 1 ? " One more…" : ""}`;
     const cell = (i) => (React.createElement(SeatCell, { key: i, i: i, dealerIdx: dealerIdx, active: turn === i, played: peg ? peg.played[i] : [], remaining: hands[i].length }));
+    const ownFaceDown = cutPhase || needHandoff || (!!peg && peg.played[me].length > 0);
     return (React.createElement("div", { style: { marginTop: 12, display: "flex", flexDirection: "column", gap: 14 } },
         ts.top.length > 0 && React.createElement("div", { style: { display: "flex", justifyContent: "space-around" } }, ts.top.map(cell)),
         React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: ts.left != null ? "space-between" : "center", gap: 8, padding: "0 6px" } },
@@ -1330,16 +1307,15 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
                 starter ? React.createElement("div", { style: { width: 44 } },
                     React.createElement(Card, { card: starter, small: true })) : React.createElement(DeckBack, null)),
             ts.right != null && cell(ts.right)),
-        React.createElement("div", { style: { textAlign: "center", minHeight: 80 } }, cutPhase ? (React.createElement(React.Fragment, null,
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 4 } },
+        ownFaceDown && (React.createElement("div", { style: { textAlign: "center", minHeight: 80 } },
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: turn === me ? T.selBlue : T.muted, marginBottom: 4 } },
                 meName,
                 dealerIdx === me ? " (D)" : ""),
-            React.createElement(Fan, { items: backItems(hands[me].length) }))) : (needHandoff || peg.played[me].length > 0) && (React.createElement(React.Fragment, null,
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: peg.turn === me ? T.selBlue : T.muted, marginBottom: 4 } },
-                meName,
-                dealerIdx === me ? " (D)" : ""),
-            React.createElement(Fan, { items: [...(needHandoff ? backItems(peg.hands[me].length) : []), ...cardItems(peg.played[me])] })))),
-        cutPhase ? (React.createElement("div", { style: { background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "12px", minHeight: 88, display: "flex", alignItems: "center", justifyContent: "center", gap: 14 } },
+            React.createElement(Fan, { items: [...backItems(peg ? (needHandoff ? peg.hands[me].length : 0) : hands[me].length), ...cardItems(peg ? peg.played[me] : [])] }))),
+        discardPhase ? (React.createElement(Panel, { tone: cribOurs ? "good" : "red" },
+            React.createElement("div", { style: { fontWeight: 700, fontSize: 15 } },
+                multiHuman ? `${seatName(me)}: ` : "",
+                isDealer ? "Your crib — be greedy" : teammateDeals ? `${seatName(dealerIdx)}'s crib — your team's, be greedy` : `Feeds ${seatName(dealerIdx)}'s crib — defend`))) : cutPhase ? (React.createElement("div", { style: { background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "12px", minHeight: 88, display: "flex", alignItems: "center", justifyContent: "center", gap: 14 } },
             React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: T.muted } }, me === dealerIdx ? "your crib" : `${seatName(dealerIdx)}'s crib`),
             React.createElement(Fan, { items: backItems(crib.length) }))) : (React.createElement("div", { style: { background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "12px" } },
             React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, minHeight: 64 } },
@@ -1353,48 +1329,41 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
             ? React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" } },
                 cutter === me ? "You cut" : `${seatName(cutter)} cuts`,
                 " the starter\u2026")
-            : bigBtn(cutter === me ? "Cut the deck" : `Cut the deck (${seatName(cutter)} turns the starter)`, () => dispatch({ type: "CUT" }), "wood")) : needHandoff ? React.createElement(PassPanel, { to: peg.turn, dispatch: dispatch }) : (React.createElement("div", null,
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: (myTurn || stuck) ? T.selBlue : T.muted, marginBottom: 6 } }, peg.turn === me
-                ? (myTurn ? (tapSelect ? "Your turn — tap a card to select, then Play." : "Your turn — tap a card to play.")
-                    : stuck ? (state.settings.autoGo ? "No legal card — passing…" : "No legal card — tap Go to pass.")
-                        : "Your cards are all played.")
-                : `${seatName(peg.turn)} to play…`),
-            state.pendingPlay && React.createElement("div", { style: { marginBottom: 10 } },
-                React.createElement(PlayWarning, { pp: state.pendingPlay, dispatch: dispatch })),
+            : bigBtn(cutter === me ? "Cut the deck" : `Cut the deck (${seatName(cutter)} turns the starter)`, () => dispatch({ type: "CUT" }), "wood")) : needHandoff ? React.createElement(PassPanel, { to: discardPhase ? me : peg.turn, dispatch: dispatch }) : (React.createElement("div", null,
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: (myTurn || stuck) ? T.selBlue : T.muted, marginBottom: 6, lineHeight: 1.45, minHeight: discardPhase && count === 2 ? "2.9em" : undefined } }, discardPhase ? discardPrompt
+                : peg.turn === me
+                    ? (myTurn ? (tapSelect ? "Your turn — tap a card to select, then Play." : "Your turn — tap a card to play.")
+                        : stuck ? (settings.autoGo ? "No legal card — passing…" : "No legal card — tap Go to pass.")
+                            : "Your cards are all played.")
+                    : `${seatName(peg.turn)} to play…`),
+            pending && (discardPhase
+                ? React.createElement("div", { style: { marginBottom: 10 } },
+                    React.createElement(DiscardWarning, { pd: pending, cribIsOurs: cribOurs, dispatch: dispatch, onCancel: () => setSel([]) }))
+                : React.createElement("div", { style: { marginBottom: 10 } },
+                    React.createElement(PlayWarning, { pp: pending, dispatch: dispatch }))),
             (() => {
-                const goBtn = stuck && !state.settings.autoGo
+                const goBtn = stuck && !settings.autoGo
                     ? React.createElement("button", { onClick: () => dispatch({ type: "PASS_GO", seat: me }), style: {
                             width: "100%", padding: "12px", borderRadius: 10, border: "none", cursor: "pointer",
                             background: `linear-gradient(180deg, ${T.pegRed}, #9c3120)`, color: T.ivory,
                             fontSize: 15, fontWeight: 700, letterSpacing: 0.3, boxShadow: "0 4px 12px rgba(0,0,0,0.35)",
                         } }, "Say \"Go\"")
                     : null;
-                const playBtn = tapSelect && myTurn && !state.pendingPlay
-                    ? React.createElement(ConfirmButton, { label: "Play", enabled: !!selValid, onClick: () => { const c = selCard; setSelCard(null); dispatch({ type: "SELECT_PLAY", card: c }); } })
+                const confirmBtn = tapSelect && myTurn && !pending
+                    ? React.createElement(ConfirmButton, { label: discardPhase ? `Throw to crib${count === 2 ? ` (${sel.length}/2)` : ""}` : "Play", enabled: sel.length === count && sel.every((i) => isLegal(yourHand[i])), onClick: () => { const idxs = sel; setSel([]); commit(idxs); } })
                     : null;
-                const action = goBtn || playBtn;
+                const action = goBtn || confirmBtn;
                 if (tapSelect)
                     return React.createElement("div", { style: { minHeight: 44, marginBottom: 10 } }, action);
                 return action && React.createElement("div", { style: { marginBottom: 10 } }, action);
             })(),
-            React.createElement("div", { style: { display: "flex", gap: 6, justifyContent: "center", flexWrap: "nowrap" } },
-                yourHand.map((card) => {
-                    const legal = legalSet.has(cardId(card));
-                    const pp = state.pendingPlay;
-                    const onClick = () => {
-                        if (pp) {
-                            dispatch({ type: "CANCEL_PLAY" });
-                            return;
-                        }
-                        if (tapSelect) {
-                            setSelCard((c) => (c && sameCard(c, card) ? null : card));
-                            return;
-                        }
-                        dispatch({ type: "SELECT_PLAY", card });
-                    };
-                    return (React.createElement(Card, { key: cardId(card), card: card, selLabel: "PLAY", clickable: pp ? true : (myTurn && legal), selected: pp ? sameCard(pp.card, card) : false, raised: !pp && tapSelect && !!selCard && sameCard(selCard, card), dim: !pp && !legal && peg.turn === me, onClick: onClick }));
+            React.createElement("div", { className: discardPhase ? "dealwrap" : undefined, style: { display: "flex", gap: 6, justifyContent: "center", flexWrap: "nowrap" } },
+                yourHand.map((card, i) => {
+                    const legal = isLegal(card);
+                    const chosen = pending ? pendIdxs.includes(i) : sel.includes(i);
+                    return (React.createElement(Card, { key: cardId(card), card: card, selLabel: discardPhase ? undefined : "PLAY", clickable: pending ? true : (myTurn && legal), selected: !tapSelect && chosen, raised: tapSelect && chosen, dim: !pending && !legal && turn === me, onClick: () => tapCard(i) }));
                 }),
-                yourHand.length === 0 && React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: T.muted } }, "your cards are all played"))))));
+                !discardPhase && yourHand.length === 0 && React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: T.muted } }, "your cards are all played"))))));
 }
 function ShowScreen({ state, dispatch }) {
     const info = computeShow(state);
@@ -1602,7 +1571,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, "Source, bugs & feedback \u2197"),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.8-dev.4"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.8-dev.5"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

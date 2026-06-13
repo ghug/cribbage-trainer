@@ -1,0 +1,5 @@
+New in 1.1.5:
+- New (on by default): tap a card to select it, then a Play / Throw-to-crib button confirms — tap again to deselect
+- Much better layout on smaller phones: hands fit on one row, the play pile no longer overflows, and 5-/6-handed score rows fit
+- Slimmer peg track that scales to the table size
+- Steadier table: playing a card or selecting your throw no longer shifts the game up or down

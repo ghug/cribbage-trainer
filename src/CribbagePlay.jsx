@@ -200,7 +200,7 @@ const seatName = (i) => SEAT_NAMES[i];
 // Short compass labels for the tight grid spots (score columns, cut-for-deal row, the
 // pegging seat cells) so 5-/6-handed tables don't overflow a narrow phone. Prose (the
 // message line, banners, history) keeps the full names.
-const SEAT_SHORT = { West: "W", East: "E", North: "N", Northwest: "NW", Northeast: "NE", Southwest: "SW", Southeast: "SE" };
+const SEAT_SHORT = { North: "N", South: "S", West: "W", East: "E", Northwest: "NW", Northeast: "NE", Southwest: "SW", Southeast: "SE" };
 const seatShort = (i) => SEAT_SHORT[SEAT_NAMES[i]] || SEAT_NAMES[i];
 const poss = (i) => (i === 0 ? "Your" : `${seatName(i)}'s`);
 const sv = (i, first, third) => (i === 0 ? `You ${first}` : `${seatName(i)} ${third}`);
@@ -1311,7 +1311,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
   const P = peg.hands.length;
   const ts = seatsAround(P, me);
   const yourHand = peg.hands[me];
-  const meName = seatName(me);
+  const meName = seatShort(me);
   const legalSet = new Set(yourHand.filter((c) => pval(c.r) + peg.count <= 31).map(cardId));
   const myTurn = peg.turn === me && legalSet.size > 0;
   const stuck = peg.turn === me && legalSet.size === 0 && yourHand.length > 0;

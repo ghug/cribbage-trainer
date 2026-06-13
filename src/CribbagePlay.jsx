@@ -1247,6 +1247,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
   const tapSelect = settings.tapToSelect;
   const cutter = (dealerIdx + P - 1) % P;
   const multiHuman = nHumans(P, settings) > 1;
+  const meHuman = seatIsHuman(me, settings);               // false only in an all-bot (spectated) game
 
   // ---- shared hand zone: select + confirm the card(s) this phase needs ----
   const [sel, setSel] = React.useState([]);                // working selection (indices into yourHand)
@@ -1306,7 +1307,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
     : (phase === "play" && peg)
       ? (peg.turn === me
           ? (myTurn ? (tapSelect ? "Your turn — tap a card to select, then Play." : "Your turn — tap a card to play.")
-            : stuck ? (settings.autoGo ? "No legal card — passing…" : "No legal card — tap Go to pass.")
+            : stuck ? ((settings.autoGo || !meHuman) ? "No legal card — passing…" : "No legal card — tap Go to pass.")
             : "Your cards are all played.")
           : `${seatName(peg.turn)} to play…`)
       : null;
@@ -1476,7 +1477,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
           ? <div style={{ marginBottom: 10 }}><DiscardWarning pd={pending} cribIsOurs={cribOurs} dispatch={dispatch} onCancel={() => setSel([])} /></div>
           : <div style={{ marginBottom: 10 }}><PlayWarning pp={pending} dispatch={dispatch} /></div>)}
         {(() => {
-          const goBtn = stuck && !settings.autoGo
+          const goBtn = stuck && !settings.autoGo && meHuman
             ? <button onClick={() => dispatch({ type: "PASS_GO", seat: me })} style={{
                 width: "100%", padding: "12px", borderRadius: 10, border: "none", cursor: "pointer",
                 background: `linear-gradient(180deg, ${T.pegRed}, #9c3120)`, color: T.ivory,

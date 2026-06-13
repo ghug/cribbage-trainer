@@ -181,7 +181,7 @@ function cribDetail(discards, dealt, N, rng, role, players) {
         weighted = new Array(nThrows).fill(DEFENDER_CUM);
     }
     else {
-        const nDealer = players === 2 ? nThrows : 1;
+        const nDealer = players === 2 ? nThrows : players >= 5 ? 0 : 1;
         weighted = new Array(nDealer).fill(DEALER_CUM).concat(new Array(nThrows - nDealer).fill(DEFENDER_CUM));
     }
     const acc = [0, 0, 0, 0, 0];
@@ -610,9 +610,12 @@ function SettingsPanel({ players, roleMode, onRoleMode, onClose, onAbout }) {
             "Table size: ",
             React.createElement("b", { style: { color: T.cream } }, players === 2 ? "2-handed (heads-up) — 6 cards, discard two" : `${players}-handed — 5 cards, discard one`),
             ". Set it on the home page (the \u201CPlayers at the table\u201D control above Play)."),
-        React.createElement("div", { style: { marginBottom: 14 } },
+        players >= 5 ? (React.createElement("div", { style: { marginBottom: 14, fontFamily: mono, fontSize: 10.5, color: T.muted, lineHeight: 1.5 } },
+            "In ",
+            players,
+            "-handed you always throw into the dealer's crib \u2014 the dealer (and, at 6, the player to their right) is dealt four and discards nothing, so there's no \"as dealer\" discard to practice.")) : (React.createElement("div", { style: { marginBottom: 14 } },
             React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 } }, "practice as"),
-            React.createElement("div", { style: { display: "flex", gap: 6 } }, [["random", `Random (1-in-${players} deal)`], ["deal", "Always dealer"], ["defend", "Always defend"]].map(([k, label]) => (React.createElement("button", { key: k, onClick: () => onRoleMode(k), style: seg(roleMode === k) }, label))))),
+            React.createElement("div", { style: { display: "flex", gap: 6 } }, [["random", `Random (1-in-${players} deal)`], ["deal", "Always dealer"], ["defend", "Always defend"]].map(([k, label]) => (React.createElement("button", { key: k, onClick: () => onRoleMode(k), style: seg(roleMode === k) }, label)))))),
         React.createElement(AboutRow, { onAbout: onAbout })));
 }
 function AboutRow({ onAbout }) {
@@ -644,20 +647,19 @@ function loadTrainerPlayers() {
         const raw = localStorage.getItem("cribbage:settings");
         if (raw) {
             const p = JSON.parse(raw).players;
-            if (p === 2 || p === 3 || p === 4)
+            if (p >= 2 && p <= 6)
                 return p;
-            if (p === 5 || p === 6)
-                return 4;
         }
     }
     catch (e) { }
     return 4;
 }
+const trainerRole = (roleMode, p) => (p >= 5 ? "defend" : roleMode === "random" ? (Math.random() < 1 / p ? "deal" : "defend") : roleMode);
 function CribbageTrainer() {
     const [players] = useState(loadTrainerPlayers);
     const [roleMode, setRoleMode] = useState("random");
     const [hand, setHand] = useState(() => randomHand(players === 2 ? 6 : 5));
-    const [role, setRole] = useState(() => (Math.random() < 1 / players ? "deal" : "defend"));
+    const [role, setRole] = useState(() => trainerRole("random", players));
     const [phase, setPhase] = useState("choose");
     const [selected, setSelected] = useState([]);
     const [chosenId, setChosenId] = useState(null);
@@ -675,7 +677,7 @@ function CribbageTrainer() {
     const discardCount = players === 2 ? 2 : 1;
     const opts = useMemo(() => (phase === "revealed" ? analyze(hand, role, mode, players) : null), [phase, hand, role, mode, players]);
     const dealHand = useCallback((p) => {
-        const r = roleMode === "random" ? (Math.random() < 1 / p ? "deal" : "defend") : roleMode;
+        const r = trainerRole(roleMode, p);
         setHand(randomHand(p === 2 ? 6 : 5));
         setRole(r);
         setSelected([]);
@@ -910,7 +912,9 @@ function CribbageTrainer() {
                                 ? "Heads-up, the crib is your two discards + the opponent's two — defender throws when you deal, the dealer's own throws when you defend."
                                 : players === 3
                                     ? "Your crib draws two defender throws plus one card dealt off the deck; when you defend, the dealer's crib draws one dealer + one defender throw plus one deck card."
-                                    : "Your crib draws three defender throws; when you defend, the dealer's crib draws one dealer + two defender throws.",
+                                    : players >= 5
+                                        ? "You always defend: the dealer is dealt four and throws none, so the dealer's crib is four defender throws (yours + three others) — no dealer salt, so it runs a touch leaner than a 4-handed crib."
+                                        : "Your crib draws three defender throws; when you defend, the dealer's crib draws one dealer + two defender throws.",
                             " ",
                             "The cut stays uniform.",
                             players !== 4 && (React.createElement("span", { style: { color: T.muted } },

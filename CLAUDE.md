@@ -75,11 +75,14 @@ against — they are not imported by the apps, but they document and re-prove th
 
 ## Game rules being modeled
 
-- **Selectable 4-handed (default), 3-handed, or 2-handed** — the trainer's table size
-  comes from the **global "Players" setting** chosen on the landing page (shared
-  localStorage; `loadTrainerPlayers()` reads it on mount, clamping 5/6 → 4 since the
-  discard model is deal-5/throw-one). 4-/3-handed are "cutthroat"; 2-handed is heads-up
-  (6 cards, throw two). The trainer's gear panel shows the current size read-only.
+- **Selectable 2- through 6-handed** — the trainer's table size comes from the **global
+  "Players" setting** chosen on the landing page (shared localStorage; `loadTrainerPlayers()`
+  reads it on mount). 2-handed is heads-up (6 cards, throw two); 3-/4-/5-/6-handed deal 5
+  and throw one. In **5-/6-handed the dealer is dealt 4 and throws none**, so the human is
+  always a **non-dealer thrower** (`trainerRole` forces "defend") feeding the dealer's
+  **all-defender crib** (no dealer salt → it runs leaner than a 4-handed crib;
+  `cribDetail` uses `nDealer = 0` at P≥5). The gear panel shows the size read-only.
+  Verified by `engine/verify_trainer.js`.
 - **Deal & discard depend on table size:**
   - **4-/3-handed:** each player dealt **5 cards**, discards **exactly one**. UI
     ranks the **5** single-card discards.
@@ -252,6 +255,7 @@ node engine/pegging.js          # pegging unit tests + full-game sanity (dealer 
 node engine/breakdown.js        # category breakdown reconciles to totals; perfect-29 check
 node engine/calibrate_split.js  # one self-play calibration pass (mutates state.json)
 node engine/verify_players.js   # 2-/3-/4-handed: regression (players=4 == original) + crib/peg sanity
+node engine/verify_trainer.js   # trainer.html: discard ranking at every table size 2..6 (5/6 = leaner
 node engine/verify_play.js      # play.html: evals the built consolidated reducer, drives whole hands
                                 #   at every table size P=2..6 — deal/crib/starter, go/31/last-card,
                                 #   his-heels +2, the 121 show short-circuit, the skip-discard paths

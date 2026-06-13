@@ -123,18 +123,20 @@ function cribDetail(discards, dealt, N, rng, role, players) {
   const suitsByRank = Array.from({ length: 14 }, () => []);
   for (const c of pool) suitsByRank[c.r].push(c.s);
   // The crib always holds 4 cards. You contribute `discards.length` of them (1 in
-  // 3-/4-handed, 2 heads-up); the rest are filled by opponent throws and — in
+  // 3-/4-/5-/6-handed, 2 heads-up); the rest are filled by opponent throws and — in
   // 3-handed only — one uniform card the dealer flips off the deck.
   //   deal:   your crib  = all remaining slots are defender throws.
-  //   defend: dealer crib = the dealer's own throws + any other defenders'.
-  //     heads-up (2p): both remaining are the dealer's; 3-/4p: 1 dealer + the rest defenders.
+  //   defend: dealer crib = the dealer's own throw(s) + any other defenders'.
+  //     heads-up (2p): both remaining are the dealer's; 3-/4p: 1 dealer salt + the rest
+  //     defenders; 5-/6p: the dealer is dealt 4 and throws NONE, so every other crib
+  //     card is a defender throw (the human is always a non-dealer thrower here).
   const nUniform = players === 3 ? 1 : 0; // deck card dealt straight into the crib
   const nThrows = 4 - discards.length - nUniform; // opponent throws to simulate
   let weighted;
   if (role === "deal") {
     weighted = new Array(nThrows).fill(DEFENDER_CUM);
   } else {
-    const nDealer = players === 2 ? nThrows : 1;
+    const nDealer = players === 2 ? nThrows : players >= 5 ? 0 : 1;
     weighted = new Array(nDealer).fill(DEALER_CUM).concat(new Array(nThrows - nDealer).fill(DEFENDER_CUM));
   }
   const acc = [0, 0, 0, 0, 0];
@@ -513,14 +515,22 @@ function SettingsPanel({ players, roleMode, onRoleMode, onClose, onAbout }) {
         Set it on the home page (the “Players at the table” control above Play).
       </div>
 
-      <div style={{ marginBottom: 14 }}>
-        <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 }}>practice as</div>
-        <div style={{ display: "flex", gap: 6 }}>
-          {[["random", `Random (1-in-${players} deal)`], ["deal", "Always dealer"], ["defend", "Always defend"]].map(([k, label]) => (
-            <button key={k} onClick={() => onRoleMode(k)} style={seg(roleMode === k)}>{label}</button>
-          ))}
+      {players >= 5 ? (
+        <div style={{ marginBottom: 14, fontFamily: mono, fontSize: 10.5, color: T.muted, lineHeight: 1.5 }}>
+          In {players}-handed you always throw into the dealer's crib — the dealer (and, at 6,
+          the player to their right) is dealt four and discards nothing, so there's no "as dealer"
+          discard to practice.
         </div>
-      </div>
+      ) : (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 }}>practice as</div>
+          <div style={{ display: "flex", gap: 6 }}>
+            {[["random", `Random (1-in-${players} deal)`], ["deal", "Always dealer"], ["defend", "Always defend"]].map(([k, label]) => (
+              <button key={k} onClick={() => onRoleMode(k)} style={seg(roleMode === k)}>{label}</button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <AboutRow onAbout={onAbout} />
     </div>
@@ -571,27 +581,27 @@ function AboutModal({ onClose }) {
 }
 
 // The table size comes from the global "Players" setting chosen on the landing page
-// (shared localStorage key). The trainer practices the deal/discard for 2-handed
-// (6 cards, throw two) and 3-/4-handed (5 cards, throw one); 5-/6-handed use the same
-// deal-5/throw-one model as 4-handed. try/catch keeps it safe with no storage.
+// (shared localStorage key). The trainer practices YOUR discard: 2-handed throws two
+// from six; 3-/4-/5-/6-handed throw one from five. In 5-/6-handed the dealer is dealt
+// four and throws none, so the human is always a non-dealer thrower (role "defend")
+// feeding the dealer's all-defender crib. try/catch keeps it safe with no storage.
 function loadTrainerPlayers() {
   try {
     const raw = localStorage.getItem("cribbage:settings");
-    if (raw) {
-      const p = JSON.parse(raw).players;
-      if (p === 2 || p === 3 || p === 4) return p;
-      if (p === 5 || p === 6) return 4;
-    }
+    if (raw) { const p = JSON.parse(raw).players; if (p >= 2 && p <= 6) return p; }
   } catch (e) {}
   return 4;
 }
+// At 5-/6-handed you can only practice as a non-dealer thrower (the dealer doesn't
+// discard), so the role is forced to "defend".
+const trainerRole = (roleMode, p) => (p >= 5 ? "defend" : roleMode === "random" ? (Math.random() < 1 / p ? "deal" : "defend") : roleMode);
 
 /* ============================ APP ============================ */
 export default function CribbageTrainer() {
   const [players] = useState(loadTrainerPlayers); // fixed from the landing's global Players setting
   const [roleMode, setRoleMode] = useState("random");
   const [hand, setHand] = useState(() => randomHand(players === 2 ? 6 : 5));
-  const [role, setRole] = useState(() => (Math.random() < 1 / players ? "deal" : "defend"));
+  const [role, setRole] = useState(() => trainerRole("random", players));
   const [phase, setPhase] = useState("choose");
   const [selected, setSelected] = useState([]);   // card indices tapped during the choose phase
   const [chosenId, setChosenId] = useState(null);  // option id ("i" or "i,j") the user committed to
@@ -613,7 +623,7 @@ export default function CribbageTrainer() {
   const opts = useMemo(() => (phase === "revealed" ? analyze(hand, role, mode, players) : null), [phase, hand, role, mode, players]);
 
   const dealHand = useCallback((p) => {
-    const r = roleMode === "random" ? (Math.random() < 1 / p ? "deal" : "defend") : roleMode;
+    const r = trainerRole(roleMode, p);
     setHand(randomHand(p === 2 ? 6 : 5)); setRole(r);
     setSelected([]); setChosenId(null); setExpanded(null); setPhase("choose");
   }, [roleMode]);
@@ -866,6 +876,8 @@ export default function CribbageTrainer() {
                     ? "Heads-up, the crib is your two discards + the opponent's two — defender throws when you deal, the dealer's own throws when you defend."
                     : players === 3
                     ? "Your crib draws two defender throws plus one card dealt off the deck; when you defend, the dealer's crib draws one dealer + one defender throw plus one deck card."
+                    : players >= 5
+                    ? "You always defend: the dealer is dealt four and throws none, so the dealer's crib is four defender throws (yours + three others) — no dealer salt, so it runs a touch leaner than a 4-handed crib."
                     : "Your crib draws three defender throws; when you defend, the dealer's crib draws one dealer + two defender throws."}
                   {" "}The cut stays uniform.
                   {players !== 4 && (

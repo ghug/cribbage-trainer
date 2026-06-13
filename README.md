@@ -41,6 +41,7 @@ Edit the sources in `src/` (`CribbageTrainer.jsx`, `CribbagePlay.jsx`,
 node engine/pegging.js          # pegging unit tests + full-game sanity
 node engine/breakdown.js        # show-scoring breakdown + perfect-29 check
 node engine/verify_players.js   # 2-/3-/4-handed regression + sanity
+node engine/verify_trainer.js   # trainer.html: discard ranking at P=2..6 (incl. 5/6 leaner crib)
 node engine/verify_play.js      # play.html reducer: the consolidated game at P=2 through 6
 ```
 

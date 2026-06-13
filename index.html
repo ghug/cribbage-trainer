@@ -72,6 +72,8 @@
   .seg{ flex:1; padding:9px 6px; border-radius:8px; cursor:pointer; font-family:var(--mono); font-size:11.5px;
     background:rgba(0,0,0,0.2); color:var(--cream); border:1px solid var(--line) }
   .seg.on{ background:#ECDCB4; color:#2A1B0E; border-color:#ECDCB4; font-weight:700 }
+  .seg:disabled{ cursor:default; opacity:0.5 }
+  .players-pick.disabled .pp-label{ opacity:0.5 }
   .players-pick{ background:rgba(0,0,0,0.18); border:1px solid var(--line); border-radius:14px; padding:14px 16px }
   .pp-label{ font-size:14px; font-weight:700; color:var(--ivory) }
   .pp-note{ font-family:var(--mono); font-size:11px; color:var(--muted); font-weight:400 }
@@ -189,11 +191,11 @@
         <div class="pp-label">Players at the table</div>
         <div class="pp-segs" id="playersSegs"></div>
       </div>
-      <div class="players-pick" id="teamsPick" style="display:none">
+      <div class="seat-diagram" id="seatDiagram" aria-hidden="true"></div>
+      <div class="players-pick" id="teamsPick">
         <div class="pp-label">Teams <span class="pp-note">— how the table splits up</span></div>
         <div class="pp-segs" id="teamsSegs"></div>
       </div>
-      <div class="seat-diagram" id="seatDiagram" aria-hidden="true"></div>
       <a class="option" href="trainer.html">
         <div class="opt-row">
           <span class="pip train">♣</span>
@@ -264,7 +266,7 @@
       <a class="btn btn-primary" href="https://github.com/ghug/cribbage-trainer/"
          target="_blank" rel="noopener noreferrer">Source, bugs &amp; feedback ↗</a>
       <div class="repo-url" style="margin-bottom:4px">github.com/ghug/cribbage-trainer</div>
-      <div class="repo-url">v1.1.7-dev.1</div>
+      <div class="repo-url">v1.1.7-dev.2</div>
     </div>
   </div>
 
@@ -371,13 +373,21 @@
       }
       function renderTeams() {
         var wrap = document.getElementById('teamsPick');
+        var host = document.getElementById('teamsSegs');
         var choices = teamChoices(settings.players);
-        if (choices.length === 0) { wrap.style.display = 'none'; return; }
-        wrap.style.display = '';
+        host.innerHTML = '';
+        // 2/3/5 players have no team option: still show the selector, but disabled with a
+        // single greyed "Individual play" so the control is always present.
+        if (choices.length === 0) {
+          wrap.classList.add('disabled');
+          var d = document.createElement('button'); d.type = 'button'; d.textContent = 'Individual play';
+          d.className = 'seg on'; d.disabled = true;
+          host.appendChild(d);
+          return;
+        }
+        wrap.classList.remove('disabled');
         var values = choices.map(function (c) { return c[0]; });
         if (values.indexOf(settings.teams) < 0) { settings.teams = settings.players; saveSettings(settings); }
-        var host = document.getElementById('teamsSegs');
-        host.innerHTML = '';
         choices.forEach(function (c) {
           var b = document.createElement('button'); b.type = 'button'; b.textContent = c[1];
           b.className = 'seg' + (settings.teams === c[0] ? ' on' : '');

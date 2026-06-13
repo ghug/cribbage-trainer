@@ -222,16 +222,18 @@ function freshDeck() {
 const sortHand = (cs) => cs.slice().sort((a, b) => a.r - b.r || a.s - b.s);
 
 /* ============================ CARDS ============================ */
-function Card({ card, onClick, clickable, badge, dim, selected, raised, small, selLabel }) {
+// Every card on the page — face up or down, in hand, stacked, the starter, the deck — is
+// the same width: `--cw`, a CSS variable set on <main> and sized so six cards span the
+// column (the heads-up hand). So one knob drives the whole table's card scale.
+function Card({ card, onClick, clickable, badge, dim, selected, raised, selLabel }) {
   const [hover, setHover] = React.useState(false);
-  const base = small ? 44 : 68;
   const lift = badge || selected ? -8 : hover && clickable ? -6 : 0;
   const edge = badge ? badge.color : (selected || raised) ? T.selBlue : null;
   // `raised` (tap-to-select mode) lifts the card by 10% of its own height — a translateY
   // percentage is relative to the element, so it scales with the card automatically.
   const elevated = badge || selected || raised;
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flex: `0 1 ${base}px`, minWidth: 0, maxWidth: base }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, width: "var(--cw)", flex: "0 0 auto" }}>
       {(badge || selected) && (
         <span style={{
           fontFamily: mono, fontSize: 9.5, letterSpacing: 0.4, fontWeight: 700,
@@ -243,7 +245,7 @@ function Card({ card, onClick, clickable, badge, dim, selected, raised, small, s
         onPointerEnter={() => setHover(true)} onPointerLeave={() => setHover(false)}
         aria-label={`${rankLabel(card.r)} of ${["spades", "hearts", "diamonds", "clubs"][card.s]}`}
         style={{
-          width: "100%", borderRadius: small ? 7 : 9, padding: 0, background: T.ivory, position: "relative",
+          width: "100%", borderRadius: 8, padding: 0, background: T.ivory, position: "relative",
           cursor: clickable ? "pointer" : "default",
           border: edge ? `2px solid ${edge}` : "1px solid rgba(0,0,0,0.25)",
           boxShadow: elevated ? "0 8px 18px rgba(0,0,0,0.45)" : "0 4px 10px rgba(0,0,0,0.35)",
@@ -263,17 +265,15 @@ function Card({ card, onClick, clickable, badge, dim, selected, raised, small, s
   );
 }
 
-function CardBack({ small }) {
-  const base = small ? 44 : 68;
-  const inset = small ? 4 : 6;
+function CardBack() {
   return (
     <div style={{
-      width: base, height: Math.round(base * 96 / 68), borderRadius: small ? 7 : 9,
+      width: "var(--cw)", aspectRatio: "68 / 96", borderRadius: 8,
       background: `repeating-linear-gradient(45deg, ${T.woodD}, ${T.woodD} 5px, ${T.woodM} 5px, ${T.woodM} 10px)`,
       border: "1px solid rgba(0,0,0,0.4)", boxShadow: "0 3px 8px rgba(0,0,0,0.35)",
       position: "relative",
     }}>
-      <span style={{ position: "absolute", top: inset, left: inset, right: inset, bottom: inset, border: "1px solid rgba(236,224,182,0.25)", borderRadius: 5 }} />
+      <span style={{ position: "absolute", top: 5, left: 5, right: 5, bottom: 5, border: "1px solid rgba(236,224,182,0.25)", borderRadius: 5 }} />
     </div>
   );
 }
@@ -1080,7 +1080,13 @@ export default function CribbagePlay() {
         </div>
       </header>
 
-      <main style={{ maxWidth: 560, margin: "0 auto", padding: "16px 16px 0" }}>
+      <main style={{
+        maxWidth: 560, margin: "0 auto", padding: "16px 16px 0",
+        // One card width drives the whole table: six across the column (minus the 16px
+        // gutters and five 6px gaps), capped so cards never get bigger than the old 68px.
+        "--cw": "min(68px, calc((min(100vw, 560px) - 62px) / 6))",
+        "--ch": "calc(var(--cw) * 1.41176)",
+      }}>
         {settingsOpen && <SettingsPanel settings={settings} dispatch={dispatch} onClose={() => setSettingsOpen(false)} onAbout={() => { setSettingsOpen(false); setAboutOpen(true); }} onHistory={() => { setSettingsOpen(false); setHistoryOpen(true); }} />}
         <ScoreRow seats={seats} dealerIdx={dealerIdx} turn={turnNow} winner={phase === "over" ? winner : null}
           onPick={(i) => setHistorySeat((cur) => (cur === i ? null : i))} P={players} teams={teams} />
@@ -1157,18 +1163,18 @@ export default function CribbagePlay() {
   );
 }
 // A fanned row of cards: each later item sits partly on top of the previous one.
-// Face-down backs stack tighter (they carry no info) than face-up cards.
+// Face-down backs stack tighter (they carry no info) than face-up cards. Every card is
+// `--cw` wide, so the overlap is expressed as a fraction of that variable, not pixels.
 const STACK_VISIBLE = 0.5;
 const BACK_VISIBLE = 0.32;
-const overlapMargin = (w, vis = STACK_VISIBLE) => -Math.round(w * (1 - vis));
-const cardItems = (cards, vis) => (cards || []).map((c) => ({ key: cardId(c), w: 44, vis, el: <Card card={c} small /> }));
-const backItems = (n) => Array.from({ length: n || 0 }).map((_, k) => ({ key: "b" + k, w: 44, vis: BACK_VISIBLE, el: <CardBack small /> }));
+const cardItems = (cards, vis = STACK_VISIBLE) => (cards || []).map((c) => ({ key: cardId(c), vis, el: <Card card={c} /> }));
+const backItems = (n) => Array.from({ length: n || 0 }).map((_, k) => ({ key: "b" + k, vis: BACK_VISIBLE, el: <CardBack /> }));
 function Fan({ items }) {
   if (!items.length) return null;
   return (
     <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
       {items.map((it, i) => (
-        <div key={it.key} style={{ width: it.w, position: "relative", zIndex: i, marginLeft: i === 0 ? 0 : overlapMargin(it.w, it.vis) }}>
+        <div key={it.key} style={{ width: "var(--cw)", position: "relative", zIndex: i, marginLeft: i === 0 ? 0 : `calc(var(--cw) * ${-(1 - it.vis)})` }}>
           {it.el}
         </div>
       ))}
@@ -1178,12 +1184,13 @@ function Fan({ items }) {
 function PlayedStack({ cards, backs, vis }) {
   return <Fan items={(cards && cards.length) ? cardItems(cards, vis) : backItems(backs)} />;
 }
-// Overlap fraction that keeps an n-card 44px-wide fan within ~`budget` px (tightening as
-// it grows), capped at the normal spacing. Used for the central play pile, which can run
-// long before a 31/go reset and otherwise overflows a narrow phone.
+// Overlap fraction that keeps an n-card fan within ~`budget` px (tightening as it grows),
+// capped at the normal spacing. Used for the central play pile, which can run long before
+// a 31/go reset and otherwise overflows a narrow phone. Sized against the widest a card
+// gets (68px) so it always fits, whatever the responsive `--cw` works out to.
 function fitVisible(n, budget) {
   if (n <= 1) return STACK_VISIBLE;
-  return Math.max(0.24, Math.min(STACK_VISIBLE, (budget - 44) / ((n - 1) * 44)));
+  return Math.max(0.24, Math.min(STACK_VISIBLE, (budget - 68) / ((n - 1) * 68)));
 }
 
 function SeatCell({ i, dealerIdx, active, played, remaining }) {
@@ -1209,7 +1216,7 @@ function DrawCell({ i, dealerIdx, card }) {
         {seatShort(i)}{isD ? " (D)" : ""}
       </div>
       <div style={{ display: "flex", justifyContent: "center", minHeight: 64 }}>
-        {card ? <div style={{ width: 44 }}><Card card={card} small /></div> : <CardBack small />}
+        {card ? <Card card={card} /> : <CardBack />}
       </div>
     </div>
   );
@@ -1233,12 +1240,11 @@ function seatsAround(P, me) {
 // A small face-down "deck" — the placeholder shown where the starter will sit before the
 // cut. Three stacked backs read as a deck rather than a single card.
 function DeckBack() {
-  const h = Math.round(44 * 96 / 68);
   return (
-    <div style={{ position: "relative", width: 50, height: h + 4, margin: "0 auto" }}>
-      <div style={{ position: "absolute", left: 6, top: 4 }}><CardBack small /></div>
-      <div style={{ position: "absolute", left: 3, top: 2 }}><CardBack small /></div>
-      <div style={{ position: "absolute", left: 0, top: 0 }}><CardBack small /></div>
+    <div style={{ position: "relative", width: "calc(var(--cw) + 6px)", height: "calc(var(--ch) + 4px)", margin: "0 auto" }}>
+      <div style={{ position: "absolute", left: 6, top: 4 }}><CardBack /></div>
+      <div style={{ position: "absolute", left: 3, top: 2 }}><CardBack /></div>
+      <div style={{ position: "absolute", left: 0, top: 0 }}><CardBack /></div>
     </div>
   );
 }
@@ -1317,7 +1323,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
         {ts.left != null && cell(ts.left)}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: "0 0 auto" }}>
           <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 4 }}>starter</div>
-          {starter ? <div style={{ width: 44 }}><Card card={starter} small /></div> : <DeckBack />}
+          {starter ? <Card card={starter} /> : <DeckBack />}
         </div>
         {ts.right != null && cell(ts.right)}
       </div>
@@ -1446,9 +1452,9 @@ function ShowScreen({ state, dispatch }) {
       </Panel>
 
       <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-        {info.cards.map((c) => <Card key={cardId(c)} card={c} small />)}
+        {info.cards.map((c) => <Card key={cardId(c)} card={c} />)}
         <span style={{ fontFamily: mono, fontSize: 14, color: T.muted, padding: "0 4px" }}>+</span>
-        <Card card={state.starter} small />
+        <Card card={state.starter} />
       </div>
 
       {needClaim ? (

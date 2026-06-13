@@ -277,19 +277,18 @@ function freshDeck() {
     return d;
 }
 const sortHand = (cs) => cs.slice().sort((a, b) => a.r - b.r || a.s - b.s);
-function Card({ card, onClick, clickable, badge, dim, selected, raised, small, selLabel }) {
+function Card({ card, onClick, clickable, badge, dim, selected, raised, selLabel }) {
     const [hover, setHover] = React.useState(false);
-    const base = small ? 44 : 68;
     const lift = badge || selected ? -8 : hover && clickable ? -6 : 0;
     const edge = badge ? badge.color : (selected || raised) ? T.selBlue : null;
     const elevated = badge || selected || raised;
-    return (React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flex: `0 1 ${base}px`, minWidth: 0, maxWidth: base } },
+    return (React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 5, width: "var(--cw)", flex: "0 0 auto" } },
         (badge || selected) && (React.createElement("span", { style: {
                 fontFamily: mono, fontSize: 9.5, letterSpacing: 0.4, fontWeight: 700,
                 color: T.ivory, background: badge ? badge.color : T.selBlue, padding: "2px 6px", borderRadius: 4, whiteSpace: "nowrap",
             } }, badge ? badge.text : (selLabel || "THROW"))),
         React.createElement("button", { onClick: clickable ? onClick : undefined, onPointerEnter: () => setHover(true), onPointerLeave: () => setHover(false), "aria-label": `${rankLabel(card.r)} of ${["spades", "hearts", "diamonds", "clubs"][card.s]}`, style: {
-                width: "100%", borderRadius: small ? 7 : 9, padding: 0, background: T.ivory, position: "relative",
+                width: "100%", borderRadius: 8, padding: 0, background: T.ivory, position: "relative",
                 cursor: clickable ? "pointer" : "default",
                 border: edge ? `2px solid ${edge}` : "1px solid rgba(0,0,0,0.25)",
                 boxShadow: elevated ? "0 8px 18px rgba(0,0,0,0.45)" : "0 4px 10px rgba(0,0,0,0.35)",
@@ -302,16 +301,14 @@ function Card({ card, onClick, clickable, badge, dim, selected, raised, small, s
                 React.createElement("text", { x: "13", y: "30", textAnchor: "middle", dominantBaseline: "central", fontFamily: serif, fontWeight: "700", fontSize: "13", fill: isRed(card.s) ? T.suitRed : T.ink }, SUIT[card.s]),
                 React.createElement("text", { x: "34", y: "49", textAnchor: "middle", dominantBaseline: "central", fontFamily: serif, fontSize: "34", fill: isRed(card.s) ? T.suitRed : T.ink }, SUIT[card.s])))));
 }
-function CardBack({ small }) {
-    const base = small ? 44 : 68;
-    const inset = small ? 4 : 6;
+function CardBack() {
     return (React.createElement("div", { style: {
-            width: base, height: Math.round(base * 96 / 68), borderRadius: small ? 7 : 9,
+            width: "var(--cw)", aspectRatio: "68 / 96", borderRadius: 8,
             background: `repeating-linear-gradient(45deg, ${T.woodD}, ${T.woodD} 5px, ${T.woodM} 5px, ${T.woodM} 10px)`,
             border: "1px solid rgba(0,0,0,0.4)", boxShadow: "0 3px 8px rgba(0,0,0,0.35)",
             position: "relative",
         } },
-        React.createElement("span", { style: { position: "absolute", top: inset, left: inset, right: inset, bottom: inset, border: "1px solid rgba(236,224,182,0.25)", borderRadius: 5 } })));
+        React.createElement("span", { style: { position: "absolute", top: 5, left: 5, right: 5, bottom: 5, border: "1px solid rgba(236,224,182,0.25)", borderRadius: 5 } })));
 }
 function PegTrack({ pct }) {
     const p = Math.max(0, Math.min(100, pct));
@@ -1122,7 +1119,11 @@ function CribbagePlay() {
                             border: "1px solid rgba(0,0,0,0.28)", background: settingsOpen ? "rgba(42,27,14,0.28)" : "rgba(42,27,14,0.14)",
                             color: "#2A1B0E", fontSize: 20, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
                         } }, "\u2699")))),
-        React.createElement("main", { style: { maxWidth: 560, margin: "0 auto", padding: "16px 16px 0" } },
+        React.createElement("main", { style: {
+                maxWidth: 560, margin: "0 auto", padding: "16px 16px 0",
+                "--cw": "min(68px, calc((min(100vw, 560px) - 62px) / 6))",
+                "--ch": "calc(var(--cw) * 1.41176)",
+            } },
             settingsOpen && React.createElement(SettingsPanel, { settings: settings, dispatch: dispatch, onClose: () => setSettingsOpen(false), onAbout: () => { setSettingsOpen(false); setAboutOpen(true); }, onHistory: () => { setSettingsOpen(false); setHistoryOpen(true); } }),
             React.createElement(ScoreRow, { seats: seats, dealerIdx: dealerIdx, turn: turnNow, winner: phase === "over" ? winner : null, onPick: (i) => setHistorySeat((cur) => (cur === i ? null : i)), P: players, teams: teams }),
             historySeat !== null && React.createElement(HistoryPanel, { seatIdx: historySeat, seats: seats, onClose: () => setHistorySeat(null), P: players, teams: teams }),
@@ -1175,13 +1176,12 @@ function CribbagePlay() {
 }
 const STACK_VISIBLE = 0.5;
 const BACK_VISIBLE = 0.32;
-const overlapMargin = (w, vis = STACK_VISIBLE) => -Math.round(w * (1 - vis));
-const cardItems = (cards, vis) => (cards || []).map((c) => ({ key: cardId(c), w: 44, vis, el: React.createElement(Card, { card: c, small: true }) }));
-const backItems = (n) => Array.from({ length: n || 0 }).map((_, k) => ({ key: "b" + k, w: 44, vis: BACK_VISIBLE, el: React.createElement(CardBack, { small: true }) }));
+const cardItems = (cards, vis = STACK_VISIBLE) => (cards || []).map((c) => ({ key: cardId(c), vis, el: React.createElement(Card, { card: c }) }));
+const backItems = (n) => Array.from({ length: n || 0 }).map((_, k) => ({ key: "b" + k, vis: BACK_VISIBLE, el: React.createElement(CardBack, null) }));
 function Fan({ items }) {
     if (!items.length)
         return null;
-    return (React.createElement("div", { style: { display: "flex", alignItems: "flex-end", justifyContent: "center" } }, items.map((it, i) => (React.createElement("div", { key: it.key, style: { width: it.w, position: "relative", zIndex: i, marginLeft: i === 0 ? 0 : overlapMargin(it.w, it.vis) } }, it.el)))));
+    return (React.createElement("div", { style: { display: "flex", alignItems: "flex-end", justifyContent: "center" } }, items.map((it, i) => (React.createElement("div", { key: it.key, style: { width: "var(--cw)", position: "relative", zIndex: i, marginLeft: i === 0 ? 0 : `calc(var(--cw) * ${-(1 - it.vis)})` } }, it.el)))));
 }
 function PlayedStack({ cards, backs, vis }) {
     return React.createElement(Fan, { items: (cards && cards.length) ? cardItems(cards, vis) : backItems(backs) });
@@ -1189,7 +1189,7 @@ function PlayedStack({ cards, backs, vis }) {
 function fitVisible(n, budget) {
     if (n <= 1)
         return STACK_VISIBLE;
-    return Math.max(0.24, Math.min(STACK_VISIBLE, (budget - 44) / ((n - 1) * 44)));
+    return Math.max(0.24, Math.min(STACK_VISIBLE, (budget - 68) / ((n - 1) * 68)));
 }
 function SeatCell({ i, dealerIdx, active, played, remaining }) {
     return (React.createElement("div", { style: { textAlign: "center", minWidth: 0 } },
@@ -1205,8 +1205,7 @@ function DrawCell({ i, dealerIdx, card }) {
         React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: isD ? T.good : T.muted, marginBottom: 4, whiteSpace: "nowrap" } },
             seatShort(i),
             isD ? " (D)" : ""),
-        React.createElement("div", { style: { display: "flex", justifyContent: "center", minHeight: 64 } }, card ? React.createElement("div", { style: { width: 44 } },
-            React.createElement(Card, { card: card, small: true })) : React.createElement(CardBack, { small: true }))));
+        React.createElement("div", { style: { display: "flex", justifyContent: "center", minHeight: 64 } }, card ? React.createElement(Card, { card: card }) : React.createElement(CardBack, null))));
 }
 function tableSeats(P) {
     if (P === 2)
@@ -1221,14 +1220,13 @@ function seatsAround(P, me) {
     return { top: ts.top.map(at), left: ts.left != null ? at(ts.left) : null, right: ts.right != null ? at(ts.right) : null };
 }
 function DeckBack() {
-    const h = Math.round(44 * 96 / 68);
-    return (React.createElement("div", { style: { position: "relative", width: 50, height: h + 4, margin: "0 auto" } },
+    return (React.createElement("div", { style: { position: "relative", width: "calc(var(--cw) + 6px)", height: "calc(var(--ch) + 4px)", margin: "0 auto" } },
         React.createElement("div", { style: { position: "absolute", left: 6, top: 4 } },
-            React.createElement(CardBack, { small: true })),
+            React.createElement(CardBack, null)),
         React.createElement("div", { style: { position: "absolute", left: 3, top: 2 } },
-            React.createElement(CardBack, { small: true })),
+            React.createElement(CardBack, null)),
         React.createElement("div", { style: { position: "absolute", left: 0, top: 0 } },
-            React.createElement(CardBack, { small: true }))));
+            React.createElement(CardBack, null))));
 }
 function PlayScreen({ state, dispatch, me, needHandoff }) {
     const { peg, starter, dealerIdx, crib, seats, settings, phase, dealDraw } = state;
@@ -1299,8 +1297,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
             ts.left != null && cell(ts.left),
             React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", flex: "0 0 auto" } },
                 React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 4 } }, "starter"),
-                starter ? React.createElement("div", { style: { width: 44 } },
-                    React.createElement(Card, { card: starter, small: true })) : React.createElement(DeckBack, null)),
+                starter ? React.createElement(Card, { card: starter }) : React.createElement(DeckBack, null)),
             ts.right != null && cell(ts.right)),
         cutdealPhase ? (React.createElement(DrawCell, { i: me, dealerIdx: dealerIdx, card: dealDraw ? dealDraw[me] : null })) : ownFaceDown && (React.createElement("div", { style: { textAlign: "center", minHeight: 80 } },
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: turn === me ? T.selBlue : T.muted, marginBottom: 4 } },
@@ -1386,9 +1383,9 @@ function ShowScreen({ state, dispatch }) {
                     stepLabel)),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 3 } }, "order: pone first, dealer's crib last.")),
         React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, justifyContent: "center", flexWrap: "wrap" } },
-            info.cards.map((c) => React.createElement(Card, { key: cardId(c), card: c, small: true })),
+            info.cards.map((c) => React.createElement(Card, { key: cardId(c), card: c })),
             React.createElement("span", { style: { fontFamily: mono, fontSize: 14, color: T.muted, padding: "0 4px" } }, "+"),
-            React.createElement(Card, { card: state.starter, small: true })),
+            React.createElement(Card, { card: state.starter })),
         needClaim ? (React.createElement("div", { style: { background: "rgba(0,0,0,0.26)", borderRadius: 10, padding: "14px 14px 16px" } },
             React.createElement("div", { style: { fontSize: 13.5, lineHeight: 1.5, marginBottom: 12 } },
                 "Count ",
@@ -1573,7 +1570,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, "Source, bugs & feedback \u2197"),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.8-dev.6"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.8-dev.7"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

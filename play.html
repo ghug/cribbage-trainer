@@ -1211,14 +1211,22 @@ function PlayScreen({ state, dispatch }) {
                 : `${seatName(peg.turn)} to play…`),
             state.pendingPlay && React.createElement("div", { style: { marginBottom: 10 } },
                 React.createElement(PlayWarning, { pp: state.pendingPlay, dispatch: dispatch })),
-            tapSelect && yourTurn && !state.pendingPlay && (React.createElement("div", { style: { marginBottom: 10 } },
-                React.createElement(ConfirmButton, { label: "Play", enabled: !!selValid, onClick: () => { const c = selCard; setSelCard(null); dispatch({ type: "SELECT_PLAY", card: c }); } }))),
-            stuck && !state.settings.autoGo && (React.createElement("div", { style: { marginBottom: 10 } },
-                React.createElement("button", { onClick: () => dispatch({ type: "PASS_GO", seat: 0 }), style: {
-                        width: "100%", padding: "12px", borderRadius: 10, border: "none", cursor: "pointer",
-                        background: `linear-gradient(180deg, ${T.pegRed}, #9c3120)`, color: T.ivory,
-                        fontSize: 15, fontWeight: 700, letterSpacing: 0.3, boxShadow: "0 4px 12px rgba(0,0,0,0.35)",
-                    } }, "Say \"Go\""))),
+            (() => {
+                const goBtn = stuck && !state.settings.autoGo
+                    ? React.createElement("button", { onClick: () => dispatch({ type: "PASS_GO", seat: 0 }), style: {
+                            width: "100%", padding: "12px", borderRadius: 10, border: "none", cursor: "pointer",
+                            background: `linear-gradient(180deg, ${T.pegRed}, #9c3120)`, color: T.ivory,
+                            fontSize: 15, fontWeight: 700, letterSpacing: 0.3, boxShadow: "0 4px 12px rgba(0,0,0,0.35)",
+                        } }, "Say \"Go\"")
+                    : null;
+                const playBtn = tapSelect && yourTurn && !state.pendingPlay
+                    ? React.createElement(ConfirmButton, { label: "Play", enabled: !!selValid, onClick: () => { const c = selCard; setSelCard(null); dispatch({ type: "SELECT_PLAY", card: c }); } })
+                    : null;
+                const action = goBtn || playBtn;
+                if (tapSelect)
+                    return React.createElement("div", { style: { minHeight: 44, marginBottom: 10 } }, action);
+                return action && React.createElement("div", { style: { marginBottom: 10 } }, action);
+            })(),
             React.createElement("div", { style: { display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" } },
                 yourHand.map((card) => {
                     const legal = legalSet.has(cardId(card));
@@ -1375,7 +1383,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, "Source, bugs & feedback \u2197"),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.5-dev.4"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.5-dev.5"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

@@ -1255,21 +1255,24 @@ function PlayScreen({ state, dispatch }) {
             : `${seatName(peg.turn)} to play…`}
         </div>
         {state.pendingPlay && <div style={{ marginBottom: 10 }}><PlayWarning pp={state.pendingPlay} dispatch={dispatch} /></div>}
-        {tapSelect && yourTurn && !state.pendingPlay && (
-          <div style={{ marginBottom: 10 }}>
-            <ConfirmButton label="Play" enabled={!!selValid}
-              onClick={() => { const c = selCard; setSelCard(null); dispatch({ type: "SELECT_PLAY", card: c }); }} />
-          </div>
-        )}
-        {stuck && !state.settings.autoGo && (
-          <div style={{ marginBottom: 10 }}>
-            <button onClick={() => dispatch({ type: "PASS_GO", seat: 0 })} style={{
-              width: "100%", padding: "12px", borderRadius: 10, border: "none", cursor: "pointer",
-              background: `linear-gradient(180deg, ${T.pegRed}, #9c3120)`, color: T.ivory,
-              fontSize: 15, fontWeight: 700, letterSpacing: 0.3, boxShadow: "0 4px 12px rgba(0,0,0,0.35)",
-            }}>Say "Go"</button>
-          </div>
-        )}
+        {(() => {
+          const goBtn = stuck && !state.settings.autoGo
+            ? <button onClick={() => dispatch({ type: "PASS_GO", seat: 0 })} style={{
+                width: "100%", padding: "12px", borderRadius: 10, border: "none", cursor: "pointer",
+                background: `linear-gradient(180deg, ${T.pegRed}, #9c3120)`, color: T.ivory,
+                fontSize: 15, fontWeight: 700, letterSpacing: 0.3, boxShadow: "0 4px 12px rgba(0,0,0,0.35)",
+              }}>Say "Go"</button>
+            : null;
+          const playBtn = tapSelect && yourTurn && !state.pendingPlay
+            ? <ConfirmButton label="Play" enabled={!!selValid}
+                onClick={() => { const c = selCard; setSelCard(null); dispatch({ type: "SELECT_PLAY", card: c }); }} />
+            : null;
+          const action = goBtn || playBtn;
+          // In tap-to-select mode keep a constant-height slot so the Play/Go button
+          // appearing and vanishing as the turn passes doesn't bounce the hand up/down.
+          if (tapSelect) return <div style={{ minHeight: 44, marginBottom: 10 }}>{action}</div>;
+          return action && <div style={{ marginBottom: 10 }}>{action}</div>;
+        })()}
         <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
           {yourHand.map((card) => {
             const legal = legalSet.has(cardId(card));

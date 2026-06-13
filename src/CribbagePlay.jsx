@@ -207,11 +207,14 @@ function freshDeck() {
 const sortHand = (cs) => cs.slice().sort((a, b) => a.r - b.r || a.s - b.s);
 
 /* ============================ CARDS ============================ */
-function Card({ card, onClick, clickable, badge, dim, selected, small, selLabel }) {
+function Card({ card, onClick, clickable, badge, dim, selected, raised, small, selLabel }) {
   const [hover, setHover] = React.useState(false);
   const base = small ? 44 : 68;
   const lift = badge || selected ? -8 : hover && clickable ? -6 : 0;
-  const edge = badge ? badge.color : selected ? T.selBlue : null;
+  const edge = badge ? badge.color : (selected || raised) ? T.selBlue : null;
+  // `raised` (tap-to-select mode) lifts the card by 20% of its own height — a translateY
+  // percentage is relative to the element, so it scales with the card automatically.
+  const elevated = badge || selected || raised;
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flex: `0 1 ${base}px`, minWidth: 0, maxWidth: base }}>
       {(badge || selected) && (
@@ -228,8 +231,8 @@ function Card({ card, onClick, clickable, badge, dim, selected, small, selLabel 
           width: "100%", borderRadius: small ? 7 : 9, padding: 0, background: T.ivory, position: "relative",
           cursor: clickable ? "pointer" : "default",
           border: edge ? `2px solid ${edge}` : "1px solid rgba(0,0,0,0.25)",
-          boxShadow: badge || selected ? "0 8px 18px rgba(0,0,0,0.45)" : "0 4px 10px rgba(0,0,0,0.35)",
-          transform: `translateY(${lift}px)`, transition: "transform 140ms ease, box-shadow 140ms ease",
+          boxShadow: elevated ? "0 8px 18px rgba(0,0,0,0.45)" : "0 4px 10px rgba(0,0,0,0.35)",
+          transform: raised ? "translateY(-20%)" : `translateY(${lift}px)`, transition: "transform 140ms ease, box-shadow 140ms ease",
           opacity: dim ? 0.42 : 1, outlineOffset: 3,
         }}
       >
@@ -647,7 +650,7 @@ function reduce(state, action) {
   }
 }
 
-const DEFAULT_SETTINGS = { players: 4, teams: 4, counting: "auto", autoGo: false, warn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
+const DEFAULT_SETTINGS = { players: 4, teams: 4, counting: "auto", tapToSelect: false, autoGo: false, warn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
 // Settings persist across pages in localStorage under a shared key. try/catch keeps
 // the verification harness (no localStorage) and private-mode browsers happy.
 const SETTINGS_KEY = "cribbage:settings";
@@ -780,6 +783,21 @@ function SkunkPanel({ seats, winner, P, teams }) {
       {dbl.length > 0 && <div style={{ fontWeight: 700, fontSize: 15 }}>Double skunk 🦨🦨 — {fmt(dbl)}</div>}
       {sk.length > 0 && <div style={{ fontWeight: 700, fontSize: 15, marginTop: dbl.length ? 4 : 0 }}>Skunk 🦨 — {fmt(sk)}</div>}
     </Panel>
+  );
+}
+
+// The confirm bar for tap-to-select mode: greyed out until a valid selection exists,
+// then commits the chosen play or crib throw.
+function ConfirmButton({ label, enabled, onClick }) {
+  return (
+    <button onClick={enabled ? onClick : undefined} disabled={!enabled} style={{
+      width: "100%", padding: "12px", borderRadius: 10, border: "none",
+      cursor: enabled ? "pointer" : "default",
+      background: enabled ? `linear-gradient(180deg, ${T.good}, ${T.goodDeep})` : "rgba(0,0,0,0.25)",
+      color: enabled ? T.ivory : T.muted, opacity: enabled ? 1 : 0.6,
+      fontSize: 15, fontWeight: 700, letterSpacing: 0.3,
+      boxShadow: enabled ? "0 4px 12px rgba(0,0,0,0.35)" : "none",
+    }}>{label}</button>
   );
 }
 
@@ -1018,12 +1036,24 @@ export default function CribbagePlay() {
               <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>{discardPrompt}</div>
             </Panel>
             <OpponentBacks dealerIdx={dealerIdx} P={players} sizes={plan(players, dealerIdx).sizes} />
+            {settings.tapToSelect && !state.pendingDiscard && (
+              <ConfirmButton label={`Throw to crib${humanThrows === 2 ? ` (${sel.length}/2)` : ""}`}
+                enabled={sel.length === humanThrows}
+                onClick={() => { const idxs = sel.slice().sort((a, b) => a - b); setSel([]); dispatch({ type: "SELECT_DISCARD", idxs }); }} />
+            )}
             <div className="dealwrap" style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "nowrap" }}>
               {seats[0].dealt.map((card, i) => {
                 const pd = state.pendingDiscard;
                 const selected = pd ? pd.idxs.includes(i) : sel.includes(i);
                 const onClick = () => {
                   if (pd) { dispatch({ type: "CANCEL_DISCARD" }); setSel([]); return; }
+                  if (settings.tapToSelect) {
+                    // toggle a lifted selection; a single-throw tap on a new card swaps to it
+                    setSel((s) => s.includes(i) ? s.filter((x) => x !== i)
+                      : s.length >= humanThrows ? (humanThrows === 1 ? [i] : s)
+                      : [...s, i]);
+                    return;
+                  }
                   if (humanThrows === 2) {
                     const next = sel.includes(i) ? sel.filter((x) => x !== i) : [...sel, i];
                     if (next.length === 2) { setSel([]); dispatch({ type: "SELECT_DISCARD", idxs: next }); }
@@ -1032,7 +1062,9 @@ export default function CribbagePlay() {
                     dispatch({ type: "SELECT_DISCARD", idxs: [i] });
                   }
                 };
-                return <Card key={cardId(card)} card={card} clickable selected={selected} onClick={onClick} />;
+                return <Card key={cardId(card)} card={card} clickable
+                  selected={!settings.tapToSelect && selected} raised={settings.tapToSelect && selected}
+                  onClick={onClick} />;
               })}
             </div>
             {state.pendingDiscard && <DiscardWarning pd={state.pendingDiscard} cribIsOurs={cribIsOurs} dispatch={dispatch} onCancel={() => setSel([])} />}
@@ -1166,6 +1198,12 @@ function PlayScreen({ state, dispatch }) {
   const legalSet = new Set(yourHand.filter((c) => pval(c.r) + peg.count <= 31).map(cardId));
   const yourTurn = peg.turn === 0 && legalSet.size > 0;
   const stuck = peg.turn === 0 && legalSet.size === 0 && yourHand.length > 0;
+  const tapSelect = state.settings.tapToSelect;
+  const [selCard, setSelCard] = React.useState(null);
+  // Drop a stale lifted selection once it's no longer a legal play on your turn (turn
+  // passed, count changed, or the card was played).
+  const selValid = tapSelect && selCard && yourTurn && legalSet.has(cardId(selCard));
+  useEffect(() => { if (selCard && !selValid) setSelCard(null); }, [selValid, selCard]);
   const cell = (i) => (
     <SeatCell key={i} i={i} dealerIdx={dealerIdx} active={peg.turn === i}
       played={peg.played[i]} remaining={peg.hands[i].length} />
@@ -1206,12 +1244,18 @@ function PlayScreen({ state, dispatch }) {
       <div>
         <div style={{ fontFamily: mono, fontSize: 11, color: (yourTurn || stuck) ? T.selBlue : T.muted, marginBottom: 6 }}>
           {peg.turn === 0
-            ? (yourTurn ? "Your turn — tap a card to play."
+            ? (yourTurn ? (tapSelect ? "Your turn — tap a card to select, then Play." : "Your turn — tap a card to play.")
               : stuck ? (state.settings.autoGo ? "No legal card — passing…" : "No legal card — tap Go to pass.")
               : "Your cards are all played.")
             : `${seatName(peg.turn)} to play…`}
         </div>
         {state.pendingPlay && <div style={{ marginBottom: 10 }}><PlayWarning pp={state.pendingPlay} dispatch={dispatch} /></div>}
+        {tapSelect && yourTurn && !state.pendingPlay && (
+          <div style={{ marginBottom: 10 }}>
+            <ConfirmButton label="Play" enabled={!!selValid}
+              onClick={() => { const c = selCard; setSelCard(null); dispatch({ type: "SELECT_PLAY", card: c }); }} />
+          </div>
+        )}
         {stuck && !state.settings.autoGo && (
           <div style={{ marginBottom: 10 }}>
             <button onClick={() => dispatch({ type: "PASS_GO", seat: 0 })} style={{
@@ -1225,12 +1269,18 @@ function PlayScreen({ state, dispatch }) {
           {yourHand.map((card) => {
             const legal = legalSet.has(cardId(card));
             const pp = state.pendingPlay;
+            const onClick = () => {
+              if (pp) { dispatch({ type: "CANCEL_PLAY" }); return; }
+              if (tapSelect) { setSelCard((c) => (c && sameCard(c, card) ? null : card)); return; }
+              dispatch({ type: "SELECT_PLAY", card });
+            };
             return (
               <Card key={cardId(card)} card={card} selLabel="PLAY"
                 clickable={pp ? true : (yourTurn && legal)}
                 selected={pp ? sameCard(pp.card, card) : false}
+                raised={!pp && tapSelect && !!selCard && sameCard(selCard, card)}
                 dim={!pp && !legal && peg.turn === 0}
-                onClick={() => dispatch(pp ? { type: "CANCEL_PLAY" } : { type: "SELECT_PLAY", card })} />
+                onClick={onClick} />
             );
           })}
           {yourHand.length === 0 && <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>your cards are all played</span>}
@@ -1358,6 +1408,9 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout }) {
         <span style={{ fontWeight: 700, fontSize: 16 }}>Settings</span>
         <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>Done</button>
       </div>
+      <Row title="Tap to select, then confirm" k="tapToSelect"
+        desc="Tapping a card lifts it to select (tap again to drop it); a Play or Throw-to-crib button above your hand commits the choice. Off: a tap plays or throws immediately."
+        options={[["Off", false], ["On", true]]} />
       <Row title="Go on no playable card" k="autoGo"
         desc={'When you can’t play, Manual waits for you to tap “Go”; Auto passes for you.'}
         options={[["Manual", false], ["Auto", true]]} />

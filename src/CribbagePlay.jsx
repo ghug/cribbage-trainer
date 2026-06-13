@@ -1311,14 +1311,14 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
           : `${seatName(peg.turn)} to play…`)
       : null;
   // Your own seat at the bottom is always pinned (a fixed card slot, so the table never
-  // shifts). It shows your cards when you have any to show there, otherwise the current
-  // status message — never collapsing.
+  // shifts). Like any seat it shows your cards — your played pile during the play, your
+  // kept four (face down) at the cut, your hand in the show — and nothing pre-deal/over.
   const ownCardItems = showPhase
     ? ((showHand && info.owner === me) ? cardItems(seats[me].kept) : backItems((seats[me].kept || []).length))
     : cutPhase ? backItems(hands[me].length)                                    // your kept four, face down
     : needHandoff ? backItems((peg ? peg.hands[me] : seats[me].dealt).length)   // hidden while waiting to pass
-    : [];                                                                       // discard/play active, deal, over
-  const ownMsg = (!ownCardItems.length && actionPrompt) ? actionPrompt : null;
+    : (phase === "play" && peg) ? cardItems(peg.played[me])                      // your played pile, like every seat
+    : [];                                                                       // discard active, deal, over
   return (
     <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 14 }}>
       {/* Fixed grids: every seat owns an equal column whatever it's holding, so the labels
@@ -1340,16 +1340,14 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
       </div>
 
       {/* your own seat at the bottom — always a pinned, fixed-height slot so the table never
-          shifts. It holds your cards, or (when you have none to show) the status message. */}
+          shifts, holding your cards (or nothing) just like every other seat. */}
       {cutdealPhase ? (
         <DrawCell i={me} dealerIdx={dealerIdx} card={dealDraw ? dealDraw[me] : null} />
       ) : (
         <div style={{ textAlign: "center" }}>
           <div style={{ fontFamily: mono, fontSize: 10, color: (showPhase ? info.owner === me : (myTurn || stuck)) ? T.selBlue : T.muted, marginBottom: 4 }}>{meName}{dealerIdx === me ? " (D)" : ""}</div>
-          <div style={{ display: "flex", justifyContent: "center", alignItems: ownMsg ? "center" : "flex-end", height: "var(--ch)", padding: "0 8px" }}>
-            {ownCardItems.length ? <Fan items={ownCardItems} />
-              : ownMsg ? <span style={{ fontFamily: mono, fontSize: 11, lineHeight: 1.45, color: (myTurn || stuck) ? T.selBlue : T.muted }}>{ownMsg}</span>
-              : null}
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)", padding: "0 8px" }}>
+            {ownCardItems.length ? <Fan items={ownCardItems} /> : null}
           </div>
         </div>
       )}
@@ -1470,6 +1468,10 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
           : bigBtn(cutter === me ? "Cut the deck" : `Cut the deck (${seatName(cutter)} turns the starter)`, () => dispatch({ type: "CUT" }), "wood")
       ) : needHandoff ? <PassPanel to={discardPhase ? me : peg.turn} dispatch={dispatch} /> : (
       <div>
+        {/* Fixed two-line slot so the status text (which can wrap) never nudges the button. */}
+        <div style={{ fontFamily: mono, fontSize: 11, color: (myTurn || stuck) ? T.selBlue : T.muted, marginBottom: 6, lineHeight: 1.45, minHeight: "2.9em", display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
+          {actionPrompt}
+        </div>
         {pending && (discardPhase
           ? <div style={{ marginBottom: 10 }}><DiscardWarning pd={pending} cribIsOurs={cribOurs} dispatch={dispatch} onCancel={() => setSel([])} /></div>
           : <div style={{ marginBottom: 10 }}><PlayWarning pp={pending} dispatch={dispatch} /></div>)}

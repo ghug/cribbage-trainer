@@ -1017,7 +1017,7 @@ export default function CribbagePlay() {
               <div style={{ fontWeight: 700, fontSize: 15 }}>{dealer ? "Your crib — be greedy" : teammateDeals ? `${seatName(dealerIdx)}'s crib — your team's, be greedy` : `Feeds ${seatName(dealerIdx)}'s crib — defend`}</div>
               <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>{discardPrompt}</div>
             </Panel>
-            <OpponentBacks dealerIdx={dealerIdx} P={players} n={4} />
+            <OpponentBacks dealerIdx={dealerIdx} P={players} throws={plan(players, dealerIdx).throws} />
             <div className="dealwrap" style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "nowrap" }}>
               {seats[0].dealt.map((card, i) => {
                 const pd = state.pendingDiscard;
@@ -1137,9 +1137,12 @@ function tableSeats(P) {
   return { top, left: 1, right: P - 1 };
 }
 
-function OpponentBacks({ dealerIdx, P, n }) {
+// During the discard, show each other seat with as many face-down cards as it is
+// throwing — the same count the human is choosing for fellow throwers, and none for
+// a non-throwing seat (the 5-/6-handed dealer, or the seat to their right at 6).
+function OpponentBacks({ dealerIdx, P, throws }) {
   const ts = tableSeats(P);
-  const cell = (i) => <SeatCell key={i} i={i} dealerIdx={dealerIdx} remaining={n} />;
+  const cell = (i) => <SeatCell key={i} i={i} dealerIdx={dealerIdx} remaining={throws[i]} />;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       {ts.top.length > 0 && <div style={{ display: "flex", justifyContent: "space-around" }}>{ts.top.map(cell)}</div>}

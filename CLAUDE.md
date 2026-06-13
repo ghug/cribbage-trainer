@@ -27,12 +27,13 @@ for React):
   `discard` is stored as an **array** (1 or 2 cards) to unify the heads-up two-card throw.
   The **"Players" and "Teams"** selectors live on the **landing page** (above the Play
   card), not in the in-game settings panel. **Teams** (`settings.teams`): default is
-  cutthroat (one team per seat); **4-handed / 2 teams** pairs the players sitting across
-  (`teamOf` → seats {0,2} and {1,3}) so partners **share one running score** (and a peg
-  track, history, win, and skunk) — `addScore` lands points on every teammate, logging
-  the entry to the earner. 6-handed team configs are wired in `teamOptions` but not yet
-  in `teamOf` (still cutthroat). `src/CribbagePlay.jsx`. Verified by `engine/verify_play.js`
-  (drives P=2 through 6, plus the 4-handed/2-team partnership scoring).
+  cutthroat (one team per seat). `teamOf(seat,P,teams) = seat % teams` gives the
+  partnerships: **4/2** → across pairs {0,2},{1,3}; **6/3** → across pairs {0,3},{1,4},{2,5};
+  **6/2** → every other seat {0,2,4},{1,3,5} (three each). Partners **share one running
+  score** (plus the peg track, history, win, and skunk) — `addScore` lands points on
+  every teammate, logging the entry to the earner; a team's total is the sum of its
+  members' histories. `src/CribbagePlay.jsx`. Verified by `engine/verify_play.js` (drives
+  P=2 through 6 cutthroat, plus the 4/2, 6/3 and 6/2 partnership-scoring configs).
 
   > The five fixed-size pages (`play3/4/5/6.html`, `headsup.html` + their `src/` and
   > `engine/verify_*` files) were **retired** once the consolidated `play.html` covered

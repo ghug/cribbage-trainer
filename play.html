@@ -337,9 +337,7 @@ function teamOptions(P) {
 }
 const clampTeams = (P, t) => (teamOptions(P).includes(t) ? t : P);
 function teamOf(seat, P, teams) {
-    if (P === 4 && teams === 2)
-        return seat % 2;
-    return seat;
+    return seat % teams;
 }
 function teamsList(P, teams) {
     const groups = new Map();

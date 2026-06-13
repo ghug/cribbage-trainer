@@ -307,12 +307,14 @@ function teamOptions(P) {
   return [P];
 }
 const clampTeams = (P, t) => (teamOptions(P).includes(t) ? t : P);
-// Which team a seat belongs to. Implemented configs: 4-handed / 2 teams pairs the
-// players sitting across from each other — seats {0,2} (You & North) and {1,3}
-// (West & East). Every other config is cutthroat (each seat is its own team).
+// Which team a seat belongs to: seat % teams (teams always divides the player count
+// in the offered configs). This produces exactly the intended partnerships:
+//   4-handed / 2 teams → across-the-table pairs {0,2} (You & North) and {1,3};
+//   6-handed / 3 teams → across pairs {0,3}, {1,4}, {2,5};
+//   6-handed / 2 teams → every other seat: {0,2,4} and {1,3,5}, three to a team.
+// Cutthroat (teams === P) is seat % P === seat, i.e. each seat is its own team.
 function teamOf(seat, P, teams) {
-  if (P === 4 && teams === 2) return seat % 2;
-  return seat;
+  return seat % teams;
 }
 // Seats grouped into teams, in seat order of each team's lowest member.
 function teamsList(P, teams) {

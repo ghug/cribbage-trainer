@@ -337,6 +337,20 @@ function CardRow({ cards, small }) {
   );
 }
 
+// The "pass the device" privacy block. It sits where the active player's hand would be,
+// so the public table (scores, played cards, the pile, the starter) stays visible while
+// only the incoming player's hand is withheld until they tap.
+function PassPrompt({ to, onReveal }) {
+  return (
+    <div style={{ textAlign: "center", padding: "22px 16px", borderRadius: 12, background: "rgba(0,0,0,0.3)", border: `1px solid ${T.line}` }}>
+      <div style={{ fontSize: 30, marginBottom: 8 }}>🤝</div>
+      <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 6 }}>Pass the device to {NAMES[to]}</div>
+      <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 16, lineHeight: 1.5 }}>{NAMES[to]}'s hand stays hidden until they're holding it.</div>
+      {bigBtn(`I'm ${NAMES[to]} — show my hand`, onReveal)}
+    </div>
+  );
+}
+
 export default function CribbagePassPlay() {
   const [state, dispatch] = useReducer(reduce, undefined, initGame);
   const [sel, setSel] = React.useState([]);
@@ -355,6 +369,7 @@ export default function CribbagePassPlay() {
   }, [phase, turn, winner, hands]);
 
   const needHandoff = (phase === "discard" || phase === "play") && holder !== turn && hands[turn] && hands[turn].length > 0;
+  const goHome = () => { if (phase === "start" || phase === "over") window.location.href = "index.html"; else setConfirmHome(true); };
 
   const toggleDiscard = (i) => setSel((s) => s.includes(i) ? s.filter((x) => x !== i) : (s.length >= 2 ? s : [...s, i]));
 
@@ -369,11 +384,11 @@ export default function CribbagePassPlay() {
   return (
     <div style={{ minHeight: "100%", background: `radial-gradient(120% 90% at 50% 0%, ${T.baizeHi}, ${T.baize})`, color: T.cream, fontFamily: serif }}>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "12px 16px", background: `linear-gradient(180deg, ${T.woodM}, ${T.woodD})`, color: T.ivory }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <button onClick={goHome} aria-label="Home" style={{ display: "flex", alignItems: "center", gap: 10, border: "none", background: "none", padding: 0, cursor: "pointer", color: T.ivory, textAlign: "left" }}>
           <span aria-hidden="true" style={{ width: 30, height: 30, borderRadius: 7, background: "rgba(0,0,0,0.22)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17 }}>♣</span>
           <span style={{ fontFamily: mono, fontSize: 12, lineHeight: 1.3 }}>Pass &amp; Play · 2 players<br />first to {TARGET}</span>
-        </div>
-        <button onClick={() => { if (phase === "start" || phase === "over") window.location.href = "index.html"; else setConfirmHome(true); }} aria-label="Home" style={{ width: 38, height: 38, borderRadius: 9, cursor: "pointer", border: `1px solid rgba(0,0,0,0.25)`, background: "rgba(0,0,0,0.18)", color: T.ivory, fontSize: 17 }}>⌂</button>
+        </button>
+        <button onClick={goHome} aria-label="Home" style={{ width: 38, height: 38, borderRadius: 9, cursor: "pointer", border: `1px solid rgba(0,0,0,0.25)`, background: "rgba(0,0,0,0.18)", color: T.ivory, fontSize: 17 }}>⌂</button>
       </header>
 
       <main style={{ maxWidth: 560, margin: "0 auto", padding: "16px 16px 28px" }}>
@@ -392,18 +407,20 @@ export default function CribbagePassPlay() {
           </div>
         )}
 
-        {phase === "discard" && !needHandoff && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <Panel tone={turn === dealer ? "good" : "red"}>
-              <div style={{ fontWeight: 700, fontSize: 15 }}>{NAMES[turn]} — {turn === dealer ? "your crib, be greedy" : `${NAMES[dealer]}'s crib — defend`}</div>
-              <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>Tap the two cards to throw to the crib, then confirm.</div>
-            </Panel>
-            <ConfirmButton label={`Throw to crib (${sel.length}/2)`} enabled={sel.length === 2} onClick={() => dispatch({ type: "DISCARD", idxs: sel })} />
-            <div style={{ display: "flex", gap: 6, justifyContent: "center", flexWrap: "nowrap" }}>
-              {hands[turn].map((card, i) => <Card key={cardId(card)} card={card} clickable raised={sel.includes(i)} onClick={() => toggleDiscard(i)} />)}
+        {phase === "discard" && (needHandoff
+          ? <PassPrompt to={turn} onReveal={() => dispatch({ type: "READY" })} />
+          : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <Panel tone={turn === dealer ? "good" : "red"}>
+                <div style={{ fontWeight: 700, fontSize: 15 }}>{NAMES[turn]} — {turn === dealer ? "your crib, be greedy" : `${NAMES[dealer]}'s crib — defend`}</div>
+                <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>Tap the two cards to throw to the crib, then confirm.</div>
+              </Panel>
+              <ConfirmButton label={`Throw to crib (${sel.length}/2)`} enabled={sel.length === 2} onClick={() => dispatch({ type: "DISCARD", idxs: sel })} />
+              <div style={{ display: "flex", gap: 6, justifyContent: "center", flexWrap: "nowrap" }}>
+                {hands[turn].map((card, i) => <Card key={cardId(card)} card={card} clickable raised={sel.includes(i)} onClick={() => toggleDiscard(i)} />)}
+              </div>
             </div>
-          </div>
-        )}
+          ))}
 
         {phase === "cut" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -416,8 +433,8 @@ export default function CribbagePassPlay() {
           </div>
         )}
 
-        {phase === "play" && !needHandoff && peg && (
-          <PlayView state={state} dispatch={dispatch} selCard={selCard} setSelCard={setSelCard} />
+        {phase === "play" && peg && (
+          <PlayView state={state} dispatch={dispatch} selCard={selCard} setSelCard={setSelCard} needHandoff={needHandoff} />
         )}
 
         {phase === "show" && show && (
@@ -444,15 +461,6 @@ export default function CribbagePassPlay() {
         )}
       </main>
 
-      {needHandoff && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: `radial-gradient(120% 90% at 50% 0%, ${T.baizeHi}, ${T.baize})`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, gap: 22, textAlign: "center" }}>
-          <div style={{ fontSize: 40 }}>🤝</div>
-          <div style={{ fontWeight: 700, fontSize: 22 }}>Pass the device to<br />{NAMES[turn]}</div>
-          <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, maxWidth: 280, lineHeight: 1.6 }}>Keep the screen hidden from the other player until {NAMES[turn]} is holding it.</div>
-          <div style={{ width: "100%", maxWidth: 320 }}>{bigBtn(`I'm ${NAMES[turn]} — show my cards`, () => dispatch({ type: "READY" }))}</div>
-        </div>
-      )}
-
       {confirmHome && (
         <div style={{ position: "fixed", inset: 0, zIndex: 220, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setConfirmHome(false)}>
           <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 340, width: "100%", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: 20 }}>
@@ -465,33 +473,32 @@ export default function CribbagePassPlay() {
           </div>
         </div>
       )}
-
-      <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center", padding: "0 0 14px" }}>v__APP_VERSION__</div>
     </div>
   );
 }
 
-function PlayView({ state, dispatch, selCard, setSelCard }) {
-  const { peg, starter, turn, hands } = state;
+function PlayView({ state, dispatch, selCard, setSelCard, needHandoff }) {
+  const { peg, starter, turn, hands, dealer } = state;
+  const opp = 1 - turn;
   const hand = hands[turn];
   const legal = hand.filter((c) => pval(c.r) + peg.count <= 31);
   const canPlay = legal.length > 0;
   const selValid = selCard && legal.some((c) => sameCard(c, selCard));
+  const playedRow = (i) => (
+    <div style={{ textAlign: "center" }}>
+      <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 4 }}>{NAMES[i]}{dealer === i ? " (D)" : ""} played</div>
+      {peg.played[i].length ? <CardRow cards={peg.played[i]} small /> : <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>—</span>}
+    </div>
+  );
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "center", gap: 16 }}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 4 }}>starter</div>
-          <div style={{ width: 44, margin: "0 auto" }}><Card card={starter} small /></div>
-        </div>
-      </div>
+      {/* the other player sits across the table — their cards go above the starter */}
+      {playedRow(opp)}
 
-      {[0, 1].map((i) => peg.played[i].length > 0 && (
-        <div key={i} style={{ textAlign: "center" }}>
-          <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 4 }}>{NAMES[i]} played</div>
-          <CardRow cards={peg.played[i]} small />
-        </div>
-      ))}
+      <div style={{ textAlign: "center" }}>
+        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 4 }}>starter</div>
+        <div style={{ width: 44, margin: "0 auto" }}><Card card={starter} small /></div>
+      </div>
 
       <div style={{ background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: 12, display: "flex", alignItems: "center", gap: 14 }}>
         <div style={{ flex: "0 0 auto", textAlign: "center", padding: "4px 12px", borderRadius: 9, background: "rgba(0,0,0,0.3)", border: `1px solid ${T.line}` }}>
@@ -503,22 +510,29 @@ function PlayView({ state, dispatch, selCard, setSelCard }) {
         </div>
       </div>
 
-      <div>
-        <div style={{ fontFamily: mono, fontSize: 11, color: T.selBlue, marginBottom: 8 }}>{NAMES[turn]}'s turn — {canPlay ? "tap a card to select, then Play." : "no card fits under 31."}</div>
-        <div style={{ minHeight: 44, marginBottom: 10 }}>
-          {canPlay
-            ? <ConfirmButton label="Play" enabled={!!selValid} onClick={() => { const c = selCard; setSelCard(null); dispatch({ type: "PLAY", card: c }); }} />
-            : bigBtn('Say "Go"', () => dispatch({ type: "GO" }), "wood")}
+      {/* your side of the table */}
+      {playedRow(turn)}
+
+      {needHandoff ? (
+        <PassPrompt to={turn} onReveal={() => dispatch({ type: "READY" })} />
+      ) : (
+        <div>
+          <div style={{ fontFamily: mono, fontSize: 11, color: T.selBlue, marginBottom: 8 }}>{NAMES[turn]}'s turn — {canPlay ? "tap a card to select, then Play." : "no card fits under 31."}</div>
+          <div style={{ minHeight: 44, marginBottom: 10 }}>
+            {canPlay
+              ? <ConfirmButton label="Play" enabled={!!selValid} onClick={() => { const c = selCard; setSelCard(null); dispatch({ type: "PLAY", card: c }); }} />
+              : bigBtn('Say "Go"', () => dispatch({ type: "GO" }), "wood")}
+          </div>
+          <div style={{ display: "flex", gap: 6, justifyContent: "center", flexWrap: "nowrap" }}>
+            {hand.map((card) => {
+              const isLegal = legal.some((c) => sameCard(c, card));
+              return <Card key={cardId(card)} card={card} clickable={isLegal} dim={!isLegal}
+                raised={!!selCard && sameCard(selCard, card)}
+                onClick={() => setSelCard((c) => (c && sameCard(c, card) ? null : card))} />;
+            })}
+          </div>
         </div>
-        <div style={{ display: "flex", gap: 6, justifyContent: "center", flexWrap: "nowrap" }}>
-          {hand.map((card) => {
-            const isLegal = legal.some((c) => sameCard(c, card));
-            return <Card key={cardId(card)} card={card} clickable={isLegal} dim={!isLegal}
-              raised={!!selCard && sameCard(selCard, card)}
-              onClick={() => setSelCard((c) => (c && sameCard(c, card) ? null : card))} />;
-          })}
-        </div>
-      </div>
+      )}
     </div>
   );
 }

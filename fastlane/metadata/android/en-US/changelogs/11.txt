@@ -1,0 +1,5 @@
+New in 1.1.7:
+- Play with friends: set any seat to a human on the landing-page table diagram for a hot-seat game, with a pass-the-device privacy screen between turns (the separate Pass & Play page is now folded in)
+- A live table diagram on the landing page that re-seats itself for the chosen size and teams
+- Clearer table: compass seat names (South, North, …), a standardized header, and other polish
+- Muggins counting is now offered only in solo games (hot-seat tables auto-count)

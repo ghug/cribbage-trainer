@@ -115,7 +115,7 @@
     border:1px solid var(--line); box-shadow:inset 0 2px 12px rgba(0,0,0,0.4);
     display:flex; align-items:center; justify-content:center }
   .seat-table .tlabel{ font-family:var(--mono); font-size:10px; line-height:1.45; color:var(--muted); text-align:center }
-  .seat{ position:absolute; transform:translate(-50%,-50%); display:flex; flex-direction:column; align-items:center; gap:3px; width:72px }
+  .seat{ position:absolute; transform:translate(-50%,-50%); display:flex; flex-direction:column; align-items:center; gap:3px; width:60px }
   button.seat{ background:none; border:none; padding:0; font:inherit; color:inherit; cursor:pointer }
   .seat .avatar{ width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center;
     font-size:15px; border:2px solid var(--line); background:rgba(0,0,0,0.28); color:var(--cream); transition:border-color .15s, box-shadow .15s, background .15s }
@@ -195,7 +195,7 @@
         <div class="pp-segs" id="playersSegs"></div>
       </div>
       <div class="seat-diagram" id="seatDiagram"></div>
-      <div class="seat-hint">Tap any seat to set it as a 🧑 human or 🤖 bot (you’re always at the bottom).</div>
+      <div class="seat-hint">Tap any seat to set it as a 🧑 human or 🤖 bot. A lone human is “You”.</div>
       <div class="players-pick" id="teamsPick">
         <div class="pp-label">Teams <span class="pp-note">— how the table splits up</span></div>
         <div class="pp-segs" id="teamsSegs"></div>
@@ -341,24 +341,24 @@
         }[P];
       }
       function seatNames(P) {
-        if (P === 2) return ['You - South', 'North'];
-        var n = new Array(P); n[0] = 'You - South';
-        n[1] = P === 6 ? 'Southwest' : 'West'; n[P - 1] = P === 6 ? 'Southeast' : 'East';
+        // position-based abbreviations (S, N, W, E, NW, NE, SW, SE)
+        if (P === 2) return ['S', 'N'];
+        var n = new Array(P); n[0] = 'S';
+        n[1] = P === 6 ? 'SW' : 'W'; n[P - 1] = P === 6 ? 'SE' : 'E';
         var tops = []; for (var i = 2; i <= P - 2; i++) tops.push(i);
-        var labels = tops.length <= 1 ? ['North'] : tops.length === 2 ? ['Northwest', 'Northeast'] : ['Northwest', 'North', 'Northeast'];
+        var labels = tops.length <= 1 ? ['N'] : tops.length === 2 ? ['NW', 'NE'] : ['NW', 'N', 'NE'];
         tops.forEach(function (sx, k) { n[sx] = labels[k]; });
         return n;
       }
-      // Seat 0 is always You (the human at this device); the rest default to bots and can
-      // be toggled to human in the diagram. Stored as settings.seats (per-seat role).
+      // Each seat is human or bot (stored in settings.seats). Default: South (seat 0) is a
+      // human and the rest bots — but any seat, South included, can be toggled.
       function seatRoles(P) {
         var src = settings.seats || [];
         var r = [];
-        for (var i = 0; i < P; i++) r[i] = (i === 0) ? 'human' : (src[i] === 'human' ? 'human' : 'bot');
+        for (var i = 0; i < P; i++) r[i] = (src[i] === 'human') ? 'human' : (src[i] === 'bot') ? 'bot' : (i === 0 ? 'human' : 'bot');
         return r;
       }
       function toggleSeatRole(i) {
-        if (i === 0) return;
         var roles = seatRoles(settings.players);
         roles[i] = roles[i] === 'human' ? 'bot' : 'human';
         settings.seats = roles; saveSettings(settings); renderSeatDiagram();
@@ -367,20 +367,20 @@
         var host = document.getElementById('seatDiagram');
         var P = settings.players, teams = settings.teams;
         var pos = seatLayout(P), names = seatNames(P), roles = seatRoles(P);
+        var humans = roles.filter(function (r) { return r === 'human'; }).length;
         var palette = ['#5FA47C', '#5B95C2', '#C8412B']; // one colour per team when partnered
         var byTeam = teams < P, target = P >= 5 ? 61 : 121;
         var center = (byTeam ? (P + '-handed · ' + teams + ' teams') : (P + '-handed')) + '<br>first to ' + target;
         var html = '<div class="seat-table"><span class="tlabel">' + center + '</span></div>';
         for (var i = 0; i < P; i++) {
           var avStyle = byTeam ? (' style="border-color:' + palette[i % teams] + '"') : '';
-          var icon = i === 0 ? '★' : (roles[i] === 'human' ? '🧑' : '🤖');
+          var human = roles[i] === 'human';
+          var isYou = human && humans === 1;                 // a lone human is "you"
+          var label = (isYou ? 'You - ' : '') + names[i];
           var ps = 'left:' + pos[i][0] + '%;top:' + pos[i][1] + '%';
-          var inner = '<span class="avatar"' + avStyle + '>' + icon + '</span><span class="seat-name">' + names[i] + '</span>';
-          if (i === 0) {
-            html += '<div class="seat you" style="' + ps + '">' + inner + '</div>';
-          } else {
-            html += '<button type="button" class="seat seat-btn ' + roles[i] + '" data-seat="' + i + '" style="' + ps + '" aria-label="' + names[i] + ' — ' + roles[i] + ', tap to switch">' + inner + '</button>';
-          }
+          var cls = 'seat seat-btn ' + roles[i] + (isYou ? ' you' : '');
+          html += '<button type="button" class="' + cls + '" data-seat="' + i + '" style="' + ps + '" aria-label="' + names[i] + ' — ' + roles[i] + ', tap to switch">'
+            + '<span class="avatar"' + avStyle + '>' + (human ? '🧑' : '🤖') + '</span><span class="seat-name">' + label + '</span></button>';
         }
         host.innerHTML = html;
         var btns = host.querySelectorAll('.seat-btn');

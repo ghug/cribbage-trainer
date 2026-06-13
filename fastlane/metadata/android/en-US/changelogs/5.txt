@@ -1,0 +1,6 @@
+New in 1.1.1:
+- One "Play" game now spans 2–6 players — pick the table size on the home screen
+- Team play: partners share one score — 4-handed (2 teams) and 6-handed (2 or 3 teams)
+- The Discard Trainer follows the same setting: 2–6 players, individual play or teams
+- The About screen now shows the app version
+- Tidier home screen, clearer wording, and assorted polish

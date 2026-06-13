@@ -207,5 +207,35 @@ for (const P of SUPPORTED) {
   check(st.settings.teams === 3, "at a size with no team choice, teams equals the player count");
 }
 
+/* ---- F. 4-player teams of 2: partners across the table share all scoring ---- */
+{
+  const { teamOf } = S;
+  check(teamOf(0, 4, 2) === teamOf(2, 4, 2) && teamOf(1, 4, 2) === teamOf(3, 4, 2) && teamOf(0, 4, 2) !== teamOf(1, 4, 2),
+    "partners are seats {0,2} and {1,3}");
+
+  let state = reduce(reduce(initGame(), { type: "SET_SETTING", key: "players", value: 4 }), { type: "SET_SETTING", key: "teams", value: 2 });
+  check(state.settings.teams === 2 && state.seats.length === 4 && state.phase === "cutdeal", "teams=2 four-player game ready");
+
+  let hands = 0, exceptions = 0;
+  for (let h = 0; h < 80 && state.phase !== "over"; h++) {
+    try {
+      state = playHand(state, 4);
+      hands++;
+      check(state.seats[0].score === state.seats[2].score, "You & North always share a score");
+      check(state.seats[1].score === state.seats[3].score, "West & East always share a score");
+      const teamA = (state.seats[0].history || []).concat(state.seats[2].history || []).reduce((a, x) => a + x.pts, 0);
+      const teamB = (state.seats[1].history || []).concat(state.seats[3].history || []).reduce((a, x) => a + x.pts, 0);
+      check(teamA === state.seats[0].score, "team {0,2} history sums to the shared score");
+      check(teamB === state.seats[1].score, "team {1,3} history sums to the shared score");
+      const maxTeam = Math.max(state.seats[0].score, state.seats[1].score);
+      if (maxTeam >= 121) check(state.phase === "over", "game ends once a team reaches 121");
+      if (state.phase === "deal") check(maxTeam < 121, "no uncrowned team between hands");
+    } catch (e) { exceptions++; console.error("  ✗ teams exception in hand", h, e.message); }
+  }
+  check(exceptions === 0, "teams: no exceptions across many hands");
+  check(hands >= 1, "teams: played at least one full hand");
+  if (state.phase === "over") check(teamOf(state.winner, 4, 2) === 0 || teamOf(state.winner, 4, 2) === 1, "a team is crowned the winner");
+}
+
 console.log(`\nplay.html engine checks: ${ok} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

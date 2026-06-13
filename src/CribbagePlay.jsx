@@ -307,6 +307,20 @@ function teamOptions(P) {
   return [P];
 }
 const clampTeams = (P, t) => (teamOptions(P).includes(t) ? t : P);
+// Which team a seat belongs to. Implemented configs: 4-handed / 2 teams pairs the
+// players sitting across from each other — seats {0,2} (You & North) and {1,3}
+// (West & East). Every other config is cutthroat (each seat is its own team).
+function teamOf(seat, P, teams) {
+  if (P === 4 && teams === 2) return seat % 2;
+  return seat;
+}
+// Seats grouped into teams, in seat order of each team's lowest member.
+function teamsList(P, teams) {
+  const groups = new Map();
+  for (let i = 0; i < P; i++) { const t = teamOf(i, P, teams); if (!groups.has(t)) groups.set(t, []); groups.get(t).push(i); }
+  return [...groups.values()];
+}
+const teamLabel = (members) => members.map(seatName).join(" & ");
 
 // The deal plan for a table of P with this dealer: per-seat dealt count and throw
 // count, whether the dealer flips a deck card into the crib (3-handed), and the
@@ -335,9 +349,19 @@ function assembleCrib(seats, deck, pl) {
   return crib;
 }
 
-const addScore = (seats, i, pts, label) => seats.map((s, j) => (j === i
-  ? { ...s, score: s.score + pts, history: pts > 0 ? [...(s.history || []), { pts, label }] : (s.history || []) }
-  : s));
+// Award points. With teams enabled, partners share the running total: the points
+// land on every seat of the scoring seat's team, but the history entry is logged
+// only to the seat that actually earned them (so each player's history is their own,
+// and a team's total is the sum of its members' histories). Cutthroat (the default)
+// is just "one team per seat", so only the scorer is touched.
+const addScore = (seats, i, pts, label, P, teams) => {
+  const t = teamOf(i, P, teams);
+  return seats.map((s, j) => {
+    if (teamOf(j, P, teams) !== t) return s;
+    if (j === i) return { ...s, score: s.score + pts, history: pts > 0 ? [...(s.history || []), { pts, label }] : (s.history || []) };
+    return { ...s, score: s.score + pts };
+  });
+};
 const initPeg = (seats, dealerIdx, P) => ({
   hands: seats.map((s) => s.kept.slice()),
   turn: (dealerIdx + 1) % P,
@@ -445,6 +469,7 @@ function dealNewHand(state) {
 // win-check after every award, advance the turn.
 function playCard(state, seat, card) {
   const P = clampPlayers(state.settings.players);
+  const teams = clampTeams(P, state.settings.teams);
   const peg = state.peg;
   const hands = peg.hands.map((h, i) => (i === seat ? h.filter((c) => !sameCard(c, card)) : h));
   const count = peg.count + pval(card.r);
@@ -452,7 +477,7 @@ function playCard(state, seat, card) {
   const pileSuited = peg.pileSuited.concat(card);
   const played = peg.played.map((p, i) => (i === seat ? p.concat(card) : p));
   const pts = pegScore(pile, count);
-  let seats = addScore(state.seats, seat, pts, `pegging · ${pegReason(pile, count)}`);
+  let seats = addScore(state.seats, seat, pts, `pegging · ${pegReason(pile, count)}`, P, teams);
   let message = pts > 0 ? `${seatName(seat)}: ${scoreCallout(pile, count, pts)}.` : `${sv(seat, "play", "plays")} ${tag(card)} (count ${count}).`;
   const np = { ...peg, hands, count, pile, pileSuited, played, lastPlayer: seat, passes: 0 };
   if (count === 31) { np.count = 0; np.pile = []; np.pileSuited = []; np.lastPlayer = -1; }
@@ -461,7 +486,7 @@ function playCard(state, seat, card) {
   const remaining = hands.reduce((a, h) => a + h.length, 0);
   if (remaining === 0) {
     if (np.lastPlayer >= 0) {
-      seats = addScore(seats, seat, 1, "pegging · last card");
+      seats = addScore(seats, seat, 1, "pegging · last card", P, teams);
       message += ` ${seatName(seat)} +1 for last card.`;
       if (seats[seat].score >= TARGET) return { ...state, seats, peg: np, phase: "over", winner: seat, message };
     }
@@ -482,6 +507,7 @@ function evalPlay(peg, card) {
 
 function reduce(state, action) {
   const P = clampPlayers(state.settings.players);
+  const teams = clampTeams(P, state.settings.teams);
   switch (action.type) {
     case "DEAL":
       return dealNewHand(state);
@@ -521,7 +547,7 @@ function reduce(state, action) {
       const hisHeels = starter.r === 11;
       let seats = state.seats, winner = null, message = `Cut: ${tag(starter)}.`;
       if (hisHeels) {
-        seats = addScore(seats, state.dealerIdx, 2, "his heels");
+        seats = addScore(seats, state.dealerIdx, 2, "his heels", P, teams);
         message = `His heels — ${sv(state.dealerIdx, "peg", "pegs")} 2 for the Jack (${tag(starter)}).`;
         if (seats[state.dealerIdx].score >= TARGET) winner = state.dealerIdx;
       }
@@ -552,7 +578,7 @@ function reduce(state, action) {
         let seats = state.seats, message = `${sv(seat, "say", "says")} "go".`;
         const np = { ...peg, passes: 0, turn: (seat + 1) % P };
         if (peg.lastPlayer >= 0 && peg.count !== 31) {
-          seats = addScore(seats, peg.lastPlayer, 1, "pegging · go");
+          seats = addScore(seats, peg.lastPlayer, 1, "pegging · go", P, teams);
           message = `${seatName(peg.lastPlayer)} +1 for the go.`;
           if (seats[peg.lastPlayer].score >= TARGET) return { ...state, seats, peg: np, phase: "over", winner: peg.lastPlayer, message };
         }
@@ -574,21 +600,23 @@ function reduce(state, action) {
       if (humanCount) {
         const claim = state.show.claimValue || 0;
         const awarded = Math.min(claim, info.total);
-        seats = addScore(seats, info.owner, awarded, info.isCrib ? "crib (claimed)" : "hand (claimed)");
+        seats = addScore(seats, info.owner, awarded, info.isCrib ? "crib (claimed)" : "hand (claimed)", P, teams);
         if (seats[info.owner].score >= TARGET) winner = info.owner;
         const missed = info.total - awarded;
         if (missed > 0 && winner === null) {
+          // Missed points go to the next player in counting order who is NOT a partner.
           const rest = state.show.order.slice(state.show.step + 1).map((e) => (e === "CRIB" ? state.dealerIdx : e));
-          let recip = rest.find((o) => o !== 0);
+          let recip = rest.find((o) => teamOf(o, P, teams) !== teamOf(info.owner, P, teams));
+          if (recip === undefined) recip = rest.find((o) => o !== info.owner);
           if (recip === undefined) recip = (state.dealerIdx + 1) % P;
-          seats = addScore(seats, recip, missed, "muggins");
+          seats = addScore(seats, recip, missed, "muggins", P, teams);
           message = `Muggins! ${seatName(recip)} claims the ${missed} you missed (had ${info.total}).`;
           if (seats[recip].score >= TARGET) winner = recip;
         } else {
           message = `You count ${awarded}${claim > info.total ? " — over-claim corrected down" : ""}.`;
         }
       } else {
-        seats = addScore(seats, info.owner, info.total, showLabel(info.isCrib ? "crib" : "hand", info.acc));
+        seats = addScore(seats, info.owner, info.total, showLabel(info.isCrib ? "crib" : "hand", info.acc), P, teams);
         message = `${entLabel(info)} scores ${info.total}.`;
         if (seats[info.owner].score >= TARGET) winner = info.owner;
       }
@@ -648,23 +676,28 @@ function newGameState(prev) {
 }
 function initGame() { return newGameState(null); }
 /* ============================ UI BITS ============================ */
-function ScoreRow({ seats, dealerIdx, turn, winner, onPick }) {
+// One column per team (a team's members share a score and a peg track). Cutthroat
+// is just "one team per seat", so it renders exactly as before.
+function ScoreRow({ seats, dealerIdx, turn, winner, onPick, P, teams }) {
+  const groups = teamsList(P, teams);
   return (
-    <div style={{ display: "grid", gridTemplateColumns: `repeat(${seats.length},1fr)`, gap: 6, margin: "0 0 6px" }}>
-      {seats.map((s, i) => {
-        const isTurn = turn === i;
-        const isWin = winner === i;
+    <div style={{ display: "grid", gridTemplateColumns: `repeat(${groups.length},1fr)`, gap: 6, margin: "0 0 6px" }}>
+      {groups.map((members, gi) => {
+        const score = seats[members[0]].score;       // shared across the team
+        const isTurn = members.includes(turn);
+        const isWin = winner !== null && members.includes(winner);
+        const isDealer = members.includes(dealerIdx);
         return (
-          <button key={i} onClick={() => onPick(i)} title="tap for scoring history" style={{
+          <button key={gi} onClick={() => onPick(members[0])} title="tap for scoring history" style={{
             padding: "8px 6px 9px", borderRadius: 9, textAlign: "center", cursor: "pointer", font: "inherit", color: "inherit",
             background: isWin ? "rgba(95,164,124,0.28)" : isTurn ? "rgba(91,149,194,0.22)" : "rgba(0,0,0,0.22)",
             border: `1px solid ${isWin ? T.good : isTurn ? T.selBlue : T.line}`,
           }}>
-            <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, display: "flex", justifyContent: "center", gap: 4, alignItems: "center" }}>
-              {seatName(i)}{dealerIdx === i && <span style={{ color: T.pegIvory, fontWeight: 700 }} title="dealer">⬤D</span>}
+            <div style={{ fontFamily: mono, fontSize: members.length > 1 ? 9.5 : 10.5, color: T.muted, display: "flex", justifyContent: "center", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
+              {teamLabel(members)}{isDealer && <span style={{ color: T.pegIvory, fontWeight: 700 }} title="dealer">⬤D</span>}
             </div>
-            <div style={{ fontFamily: serif, fontWeight: 700, fontSize: 22, color: isWin ? T.good : T.ivory }}>{s.score}</div>
-            <div style={{ marginTop: 4, display: "flex", justifyContent: "center" }}><PegTrack pct={(s.score / TARGET) * 100} /></div>
+            <div style={{ fontFamily: serif, fontWeight: 700, fontSize: 22, color: isWin ? T.good : T.ivory }}>{score}</div>
+            <div style={{ marginTop: 4, display: "flex", justifyContent: "center" }}><PegTrack pct={(score / TARGET) * 100} /></div>
           </button>
         );
       })}
@@ -672,15 +705,20 @@ function ScoreRow({ seats, dealerIdx, turn, winner, onPick }) {
   );
 }
 
-function HistoryPanel({ seatIdx, seats, onClose }) {
-  const s = seats[seatIdx];
-  const hist = s.history || [];
+function HistoryPanel({ seatIdx, seats, onClose, P, teams }) {
+  const members = teamsList(P, teams).find((m) => m.includes(seatIdx)) || [seatIdx];
+  const isTeam = members.length > 1;
+  // Merge the team's per-player histories (each entry tagged with who earned it when
+  // there's more than one member). The running total ends at the shared team score.
+  const hist = [];
+  members.forEach((m) => (seats[m].history || []).forEach((h) => hist.push({ ...h, who: m })));
+  const total = seats[members[0]].score;
   let run = 0;
   const cols = "1fr 34px 42px";
   return (
     <div style={{ background: "rgba(0,0,0,0.32)", border: `1px solid ${T.line}`, borderRadius: 12, padding: "14px 16px 12px", marginBottom: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-        <span style={{ fontWeight: 700, fontSize: 15 }}>{seatName(seatIdx)} — scoring this game</span>
+        <span style={{ fontWeight: 700, fontSize: 15 }}>{teamLabel(members)} — scoring this game</span>
         <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>Close</button>
       </div>
       {hist.length === 0 ? (
@@ -692,7 +730,7 @@ function HistoryPanel({ seatIdx, seats, onClose }) {
           </div>
           {hist.map((h, k) => { run += h.pts; return (
             <div key={k} style={{ display: "grid", gridTemplateColumns: cols, gap: 8, fontFamily: mono, fontSize: 11.5, alignItems: "baseline" }}>
-              <span style={{ color: T.cream }}>{h.label}</span>
+              <span style={{ color: T.cream }}>{isTeam ? `${seatName(h.who)}: ` : ""}{h.label}</span>
               <span style={{ textAlign: "right", color: T.good }}>+{h.pts}</span>
               <span style={{ textAlign: "right", color: T.muted }}>{run}</span>
             </div>
@@ -701,7 +739,7 @@ function HistoryPanel({ seatIdx, seats, onClose }) {
       )}
       <div style={{ display: "flex", justifyContent: "space-between", borderTop: `1px solid ${T.line}`, marginTop: 8, paddingTop: 8, fontFamily: mono, fontSize: 12 }}>
         <span style={{ color: T.muted }}>total</span>
-        <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 18, color: T.ivory }}>{s.score}</span>
+        <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 18, color: T.ivory }}>{total}</span>
       </div>
     </div>
   );
@@ -713,13 +751,14 @@ function Panel({ children, tone }) {
   return <div style={{ padding: "11px 14px", borderRadius: 10, background: bg, border: `1px solid ${bd}` }}>{children}</div>;
 }
 
-function SkunkPanel({ seats, winner }) {
-  const losers = seats.map((s, i) => ({ i, score: s.score })).filter((x) => x.i !== winner);
+function SkunkPanel({ seats, winner, P, teams }) {
+  const groups = teamsList(P, teams);
+  const losers = groups.map((m) => ({ m, score: seats[m[0]].score })).filter((x) => !x.m.includes(winner));
   const dbl = losers.filter((x) => x.score <= 60);
   const sk = losers.filter((x) => x.score > 60 && x.score <= 90);
   if (!dbl.length && !sk.length) return null;
-  const youSkunked = losers.some((x) => x.i === 0 && x.score <= 90);
-  const fmt = (arr) => arr.map((x) => `${seatName(x.i)} (${x.score})`).join(", ");
+  const youSkunked = losers.some((x) => x.m.includes(0) && x.score <= 90);
+  const fmt = (arr) => arr.map((x) => `${teamLabel(x.m)} (${x.score})`).join(", ");
   return (
     <Panel tone={youSkunked ? "red" : "good"}>
       {dbl.length > 0 && <div style={{ fontWeight: 700, fontSize: 15 }}>Double skunk 🦨🦨 — {fmt(dbl)}</div>}
@@ -758,6 +797,7 @@ export default function CribbagePlay() {
   const [sel, setSel] = React.useState([]); // cards selected so far during a 2-card discard
   const { phase, seats, dealerIdx, peg, show, starter, winner, message, settings, dealDraw } = state;
   const players = clampPlayers(settings.players);
+  const teams = clampTeams(players, settings.teams);
   setSeatNames(players);
   const humanThrows = plan(players, dealerIdx).throws[0];
 
@@ -894,8 +934,8 @@ export default function CribbagePlay() {
       <main style={{ maxWidth: 560, margin: "0 auto", padding: "16px 16px 0" }}>
         {settingsOpen && <SettingsPanel settings={settings} dispatch={dispatch} onClose={() => setSettingsOpen(false)} onAbout={() => { setSettingsOpen(false); setAboutOpen(true); }} />}
         <ScoreRow seats={seats} dealerIdx={dealerIdx} turn={turnNow} winner={phase === "over" ? winner : null}
-          onPick={(i) => setHistorySeat((cur) => (cur === i ? null : i))} />
-        {historySeat !== null && <HistoryPanel seatIdx={historySeat} seats={seats} onClose={() => setHistorySeat(null)} />}
+          onPick={(i) => setHistorySeat((cur) => (cur === i ? null : i))} P={players} teams={teams} />
+        {historySeat !== null && <HistoryPanel seatIdx={historySeat} seats={seats} onClose={() => setHistorySeat(null)} P={players} teams={teams} />}
 
         {paused && (
           <div style={{ fontFamily: mono, fontSize: 11.5, color: T.pegRed, textAlign: "center", marginTop: 8 }}>
@@ -1001,10 +1041,10 @@ export default function CribbagePlay() {
         {phase === "over" && (
           <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 16 }}>
             <Panel tone="good">
-              <div style={{ fontWeight: 700, fontSize: 18 }}>{winner === 0 ? "You win! 🎉" : `${seatName(winner)} wins.`}</div>
-              <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>First to {TARGET}. Final: {seats.map((s, i) => `${seatName(i)} ${s.score}`).join(" · ")}</div>
+              <div style={{ fontWeight: 700, fontSize: 18 }}>{winner !== null && teamOf(winner, players, teams) === teamOf(0, players, teams) ? "You win! 🎉" : `${teamLabel(teamsList(players, teams).find((m) => m.includes(winner)) || [winner])} wins.`}</div>
+              <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>First to {TARGET}. Final: {teamsList(players, teams).map((m) => `${teamLabel(m)} ${seats[m[0]].score}`).join(" · ")}</div>
             </Panel>
-            <SkunkPanel seats={seats} winner={winner} />
+            <SkunkPanel seats={seats} winner={winner} P={players} teams={teams} />
             {bigBtn("Play again", () => dispatch({ type: "PLAY_AGAIN" }), "good")}
           </div>
         )}
@@ -1291,14 +1331,6 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout }) {
         <span style={{ fontWeight: 700, fontSize: 16 }}>Settings</span>
         <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>Done</button>
       </div>
-      <Row title="Players at the table" k="players"
-        desc="2 = heads-up (deal 6, throw 2). 3 = three-handed (deal 5, throw 1; the dealer flips one off the deck to fill the crib). 4 = four-handed (deal 5, throw 1). 5–6 = the dealer (and, at 6, the player to their right) are dealt 4 and throw none. Changing this starts a new game."
-        options={PLAYER_OPTIONS.map((p) => [String(p), p])} />
-      {teamOptions(clampPlayers(settings.players)).length > 1 && (
-        <Row title="Teams" k="teams"
-          desc="How the table splits into teams. Default is one team per player (cutthroat). 4 players can pair into 2 teams; 6 into 3 or 2. Display only for now — scoring isn't changed yet."
-          options={teamOptions(clampPlayers(settings.players)).map((t) => [String(t), t])} />
-      )}
       <Row title="Counting" k="counting"
         desc="Auto tallies every hand for you. Muggins: you claim your own hand (and crib when you deal) — miss points and the next opponent takes them."
         options={[["Auto-count", "auto"], ["Muggins", "muggins"]]} />

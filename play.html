@@ -240,11 +240,11 @@ const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r ==
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
 const mono = "ui-monospace, 'SF Mono', Menlo, Consolas, monospace";
 const serif = "'Hoefler Text', 'Iowan Old Style', Georgia, 'Times New Roman', serif";
-function seatNamesFor(P) {
+function seatNamesFor(P, multi) {
     if (P === 2)
-        return ["You", "Opponent"];
+        return [multi ? "South" : "You", multi ? "North" : "Opponent"];
     const names = new Array(P);
-    names[0] = "You";
+    names[0] = multi ? "South" : "You";
     names[1] = "West";
     names[P - 1] = "East";
     const tops = [];
@@ -254,8 +254,8 @@ function seatNamesFor(P) {
     tops.forEach((s, k) => { names[s] = labels[k]; });
     return names;
 }
-let SEAT_NAMES = seatNamesFor(2);
-const setSeatNames = (P) => { SEAT_NAMES = seatNamesFor(P); };
+let SEAT_NAMES = seatNamesFor(2, false);
+const setSeatNames = (P, multi) => { SEAT_NAMES = seatNamesFor(P, multi); };
 const seatName = (i) => SEAT_NAMES[i];
 const SEAT_SHORT = { West: "W", East: "E", North: "N", Northwest: "NW", Northeast: "NE" };
 const seatShort = (i) => SEAT_SHORT[SEAT_NAMES[i]] || SEAT_NAMES[i];
@@ -797,7 +797,7 @@ function newGameState(prev) {
     const base = prev ? prev.settings : loadSettings();
     const P = clampPlayers(base.players);
     const settings = { ...base, players: P, teams: clampTeams(P, base.teams) };
-    setSeatNames(P);
+    setSeatNames(P, nHumans(P, settings) > 1);
     const { dealerIdx, draw } = drawForDealer(P);
     return {
         seats: Array.from({ length: P }, (_, i) => ({ score: 0, isAI: !seatIsHuman(i, settings), dealt: [], kept: null, discard: null, history: [] })),
@@ -938,14 +938,19 @@ function CribbagePlay() {
     const { phase, seats, dealerIdx, peg, show, starter, winner, message, settings, dealDraw } = state;
     const players = clampPlayers(settings.players);
     const teams = clampTeams(players, settings.teams);
-    setSeatNames(players);
     const multiHuman = nHumans(players, settings) > 1;
+    setSeatNames(players, multiHuman);
     const ds = state.discardSeat != null ? state.discardSeat : 0;
     const humanThrows = plan(players, dealerIdx).throws[ds];
     const playMe = state.holder == null ? 0 : state.holder;
     const needHandoff = multiHuman && (phase === "discard" ? (state.discardSeat != null && state.holder !== state.discardSeat)
         : (phase === "play" && peg) ? (seatIsHuman(peg.turn, settings) && state.holder !== peg.turn && peg.hands[peg.turn].length > 0)
             : false);
+    const nH = nHumans(players, settings), nB = players - nH;
+    const mixStr = nB === 0 ? `${nH} humans, hot-seat` : nH === 1 ? `vs ${nB} bot${nB === 1 ? "" : "s"}` : `${nH} humans + ${nB} bot${nB === 1 ? "" : "s"}`;
+    const headLine = teams < players
+        ? `${players}-handed · ${teams} teams of ${players / teams} · ${mixStr}`
+        : `${players}-handed ${nH === 1 ? mixStr : "· " + mixStr}`;
     const recordedRef = React.useRef(false);
     useEffect(() => {
         if (phase === "over" && winner !== null) {
@@ -1083,7 +1088,7 @@ function CribbagePlay() {
                             boxShadow: "inset 0 1px 2px rgba(255,255,255,0.12), 0 2px 5px rgba(0,0,0,0.35)",
                         } }, "\u2663"),
                     React.createElement("span", { style: { fontFamily: mono, fontSize: 12, color: "rgba(42,27,14,0.8)", lineHeight: 1.3 } },
-                        teams < players ? `${players}-handed · ${teams} teams of ${players / teams}` : `${players}-handed vs ${players - 1} bot${players - 1 === 1 ? "" : "s"}`,
+                        headLine,
                         React.createElement("br", null),
                         "first to ",
                         targetFor(players))),
@@ -1148,7 +1153,7 @@ function CribbagePlay() {
             phase === "discard" && !needHandoff && (React.createElement("div", { style: { marginTop: 14, display: "flex", flexDirection: "column", gap: 14 } },
                 React.createElement(Panel, { tone: dsCribOurs ? "good" : "red" },
                     React.createElement("div", { style: { fontWeight: 700, fontSize: 15 } },
-                        multiHuman && ds !== 0 ? `${seatName(ds)} — ` : "",
+                        multiHuman ? `${seatName(ds)}: ` : "",
                         dsIsDealer ? "Your crib — be greedy" : dsTeammateDeals ? `${seatName(dealerIdx)}'s crib — your team's, be greedy` : `Feeds ${seatName(dealerIdx)}'s crib — defend`),
                     React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3, lineHeight: 1.45, minHeight: humanThrows === 2 ? "2.9em" : undefined } }, discardPrompt)),
                 React.createElement(OpponentBacks, { dealerIdx: dealerIdx, P: players, sizes: plan(players, dealerIdx).sizes, me: ds }),
@@ -1279,7 +1284,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
     const P = peg.hands.length;
     const ts = seatsAround(P, me);
     const yourHand = peg.hands[me];
-    const meName = me === 0 ? "You" : seatName(me);
+    const meName = seatName(me);
     const legalSet = new Set(yourHand.filter((c) => pval(c.r) + peg.count <= 31).map(cardId));
     const myTurn = peg.turn === me && legalSet.size > 0;
     const stuck = peg.turn === me && legalSet.size === 0 && yourHand.length > 0;
@@ -1557,7 +1562,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, "Source, bugs & feedback \u2197"),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.7-dev.5"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.7-dev.6"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

@@ -179,17 +179,19 @@ const serif = "'Hoefler Text', 'Iowan Old Style', Georgia, 'Times New Roman', se
 
 // Seat names adapt to the table size. Heads-up calls the bot "Opponent"; larger
 // tables use compass seats with the human at seat 0. SEAT_NAMES is set per game.
-function seatNamesFor(P) {
-  if (P === 2) return ["You", "Opponent"];
+// In a hot-seat game with 2+ humans, "You" is ambiguous, so seat 0 takes the compass
+// name South (and the heads-up opponent becomes North) instead of You/Opponent.
+function seatNamesFor(P, multi) {
+  if (P === 2) return [multi ? "South" : "You", multi ? "North" : "Opponent"];
   const names = new Array(P);
-  names[0] = "You"; names[1] = "West"; names[P - 1] = "East";
+  names[0] = multi ? "South" : "You"; names[1] = "West"; names[P - 1] = "East";
   const tops = []; for (let i = 2; i <= P - 2; i++) tops.push(i);
   const labels = tops.length <= 1 ? ["North"] : tops.length === 2 ? ["Northwest", "Northeast"] : ["Northwest", "North", "Northeast"];
   tops.forEach((s, k) => { names[s] = labels[k]; });
   return names;
 }
-let SEAT_NAMES = seatNamesFor(2);
-const setSeatNames = (P) => { SEAT_NAMES = seatNamesFor(P); };
+let SEAT_NAMES = seatNamesFor(2, false);
+const setSeatNames = (P, multi) => { SEAT_NAMES = seatNamesFor(P, multi); };
 const seatName = (i) => SEAT_NAMES[i];
 // Short compass labels for the tight grid spots (score columns, cut-for-deal row, the
 // pegging seat cells) so 5-/6-handed tables don't overflow a narrow phone. Prose (the
@@ -723,7 +725,7 @@ function newGameState(prev) {
   const base = prev ? prev.settings : loadSettings();
   const P = clampPlayers(base.players);
   const settings = { ...base, players: P, teams: clampTeams(P, base.teams) };
-  setSeatNames(P);
+  setSeatNames(P, nHumans(P, settings) > 1);
   const { dealerIdx, draw } = drawForDealer(P);
   return {
     seats: Array.from({ length: P }, (_, i) => ({ score: 0, isAI: !seatIsHuman(i, settings), dealt: [], kept: null, discard: null, history: [] })),
@@ -895,8 +897,8 @@ export default function CribbagePlay() {
   const { phase, seats, dealerIdx, peg, show, starter, winner, message, settings, dealDraw } = state;
   const players = clampPlayers(settings.players);
   const teams = clampTeams(players, settings.teams);
-  setSeatNames(players);
   const multiHuman = nHumans(players, settings) > 1;            // 2+ humans → hot-seat hand-off
+  setSeatNames(players, multiHuman);
   const ds = state.discardSeat != null ? state.discardSeat : 0; // active discarder
   const humanThrows = plan(players, dealerIdx).throws[ds];
   const playMe = state.holder == null ? 0 : state.holder;       // device-holder perspective in play
@@ -904,6 +906,12 @@ export default function CribbagePlay() {
     phase === "discard" ? (state.discardSeat != null && state.holder !== state.discardSeat)
     : (phase === "play" && peg) ? (seatIsHuman(peg.turn, settings) && state.holder !== peg.turn && peg.hands[peg.turn].length > 0)
     : false);
+  // Header descriptor reflecting the actual human/bot mix at the table.
+  const nH = nHumans(players, settings), nB = players - nH;
+  const mixStr = nB === 0 ? `${nH} humans, hot-seat` : nH === 1 ? `vs ${nB} bot${nB === 1 ? "" : "s"}` : `${nH} humans + ${nB} bot${nB === 1 ? "" : "s"}`;
+  const headLine = teams < players
+    ? `${players}-handed · ${teams} teams of ${players / teams} · ${mixStr}`
+    : `${players}-handed ${nH === 1 ? mixStr : "· " + mixStr}`;
 
   // Record each finished game once (when the board reaches "over" with a winner).
   const recordedRef = React.useRef(false);
@@ -1030,7 +1038,7 @@ export default function CribbagePlay() {
               display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, lineHeight: 1,
               boxShadow: "inset 0 1px 2px rgba(255,255,255,0.12), 0 2px 5px rgba(0,0,0,0.35)",
             }}>♣</button>
-            <span style={{ fontFamily: mono, fontSize: 12, color: "rgba(42,27,14,0.8)", lineHeight: 1.3 }}>{teams < players ? `${players}-handed · ${teams} teams of ${players / teams}` : `${players}-handed vs ${players - 1} bot${players - 1 === 1 ? "" : "s"}`}<br />first to {targetFor(players)}</span>
+            <span style={{ fontFamily: mono, fontSize: 12, color: "rgba(42,27,14,0.8)", lineHeight: 1.3 }}>{headLine}<br />first to {targetFor(players)}</span>
           </div>
           <div style={{ display: "flex", gap: 8, flex: "0 0 auto" }}>
             <button onClick={goHome} aria-label="Home" style={{
@@ -1117,7 +1125,7 @@ export default function CribbagePlay() {
         {phase === "discard" && !needHandoff && (
           <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 14 }}>
             <Panel tone={dsCribOurs ? "good" : "red"}>
-              <div style={{ fontWeight: 700, fontSize: 15 }}>{multiHuman && ds !== 0 ? `${seatName(ds)} — ` : ""}{dsIsDealer ? "Your crib — be greedy" : dsTeammateDeals ? `${seatName(dealerIdx)}'s crib — your team's, be greedy` : `Feeds ${seatName(dealerIdx)}'s crib — defend`}</div>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>{multiHuman ? `${seatName(ds)}: ` : ""}{dsIsDealer ? "Your crib — be greedy" : dsTeammateDeals ? `${seatName(dealerIdx)}'s crib — your team's, be greedy` : `Feeds ${seatName(dealerIdx)}'s crib — defend`}</div>
               {/* Reserve two lines in heads-up so appending "One more…" can't reflow and
                   shove the whole table down when it wraps. */}
               <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3, lineHeight: 1.45, minHeight: humanThrows === 2 ? "2.9em" : undefined }}>{discardPrompt}</div>
@@ -1299,7 +1307,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
   const P = peg.hands.length;
   const ts = seatsAround(P, me);
   const yourHand = peg.hands[me];
-  const meName = me === 0 ? "You" : seatName(me);
+  const meName = seatName(me);
   const legalSet = new Set(yourHand.filter((c) => pval(c.r) + peg.count <= 31).map(cardId));
   const myTurn = peg.turn === me && legalSet.size > 0;
   const stuck = peg.turn === me && legalSet.size === 0 && yourHand.length > 0;

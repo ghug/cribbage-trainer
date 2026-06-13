@@ -1348,9 +1348,6 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout }) {
         <span style={{ fontWeight: 700, fontSize: 16 }}>Settings</span>
         <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>Done</button>
       </div>
-      <Row title="Counting" k="counting"
-        desc="Auto tallies every hand for you. Muggins: you claim your own hand (and crib when you deal) — miss points and the next opponent takes them."
-        options={[["Auto-count", "auto"], ["Muggins", "muggins"]]} />
       <Row title="Go on no playable card" k="autoGo"
         desc={'When you can’t play, Manual waits for you to tap “Go”; Auto passes for you.'}
         options={[["Manual", false], ["Auto", true]]} />
@@ -1372,6 +1369,9 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout }) {
       <Row title="Auto-deal the next hand" k="autoDeal"
         desc="Deal the next hand automatically once a hand is fully counted."
         options={[["Off", false], ["On", true]]} />
+      <Row title="Counting" k="counting"
+        desc="Auto tallies every hand for you. Muggins: you claim your own hand (and crib when you deal) — miss points and the next opponent takes them."
+        options={[["Auto-count", "auto"], ["Muggins", "muggins"]]} />
       <AboutRow onAbout={onAbout} />
     </div>
   );

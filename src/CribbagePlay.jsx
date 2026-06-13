@@ -443,7 +443,7 @@ function evalDiscards(dealt, dealerIdx, n, P, teams, seat = 0) {
 
 // Seat 0 is always the human at this device; other seats are bots unless the landing
 // page's seat diagram marked them human (settings.seats[i] === "human"). A game with
-// 2+ human seats becomes hot-seat: the device passes between them (like Pass & Play).
+// 2+ human seats becomes hot-seat: the device passes between them with a privacy screen.
 const seatIsHuman = (i, settings) => i === 0 || !!(settings && settings.seats && settings.seats[i] === "human");
 function nHumans(P, settings) { let c = 0; for (let i = 0; i < P; i++) if (seatIsHuman(i, settings)) c++; return c; }
 

@@ -65,17 +65,13 @@ cribbage-board aesthetic (inline styles, no dependencies beyond React):
    analysis of every possible discard (5 single-card throws when dealt 5 cards, all
    15 two-card combos when dealt 6).
 2. **Play a Game** (`src/CribbagePlay.jsx` → `play.html`) — a complete, playable
-   game of **4-player cutthroat cribbage vs 3 bots**: deal → discard → cut →
-   interactive pegging → the show → race to 121 → rotate dealer. See "The playable
-   game" below.
-3. **Pass & Play** (`src/CribbagePassPlay.jsx` → `passplay.html`) — **two-player
-   hot-seat** cribbage on one shared device (no bots). A full-screen "pass the device"
-   privacy screen hides one player's hand from the other between turns; every move is
-   select-then-confirm. Self-contained 2-human reducer (deal → private discards → cut →
-   pegging with go/31/last-card → the show → next hand → 121); no game history yet.
-   Verified by `engine/verify_passplay.js`, which drives whole games through the reducer.
+   game of 2–6 player cribbage. Each seat is a bot **or a human** (set on the landing
+   page's seat diagram); with 2+ humans it's **hot-seat** with a "pass the device"
+   privacy screen between turns (the old standalone Pass & Play page was folded into this).
+   deal → discard → cut → interactive pegging → the show → race to 121 → rotate dealer.
+   See "The playable game" below.
 
-A static **landing page** (`src/landing.html` → `index.html`) links to the three.
+A static **landing page** (`src/landing.html` → `index.html`) links to the two.
 
 The `engine/` folder holds the Node verification scripts the engine was validated
 against — they are not imported by the apps, but they document and re-prove the math.
@@ -266,8 +262,8 @@ lookahead.
 
 - **Mixed human/bot seats** (hot-seat). The landing page's seat diagram writes
   `settings.seats` (per-seat `"human"`/`"bot"`; seat 0 is always you). `seatIsHuman(i,
-  settings)` drives it. With **2+ human seats** the game becomes hot-seat with the same
-  device hand-off as Pass & Play: a `holder` field + a `needHandoff` gate (computed in the
+  settings)` drives it. With **2+ human seats** the game becomes hot-seat with a
+  device hand-off: a `holder` field + a `needHandoff` gate (computed in the
   App: a human actor whose seat ≠ `holder`, with cards to act) shows a `PassPanel` in place
   of that player's hand; `TAKE_DEVICE` sets `holder`. Throwing **bots auto-discard at deal**
   (as before); throwing **humans discard interactively** one at a time via `state.discardSeat`
@@ -301,16 +297,14 @@ node engine/verify_trainer.js   # trainer.html: discard ranking at every table s
 node engine/verify_play.js      # play.html: evals the built consolidated reducer, drives whole hands
                                 #   at every table size P=2..6 — deal/crib/starter, go/31/last-card,
                                 #   his-heels +2, the 121 show short-circuit, the skip-discard paths,
-                                #   + gameRecord history categorization/skunk buckets
-node engine/verify_passplay.js  # passplay.html: drives whole 2-player hot-seat games through the
-                                #   reducer — discards/cut/pegging/show/next-hand, show==scoreInto, →121
+                                #   gameRecord history buckets, + mixed human/bot (hot-seat) games
 ```
 If you change `scoreInto`, re-run breakdown/pegging tests AND re-check the crib
 swing table above before trusting `analyze()`. If you touch `cribDetail`,
 `pegDetail`, or `playPegging`, also run `verify_players.js` — it guarantees the
 4-handed path is bit-for-bit unchanged and the 3-/2-handed paths stay sane.
-`verify_play.js` / `verify_passplay.js` read the **built** `play.html` / `passplay.html`,
-so run `./build.sh` first when you change `src/CribbagePlay.jsx` / `src/CribbagePassPlay.jsx`.
+`verify_play.js` reads the **built** `play.html`, so run `./build.sh` first when you
+change `src/CribbagePlay.jsx`.
 
 ## Running and deploying
 

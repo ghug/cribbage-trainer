@@ -1,0 +1,6 @@
+New in 1.1.4:
+- Fix: the Discard Trainer no longer goes to a blank screen when you pick a card
+- 5- and 6-handed are now short games to 61 (skunk 30, double skunk 15)
+- During the discard, each other player shows their full hand face down
+- About screen now closes with a Done button in the top corner
+- Tidier layout: tighter face-down card stacks and a few wording cleanups

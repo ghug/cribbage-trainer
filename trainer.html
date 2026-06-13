@@ -596,7 +596,7 @@ function buildNote(role, best, chosen) {
         return `You kept more hand points, but the crib swing more than canceled it. ${multi ? phrase : "The " + bestLabel} is better by ${delta.toFixed(2)}.`;
     return `Close, but ${phrase} edges it by ${delta.toFixed(2)} expected points.`;
 }
-function SettingsPanel({ players, onPlayers, roleMode, onRoleMode, onClose, onAbout }) {
+function SettingsPanel({ players, roleMode, onRoleMode, onClose, onAbout }) {
     const seg = (on) => ({
         flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: 11.5,
         background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
@@ -606,14 +606,10 @@ function SettingsPanel({ players, onPlayers, roleMode, onRoleMode, onClose, onAb
         React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 } },
             React.createElement("span", { style: { fontWeight: 700, fontSize: 16 } }, "Settings"),
             React.createElement("button", { onClick: onClose, style: { padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 } }, "Done")),
-        React.createElement("div", { style: { marginBottom: 14 } },
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 } }, "players at the table"),
-            React.createElement("div", { style: { display: "flex", gap: 6 } }, [[2, "2-handed"], [3, "3-handed"], [4, "4-handed"]].map(([n, label]) => (React.createElement("button", { key: n, onClick: () => onPlayers(n), style: seg(players === n) }, label)))),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 6, lineHeight: 1.5 } }, players === 2
-                ? "2-handed (heads-up): 6 cards each, discard two. The 4-card crib is your two + the opponent's two."
-                : players === 3
-                    ? "3-handed: everyone discards one, and the dealer adds one card off the deck to fill the 4-card crib."
-                    : "4-handed: the 4-card crib is one discard from each player.")),
+        React.createElement("div", { style: { marginBottom: 14, fontFamily: mono, fontSize: 11, color: T.muted, lineHeight: 1.6 } },
+            "Table size: ",
+            React.createElement("b", { style: { color: T.cream } }, players === 2 ? "2-handed (heads-up) — 6 cards, discard two" : `${players}-handed — 5 cards, discard one`),
+            ". Set it on the home page (the \u201CPlayers at the table\u201D control above Play)."),
         React.createElement("div", { style: { marginBottom: 14 } },
             React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 } }, "practice as"),
             React.createElement("div", { style: { display: "flex", gap: 6 } }, [["random", `Random (1-in-${players} deal)`], ["deal", "Always dealer"], ["defend", "Always defend"]].map(([k, label]) => (React.createElement("button", { key: k, onClick: () => onRoleMode(k), style: seg(roleMode === k) }, label))))),
@@ -643,11 +639,25 @@ function AboutModal({ onClose }) {
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 16px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
             React.createElement("button", { onClick: onClose, style: { width: "100%", padding: "11px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer", background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: 12.5, fontWeight: 700 } }, "Close"))));
 }
+function loadTrainerPlayers() {
+    try {
+        const raw = localStorage.getItem("cribbage:settings");
+        if (raw) {
+            const p = JSON.parse(raw).players;
+            if (p === 2 || p === 3 || p === 4)
+                return p;
+            if (p === 5 || p === 6)
+                return 4;
+        }
+    }
+    catch (e) { }
+    return 4;
+}
 function CribbageTrainer() {
-    const [players, setPlayers] = useState(4);
+    const [players] = useState(loadTrainerPlayers);
     const [roleMode, setRoleMode] = useState("random");
-    const [hand, setHand] = useState(() => randomHand(5));
-    const [role, setRole] = useState(() => (Math.random() < 0.25 ? "deal" : "defend"));
+    const [hand, setHand] = useState(() => randomHand(players === 2 ? 6 : 5));
+    const [role, setRole] = useState(() => (Math.random() < 1 / players ? "deal" : "defend"));
     const [phase, setPhase] = useState("choose");
     const [selected, setSelected] = useState([]);
     const [chosenId, setChosenId] = useState(null);
@@ -674,13 +684,6 @@ function CribbageTrainer() {
         setPhase("choose");
     }, [roleMode]);
     const deal = useCallback(() => dealHand(players), [dealHand, players]);
-    const changePlayers = useCallback((n) => {
-        setPlayers(n);
-        if ((n === 2 ? 6 : 5) !== hand.length)
-            dealHand(n);
-        else
-            setSelected([]);
-    }, [hand.length, dealHand]);
     const pick = useCallback((idxs) => {
         const id = idxs.slice().sort((a, b) => a - b).join(",");
         const res = analyze(hand, role, mode, players);
@@ -767,7 +770,7 @@ function CribbageTrainer() {
                     React.createElement("b", { style: { fontSize: 15 } }, stats.hands ? avgLost.toFixed(2) : "–"),
                     " avg pts lost"))),
         React.createElement("main", { style: { maxWidth: 560, margin: "0 auto", padding: "18px 16px 0" } },
-            showSettings && React.createElement(SettingsPanel, { players: players, onPlayers: changePlayers, roleMode: roleMode, onRoleMode: setRoleMode, onClose: () => setShowSettings(false), onAbout: () => { setShowSettings(false); setAboutOpen(true); } }),
+            showSettings && React.createElement(SettingsPanel, { players: players, roleMode: roleMode, onRoleMode: setRoleMode, onClose: () => setShowSettings(false), onAbout: () => { setShowSettings(false); setAboutOpen(true); } }),
             aboutOpen && React.createElement(AboutModal, { onClose: () => setAboutOpen(false) }),
             React.createElement("div", { style: {
                     display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", borderRadius: 10,

@@ -495,7 +495,7 @@ function buildNote(role, best, chosen) {
 // Settings menu. Hosts the trainer's configuration — table size and the role you
 // practice — plus the standard About entry shared with the games. (Board position
 // stays inline on the main screen, alongside the live analysis it re-ranks.)
-function SettingsPanel({ players, onPlayers, roleMode, onRoleMode, onClose, onAbout }) {
+function SettingsPanel({ players, roleMode, onRoleMode, onClose, onAbout }) {
   const seg = (on) => ({
     flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: 11.5,
     background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
@@ -508,20 +508,9 @@ function SettingsPanel({ players, onPlayers, roleMode, onRoleMode, onClose, onAb
         <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>Done</button>
       </div>
 
-      <div style={{ marginBottom: 14 }}>
-        <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 }}>players at the table</div>
-        <div style={{ display: "flex", gap: 6 }}>
-          {[[2, "2-handed"], [3, "3-handed"], [4, "4-handed"]].map(([n, label]) => (
-            <button key={n} onClick={() => onPlayers(n)} style={seg(players === n)}>{label}</button>
-          ))}
-        </div>
-        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 6, lineHeight: 1.5 }}>
-          {players === 2
-            ? "2-handed (heads-up): 6 cards each, discard two. The 4-card crib is your two + the opponent's two."
-            : players === 3
-            ? "3-handed: everyone discards one, and the dealer adds one card off the deck to fill the 4-card crib."
-            : "4-handed: the 4-card crib is one discard from each player."}
-        </div>
+      <div style={{ marginBottom: 14, fontFamily: mono, fontSize: 11, color: T.muted, lineHeight: 1.6 }}>
+        Table size: <b style={{ color: T.cream }}>{players === 2 ? "2-handed (heads-up) — 6 cards, discard two" : `${players}-handed — 5 cards, discard one`}</b>.
+        Set it on the home page (the “Players at the table” control above Play).
       </div>
 
       <div style={{ marginBottom: 14 }}>
@@ -581,12 +570,28 @@ function AboutModal({ onClose }) {
   );
 }
 
+// The table size comes from the global "Players" setting chosen on the landing page
+// (shared localStorage key). The trainer practices the deal/discard for 2-handed
+// (6 cards, throw two) and 3-/4-handed (5 cards, throw one); 5-/6-handed use the same
+// deal-5/throw-one model as 4-handed. try/catch keeps it safe with no storage.
+function loadTrainerPlayers() {
+  try {
+    const raw = localStorage.getItem("cribbage:settings");
+    if (raw) {
+      const p = JSON.parse(raw).players;
+      if (p === 2 || p === 3 || p === 4) return p;
+      if (p === 5 || p === 6) return 4;
+    }
+  } catch (e) {}
+  return 4;
+}
+
 /* ============================ APP ============================ */
 export default function CribbageTrainer() {
-  const [players, setPlayers] = useState(4); // table size: 4-/3-handed cutthroat or 2-handed heads-up
+  const [players] = useState(loadTrainerPlayers); // fixed from the landing's global Players setting
   const [roleMode, setRoleMode] = useState("random");
-  const [hand, setHand] = useState(() => randomHand(5));
-  const [role, setRole] = useState(() => (Math.random() < 0.25 ? "deal" : "defend"));
+  const [hand, setHand] = useState(() => randomHand(players === 2 ? 6 : 5));
+  const [role, setRole] = useState(() => (Math.random() < 1 / players ? "deal" : "defend"));
   const [phase, setPhase] = useState("choose");
   const [selected, setSelected] = useState([]);   // card indices tapped during the choose phase
   const [chosenId, setChosenId] = useState(null);  // option id ("i" or "i,j") the user committed to
@@ -614,12 +619,6 @@ export default function CribbageTrainer() {
   }, [roleMode]);
 
   const deal = useCallback(() => dealHand(players), [dealHand, players]);
-
-  const changePlayers = useCallback((n) => {
-    setPlayers(n);
-    if ((n === 2 ? 6 : 5) !== hand.length) dealHand(n); // hand size changed → fresh deal
-    else setSelected([]);                                // same size → keep hand, drop partial selection
-  }, [hand.length, dealHand]);
 
   const pick = useCallback((idxs) => {
     const id = idxs.slice().sort((a, b) => a - b).join(","); // match analyze's i<j combo ids
@@ -700,7 +699,7 @@ export default function CribbageTrainer() {
       </header>
 
       <main style={{ maxWidth: 560, margin: "0 auto", padding: "18px 16px 0" }}>
-        {showSettings && <SettingsPanel players={players} onPlayers={changePlayers} roleMode={roleMode} onRoleMode={setRoleMode} onClose={() => setShowSettings(false)} onAbout={() => { setShowSettings(false); setAboutOpen(true); }} />}
+        {showSettings && <SettingsPanel players={players} roleMode={roleMode} onRoleMode={setRoleMode} onClose={() => setShowSettings(false)} onAbout={() => { setShowSettings(false); setAboutOpen(true); }} />}
         {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
         <div style={{
           display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", borderRadius: 10,

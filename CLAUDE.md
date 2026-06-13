@@ -75,9 +75,11 @@ against — they are not imported by the apps, but they document and re-prove th
 
 ## Game rules being modeled
 
-- **Selectable 4-handed (default), 3-handed, or 2-handed**, via the "players at the
-  table" toggle in the UI (`players` state ∈ {4, 3, 2}). 4-/3-handed are "cutthroat"
-  (every player for themselves); 2-handed is standard heads-up cribbage.
+- **Selectable 4-handed (default), 3-handed, or 2-handed** — the trainer's table size
+  comes from the **global "Players" setting** chosen on the landing page (shared
+  localStorage; `loadTrainerPlayers()` reads it on mount, clamping 5/6 → 4 since the
+  discard model is deal-5/throw-one). 4-/3-handed are "cutthroat"; 2-handed is heads-up
+  (6 cards, throw two). The trainer's gear panel shows the current size read-only.
 - **Deal & discard depend on table size:**
   - **4-/3-handed:** each player dealt **5 cards**, discards **exactly one**. UI
     ranks the **5** single-card discards.

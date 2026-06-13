@@ -261,20 +261,25 @@ Same scope notes as the trainer apply, plus: bot opponents play greedy pegging w
 lookahead.
 
 - **Mixed human/bot seats** (hot-seat). The landing page's seat diagram writes
-  `settings.seats` (per-seat `"human"`/`"bot"`; seat 0 is always you). `seatIsHuman(i,
-  settings)` drives it. With **2+ human seats** the game becomes hot-seat with a
-  device hand-off: a `holder` field + a `needHandoff` gate (computed in the
-  App: a human actor whose seat ≠ `holder`, with cards to act) shows a `PassPanel` in place
-  of that player's hand; `TAKE_DEVICE` sets `holder`. Throwing **bots auto-discard at deal**
-  (as before); throwing **humans discard interactively** one at a time via `state.discardSeat`
-  (`commitDiscard` advances to the next human thrower, then builds the crib). Pegging blocks
-  for each human seat (the self-clocking effect auto-plays bots / auto-goes empties);
-  `PlayScreen` renders from the device holder's seat via `seatsAround(P, me)` (rotates the
-  ring so the active human sits at the bottom). The show is public; **muggins** applies to
-  any human owner. With **only seat 0 human (the default)** none of this engages — `holder`
-  stays 0, `needHandoff` is always false, and the reducer/UI are bit-for-bit the old
-  you-vs-bots game (guaranteed by `engine/verify_play.js`, which also drives mixed 4/6/2
-  configs).
+  `settings.seats` (per-seat `"human"`/`"bot"`). `seatIsHuman(i, settings)` honors it for
+  **every** seat — an explicit role wins, and with no config the default is South (seat 0)
+  human, the rest bots — so even South can be a bot. Derived seat helpers: `nHumans`,
+  `soleHuman` (the lone human's seat, else −1), `firstHuman`. **"You"** is the lone human's
+  seat (`seatNamesFor(P, soleHuman)` overrides that seat's compass name to "You"); banners,
+  `playMe`, and `gameRecord` are framed from `youRef` (= `soleHuman` or South). With **2+
+  human seats** the game is hot-seat with a device hand-off: a `holder` field (initialized
+  to `firstHuman`) + a `needHandoff` gate (a human actor whose seat ≠ `holder`, with cards to
+  act) shows a `PassPanel` in place of that player's hand; `TAKE_DEVICE` sets `holder`.
+  Throwing **bots auto-discard at deal**; throwing **humans discard interactively** one at a
+  time via `state.discardSeat` (`commitDiscard` advances to the next human thrower, then
+  builds the crib). Pegging blocks for each human seat (the self-clocking effect auto-plays
+  bots / auto-goes empties); `PlayScreen` renders from the holder's seat via `seatsAround(P,
+  me)` (rotates the ring so the active human sits at the bottom). The show is public;
+  **muggins** is solo-only (`mugginsActive` = counting muggins **and** exactly one human).
+  **All-bot tables** (zero humans) just play/spectate through. With **one human at seat 0
+  (the default)** none of the hot-seat machinery engages and the reducer/UI are bit-for-bit
+  the old you-vs-bots game — guaranteed by `engine/verify_play.js`, which also drives mixed
+  configs (incl. a bot-South and an all-bot game).
 
 ## Known limitations (be honest about these in the UI)
 

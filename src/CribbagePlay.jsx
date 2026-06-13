@@ -181,21 +181,25 @@ const serif = "'Hoefler Text', 'Iowan Old Style', Georgia, 'Times New Roman', se
 // tables use compass seats with the human at seat 0. SEAT_NAMES is set per game.
 // In a hot-seat game with 2+ humans, "You" is ambiguous, so seat 0 takes the compass
 // name South (and the heads-up opponent becomes North) instead of You/Opponent.
-function seatNamesFor(P, multi) {
-  if (P === 2) return [multi ? "South" : "You", multi ? "North" : "Opponent"];
+// Position-based compass names (6-handed seats the lower flanks as Southwest/Southeast —
+// a full hexagon S, SW, NW, N, NE, SE; 3-/4-/5-handed keep plain West/East). The lone
+// human seat, if any, is overridden to "You".
+function seatNamesFor(P, youSeat) {
   const names = new Array(P);
-  // 6-handed seats the two lower flanks as Southwest/Southeast (a full hexagon:
-  // S, SW, NW, N, NE, SE); 3-/4-/5-handed keep plain West/East.
-  names[0] = multi ? "South" : "You";
-  names[1] = P === 6 ? "Southwest" : "West";
-  names[P - 1] = P === 6 ? "Southeast" : "East";
-  const tops = []; for (let i = 2; i <= P - 2; i++) tops.push(i);
-  const labels = tops.length <= 1 ? ["North"] : tops.length === 2 ? ["Northwest", "Northeast"] : ["Northwest", "North", "Northeast"];
-  tops.forEach((s, k) => { names[s] = labels[k]; });
+  names[0] = "South";
+  if (P === 2) { names[1] = "North"; }
+  else {
+    names[1] = P === 6 ? "Southwest" : "West";
+    names[P - 1] = P === 6 ? "Southeast" : "East";
+    const tops = []; for (let i = 2; i <= P - 2; i++) tops.push(i);
+    const labels = tops.length <= 1 ? ["North"] : tops.length === 2 ? ["Northwest", "Northeast"] : ["Northwest", "North", "Northeast"];
+    tops.forEach((s, k) => { names[s] = labels[k]; });
+  }
+  if (youSeat != null && youSeat >= 0) names[youSeat] = "You";
   return names;
 }
-let SEAT_NAMES = seatNamesFor(2, false);
-const setSeatNames = (P, multi) => { SEAT_NAMES = seatNamesFor(P, multi); };
+let SEAT_NAMES = seatNamesFor(2, 0);
+const setSeatNames = (P, youSeat) => { SEAT_NAMES = seatNamesFor(P, youSeat); };
 const seatName = (i) => SEAT_NAMES[i];
 // Short compass labels for the tight grid spots (score columns, cut-for-deal row, the
 // pegging seat cells) so 5-/6-handed tables don't overflow a narrow phone. Prose (the
@@ -444,8 +448,19 @@ function evalDiscards(dealt, dealerIdx, n, P, teams, seat = 0) {
 // Seat 0 is always the human at this device; other seats are bots unless the landing
 // page's seat diagram marked them human (settings.seats[i] === "human"). A game with
 // 2+ human seats becomes hot-seat: the device passes between them with a privacy screen.
-const seatIsHuman = (i, settings) => i === 0 || !!(settings && settings.seats && settings.seats[i] === "human");
+// Seat roles come from the landing page (settings.seats: per-seat "human"/"bot"). With no
+// config the default is South (seat 0) human, the rest bots; an explicit role always wins,
+// so even South can be a bot.
+const seatIsHuman = (i, settings) => {
+  const s = settings && settings.seats;
+  if (s && (s[i] === "human" || s[i] === "bot")) return s[i] === "human";
+  return i === 0;
+};
 function nHumans(P, settings) { let c = 0; for (let i = 0; i < P; i++) if (seatIsHuman(i, settings)) c++; return c; }
+// The lone human's seat when exactly one is seated (else -1); and the first human seat (or
+// 0 if the table is all bots — a spectated game).
+function soleHuman(P, settings) { let found = -1; for (let i = 0; i < P; i++) if (seatIsHuman(i, settings)) { if (found >= 0) return -1; found = i; } return found; }
+function firstHuman(P, settings) { for (let i = 0; i < P; i++) if (seatIsHuman(i, settings)) return i; return 0; }
 // Muggins is only offered/active in a one-human (solo vs bots) game; a hot-seat table with
 // 2+ humans always auto-counts.
 const mugginsActive = (settings) => settings.counting === "muggins" && nHumans(clampPlayers(settings.players), settings) === 1;
@@ -489,7 +504,7 @@ function dealNewHand(state) {
   const base = {
     ...state, seats, deck, starter: null, crib: [], hisHeels: false,
     peg: null, show: null, winner: null, phase: "discard", message: "", pendingDiscard: null, pendingPlay: null,
-    holder: 0, discardSeat: humanThrowers.length ? humanThrowers[0] : null,
+    holder: firstHuman(P, state.settings), discardSeat: humanThrowers.length ? humanThrowers[0] : null,
   };
   if (humanThrowers.length === 0) {
     // No human throws this hand — the crib is already complete, so skip to the cut.
@@ -701,7 +716,8 @@ function clearHistory() { try { localStorage.removeItem(HISTORY_KEY); } catch (e
 function gameRecord(state) {
   const P = clampPlayers(state.settings.players);
   const teams = clampTeams(P, state.settings.teams);
-  const mine = teamsList(P, teams).find((m) => m.includes(0)) || [0];
+  const you = soleHuman(P, state.settings) >= 0 ? soleHuman(P, state.settings) : 0;
+  const mine = teamsList(P, teams).find((m) => m.includes(you)) || [you];
   let peg = 0, hand = 0, crib = 0;
   for (const seat of mine) for (const h of (state.seats[seat].history || [])) {
     const L = h.label || "";
@@ -711,7 +727,7 @@ function gameRecord(state) {
     else if (L === "muggins") hand += h.pts;        // claimed an opponent's missed count
   }
   const score = state.seats[mine[0]].score;
-  const won = teamOf(state.winner, P, teams) === teamOf(0, P, teams);
+  const won = teamOf(state.winner, P, teams) === teamOf(you, P, teams);
   const { skunk, dbl } = skunkLines(P);
   const outcome = won ? "won" : score <= dbl ? "doubleSkunked" : score <= skunk ? "skunked" : "lost";
   return { t: Date.now(), P, teams, outcome, peg, hand, crib, score };
@@ -732,14 +748,14 @@ function newGameState(prev) {
   const base = prev ? prev.settings : loadSettings();
   const P = clampPlayers(base.players);
   const settings = { ...base, players: P, teams: clampTeams(P, base.teams) };
-  setSeatNames(P, nHumans(P, settings) > 1);
+  setSeatNames(P, soleHuman(P, settings));
   const { dealerIdx, draw } = drawForDealer(P);
   return {
     seats: Array.from({ length: P }, (_, i) => ({ score: 0, isAI: !seatIsHuman(i, settings), dealt: [], kept: null, discard: null, history: [] })),
     dealerIdx, dealDraw: draw,
     deck: [], starter: null, crib: [], hisHeels: false, pendingDiscard: null, pendingPlay: null,
     peg: null, show: null, winner: null, phase: "cutdeal", message: "",
-    holder: 0, discardSeat: null, settings,
+    holder: firstHuman(P, settings), discardSeat: null, settings,
   };
 }
 function initGame() { return newGameState(null); }
@@ -905,10 +921,11 @@ export default function CribbagePlay() {
   const players = clampPlayers(settings.players);
   const teams = clampTeams(players, settings.teams);
   const multiHuman = nHumans(players, settings) > 1;            // 2+ humans → hot-seat hand-off
-  setSeatNames(players, multiHuman);
+  const youRef = soleHuman(players, settings) >= 0 ? soleHuman(players, settings) : 0; // "you" = the lone human (else South)
+  setSeatNames(players, soleHuman(players, settings));
   const ds = state.discardSeat != null ? state.discardSeat : 0; // active discarder
   const humanThrows = plan(players, dealerIdx).throws[ds];
-  const playMe = state.holder == null ? 0 : state.holder;       // device-holder perspective in play
+  const playMe = state.holder == null ? firstHuman(players, settings) : state.holder; // device-holder perspective in play
   const needHandoff = multiHuman && (
     phase === "discard" ? (state.discardSeat != null && state.holder !== state.discardSeat)
     : (phase === "play" && peg) ? (seatIsHuman(peg.turn, settings) && state.holder !== peg.turn && peg.hands[peg.turn].length > 0)
@@ -1003,11 +1020,12 @@ export default function CribbagePlay() {
     return () => clearTimeout(t);
   }, [phase, show, settings.autoContinue, autoPaused]);
 
-  const dealer = dealerIdx === 0;
+  // Banners are framed from "you" = the lone human's seat (or South when hot-seat/spectating).
+  const dealer = dealerIdx === youRef;
   // The dealer is always an individual; with teams, the crib's points go to the
   // dealer's team. "ours" = the crib lands on my team; "teammateDeals" = a partner
   // (not me) is the dealer this hand.
-  const cribIsOurs = teamOf(dealerIdx, players, teams) === teamOf(0, players, teams);
+  const cribIsOurs = teamOf(dealerIdx, players, teams) === teamOf(youRef, players, teams);
   const teammateDeals = cribIsOurs && !dealer;
   // Same three, but from the active discarder's seat (= seat 0 in the default solo game).
   const dsIsDealer = ds === dealerIdx;

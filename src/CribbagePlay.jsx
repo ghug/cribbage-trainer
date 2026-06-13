@@ -1222,12 +1222,15 @@ function PlayScreen({ state, dispatch }) {
         {ts.right != null && cell(ts.right)}
       </div>
 
-      {peg.played[0].length > 0 && (
-        <div style={{ textAlign: "center" }}>
+      {/* Reserve this row's height even before you've played a card, so your played
+          stack appearing on your first play doesn't shove the pile and hand downward
+          (the opponents' stacks already live in fixed-height seat cells). */}
+      <div style={{ textAlign: "center", minHeight: 80 }}>
+        {peg.played[0].length > 0 && (<>
           <div style={{ fontFamily: mono, fontSize: 10, color: peg.turn === 0 ? T.selBlue : T.muted, marginBottom: 4 }}>You{dealerIdx === 0 ? " (D)" : ""}</div>
           <PlayedStack cards={peg.played[0]} backs={0} />
-        </div>
-      )}
+        </>)}
+      </div>
 
       <div style={{ background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "12px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14, minHeight: 64 }}>

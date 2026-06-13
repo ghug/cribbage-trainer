@@ -487,7 +487,10 @@ function PlayView({ state, dispatch, selCard, setSelCard, needHandoff }) {
   const playedRow = (i) => (
     <div style={{ textAlign: "center" }}>
       <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 4 }}>{NAMES[i]}{dealer === i ? " (D)" : ""} played</div>
-      {peg.played[i].length ? <CardRow cards={peg.played[i]} small /> : <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>—</span>}
+      {/* reserve a card-height row so the table doesn't jump as cards are played */}
+      <div style={{ minHeight: 64, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        {peg.played[i].length ? <CardRow cards={peg.played[i]} small /> : <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>—</span>}
+      </div>
     </div>
   );
   return (
@@ -508,7 +511,7 @@ function PlayView({ state, dispatch, selCard, setSelCard, needHandoff }) {
           <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>count</div>
           <div style={{ fontFamily: serif, fontWeight: 700, fontSize: 26, lineHeight: 1, color: peg.count === 31 ? T.good : T.ivory }}>{peg.count}</div>
         </div>
-        <div style={{ flex: "1 1 auto", minWidth: 0, overflow: "hidden" }}>
+        <div style={{ flex: "1 1 auto", minWidth: 0, overflow: "hidden", minHeight: 62, display: "flex", alignItems: "center", justifyContent: "center" }}>
           {peg.pileSuited.length ? <CardRow cards={peg.pileSuited} small /> : <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>cleared — new count from 0</span>}
         </div>
       </div>

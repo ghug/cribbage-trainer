@@ -1,0 +1,6 @@
+New in 1.1.6:
+- New: Pass & Play — two-player cribbage on one shared device, with a pass screen that hides each hand between turns
+- New: Game history — track wins, losses, skunks, and your average pegging/hand/crib points by table size
+- New setting: cut for the starter manually (default) or automatically
+- A "Continue game" button in the settings panel
+- Polish and layout fixes throughout the Play game

@@ -189,6 +189,10 @@
         <div class="pp-label">Players at the table <span class="pp-note">— for the Play game</span></div>
         <div class="pp-segs" id="playersSegs"></div>
       </div>
+      <div class="players-pick" id="teamsPick" style="display:none">
+        <div class="pp-label">Teams <span class="pp-note">— how the table splits up</span></div>
+        <div class="pp-segs" id="teamsSegs"></div>
+      </div>
       <a class="option" href="play.html">
         <div class="opt-row">
           <span class="pip play">♥</span>
@@ -247,7 +251,7 @@
       // Game settings, shared across every page via localStorage (same key the games
       // read/write), so a toggle here — or in any game — sticks everywhere.
       var SETTINGS_KEY = "cribbage:settings";
-      var DEFAULTS = { players: 4, counting: "auto", autoGo: false, warn: true, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false, autoContinue: false, autoDeal: false };
+      var DEFAULTS = { players: 4, teams: 4, counting: "auto", autoGo: false, warn: true, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false, autoContinue: false, autoDeal: false };
       // "Players" lives on the main page (above Play); the rest are in this popup.
       var ROWS = [
         { k: "counting", title: "Counting", desc: "Auto tallies every hand. Muggins: you claim your own hand (and crib when you deal) — miss points and the next opponent takes them.", opts: [["Auto-count", "auto"], ["Muggins", "muggins"]] },
@@ -281,20 +285,39 @@
       }
       renderSettings();
 
-      // The "Players" control lives on the home page, just above the Play card.
+      // The "Players" and "Teams" controls live on the home page, above the Play card.
+      // Teams only appears at 4 or 6 players; it's a setting only for now (no gameplay).
+      function teamOptions(P) { if (P === 4) return [4, 2]; if (P === 6) return [6, 3, 2]; return [P]; }
       function renderPlayers() {
         var host = document.getElementById('playersSegs');
         host.innerHTML = '';
         [2, 3, 4, 5, 6].forEach(function (p) {
           var b = document.createElement('button'); b.type = 'button'; b.textContent = String(p);
           b.className = 'seg' + (settings.players === p ? ' on' : '');
-          b.addEventListener('click', function () { settings.players = p; saveSettings(settings); renderPlayers(); });
+          // Switching players resets teams to the cutthroat default (one per player).
+          b.addEventListener('click', function () { settings.players = p; settings.teams = p; saveSettings(settings); renderPlayers(); renderTeams(); });
+          host.appendChild(b);
+        });
+      }
+      function renderTeams() {
+        var wrap = document.getElementById('teamsPick');
+        var opts = teamOptions(settings.players);
+        if (opts.length <= 1) { wrap.style.display = 'none'; return; }
+        wrap.style.display = '';
+        if (opts.indexOf(settings.teams) < 0) { settings.teams = settings.players; saveSettings(settings); }
+        var host = document.getElementById('teamsSegs');
+        host.innerHTML = '';
+        opts.forEach(function (t) {
+          var b = document.createElement('button'); b.type = 'button'; b.textContent = String(t);
+          b.className = 'seg' + (settings.teams === t ? ' on' : '');
+          b.addEventListener('click', function () { settings.teams = t; saveSettings(settings); renderTeams(); });
           host.appendChild(b);
         });
       }
       renderPlayers();
+      renderTeams();
 
-      document.getElementById('gear').addEventListener('click', function () { settings = loadSettings(); renderSettings(); renderPlayers(); open(s); });
+      document.getElementById('gear').addEventListener('click', function () { settings = loadSettings(); renderSettings(); renderPlayers(); renderTeams(); open(s); });
       document.getElementById('settingsDone').addEventListener('click', function () { close(s); });
       document.getElementById('openAbout').addEventListener('click', function () { close(s); open(a); });
       document.getElementById('footerAbout').addEventListener('click', function () { open(a); });

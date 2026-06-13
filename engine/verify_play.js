@@ -188,5 +188,24 @@ for (const P of SUPPORTED) {
   check(state.seats.length === 3 && state.phase === "cutdeal", "switching to players=3 restarts with 3 seats");
 }
 
+/* ---- E. teams setting (display only): options, defaults, and clamping ---- */
+{
+  const { teamOptions } = S;
+  check(JSON.stringify(teamOptions(4)) === JSON.stringify([4, 2]), "team options at 4 are [4,2]");
+  check(JSON.stringify(teamOptions(6)) === JSON.stringify([6, 3, 2]), "team options at 6 are [6,3,2]");
+  for (const P of [2, 3, 5]) check(JSON.stringify(teamOptions(P)) === JSON.stringify([P]), `team options at ${P} are just [${P}]`);
+
+  let st = gameFor(4);
+  check(st.settings.teams === 4, "switching to 4 players defaults teams to 4 (cutthroat)");
+  st = reduce(st, { type: "SET_SETTING", key: "teams", value: 2 });
+  check(st.settings.teams === 2 && st.phase === "cutdeal" && st.seats.length === 4, "setting teams=2 updates the setting without restarting the game");
+  st = reduce(st, { type: "SET_SETTING", key: "players", value: 6 });
+  check(st.settings.players === 6 && st.settings.teams === 6, "switching players resets teams to the new player count");
+  st = reduce(st, { type: "SET_SETTING", key: "teams", value: 3 });
+  check(st.settings.teams === 3, "teams=3 is valid at 6 players");
+  st = reduce(st, { type: "SET_SETTING", key: "players", value: 3 });
+  check(st.settings.teams === 3, "at a size with no team choice, teams equals the player count");
+}
+
 console.log(`\nplay.html engine checks: ${ok} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

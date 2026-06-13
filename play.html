@@ -328,6 +328,14 @@ function CatBars({ cats, scale, color }) {
 const TARGET = 121;
 const PLAYER_OPTIONS = [2, 3, 4, 5, 6];
 const clampPlayers = (p) => (PLAYER_OPTIONS.includes(p) ? p : 2);
+function teamOptions(P) {
+    if (P === 4)
+        return [4, 2];
+    if (P === 6)
+        return [6, 3, 2];
+    return [P];
+}
+const clampTeams = (P, t) => (teamOptions(P).includes(t) ? t : P);
 function plan(P, dealerIdx) {
     const right = (dealerIdx + P - 1) % P;
     const sizes = [], throws = [];
@@ -550,6 +558,8 @@ function reduce(state, action) {
             return dealNewHand(state);
         case "SET_SETTING": {
             const settings = { ...state.settings, [action.key]: action.value };
+            if (action.key === "players")
+                settings.teams = action.value;
             saveSettings(settings);
             if (action.key === "players")
                 return newGameState({ settings });
@@ -673,7 +683,7 @@ function reduce(state, action) {
             return state;
     }
 }
-const DEFAULT_SETTINGS = { players: 4, counting: "auto", autoGo: false, warn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
+const DEFAULT_SETTINGS = { players: 4, teams: 4, counting: "auto", autoGo: false, warn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
 const SETTINGS_KEY = "cribbage:settings";
 function loadSettings() {
     try {
@@ -699,8 +709,9 @@ function drawForDealer(P) {
     return { dealerIdx: 0, draw: null };
 }
 function newGameState(prev) {
-    const settings = prev ? prev.settings : loadSettings();
-    const P = clampPlayers(settings.players);
+    const base = prev ? prev.settings : loadSettings();
+    const P = clampPlayers(base.players);
+    const settings = { ...base, players: P, teams: clampTeams(P, base.teams) };
     setSeatNames(P);
     const { dealerIdx, draw } = drawForDealer(P);
     return {
@@ -1253,6 +1264,7 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout }) {
             React.createElement("span", { style: { fontWeight: 700, fontSize: 16 } }, "Settings"),
             React.createElement("button", { onClick: onClose, style: { padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 } }, "Done")),
         React.createElement(Row, { title: "Players at the table", k: "players", desc: "2 = heads-up (deal 6, throw 2). 3 = three-handed (deal 5, throw 1; the dealer flips one off the deck to fill the crib). 4 = four-handed (deal 5, throw 1). 5\u20136 = the dealer (and, at 6, the player to their right) are dealt 4 and throw none. Changing this starts a new game.", options: PLAYER_OPTIONS.map((p) => [String(p), p]) }),
+        teamOptions(clampPlayers(settings.players)).length > 1 && (React.createElement(Row, { title: "Teams", k: "teams", desc: "How the table splits into teams. Default is one team per player (cutthroat). 4 players can pair into 2 teams; 6 into 3 or 2. Display only for now \u2014 scoring isn't changed yet.", options: teamOptions(clampPlayers(settings.players)).map((t) => [String(t), t]) })),
         React.createElement(Row, { title: "Counting", k: "counting", desc: "Auto tallies every hand for you. Muggins: you claim your own hand (and crib when you deal) \u2014 miss points and the next opponent takes them.", options: [["Auto-count", "auto"], ["Muggins", "muggins"]] }),
         React.createElement(Row, { title: "Go on no playable card", k: "autoGo", desc: 'When you can’t play, Manual waits for you to tap “Go”; Auto passes for you.', options: [["Manual", false], ["Auto", true]] }),
         React.createElement(Row, { title: "Warn on a weak play", k: "warn", desc: "Pause and explain when your throw to the crib \u2014 or a pegging card that leaves a point on the table \u2014 isn\u2019t the best, with a chance to take it back.", options: [["On", true], ["Off", false]] }),

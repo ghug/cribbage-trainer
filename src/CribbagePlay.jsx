@@ -298,6 +298,15 @@ function CatBars({ cats, scale, color }) {
 const TARGET = 121;
 const PLAYER_OPTIONS = [2, 3, 4, 5, 6]; // table sizes this page supports (2 heads-up … 6 cutthroat)
 const clampPlayers = (p) => (PLAYER_OPTIONS.includes(p) ? p : 2);
+// Team counts available at a given table size. Default is one team per player
+// (cutthroat); 4 players may pair into 2 teams, 6 into 3 or 2. (Setting only for
+// now — no scoring/gameplay change yet.) Sizes without a choice return just [P].
+function teamOptions(P) {
+  if (P === 4) return [4, 2];
+  if (P === 6) return [6, 3, 2];
+  return [P];
+}
+const clampTeams = (P, t) => (teamOptions(P).includes(t) ? t : P);
 
 // The deal plan for a table of P with this dealer: per-seat dealt count and throw
 // count, whether the dealer flips a deck card into the crib (3-handed), and the
@@ -479,8 +488,10 @@ function reduce(state, action) {
 
     case "SET_SETTING": {
       const settings = { ...state.settings, [action.key]: action.value };
+      // Changing the table size resets teams to the cutthroat default (one per player)
+      // and restarts the game. The teams setting itself is display-only for now.
+      if (action.key === "players") settings.teams = action.value;
       saveSettings(settings);
-      // Changing the table size restarts the game (different seat count).
       if (action.key === "players") return newGameState({ settings });
       return { ...state, settings };
     }
@@ -600,7 +611,7 @@ function reduce(state, action) {
   }
 }
 
-const DEFAULT_SETTINGS = { players: 4, counting: "auto", autoGo: false, warn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
+const DEFAULT_SETTINGS = { players: 4, teams: 4, counting: "auto", autoGo: false, warn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
 // Settings persist across pages in localStorage under a shared key. try/catch keeps
 // the verification harness (no localStorage) and private-mode browsers happy.
 const SETTINGS_KEY = "cribbage:settings";
@@ -622,8 +633,9 @@ function drawForDealer(P) {
 }
 
 function newGameState(prev) {
-  const settings = prev ? prev.settings : loadSettings();
-  const P = clampPlayers(settings.players);
+  const base = prev ? prev.settings : loadSettings();
+  const P = clampPlayers(base.players);
+  const settings = { ...base, players: P, teams: clampTeams(P, base.teams) };
   setSeatNames(P);
   const { dealerIdx, draw } = drawForDealer(P);
   return {
@@ -1282,6 +1294,11 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout }) {
       <Row title="Players at the table" k="players"
         desc="2 = heads-up (deal 6, throw 2). 3 = three-handed (deal 5, throw 1; the dealer flips one off the deck to fill the crib). 4 = four-handed (deal 5, throw 1). 5–6 = the dealer (and, at 6, the player to their right) are dealt 4 and throw none. Changing this starts a new game."
         options={PLAYER_OPTIONS.map((p) => [String(p), p])} />
+      {teamOptions(clampPlayers(settings.players)).length > 1 && (
+        <Row title="Teams" k="teams"
+          desc="How the table splits into teams. Default is one team per player (cutthroat). 4 players can pair into 2 teams; 6 into 3 or 2. Display only for now — scoring isn't changed yet."
+          options={teamOptions(clampPlayers(settings.players)).map((t) => [String(t), t])} />
+      )}
       <Row title="Counting" k="counting"
         desc="Auto tallies every hand for you. Muggins: you claim your own hand (and crib when you deal) — miss points and the next opponent takes them."
         options={[["Auto-count", "auto"], ["Muggins", "muggins"]]} />

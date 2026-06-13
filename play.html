@@ -245,8 +245,8 @@ function seatNamesFor(P, multi) {
         return [multi ? "South" : "You", multi ? "North" : "Opponent"];
     const names = new Array(P);
     names[0] = multi ? "South" : "You";
-    names[1] = "West";
-    names[P - 1] = "East";
+    names[1] = P === 6 ? "Southwest" : "West";
+    names[P - 1] = P === 6 ? "Southeast" : "East";
     const tops = [];
     for (let i = 2; i <= P - 2; i++)
         tops.push(i);
@@ -257,7 +257,7 @@ function seatNamesFor(P, multi) {
 let SEAT_NAMES = seatNamesFor(2, false);
 const setSeatNames = (P, multi) => { SEAT_NAMES = seatNamesFor(P, multi); };
 const seatName = (i) => SEAT_NAMES[i];
-const SEAT_SHORT = { West: "W", East: "E", North: "N", Northwest: "NW", Northeast: "NE" };
+const SEAT_SHORT = { West: "W", East: "E", North: "N", Northwest: "NW", Northeast: "NE", Southwest: "SW", Southeast: "SE" };
 const seatShort = (i) => SEAT_SHORT[SEAT_NAMES[i]] || SEAT_NAMES[i];
 const poss = (i) => (i === 0 ? "Your" : `${seatName(i)}'s`);
 const sv = (i, first, third) => (i === 0 ? `You ${first}` : `${seatName(i)} ${third}`);
@@ -1562,7 +1562,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, "Source, bugs & feedback \u2197"),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.7-dev.6"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.7-dev.7"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

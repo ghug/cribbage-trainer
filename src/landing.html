@@ -347,7 +347,8 @@
       }
       function seatNames(P) {
         if (P === 2) return ['You', 'Opp'];
-        var n = new Array(P); n[0] = 'You'; n[1] = 'W'; n[P - 1] = 'E';
+        var n = new Array(P); n[0] = 'You';
+        n[1] = P === 6 ? 'SW' : 'W'; n[P - 1] = P === 6 ? 'SE' : 'E';
         var tops = []; for (var i = 2; i <= P - 2; i++) tops.push(i);
         var labels = tops.length <= 1 ? ['N'] : tops.length === 2 ? ['NW', 'NE'] : ['NW', 'N', 'NE'];
         tops.forEach(function (sx, k) { n[sx] = labels[k]; });

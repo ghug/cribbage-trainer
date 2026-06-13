@@ -270,7 +270,7 @@
       <a class="btn btn-primary" href="https://github.com/ghug/cribbage-trainer/"
          target="_blank" rel="noopener noreferrer">Source, bugs &amp; feedback ↗</a>
       <div class="repo-url" style="margin-bottom:4px">github.com/ghug/cribbage-trainer</div>
-      <div class="repo-url">v1.1.7-dev.6</div>
+      <div class="repo-url">v1.1.7-dev.7</div>
     </div>
   </div>
 
@@ -347,7 +347,8 @@
       }
       function seatNames(P) {
         if (P === 2) return ['You', 'Opp'];
-        var n = new Array(P); n[0] = 'You'; n[1] = 'W'; n[P - 1] = 'E';
+        var n = new Array(P); n[0] = 'You';
+        n[1] = P === 6 ? 'SW' : 'W'; n[P - 1] = P === 6 ? 'SE' : 'E';
         var tops = []; for (var i = 2; i <= P - 2; i++) tops.push(i);
         var labels = tops.length <= 1 ? ['N'] : tops.length === 2 ? ['NW', 'NE'] : ['NW', 'N', 'NE'];
         tops.forEach(function (sx, k) { n[sx] = labels[k]; });

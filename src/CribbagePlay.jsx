@@ -184,7 +184,11 @@ const serif = "'Hoefler Text', 'Iowan Old Style', Georgia, 'Times New Roman', se
 function seatNamesFor(P, multi) {
   if (P === 2) return [multi ? "South" : "You", multi ? "North" : "Opponent"];
   const names = new Array(P);
-  names[0] = multi ? "South" : "You"; names[1] = "West"; names[P - 1] = "East";
+  // 6-handed seats the two lower flanks as Southwest/Southeast (a full hexagon:
+  // S, SW, NW, N, NE, SE); 3-/4-/5-handed keep plain West/East.
+  names[0] = multi ? "South" : "You";
+  names[1] = P === 6 ? "Southwest" : "West";
+  names[P - 1] = P === 6 ? "Southeast" : "East";
   const tops = []; for (let i = 2; i <= P - 2; i++) tops.push(i);
   const labels = tops.length <= 1 ? ["North"] : tops.length === 2 ? ["Northwest", "Northeast"] : ["Northwest", "North", "Northeast"];
   tops.forEach((s, k) => { names[s] = labels[k]; });
@@ -196,7 +200,7 @@ const seatName = (i) => SEAT_NAMES[i];
 // Short compass labels for the tight grid spots (score columns, cut-for-deal row, the
 // pegging seat cells) so 5-/6-handed tables don't overflow a narrow phone. Prose (the
 // message line, banners, history) keeps the full names.
-const SEAT_SHORT = { West: "W", East: "E", North: "N", Northwest: "NW", Northeast: "NE" };
+const SEAT_SHORT = { West: "W", East: "E", North: "N", Northwest: "NW", Northeast: "NE", Southwest: "SW", Southeast: "SE" };
 const seatShort = (i) => SEAT_SHORT[SEAT_NAMES[i]] || SEAT_NAMES[i];
 const poss = (i) => (i === 0 ? "Your" : `${seatName(i)}'s`);
 const sv = (i, first, third) => (i === 0 ? `You ${first}` : `${seatName(i)} ${third}`);

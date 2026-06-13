@@ -500,6 +500,9 @@ function PlayView({ state, dispatch, selCard, setSelCard, needHandoff }) {
         <div style={{ width: 44, margin: "0 auto" }}><Card card={starter} small /></div>
       </div>
 
+      {/* your played cards sit just above the shared pile */}
+      {playedRow(turn)}
+
       <div style={{ background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: 12, display: "flex", alignItems: "center", gap: 14 }}>
         <div style={{ flex: "0 0 auto", textAlign: "center", padding: "4px 12px", borderRadius: 9, background: "rgba(0,0,0,0.3)", border: `1px solid ${T.line}` }}>
           <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>count</div>
@@ -509,9 +512,6 @@ function PlayView({ state, dispatch, selCard, setSelCard, needHandoff }) {
           {peg.pileSuited.length ? <CardRow cards={peg.pileSuited} small /> : <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>cleared — new count from 0</span>}
         </div>
       </div>
-
-      {/* your side of the table */}
-      {playedRow(turn)}
 
       {needHandoff ? (
         <PassPrompt to={turn} onReveal={() => dispatch({ type: "READY" })} />

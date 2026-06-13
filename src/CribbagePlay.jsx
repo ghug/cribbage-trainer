@@ -446,6 +446,9 @@ function evalDiscards(dealt, dealerIdx, n, P, teams, seat = 0) {
 // 2+ human seats becomes hot-seat: the device passes between them with a privacy screen.
 const seatIsHuman = (i, settings) => i === 0 || !!(settings && settings.seats && settings.seats[i] === "human");
 function nHumans(P, settings) { let c = 0; for (let i = 0; i < P; i++) if (seatIsHuman(i, settings)) c++; return c; }
+// Muggins is only offered/active in a one-human (solo vs bots) game; a hot-seat table with
+// 2+ humans always auto-counts.
+const mugginsActive = (settings) => settings.counting === "muggins" && nHumans(clampPlayers(settings.players), settings) === 1;
 
 // Commit the active discarder's throw (idxs into seats[discardSeat].dealt). With several
 // human throwers, advance to the next; once they're all in, build the crib and cut.
@@ -630,9 +633,9 @@ function reduce(state, action) {
     case "SHOW_SCORE": {
       if (state.show.scored) return state;
       const info = computeShow(state);
-      const counting = state.settings.counting;
       let seats = state.seats, message = "", winner = null;
-      const humanClaim = counting === "muggins" && seatIsHuman(info.owner, state.settings);
+      // Muggins applies only in a solo (one-human) game — in hot-seat it's auto-count.
+      const humanClaim = mugginsActive(state.settings) && seatIsHuman(info.owner, state.settings);
       if (humanClaim) {
         const claim = state.show.claimValue || 0;
         const awarded = Math.min(claim, info.total);
@@ -990,7 +993,7 @@ export default function CribbagePlay() {
   useEffect(() => {
     if (phase !== "show" || !show || show.scored) return;
     const info = computeShow(state);
-    const needClaim = settings.counting === "muggins" && seatIsHuman(info.owner, settings) && !show.claimSubmitted;
+    const needClaim = mugginsActive(settings) && seatIsHuman(info.owner, settings) && !show.claimSubmitted;
     if (needClaim) return;
     dispatch({ type: "SHOW_SCORE" });
   }, [phase, show, settings.counting]);
@@ -1118,7 +1121,7 @@ export default function CribbagePlay() {
               <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>{dealBlurb(players)}</div>
             </Panel>
             <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, lineHeight: 1.7 }}>
-              counting <b style={{ color: T.cream }}>{settings.counting === "muggins" ? "muggins" : "auto"}</b> ·{" "}
+              counting <b style={{ color: T.cream }}>{mugginsActive(settings) ? "muggins" : "auto"}</b> ·{" "}
               go on no card <b style={{ color: T.cream }}>{settings.autoGo ? "auto" : "manual"}</b> ·{" "}
               weak-play warnings <b style={{ color: T.cream }}>{settings.warn ? "on" : "off"}</b>
               <span> — tap ⚙ to change</span>
@@ -1422,7 +1425,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
 function ShowScreen({ state, dispatch }) {
   const info = computeShow(state);
   const { show, settings } = state;
-  const muggins = settings.counting === "muggins" && seatIsHuman(info.owner, settings);
+  const muggins = mugginsActive(settings) && seatIsHuman(info.owner, settings);
   const needClaim = muggins && !show.claimSubmitted;
   const [claim, setClaim] = React.useState(0);
   React.useEffect(() => { setClaim(0); }, [show.step]);
@@ -1520,13 +1523,14 @@ const segStyle = (on) => ({
 });
 
 function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
-  const Row = ({ title, desc, k, options }) => (
-    <div style={{ marginBottom: 14 }}>
+  const soloGame = nHumans(clampPlayers(settings.players), settings) === 1;
+  const Row = ({ title, desc, k, options, disabled }) => (
+    <div style={{ marginBottom: 14, opacity: disabled ? 0.5 : 1 }}>
       <div style={{ fontWeight: 700, fontSize: 13.5 }}>{title}</div>
       <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, margin: "2px 0 7px", lineHeight: 1.45 }}>{desc}</div>
       <div style={{ display: "flex", gap: 6 }}>
         {options.map(([label, val]) => (
-          <button key={String(val)} onClick={() => dispatch({ type: "SET_SETTING", key: k, value: val })} style={segStyle(settings[k] === val)}>{label}</button>
+          <button key={String(val)} disabled={disabled} onClick={disabled ? undefined : () => dispatch({ type: "SET_SETTING", key: k, value: val })} style={{ ...segStyle(settings[k] === val), cursor: disabled ? "default" : "pointer" }}>{label}</button>
         ))}
       </div>
     </div>
@@ -1564,8 +1568,10 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
       <Row title="Auto-deal the next hand" k="autoDeal"
         desc="Deal the next hand automatically once a hand is fully counted."
         options={[["Off", false], ["On", true]]} />
-      <Row title="Counting" k="counting"
-        desc="Auto tallies every hand for you. Muggins: you claim your own hand (and crib when you deal) — miss points and the next opponent takes them."
+      <Row title="Counting" k="counting" disabled={!soloGame}
+        desc={soloGame
+          ? "Auto tallies every hand for you. Muggins: you claim your own hand (and crib when you deal) — miss points and the next opponent takes them."
+          : "Auto tallies every hand. Muggins is only available in a solo (one-human) game; hot-seat tables auto-count."}
         options={[["Auto-count", "auto"], ["Muggins", "muggins"]]} />
       <div style={{ borderTop: `1px solid ${T.line}`, margin: "2px -16px 0", padding: "12px 16px 0" }}>
         <button onClick={onHistory} style={{ width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12, fontWeight: 700 }}>Game history</button>

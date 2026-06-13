@@ -73,6 +73,7 @@
   .seg.on{ background:#ECDCB4; color:#2A1B0E; border-color:#ECDCB4; font-weight:700 }
   .seg:disabled{ cursor:default; opacity:0.5 }
   .players-pick.disabled .pp-label{ opacity:0.5 }
+  .set-row.disabled .set-title, .set-row.disabled .set-desc{ opacity:0.55 }
   .players-pick{ background:rgba(0,0,0,0.18); border:1px solid var(--line); border-radius:14px; padding:14px 16px }
   .pp-label{ font-size:14px; font-weight:700; color:var(--ivory) }
   .pp-note{ font-family:var(--mono); font-size:11px; color:var(--muted); font-weight:400 }
@@ -258,7 +259,7 @@
       <a class="btn btn-primary" href="https://github.com/ghug/cribbage-trainer/"
          target="_blank" rel="noopener noreferrer">Source, bugs &amp; feedback ↗</a>
       <div class="repo-url" style="margin-bottom:4px">github.com/ghug/cribbage-trainer</div>
-      <div class="repo-url">v1.1.7-dev.12</div>
+      <div class="repo-url">v1.1.7-dev.13</div>
     </div>
   </div>
 
@@ -290,15 +291,21 @@
       function renderSettings() {
         var host = document.getElementById('settingsList');
         host.innerHTML = '';
+        var humans = 1; for (var i = 1; i < settings.players; i++) if (settings.seats && settings.seats[i] === 'human') humans++;
         ROWS.forEach(function (row) {
-          var wrap = document.createElement('div'); wrap.className = 'set-row';
+          // Muggins is solo-only — disable the Counting row when the table has 2+ humans.
+          var disabled = row.k === 'counting' && humans > 1;
+          var wrap = document.createElement('div'); wrap.className = 'set-row' + (disabled ? ' disabled' : '');
           var t = document.createElement('div'); t.className = 'set-title'; t.textContent = row.title; wrap.appendChild(t);
-          var d = document.createElement('div'); d.className = 'set-desc'; d.textContent = row.desc; wrap.appendChild(d);
+          var d = document.createElement('div'); d.className = 'set-desc';
+          d.textContent = disabled ? 'Muggins is only available in a solo (one-human) game; hot-seat tables auto-count.' : row.desc;
+          wrap.appendChild(d);
           var segs = document.createElement('div'); segs.className = 'set-segs';
           row.opts.forEach(function (opt) {
             var b = document.createElement('button'); b.type = 'button'; b.textContent = opt[0];
             b.className = 'seg' + (settings[row.k] === opt[1] ? ' on' : '');
-            b.addEventListener('click', function () { settings[row.k] = opt[1]; saveSettings(settings); renderSettings(); });
+            if (disabled) { b.disabled = true; }
+            else { b.addEventListener('click', function () { settings[row.k] = opt[1]; saveSettings(settings); renderSettings(); }); }
             segs.appendChild(b);
           });
           wrap.appendChild(segs); host.appendChild(wrap);

@@ -485,6 +485,7 @@ const seatIsHuman = (i, settings) => i === 0 || !!(settings && settings.seats &&
 function nHumans(P, settings) { let c = 0; for (let i = 0; i < P; i++)
     if (seatIsHuman(i, settings))
         c++; return c; }
+const mugginsActive = (settings) => settings.counting === "muggins" && nHumans(clampPlayers(settings.players), settings) === 1;
 function commitDiscard(state, idxs) {
     const P = clampPlayers(state.settings.players);
     const pl = plan(P, state.dealerIdx);
@@ -681,9 +682,8 @@ function reduce(state, action) {
             if (state.show.scored)
                 return state;
             const info = computeShow(state);
-            const counting = state.settings.counting;
             let seats = state.seats, message = "", winner = null;
-            const humanClaim = counting === "muggins" && seatIsHuman(info.owner, state.settings);
+            const humanClaim = mugginsActive(state.settings) && seatIsHuman(info.owner, state.settings);
             if (humanClaim) {
                 const claim = state.show.claimValue || 0;
                 const awarded = Math.min(claim, info.total);
@@ -1040,7 +1040,7 @@ function CribbagePlay() {
         if (phase !== "show" || !show || show.scored)
             return;
         const info = computeShow(state);
-        const needClaim = settings.counting === "muggins" && seatIsHuman(info.owner, settings) && !show.claimSubmitted;
+        const needClaim = mugginsActive(settings) && seatIsHuman(info.owner, settings) && !show.claimSubmitted;
         if (needClaim)
             return;
         dispatch({ type: "SHOW_SCORE" });
@@ -1138,7 +1138,7 @@ function CribbagePlay() {
                     React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 } }, dealBlurb(players))),
                 React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, lineHeight: 1.7 } },
                     "counting ",
-                    React.createElement("b", { style: { color: T.cream } }, settings.counting === "muggins" ? "muggins" : "auto"),
+                    React.createElement("b", { style: { color: T.cream } }, mugginsActive(settings) ? "muggins" : "auto"),
                     " \u00B7",
                     " ",
                     "go on no card ",
@@ -1363,7 +1363,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
 function ShowScreen({ state, dispatch }) {
     const info = computeShow(state);
     const { show, settings } = state;
-    const muggins = settings.counting === "muggins" && seatIsHuman(info.owner, settings);
+    const muggins = mugginsActive(settings) && seatIsHuman(info.owner, settings);
     const needClaim = muggins && !show.claimSubmitted;
     const [claim, setClaim] = React.useState(0);
     React.useEffect(() => { setClaim(0); }, [show.step]);
@@ -1454,10 +1454,11 @@ const segStyle = (on) => ({
     border: `1px solid ${on ? T.pegIvory : T.line}`, fontWeight: on ? 700 : 400,
 });
 function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
-    const Row = ({ title, desc, k, options }) => (React.createElement("div", { style: { marginBottom: 14 } },
+    const soloGame = nHumans(clampPlayers(settings.players), settings) === 1;
+    const Row = ({ title, desc, k, options, disabled }) => (React.createElement("div", { style: { marginBottom: 14, opacity: disabled ? 0.5 : 1 } },
         React.createElement("div", { style: { fontWeight: 700, fontSize: 13.5 } }, title),
         React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, margin: "2px 0 7px", lineHeight: 1.45 } }, desc),
-        React.createElement("div", { style: { display: "flex", gap: 6 } }, options.map(([label, val]) => (React.createElement("button", { key: String(val), onClick: () => dispatch({ type: "SET_SETTING", key: k, value: val }), style: segStyle(settings[k] === val) }, label))))));
+        React.createElement("div", { style: { display: "flex", gap: 6 } }, options.map(([label, val]) => (React.createElement("button", { key: String(val), disabled: disabled, onClick: disabled ? undefined : () => dispatch({ type: "SET_SETTING", key: k, value: val }), style: { ...segStyle(settings[k] === val), cursor: disabled ? "default" : "pointer" } }, label))))));
     return (React.createElement("div", { style: { background: "rgba(0,0,0,0.32)", border: `1px solid ${T.line}`, borderRadius: 12, padding: "14px 16px 4px", marginBottom: 14 } },
         React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 } },
             React.createElement("span", { style: { fontWeight: 700, fontSize: 16 } }, "Settings"),
@@ -1471,7 +1472,9 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
         React.createElement(Row, { title: "Auto-discard the best throw", k: "autoDiscardBest", desc: "At the discard, throw the best card(s) for your position automatically \u2014 accounting for whether the crib is yours or the dealer's.", options: [["Off", false], ["On", true]] }),
         React.createElement(Row, { title: "Auto-continue the show", k: "autoContinue", desc: "Advance the counting automatically (still pauses for your muggins claim).", options: [["Off", false], ["On", true]] }),
         React.createElement(Row, { title: "Auto-deal the next hand", k: "autoDeal", desc: "Deal the next hand automatically once a hand is fully counted.", options: [["Off", false], ["On", true]] }),
-        React.createElement(Row, { title: "Counting", k: "counting", desc: "Auto tallies every hand for you. Muggins: you claim your own hand (and crib when you deal) \u2014 miss points and the next opponent takes them.", options: [["Auto-count", "auto"], ["Muggins", "muggins"]] }),
+        React.createElement(Row, { title: "Counting", k: "counting", disabled: !soloGame, desc: soloGame
+                ? "Auto tallies every hand for you. Muggins: you claim your own hand (and crib when you deal) — miss points and the next opponent takes them."
+                : "Auto tallies every hand. Muggins is only available in a solo (one-human) game; hot-seat tables auto-count.", options: [["Auto-count", "auto"], ["Muggins", "muggins"]] }),
         React.createElement("div", { style: { borderTop: `1px solid ${T.line}`, margin: "2px -16px 0", padding: "12px 16px 0" } },
             React.createElement("button", { onClick: onHistory, style: { width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12, fontWeight: 700 } }, "Game history")),
         React.createElement(AboutRow, { onAbout: onAbout }),
@@ -1563,7 +1566,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, "Source, bugs & feedback \u2197"),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.7-dev.12"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.7-dev.13"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

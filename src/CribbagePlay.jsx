@@ -1090,11 +1090,11 @@ export default function CribbagePlay() {
           </div>
         )}
 
-        {message && (
-          <div style={{ fontFamily: mono, fontSize: 12, color: T.cream, margin: "10px 2px 4px", minHeight: 16, lineHeight: 1.45 }}>
-            {message}
-          </div>
-        )}
+        {/* Always rendered (even when empty) so the table below never jumps between phases
+            that carry a message and those that don't. */}
+        <div style={{ fontFamily: mono, fontSize: 12, color: T.cream, margin: "10px 2px 4px", minHeight: 16, lineHeight: 1.45 }}>
+          {message}
+        </div>
 
 
         {(phase === "cutdeal" || phase === "deal" || phase === "discard" || phase === "cut" || (phase === "show" && show) || (phase === "play" && peg) || phase === "over") && (
@@ -1321,16 +1321,22 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
   const ownMsg = (!ownCardItems.length && actionPrompt) ? actionPrompt : null;
   return (
     <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 14 }}>
-      {ts.top.length > 0 && <div style={{ display: "flex", justifyContent: "space-around" }}>{ts.top.map(cell)}</div>}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: ts.left != null ? "space-between" : "center", gap: 8, padding: "0 6px" }}>
-        {ts.left != null && cell(ts.left)}
+      {/* Fixed grids: every seat owns an equal column whatever it's holding, so the labels
+          (and their hands) always center on the same spot in every phase. */}
+      {ts.top.length > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: `repeat(${ts.top.length}, 1fr)`, gap: 8 }}>
+          {ts.top.map(cell)}
+        </div>
+      )}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 8, padding: "0 6px" }}>
+        <div style={{ minWidth: 0 }}>{ts.left != null ? cell(ts.left) : null}</div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: "0 0 auto" }}>
           <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 4 }}>starter</div>
           <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" }}>
             {starter && !emptyTable ? <Card card={starter} /> : <DeckBack />}
           </div>
         </div>
-        {ts.right != null && cell(ts.right)}
+        <div style={{ minWidth: 0 }}>{ts.right != null ? cell(ts.right) : null}</div>
       </div>
 
       {/* your own seat at the bottom — always a pinned, fixed-height slot so the table never

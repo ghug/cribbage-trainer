@@ -79,10 +79,15 @@ against — they are not imported by the apps, but they document and re-prove th
   "Players" setting** chosen on the landing page (shared localStorage; `loadTrainerPlayers()`
   reads it on mount). 2-handed is heads-up (6 cards, throw two); 3-/4-/5-/6-handed deal 5
   and throw one. In **5-/6-handed the dealer is dealt 4 and throws none**, so the human is
-  always a **non-dealer thrower** (`trainerRole` forces "defend") feeding the dealer's
-  **all-defender crib** (no dealer salt → it runs leaner than a 4-handed crib;
-  `cribDetail` uses `nDealer = 0` at P≥5). The gear panel shows the size read-only.
-  Verified by `engine/verify_trainer.js`.
+  always a **non-dealer thrower** feeding the dealer's all-defender crib. **Team play**
+  (`teams` from the global setting) is modeled too: each non-you crib card is a
+  DEALER-intent throw if its thrower is on the **dealer's team**, else DEFENDER junk —
+  `cribDetail` computes `nDealer = D − (cribIsOurs?1:0)` with `D = teamSize − (dealerThrows?0:1)`
+  (the throwers on the dealer's team). So at 4/2 & 6/2 the opponents' crib (2 salt) is
+  richer than your side's (1 salt); at 6/3 your side's has 0 salt. `analyze` takes a
+  `scenario = {youDeal, cribIsOurs}` — `cribIsOurs` signs/composes the crib, `youDeal`
+  picks the pegging seat. Verified by `engine/verify_trainer.js` (player counts + the
+  4/2, 6/2, 6/3 team crib compositions and the sign flip).
 - **Deal & discard depend on table size:**
   - **4-/3-handed:** each player dealt **5 cards**, discards **exactly one**. UI
     ranks the **5** single-card discards.

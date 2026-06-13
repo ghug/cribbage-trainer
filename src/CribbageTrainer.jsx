@@ -118,27 +118,25 @@ function pickWeightedRank(rng, cum) {
   return 13;
 }
 
-function cribDetail(discards, dealt, N, rng, role, players) {
+function cribDetail(discards, dealt, N, rng, cribIsOurs, players, teams) {
   const pool = deckExcluding(dealt);
   const suitsByRank = Array.from({ length: 14 }, () => []);
   for (const c of pool) suitsByRank[c.r].push(c.s);
-  // The crib always holds 4 cards. You contribute `discards.length` of them (1 in
-  // 3-/4-/5-/6-handed, 2 heads-up); the rest are filled by opponent throws and — in
-  // 3-handed only — one uniform card the dealer flips off the deck.
-  //   deal:   your crib  = all remaining slots are defender throws.
-  //   defend: dealer crib = the dealer's own throw(s) + any other defenders'.
-  //     heads-up (2p): both remaining are the dealer's; 3-/4p: 1 dealer salt + the rest
-  //     defenders; 5-/6p: the dealer is dealt 4 and throws NONE, so every other crib
-  //     card is a defender throw (the human is always a non-dealer thrower here).
+  // The crib holds 4 cards: your discard(s) + the other throwers' cards (+ in 3-handed
+  // one uniform deck card). Each OTHER crib card comes from a player throwing to *help*
+  // the dealer's crib (DEALER intent) if they're on the dealer's team, or junk
+  // (DEFENDER) otherwise. So nDealer = throwers on the dealer's team, minus you when the
+  // crib is on your team. teamSize = players/teams (equal teams); the dealer throws in
+  // 2-/3-/4-handed but NOT in 5-/6-handed (dealt 4). Heads-up is special — the lone
+  // opponent throws both of the other crib cards.
   const nUniform = players === 3 ? 1 : 0; // deck card dealt straight into the crib
   const nThrows = 4 - discards.length - nUniform; // opponent throws to simulate
-  let weighted;
-  if (role === "deal") {
-    weighted = new Array(nThrows).fill(DEFENDER_CUM);
-  } else {
-    const nDealer = players === 2 ? nThrows : players >= 5 ? 0 : 1;
-    weighted = new Array(nDealer).fill(DEALER_CUM).concat(new Array(nThrows - nDealer).fill(DEFENDER_CUM));
-  }
+  const teamSize = players / teams;
+  const dealerThrows = players <= 4;
+  const D = Math.max(0, teamSize - (dealerThrows ? 0 : 1)); // throwers on the dealer's team
+  let nDealer = players === 2 ? (cribIsOurs ? 0 : nThrows) : Math.max(0, D - (cribIsOurs ? 1 : 0));
+  nDealer = Math.min(nDealer, nThrows);
+  const weighted = new Array(nDealer).fill(DEALER_CUM).concat(new Array(nThrows - nDealer).fill(DEFENDER_CUM));
   const acc = [0, 0, 0, 0, 0];
   let total = 0, sq = 0, hits = 0;
   const used = new Set();
@@ -226,7 +224,7 @@ function playPegging(hands, dealerIdx) {
   if (last >= 0) pts[last] += 1;
   return pts;
 }
-function pegDetail(four, dealt5, N, rng, role, players) {
+function pegDetail(four, dealt5, N, rng, youDeal, players) {
   const pool = deckExcluding(dealt5);
   const ourR = four.map((c) => c.r);
   const dealerSeat = players - 1;       // dealer sits last — the best pegging seat
@@ -235,7 +233,7 @@ function pegDetail(four, dealt5, N, rng, role, players) {
   for (let k = 0; k < N; k++) {
     const seen = new Set(); const opp = [];
     while (opp.length < oppCards) { const i = (rng() * pool.length) | 0; if (!seen.has(i)) { seen.add(i); opp.push(pool[i].r); } }
-    const ourSeat = role === "deal" ? dealerSeat : (rng() * (players - 1)) | 0;
+    const ourSeat = youDeal ? dealerSeat : (rng() * (players - 1)) | 0;
     const hands = Array.from({ length: players }, () => []); hands[ourSeat] = ourR.slice();
     let oi = 0; for (let s = 0; s < players; s++) { if (s === ourSeat) continue; hands[s] = opp.slice(oi, oi + 4); oi += 4; }
     const p = playPegging(hands, dealerSeat)[ourSeat];
@@ -253,10 +251,11 @@ function discardCombos(handLen, k) {
   for (let i = 0; i < handLen; i++) for (let j = i + 1; j < handLen; j++) out.push([i, j]);
   return out;
 }
-function analyze(hand, role, mode, players = 4, N = 10000, Npeg = 700) {
+function analyze(hand, scenario, mode, players = 4, teams = players, N = 10000, Npeg = 700) {
   const rng = mulberry32(hand.reduce((a, c) => (a * 53 + cardId(c) + 1) >>> 0, 7));
-  const sign = role === "deal" ? 1 : -1;
-  const cribW = (mode === "protect" && role === "defend") ? 1.3 : (mode === "need" && role === "defend") ? 0.9 : 1.0;
+  const { youDeal, cribIsOurs } = scenario;            // youDeal: you're the dealer; cribIsOurs: crib on your team
+  const sign = cribIsOurs ? 1 : -1;
+  const cribW = (mode === "protect" && !cribIsOurs) ? 1.3 : (mode === "need" && !cribIsOurs) ? 0.9 : 1.0;
   const riskSign = mode === "need" ? 1 : mode === "protect" ? -1 : 0;
   const k = players === 2 ? 2 : 1; // cards discarded to the crib
   const opts = [];
@@ -265,8 +264,8 @@ function analyze(hand, role, mode, players = 4, N = 10000, Npeg = 700) {
     const four = hand.filter((_, j) => !drop.has(j));
     const discards = idxs.map((j) => hand[j]);
     const hd = handDetail(four, hand);
-    const cd = cribDetail(discards, hand, N, rng, role, players);
-    const pd = pegDetail(four, hand, Npeg, rng, role, players);
+    const cd = cribDetail(discards, hand, N, rng, cribIsOurs, players, teams);
+    const pd = pegDetail(four, hand, Npeg, rng, youDeal, players);
     const net = hd.ev + pd.ev + sign * cd.ev;                       // mode-neutral expected points
     const sd = Math.sqrt(hd.sd * hd.sd + cd.sd * cd.sd + pd.sd * pd.sd);
     const adj = hd.ev + pd.ev + sign * cribW * cd.ev + riskSign * RISK * sd; // ranking objective
@@ -470,7 +469,7 @@ function Explain({ opt, dealer, mode, players = 4 }) {
 }
 
 /* ====================== TOP-LEVEL NOTE ====================== */
-function buildNote(role, best, chosen) {
+function buildNote(cribIsOurs, best, chosen) {
   const optimal = best.id === chosen.id;
   const bestLabel = best.cards.map((c) => rankLabel(c.r)).join("+");
   const multi = best.cards.length > 1;
@@ -478,17 +477,17 @@ function buildNote(role, best, chosen) {
   const bestHas5 = best.cards.some((c) => c.r === 5);
   const allHigh = best.cards.every((c) => c.r >= 11 && c.r <= 13);
   if (optimal) {
-    if (role === "deal") {
-      if (bestHas5) return "Best line. A 5 in your own crib is gold — it pairs with every ten-card for fifteens.";
-      return "Best line — you keep your strongest four and the throwaway lands in your own crib anyway.";
+    if (cribIsOurs) {
+      if (bestHas5) return "Best line. A 5 in your side's crib is gold — it pairs with every ten-card for fifteens.";
+      return "Best line — you keep your strongest four and the throwaway lands in your side's crib anyway.";
     }
     if (bestHas5) return "Best available, though even your safest throw includes a 5 here — sometimes unavoidable.";
-    if (allHigh) return "Best line. High cards can't stretch into long runs, so they're the cheapest gift to the dealer.";
-    return `Best line — you ${multi ? "shed your loners" : "shed a loner"} and starve the dealer's crib.`;
+    if (allHigh) return "Best line. High cards can't stretch into long runs, so they're the cheapest gift to the opponents.";
+    return `Best line — you ${multi ? "shed your loners" : "shed a loner"} and starve the opponents' crib.`;
   }
   const delta = best.adj - chosen.adj;
-  if (role === "defend" && chosen.cards.some((c) => c.r === 5) && !bestHas5)
-    return `You fed the dealer a 5 — the richest crib card (~${chosen.cribEV.toFixed(1)} pts to them). On defense, almost never do this. Throw ${phrase} instead (−${delta.toFixed(2)}).`;
+  if (!cribIsOurs && chosen.cards.some((c) => c.r === 5) && !bestHas5)
+    return `You fed the opponents a 5 — the richest crib card (~${chosen.cribEV.toFixed(1)} pts to them). On defense, almost never do this. Throw ${phrase} instead (−${delta.toFixed(2)}).`;
   if (chosen.handEV > best.handEV)
     return `You kept more hand points, but the crib swing more than canceled it. ${multi ? phrase : "The " + bestLabel} is better by ${delta.toFixed(2)}.`;
   return `Close, but ${phrase} edges it by ${delta.toFixed(2)} expected points.`;
@@ -497,12 +496,18 @@ function buildNote(role, best, chosen) {
 // Settings menu. Hosts the trainer's configuration — table size and the role you
 // practice — plus the standard About entry shared with the games. (Board position
 // stays inline on the main screen, alongside the live analysis it re-ranks.)
-function SettingsPanel({ players, roleMode, onRoleMode, onClose, onAbout }) {
+function SettingsPanel({ players, teams, roleMode, onRoleMode, onClose, onAbout }) {
   const seg = (on) => ({
     flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: 11.5,
     background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
     border: `1px solid ${on ? T.pegIvory : T.line}`, fontWeight: on ? 700 : 400,
   });
+  const isTeams = teams < players;
+  const forcedDefend = teams === players && players >= 5; // solo 5/6: you can only defend
+  // role options map to roleMode: solo uses deal/defend; teams use ours/theirs.
+  const roleOpts = isTeams
+    ? [["random", "Random"], ["ours", "My team's crib"], ["theirs", "Opponents' crib"]]
+    : [["random", `Random (1-in-${players} deal)`], ["deal", "Always dealer"], ["defend", "Always defend"]];
   return (
     <div style={{ background: "rgba(0,0,0,0.32)", border: `1px solid ${T.line}`, borderRadius: 12, padding: "14px 16px", marginBottom: 16 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
@@ -515,17 +520,17 @@ function SettingsPanel({ players, roleMode, onRoleMode, onClose, onAbout }) {
         Set it on the home page (the “Players at the table” control above Play).
       </div>
 
-      {players >= 5 ? (
+      {forcedDefend ? (
         <div style={{ marginBottom: 14, fontFamily: mono, fontSize: 10.5, color: T.muted, lineHeight: 1.5 }}>
-          In {players}-handed you always throw into the dealer's crib — the dealer (and, at 6,
-          the player to their right) is dealt four and discards nothing, so there's no "as dealer"
-          discard to practice.
+          In {players}-handed (no teams) you always throw into the dealer's crib — the dealer
+          (and, at 6, the player to their right) is dealt four and discards nothing, so there's
+          no "as dealer" discard to practice.
         </div>
       ) : (
         <div style={{ marginBottom: 14 }}>
-          <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 }}>practice as</div>
+          <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 }}>practice as{isTeams ? " (whose crib)" : ""}</div>
           <div style={{ display: "flex", gap: 6 }}>
-            {[["random", `Random (1-in-${players} deal)`], ["deal", "Always dealer"], ["defend", "Always defend"]].map(([k, label]) => (
+            {roleOpts.map(([k, label]) => (
               <button key={k} onClick={() => onRoleMode(k)} style={seg(roleMode === k)}>{label}</button>
             ))}
           </div>
@@ -585,23 +590,42 @@ function AboutModal({ onClose }) {
 // from six; 3-/4-/5-/6-handed throw one from five. In 5-/6-handed the dealer is dealt
 // four and throws none, so the human is always a non-dealer thrower (role "defend")
 // feeding the dealer's all-defender crib. try/catch keeps it safe with no storage.
-function loadTrainerPlayers() {
+const teamOptionsT = (p) => (p === 4 ? [4, 2] : p === 6 ? [6, 3, 2] : [p]);
+function loadTrainerSettings() {
+  let players = 4, teams = 4;
   try {
     const raw = localStorage.getItem("cribbage:settings");
-    if (raw) { const p = JSON.parse(raw).players; if (p >= 2 && p <= 6) return p; }
+    if (raw) {
+      const o = JSON.parse(raw);
+      if (o.players >= 2 && o.players <= 6) players = o.players;
+      teams = teamOptionsT(players).includes(o.teams) ? o.teams : players;
+    }
   } catch (e) {}
-  return 4;
+  return { players, teams };
 }
-// At 5-/6-handed you can only practice as a non-dealer thrower (the dealer doesn't
-// discard), so the role is forced to "defend".
-const trainerRole = (roleMode, p) => (p >= 5 ? "defend" : roleMode === "random" ? (Math.random() < 1 / p ? "deal" : "defend") : roleMode);
+// The trainer scenario per hand: `cribIsOurs` (the crib lands on your team) drives the
+// crib sign/composition; `youDeal` (you're literally the dealer) drives the pegging
+// seat. At solo 5-/6-handed the dealer is dealt four and throws none, so you can only
+// be a non-dealer thrower → forced defend.
+function trainerScenario(roleMode, players, teams) {
+  const teamSize = players / teams;
+  const dealerThrows = players <= 4;
+  const forcedDefend = teams === players && players >= 5;
+  let cribIsOurs;
+  if (forcedDefend) cribIsOurs = false;
+  else if (roleMode === "ours" || roleMode === "deal") cribIsOurs = true;
+  else if (roleMode === "theirs" || roleMode === "defend") cribIsOurs = false;
+  else cribIsOurs = Math.random() < teamSize / players;          // random
+  const youDeal = cribIsOurs && dealerThrows && (teamSize === 1 || Math.random() < 1 / teamSize);
+  return { youDeal, cribIsOurs };
+}
 
 /* ============================ APP ============================ */
 export default function CribbageTrainer() {
-  const [players] = useState(loadTrainerPlayers); // fixed from the landing's global Players setting
+  const [{ players, teams }] = useState(loadTrainerSettings); // from the landing's global Players/Teams setting
   const [roleMode, setRoleMode] = useState("random");
   const [hand, setHand] = useState(() => randomHand(players === 2 ? 6 : 5));
-  const [role, setRole] = useState(() => trainerRole("random", players));
+  const [scenario, setScenario] = useState(() => trainerScenario("random", players, teams));
   const [phase, setPhase] = useState("choose");
   const [selected, setSelected] = useState([]);   // card indices tapped during the choose phase
   const [chosenId, setChosenId] = useState(null);  // option id ("i" or "i,j") the user committed to
@@ -620,25 +644,25 @@ export default function CribbageTrainer() {
 
   const discardCount = players === 2 ? 2 : 1; // cards thrown to the crib (heads-up throws two)
 
-  const opts = useMemo(() => (phase === "revealed" ? analyze(hand, role, mode, players) : null), [phase, hand, role, mode, players]);
+  const opts = useMemo(() => (phase === "revealed" ? analyze(hand, scenario, mode, players, teams) : null), [phase, hand, scenario, mode, players, teams]);
 
   const dealHand = useCallback((p) => {
-    const r = trainerRole(roleMode, p);
-    setHand(randomHand(p === 2 ? 6 : 5)); setRole(r);
+    const sc = trainerScenario(roleMode, p, teams);
+    setHand(randomHand(p === 2 ? 6 : 5)); setScenario(sc);
     setSelected([]); setChosenId(null); setExpanded(null); setPhase("choose");
-  }, [roleMode]);
+  }, [roleMode, teams]);
 
   const deal = useCallback(() => dealHand(players), [dealHand, players]);
 
   const pick = useCallback((idxs) => {
     const id = idxs.slice().sort((a, b) => a - b).join(","); // match analyze's i<j combo ids
-    const res = analyze(hand, role, mode, players);
+    const res = analyze(hand, scenario, mode, players, teams);
     const best = res[0];
     const chosen = res.find((o) => o.id === id);
     const delta = best.adj - chosen.adj;
     setChosenId(id); setExpanded(id); setPhase("revealed");
     setStats((s) => ({ hands: s.hands + 1, optimal: s.optimal + (delta < 0.1 ? 1 : 0), lost: s.lost + delta }));
-  }, [hand, role, mode, players]);
+  }, [hand, scenario, mode, players, teams]);
 
   const toggleSelect = useCallback((i) => {
     if (selected.includes(i)) { setSelected(selected.filter((x) => x !== i)); return; } // tap again to deselect
@@ -652,7 +676,14 @@ export default function CribbageTrainer() {
   const acc = stats.hands ? (stats.optimal / stats.hands) * 100 : 0;
   const avgLost = stats.hands ? stats.lost / stats.hands : 0;
   const maxAdj = opts ? Math.max(...opts.map((o) => o.adj)) : 1;
-  const dealer = role === "deal";
+  const cribIsOurs = scenario.cribIsOurs;
+  const isTeams = teams < players;
+  // banner: you deal · your team's crib (partner deals) · opponents' crib
+  const bannerTitle = scenario.youDeal ? "Your crib — you're the dealer"
+    : cribIsOurs ? `Your team's crib — your partner deals`
+    : isTeams ? "Opponents' crib — you're defending" : "Not your crib — it feeds the dealer";
+  const bannerSub = cribIsOurs ? "Be greedy: a good throw fattens your side's crib."
+    : "Play defense: surrender the least to the opposing crib.";
   const gridCols = `16px ${discardCount === 2 ? "58px" : "30px"} 1fr 38px 40px 34px 46px`;
   const MODE_LABEL = { ev: "max EV", need: "chase points", protect: "protect lead" };
 
@@ -709,17 +740,17 @@ export default function CribbageTrainer() {
       </header>
 
       <main style={{ maxWidth: 560, margin: "0 auto", padding: "18px 16px 0" }}>
-        {showSettings && <SettingsPanel players={players} roleMode={roleMode} onRoleMode={setRoleMode} onClose={() => setShowSettings(false)} onAbout={() => { setShowSettings(false); setAboutOpen(true); }} />}
+        {showSettings && <SettingsPanel players={players} teams={teams} roleMode={roleMode} onRoleMode={setRoleMode} onClose={() => setShowSettings(false)} onAbout={() => { setShowSettings(false); setAboutOpen(true); }} />}
         {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
         <div style={{
           display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", borderRadius: 10,
-          background: dealer ? "rgba(95,164,124,0.16)" : "rgba(200,65,43,0.14)",
-          border: `1px solid ${dealer ? "rgba(95,164,124,0.5)" : "rgba(200,65,43,0.45)"}`,
+          background: cribIsOurs ? "rgba(95,164,124,0.16)" : "rgba(200,65,43,0.14)",
+          border: `1px solid ${cribIsOurs ? "rgba(95,164,124,0.5)" : "rgba(200,65,43,0.45)"}`,
         }}>
-          <span style={{ width: 12, height: 12, borderRadius: "50%", background: dealer ? T.good : T.pegRed, flex: "0 0 auto", boxShadow: "0 0 0 3px rgba(0,0,0,0.2)" }} />
+          <span style={{ width: 12, height: 12, borderRadius: "50%", background: cribIsOurs ? T.good : T.pegRed, flex: "0 0 auto", boxShadow: "0 0 0 3px rgba(0,0,0,0.2)" }} />
           <div>
-            <div style={{ fontWeight: 700, fontSize: 15 }}>{dealer ? "Your crib — you're the dealer" : "Not your crib — it feeds the dealer"}</div>
-            <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 2 }}>{dealer ? "Be greedy: discard to fatten your own crib." : "Play defense: surrender the least to your opponent."}</div>
+            <div style={{ fontWeight: 700, fontSize: 15 }}>{bannerTitle}</div>
+            <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 2 }}>{bannerSub}</div>
           </div>
         </div>
 
@@ -752,7 +783,7 @@ export default function CribbageTrainer() {
               padding: "12px 14px", borderRadius: 10, marginBottom: 14, lineHeight: 1.5, fontSize: 14.5,
               background: chosenId === best.id ? "rgba(95,164,124,0.14)" : "rgba(0,0,0,0.22)",
               border: `1px solid ${chosenId === best.id ? "rgba(95,164,124,0.4)" : T.line}`,
-            }}>{buildNote(role, best, chosen)}</div>
+            }}>{buildNote(cribIsOurs, best, chosen)}</div>
 
             <div style={{ display: "grid", gridTemplateColumns: gridCols, gap: 5, fontFamily: mono, fontSize: 10, color: T.muted, padding: "0 4px 2px" }}>
               <span></span><span>throw</span><span>{mode === "ev" ? "net" : "adj"} (bar)</span>
@@ -872,7 +903,9 @@ export default function CribbageTrainer() {
                   How often each rank is thrown, from a fixed-point self-play calibration
                   (10,000 hands/pass). Two behaviors: <b>dealers</b> feed their own crib, <b>defenders</b>
                   surrender junk to an opponent's.{" "}
-                  {players === 2
+                  {isTeams
+                    ? `With ${teams} teams, the dealer's crib is fed by their whole side — a thrower on the dealer's team feeds it (dealer-intent), opponents surrender junk (defender-intent). When the crib is on your team you throw greedily; when it's the opponents', you defend. The mix shifts with who deals and team sizes.`
+                    : players === 2
                     ? "Heads-up, the crib is your two discards + the opponent's two — defender throws when you deal, the dealer's own throws when you defend."
                     : players === 3
                     ? "Your crib draws two defender throws plus one card dealt off the deck; when you defend, the dealer's crib draws one dealer + one defender throw plus one deck card."

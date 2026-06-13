@@ -169,21 +169,19 @@ function pickWeightedRank(rng, cum) {
             return i + 1;
     return 13;
 }
-function cribDetail(discards, dealt, N, rng, role, players) {
+function cribDetail(discards, dealt, N, rng, cribIsOurs, players, teams) {
     const pool = deckExcluding(dealt);
     const suitsByRank = Array.from({ length: 14 }, () => []);
     for (const c of pool)
         suitsByRank[c.r].push(c.s);
     const nUniform = players === 3 ? 1 : 0;
     const nThrows = 4 - discards.length - nUniform;
-    let weighted;
-    if (role === "deal") {
-        weighted = new Array(nThrows).fill(DEFENDER_CUM);
-    }
-    else {
-        const nDealer = players === 2 ? nThrows : players >= 5 ? 0 : 1;
-        weighted = new Array(nDealer).fill(DEALER_CUM).concat(new Array(nThrows - nDealer).fill(DEFENDER_CUM));
-    }
+    const teamSize = players / teams;
+    const dealerThrows = players <= 4;
+    const D = Math.max(0, teamSize - (dealerThrows ? 0 : 1));
+    let nDealer = players === 2 ? (cribIsOurs ? 0 : nThrows) : Math.max(0, D - (cribIsOurs ? 1 : 0));
+    nDealer = Math.min(nDealer, nThrows);
+    const weighted = new Array(nDealer).fill(DEALER_CUM).concat(new Array(nThrows - nDealer).fill(DEFENDER_CUM));
     const acc = [0, 0, 0, 0, 0];
     let total = 0, sq = 0, hits = 0;
     const used = new Set();
@@ -320,7 +318,7 @@ function playPegging(hands, dealerIdx) {
         pts[last] += 1;
     return pts;
 }
-function pegDetail(four, dealt5, N, rng, role, players) {
+function pegDetail(four, dealt5, N, rng, youDeal, players) {
     const pool = deckExcluding(dealt5);
     const ourR = four.map((c) => c.r);
     const dealerSeat = players - 1;
@@ -336,7 +334,7 @@ function pegDetail(four, dealt5, N, rng, role, players) {
                 opp.push(pool[i].r);
             }
         }
-        const ourSeat = role === "deal" ? dealerSeat : (rng() * (players - 1)) | 0;
+        const ourSeat = youDeal ? dealerSeat : (rng() * (players - 1)) | 0;
         const hands = Array.from({ length: players }, () => []);
         hands[ourSeat] = ourR.slice();
         let oi = 0;
@@ -366,10 +364,11 @@ function discardCombos(handLen, k) {
             out.push([i, j]);
     return out;
 }
-function analyze(hand, role, mode, players = 4, N = 10000, Npeg = 700) {
+function analyze(hand, scenario, mode, players = 4, teams = players, N = 10000, Npeg = 700) {
     const rng = mulberry32(hand.reduce((a, c) => (a * 53 + cardId(c) + 1) >>> 0, 7));
-    const sign = role === "deal" ? 1 : -1;
-    const cribW = (mode === "protect" && role === "defend") ? 1.3 : (mode === "need" && role === "defend") ? 0.9 : 1.0;
+    const { youDeal, cribIsOurs } = scenario;
+    const sign = cribIsOurs ? 1 : -1;
+    const cribW = (mode === "protect" && !cribIsOurs) ? 1.3 : (mode === "need" && !cribIsOurs) ? 0.9 : 1.0;
     const riskSign = mode === "need" ? 1 : mode === "protect" ? -1 : 0;
     const k = players === 2 ? 2 : 1;
     const opts = [];
@@ -378,8 +377,8 @@ function analyze(hand, role, mode, players = 4, N = 10000, Npeg = 700) {
         const four = hand.filter((_, j) => !drop.has(j));
         const discards = idxs.map((j) => hand[j]);
         const hd = handDetail(four, hand);
-        const cd = cribDetail(discards, hand, N, rng, role, players);
-        const pd = pegDetail(four, hand, Npeg, rng, role, players);
+        const cd = cribDetail(discards, hand, N, rng, cribIsOurs, players, teams);
+        const pd = pegDetail(four, hand, Npeg, rng, youDeal, players);
         const net = hd.ev + pd.ev + sign * cd.ev;
         const sd = Math.sqrt(hd.sd * hd.sd + cd.sd * cd.sd + pd.sd * pd.sd);
         const adj = hd.ev + pd.ev + sign * cribW * cd.ev + riskSign * RISK * sd;
@@ -570,7 +569,7 @@ function Explain({ opt, dealer, mode, players = 4 }) {
             dealer ? "dealer, last to play" : "a non-dealer seat",
             ") against greedy opponents.")));
 }
-function buildNote(role, best, chosen) {
+function buildNote(cribIsOurs, best, chosen) {
     const optimal = best.id === chosen.id;
     const bestLabel = best.cards.map((c) => rankLabel(c.r)).join("+");
     const multi = best.cards.length > 1;
@@ -578,30 +577,35 @@ function buildNote(role, best, chosen) {
     const bestHas5 = best.cards.some((c) => c.r === 5);
     const allHigh = best.cards.every((c) => c.r >= 11 && c.r <= 13);
     if (optimal) {
-        if (role === "deal") {
+        if (cribIsOurs) {
             if (bestHas5)
-                return "Best line. A 5 in your own crib is gold — it pairs with every ten-card for fifteens.";
-            return "Best line — you keep your strongest four and the throwaway lands in your own crib anyway.";
+                return "Best line. A 5 in your side's crib is gold — it pairs with every ten-card for fifteens.";
+            return "Best line — you keep your strongest four and the throwaway lands in your side's crib anyway.";
         }
         if (bestHas5)
             return "Best available, though even your safest throw includes a 5 here — sometimes unavoidable.";
         if (allHigh)
-            return "Best line. High cards can't stretch into long runs, so they're the cheapest gift to the dealer.";
-        return `Best line — you ${multi ? "shed your loners" : "shed a loner"} and starve the dealer's crib.`;
+            return "Best line. High cards can't stretch into long runs, so they're the cheapest gift to the opponents.";
+        return `Best line — you ${multi ? "shed your loners" : "shed a loner"} and starve the opponents' crib.`;
     }
     const delta = best.adj - chosen.adj;
-    if (role === "defend" && chosen.cards.some((c) => c.r === 5) && !bestHas5)
-        return `You fed the dealer a 5 — the richest crib card (~${chosen.cribEV.toFixed(1)} pts to them). On defense, almost never do this. Throw ${phrase} instead (−${delta.toFixed(2)}).`;
+    if (!cribIsOurs && chosen.cards.some((c) => c.r === 5) && !bestHas5)
+        return `You fed the opponents a 5 — the richest crib card (~${chosen.cribEV.toFixed(1)} pts to them). On defense, almost never do this. Throw ${phrase} instead (−${delta.toFixed(2)}).`;
     if (chosen.handEV > best.handEV)
         return `You kept more hand points, but the crib swing more than canceled it. ${multi ? phrase : "The " + bestLabel} is better by ${delta.toFixed(2)}.`;
     return `Close, but ${phrase} edges it by ${delta.toFixed(2)} expected points.`;
 }
-function SettingsPanel({ players, roleMode, onRoleMode, onClose, onAbout }) {
+function SettingsPanel({ players, teams, roleMode, onRoleMode, onClose, onAbout }) {
     const seg = (on) => ({
         flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: 11.5,
         background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
         border: `1px solid ${on ? T.pegIvory : T.line}`, fontWeight: on ? 700 : 400,
     });
+    const isTeams = teams < players;
+    const forcedDefend = teams === players && players >= 5;
+    const roleOpts = isTeams
+        ? [["random", "Random"], ["ours", "My team's crib"], ["theirs", "Opponents' crib"]]
+        : [["random", `Random (1-in-${players} deal)`], ["deal", "Always dealer"], ["defend", "Always defend"]];
     return (React.createElement("div", { style: { background: "rgba(0,0,0,0.32)", border: `1px solid ${T.line}`, borderRadius: 12, padding: "14px 16px", marginBottom: 16 } },
         React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 } },
             React.createElement("span", { style: { fontWeight: 700, fontSize: 16 } }, "Settings"),
@@ -610,12 +614,14 @@ function SettingsPanel({ players, roleMode, onRoleMode, onClose, onAbout }) {
             "Table size: ",
             React.createElement("b", { style: { color: T.cream } }, players === 2 ? "2-handed (heads-up) — 6 cards, discard two" : `${players}-handed — 5 cards, discard one`),
             ". Set it on the home page (the \u201CPlayers at the table\u201D control above Play)."),
-        players >= 5 ? (React.createElement("div", { style: { marginBottom: 14, fontFamily: mono, fontSize: 10.5, color: T.muted, lineHeight: 1.5 } },
+        forcedDefend ? (React.createElement("div", { style: { marginBottom: 14, fontFamily: mono, fontSize: 10.5, color: T.muted, lineHeight: 1.5 } },
             "In ",
             players,
-            "-handed you always throw into the dealer's crib \u2014 the dealer (and, at 6, the player to their right) is dealt four and discards nothing, so there's no \"as dealer\" discard to practice.")) : (React.createElement("div", { style: { marginBottom: 14 } },
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 } }, "practice as"),
-            React.createElement("div", { style: { display: "flex", gap: 6 } }, [["random", `Random (1-in-${players} deal)`], ["deal", "Always dealer"], ["defend", "Always defend"]].map(([k, label]) => (React.createElement("button", { key: k, onClick: () => onRoleMode(k), style: seg(roleMode === k) }, label)))))),
+            "-handed (no teams) you always throw into the dealer's crib \u2014 the dealer (and, at 6, the player to their right) is dealt four and discards nothing, so there's no \"as dealer\" discard to practice.")) : (React.createElement("div", { style: { marginBottom: 14 } },
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 } },
+                "practice as",
+                isTeams ? " (whose crib)" : ""),
+            React.createElement("div", { style: { display: "flex", gap: 6 } }, roleOpts.map(([k, label]) => (React.createElement("button", { key: k, onClick: () => onRoleMode(k), style: seg(roleMode === k) }, label)))))),
         React.createElement(AboutRow, { onAbout: onAbout })));
 }
 function AboutRow({ onAbout }) {
@@ -642,24 +648,42 @@ function AboutModal({ onClose }) {
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 16px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
             React.createElement("button", { onClick: onClose, style: { width: "100%", padding: "11px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer", background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: 12.5, fontWeight: 700 } }, "Close"))));
 }
-function loadTrainerPlayers() {
+const teamOptionsT = (p) => (p === 4 ? [4, 2] : p === 6 ? [6, 3, 2] : [p]);
+function loadTrainerSettings() {
+    let players = 4, teams = 4;
     try {
         const raw = localStorage.getItem("cribbage:settings");
         if (raw) {
-            const p = JSON.parse(raw).players;
-            if (p >= 2 && p <= 6)
-                return p;
+            const o = JSON.parse(raw);
+            if (o.players >= 2 && o.players <= 6)
+                players = o.players;
+            teams = teamOptionsT(players).includes(o.teams) ? o.teams : players;
         }
     }
     catch (e) { }
-    return 4;
+    return { players, teams };
 }
-const trainerRole = (roleMode, p) => (p >= 5 ? "defend" : roleMode === "random" ? (Math.random() < 1 / p ? "deal" : "defend") : roleMode);
+function trainerScenario(roleMode, players, teams) {
+    const teamSize = players / teams;
+    const dealerThrows = players <= 4;
+    const forcedDefend = teams === players && players >= 5;
+    let cribIsOurs;
+    if (forcedDefend)
+        cribIsOurs = false;
+    else if (roleMode === "ours" || roleMode === "deal")
+        cribIsOurs = true;
+    else if (roleMode === "theirs" || roleMode === "defend")
+        cribIsOurs = false;
+    else
+        cribIsOurs = Math.random() < teamSize / players;
+    const youDeal = cribIsOurs && dealerThrows && (teamSize === 1 || Math.random() < 1 / teamSize);
+    return { youDeal, cribIsOurs };
+}
 function CribbageTrainer() {
-    const [players] = useState(loadTrainerPlayers);
+    const [{ players, teams }] = useState(loadTrainerSettings);
     const [roleMode, setRoleMode] = useState("random");
     const [hand, setHand] = useState(() => randomHand(players === 2 ? 6 : 5));
-    const [role, setRole] = useState(() => trainerRole("random", players));
+    const [scenario, setScenario] = useState(() => trainerScenario("random", players, teams));
     const [phase, setPhase] = useState("choose");
     const [selected, setSelected] = useState([]);
     const [chosenId, setChosenId] = useState(null);
@@ -675,20 +699,20 @@ function CribbageTrainer() {
     const suggested = suggestMode(yourPips, leaderPips);
     const mode = modeOverride || suggested;
     const discardCount = players === 2 ? 2 : 1;
-    const opts = useMemo(() => (phase === "revealed" ? analyze(hand, role, mode, players) : null), [phase, hand, role, mode, players]);
+    const opts = useMemo(() => (phase === "revealed" ? analyze(hand, scenario, mode, players, teams) : null), [phase, hand, scenario, mode, players, teams]);
     const dealHand = useCallback((p) => {
-        const r = trainerRole(roleMode, p);
+        const sc = trainerScenario(roleMode, p, teams);
         setHand(randomHand(p === 2 ? 6 : 5));
-        setRole(r);
+        setScenario(sc);
         setSelected([]);
         setChosenId(null);
         setExpanded(null);
         setPhase("choose");
-    }, [roleMode]);
+    }, [roleMode, teams]);
     const deal = useCallback(() => dealHand(players), [dealHand, players]);
     const pick = useCallback((idxs) => {
         const id = idxs.slice().sort((a, b) => a - b).join(",");
-        const res = analyze(hand, role, mode, players);
+        const res = analyze(hand, scenario, mode, players, teams);
         const best = res[0];
         const chosen = res.find((o) => o.id === id);
         const delta = best.adj - chosen.adj;
@@ -696,7 +720,7 @@ function CribbageTrainer() {
         setExpanded(id);
         setPhase("revealed");
         setStats((s) => ({ hands: s.hands + 1, optimal: s.optimal + (delta < 0.1 ? 1 : 0), lost: s.lost + delta }));
-    }, [hand, role, mode, players]);
+    }, [hand, scenario, mode, players, teams]);
     const toggleSelect = useCallback((i) => {
         if (selected.includes(i)) {
             setSelected(selected.filter((x) => x !== i));
@@ -715,7 +739,13 @@ function CribbageTrainer() {
     const acc = stats.hands ? (stats.optimal / stats.hands) * 100 : 0;
     const avgLost = stats.hands ? stats.lost / stats.hands : 0;
     const maxAdj = opts ? Math.max(...opts.map((o) => o.adj)) : 1;
-    const dealer = role === "deal";
+    const cribIsOurs = scenario.cribIsOurs;
+    const isTeams = teams < players;
+    const bannerTitle = scenario.youDeal ? "Your crib — you're the dealer"
+        : cribIsOurs ? `Your team's crib — your partner deals`
+            : isTeams ? "Opponents' crib — you're defending" : "Not your crib — it feeds the dealer";
+    const bannerSub = cribIsOurs ? "Be greedy: a good throw fattens your side's crib."
+        : "Play defense: surrender the least to the opposing crib.";
     const gridCols = `16px ${discardCount === 2 ? "58px" : "30px"} 1fr 38px 40px 34px 46px`;
     const MODE_LABEL = { ev: "max EV", need: "chase points", protect: "protect lead" };
     return (React.createElement("div", { style: {
@@ -772,17 +802,17 @@ function CribbageTrainer() {
                     React.createElement("b", { style: { fontSize: 15 } }, stats.hands ? avgLost.toFixed(2) : "–"),
                     " avg pts lost"))),
         React.createElement("main", { style: { maxWidth: 560, margin: "0 auto", padding: "18px 16px 0" } },
-            showSettings && React.createElement(SettingsPanel, { players: players, roleMode: roleMode, onRoleMode: setRoleMode, onClose: () => setShowSettings(false), onAbout: () => { setShowSettings(false); setAboutOpen(true); } }),
+            showSettings && React.createElement(SettingsPanel, { players: players, teams: teams, roleMode: roleMode, onRoleMode: setRoleMode, onClose: () => setShowSettings(false), onAbout: () => { setShowSettings(false); setAboutOpen(true); } }),
             aboutOpen && React.createElement(AboutModal, { onClose: () => setAboutOpen(false) }),
             React.createElement("div", { style: {
                     display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", borderRadius: 10,
-                    background: dealer ? "rgba(95,164,124,0.16)" : "rgba(200,65,43,0.14)",
-                    border: `1px solid ${dealer ? "rgba(95,164,124,0.5)" : "rgba(200,65,43,0.45)"}`,
+                    background: cribIsOurs ? "rgba(95,164,124,0.16)" : "rgba(200,65,43,0.14)",
+                    border: `1px solid ${cribIsOurs ? "rgba(95,164,124,0.5)" : "rgba(200,65,43,0.45)"}`,
                 } },
-                React.createElement("span", { style: { width: 12, height: 12, borderRadius: "50%", background: dealer ? T.good : T.pegRed, flex: "0 0 auto", boxShadow: "0 0 0 3px rgba(0,0,0,0.2)" } }),
+                React.createElement("span", { style: { width: 12, height: 12, borderRadius: "50%", background: cribIsOurs ? T.good : T.pegRed, flex: "0 0 auto", boxShadow: "0 0 0 3px rgba(0,0,0,0.2)" } }),
                 React.createElement("div", null,
-                    React.createElement("div", { style: { fontWeight: 700, fontSize: 15 } }, dealer ? "Your crib — you're the dealer" : "Not your crib — it feeds the dealer"),
-                    React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 2 } }, dealer ? "Be greedy: discard to fatten your own crib." : "Play defense: surrender the least to your opponent."))),
+                    React.createElement("div", { style: { fontWeight: 700, fontSize: 15 } }, bannerTitle),
+                    React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 2 } }, bannerSub))),
             React.createElement("p", { style: { fontFamily: mono, fontSize: 12, color: T.muted, margin: "18px 2px 6px" } }, phase === "choose"
                 ? (discardCount === 2
                     ? `Tap two cards you'd throw to the crib.${selected.length === 1 ? " One more…" : ""}`
@@ -811,7 +841,7 @@ function CribbageTrainer() {
                         padding: "12px 14px", borderRadius: 10, marginBottom: 14, lineHeight: 1.5, fontSize: 14.5,
                         background: chosenId === best.id ? "rgba(95,164,124,0.14)" : "rgba(0,0,0,0.22)",
                         border: `1px solid ${chosenId === best.id ? "rgba(95,164,124,0.4)" : T.line}`,
-                    } }, buildNote(role, best, chosen)),
+                    } }, buildNote(cribIsOurs, best, chosen)),
                 React.createElement("div", { style: { display: "grid", gridTemplateColumns: gridCols, gap: 5, fontFamily: mono, fontSize: 10, color: T.muted, padding: "0 4px 2px" } },
                     React.createElement("span", null),
                     React.createElement("span", null, "throw"),
@@ -908,13 +938,15 @@ function CribbageTrainer() {
                             React.createElement("b", null, "defenders"),
                             "surrender junk to an opponent's.",
                             " ",
-                            players === 2
-                                ? "Heads-up, the crib is your two discards + the opponent's two — defender throws when you deal, the dealer's own throws when you defend."
-                                : players === 3
-                                    ? "Your crib draws two defender throws plus one card dealt off the deck; when you defend, the dealer's crib draws one dealer + one defender throw plus one deck card."
-                                    : players >= 5
-                                        ? "You always defend: the dealer is dealt four and throws none, so the dealer's crib is four defender throws (yours + three others) — no dealer salt, so it runs a touch leaner than a 4-handed crib."
-                                        : "Your crib draws three defender throws; when you defend, the dealer's crib draws one dealer + two defender throws.",
+                            isTeams
+                                ? `With ${teams} teams, the dealer's crib is fed by their whole side — a thrower on the dealer's team feeds it (dealer-intent), opponents surrender junk (defender-intent). When the crib is on your team you throw greedily; when it's the opponents', you defend. The mix shifts with who deals and team sizes.`
+                                : players === 2
+                                    ? "Heads-up, the crib is your two discards + the opponent's two — defender throws when you deal, the dealer's own throws when you defend."
+                                    : players === 3
+                                        ? "Your crib draws two defender throws plus one card dealt off the deck; when you defend, the dealer's crib draws one dealer + one defender throw plus one deck card."
+                                        : players >= 5
+                                            ? "You always defend: the dealer is dealt four and throws none, so the dealer's crib is four defender throws (yours + three others) — no dealer salt, so it runs a touch leaner than a 4-handed crib."
+                                            : "Your crib draws three defender throws; when you defend, the dealer's crib draws one dealer + two defender throws.",
                             " ",
                             "The cut stays uniform.",
                             players !== 4 && (React.createElement("span", { style: { color: T.muted } },

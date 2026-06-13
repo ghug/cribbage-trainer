@@ -1329,9 +1329,11 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
           stack appearing on your first play doesn't shove the pile and hand downward
           (the opponents' stacks already live in fixed-height seat cells). */}
       <div style={{ textAlign: "center", minHeight: 80 }}>
-        {peg.played[me].length > 0 && (<>
+        {(needHandoff || peg.played[me].length > 0) && (<>
           <div style={{ fontFamily: mono, fontSize: 10, color: peg.turn === me ? T.selBlue : T.muted, marginBottom: 4 }}>{meName}{dealerIdx === me ? " (D)" : ""}</div>
-          <PlayedStack cards={peg.played[me]} backs={0} />
+          {/* while waiting to pass, the holder's own unplayed cards sit face down under
+              their played ones, matching how the other seats are shown. */}
+          <Fan items={[...(needHandoff ? backItems(peg.hands[me].length) : []), ...cardItems(peg.played[me])]} />
         </>)}
       </div>
 

@@ -1298,11 +1298,11 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
                 React.createElement("div", { style: { width: 44 } },
                     React.createElement(Card, { card: starter, small: true }))),
             ts.right != null && cell(ts.right)),
-        React.createElement("div", { style: { textAlign: "center", minHeight: 80 } }, peg.played[me].length > 0 && (React.createElement(React.Fragment, null,
+        React.createElement("div", { style: { textAlign: "center", minHeight: 80 } }, (needHandoff || peg.played[me].length > 0) && (React.createElement(React.Fragment, null,
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: peg.turn === me ? T.selBlue : T.muted, marginBottom: 4 } },
                 meName,
                 dealerIdx === me ? " (D)" : ""),
-            React.createElement(PlayedStack, { cards: peg.played[me], backs: 0 })))),
+            React.createElement(Fan, { items: [...(needHandoff ? backItems(peg.hands[me].length) : []), ...cardItems(peg.played[me])] })))),
         React.createElement("div", { style: { background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "12px" } },
             React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, minHeight: 64 } },
                 React.createElement("div", { style: { flex: "0 0 auto", display: "flex", flexDirection: "column", alignItems: "center", padding: "4px 12px", borderRadius: 9, background: "rgba(0,0,0,0.3)", border: `1px solid ${T.line}` } },
@@ -1557,7 +1557,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, "Source, bugs & feedback \u2197"),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.7-dev.4"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.7-dev.5"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

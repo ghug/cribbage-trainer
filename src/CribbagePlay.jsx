@@ -1203,26 +1203,7 @@ export default function CribbagePlay() {
           </div>
         )}
 
-        {phase === "cut" && (
-          <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 16 }}>
-            <Panel>
-              <div style={{ fontWeight: 700, fontSize: 15 }}>The crib is set</div>
-              <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>
-                Four cards in {dealer ? "your" : `${seatName(dealerIdx)}'s`} crib{teammateDeals ? " (your team's)" : ""}.
-              </div>
-            </Panel>
-            <div style={{ display: "flex", justifyContent: "center", gap: 8 }}>
-              {[0, 1, 2, 3].map((i) => <CardBack key={i} />)}
-            </div>
-            {settings.autoCut
-              ? <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" }}>
-                  {cutter === 0 ? "You cut" : `${seatName(cutter)} cuts`} the starter…
-                </div>
-              : bigBtn(cutter === 0 ? "Cut the deck" : `Cut the deck (${seatName(cutter)} turns the starter)`, () => dispatch({ type: "CUT" }), "wood")}
-          </div>
-        )}
-
-        {phase === "play" && peg && (<PlayScreen state={state} dispatch={dispatch} me={playMe} needHandoff={needHandoff} />)}
+        {(phase === "cut" || (phase === "play" && peg)) && (<PlayScreen state={state} dispatch={dispatch} me={playMe} needHandoff={needHandoff} />)}
         {phase === "show" && show && (<ShowScreen state={state} dispatch={dispatch} />)}
 
         {phase === "over" && (
@@ -1339,24 +1320,41 @@ function OpponentBacks({ dealerIdx, P, sizes, me = 0 }) {
   );
 }
 
+// A small face-down "deck" — the placeholder shown where the starter will sit before the
+// cut. Three stacked backs read as a deck rather than a single card.
+function DeckBack() {
+  const h = Math.round(44 * 96 / 68);
+  return (
+    <div style={{ position: "relative", width: 50, height: h + 4, margin: "0 auto" }}>
+      <div style={{ position: "absolute", left: 6, top: 4 }}><CardBack small /></div>
+      <div style={{ position: "absolute", left: 3, top: 2 }}><CardBack small /></div>
+      <div style={{ position: "absolute", left: 0, top: 0 }}><CardBack small /></div>
+    </div>
+  );
+}
+
 function PlayScreen({ state, dispatch, me, needHandoff }) {
-  const { peg, starter, dealerIdx } = state;
-  const P = peg.hands.length;
+  const { peg, starter, dealerIdx, crib, seats, settings } = state;
+  const cutPhase = !peg;                                    // the cut sits on the same table, all face down
+  const P = peg ? peg.hands.length : seats.length;
   const ts = seatsAround(P, me);
-  const yourHand = peg.hands[me];
+  const hands = peg ? peg.hands : seats.map((s) => s.kept || []);
+  const yourHand = hands[me];
   const meName = seatShort(me);
-  const legalSet = new Set(yourHand.filter((c) => pval(c.r) + peg.count <= 31).map(cardId));
-  const myTurn = peg.turn === me && legalSet.size > 0;
-  const stuck = peg.turn === me && legalSet.size === 0 && yourHand.length > 0;
-  const tapSelect = state.settings.tapToSelect;
+  const turn = peg ? peg.turn : -1;
+  const legalSet = new Set((peg ? yourHand.filter((c) => pval(c.r) + peg.count <= 31) : []).map(cardId));
+  const myTurn = !!peg && turn === me && legalSet.size > 0;
+  const stuck = !!peg && turn === me && legalSet.size === 0 && yourHand.length > 0;
+  const tapSelect = settings.tapToSelect;
+  const cutter = (dealerIdx + P - 1) % P;
   const [selCard, setSelCard] = React.useState(null);
   // Drop a stale lifted selection once it's no longer a legal play on your turn (turn
   // passed, count changed, or the card was played).
   const selValid = tapSelect && selCard && myTurn && legalSet.has(cardId(selCard));
   useEffect(() => { if (selCard && !selValid) setSelCard(null); }, [selValid, selCard]);
   const cell = (i) => (
-    <SeatCell key={i} i={i} dealerIdx={dealerIdx} active={peg.turn === i}
-      played={peg.played[i]} remaining={peg.hands[i].length} />
+    <SeatCell key={i} i={i} dealerIdx={dealerIdx} active={turn === i}
+      played={peg ? peg.played[i] : []} remaining={hands[i].length} />
   );
   return (
     <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 14 }}>
@@ -1365,38 +1363,53 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
         {ts.left != null && cell(ts.left)}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: "0 0 auto" }}>
           <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 4 }}>starter</div>
-          <div style={{ width: 44 }}><Card card={starter} small /></div>
+          {starter ? <div style={{ width: 44 }}><Card card={starter} small /></div> : <DeckBack />}
         </div>
         {ts.right != null && cell(ts.right)}
       </div>
 
-      {/* Reserve this row's height even before you've played a card, so your played
-          stack appearing on your first play doesn't shove the pile and hand downward
-          (the opponents' stacks already live in fixed-height seat cells). */}
+      {/* the holder's own cards: face down before the cut / while waiting to pass, with
+          their played stack appended once pegging is under way. */}
       <div style={{ textAlign: "center", minHeight: 80 }}>
-        {(needHandoff || peg.played[me].length > 0) && (<>
-          <div style={{ fontFamily: mono, fontSize: 10, color: peg.turn === me ? T.selBlue : T.muted, marginBottom: 4 }}>{meName}{dealerIdx === me ? " (D)" : ""}</div>
-          {/* while waiting to pass, the holder's own unplayed cards sit face down under
-              their played ones, matching how the other seats are shown. */}
-          <Fan items={[...(needHandoff ? backItems(peg.hands[me].length) : []), ...cardItems(peg.played[me])]} />
-        </>)}
+        {cutPhase ? (
+          <>
+            <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 4 }}>{meName}{dealerIdx === me ? " (D)" : ""}</div>
+            <Fan items={backItems(hands[me].length)} />
+          </>
+        ) : (needHandoff || peg.played[me].length > 0) && (
+          <>
+            <div style={{ fontFamily: mono, fontSize: 10, color: peg.turn === me ? T.selBlue : T.muted, marginBottom: 4 }}>{meName}{dealerIdx === me ? " (D)" : ""}</div>
+            <Fan items={[...(needHandoff ? backItems(peg.hands[me].length) : []), ...cardItems(peg.played[me])]} />
+          </>
+        )}
       </div>
 
-      <div style={{ background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "12px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 14, minHeight: 64 }}>
-          <div style={{ flex: "0 0 auto", display: "flex", flexDirection: "column", alignItems: "center", padding: "4px 12px", borderRadius: 9, background: "rgba(0,0,0,0.3)", border: `1px solid ${T.line}` }}>
-            <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>pile count</span>
-            <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 28, lineHeight: 1, color: peg.count === 31 ? T.good : T.ivory }}>{peg.count}</span>
-          </div>
-          <div style={{ flex: "1 1 auto", minWidth: 0, overflow: "hidden", display: "flex", justifyContent: "center" }}>
-            {peg.pileSuited.length
-              ? <PlayedStack cards={peg.pileSuited} backs={0} vis={fitVisible(peg.pileSuited.length, 180)} />
-              : <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>cleared — new count from 0</span>}
+      {cutPhase ? (
+        <div style={{ background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "12px", minHeight: 88, display: "flex", alignItems: "center", justifyContent: "center", gap: 14 }}>
+          <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{me === dealerIdx ? "your crib" : `${seatName(dealerIdx)}'s crib`}</span>
+          <Fan items={backItems(crib.length)} />
+        </div>
+      ) : (
+        <div style={{ background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "12px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14, minHeight: 64 }}>
+            <div style={{ flex: "0 0 auto", display: "flex", flexDirection: "column", alignItems: "center", padding: "4px 12px", borderRadius: 9, background: "rgba(0,0,0,0.3)", border: `1px solid ${T.line}` }}>
+              <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>pile count</span>
+              <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 28, lineHeight: 1, color: peg.count === 31 ? T.good : T.ivory }}>{peg.count}</span>
+            </div>
+            <div style={{ flex: "1 1 auto", minWidth: 0, overflow: "hidden", display: "flex", justifyContent: "center" }}>
+              {peg.pileSuited.length
+                ? <PlayedStack cards={peg.pileSuited} backs={0} vis={fitVisible(peg.pileSuited.length, 180)} />
+                : <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>cleared — new count from 0</span>}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {needHandoff ? <PassPanel to={peg.turn} dispatch={dispatch} /> : (
+      {cutPhase ? (
+        settings.autoCut
+          ? <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" }}>{cutter === me ? "You cut" : `${seatName(cutter)} cuts`} the starter…</div>
+          : bigBtn(cutter === me ? "Cut the deck" : `Cut the deck (${seatName(cutter)} turns the starter)`, () => dispatch({ type: "CUT" }), "wood")
+      ) : needHandoff ? <PassPanel to={peg.turn} dispatch={dispatch} /> : (
       <div>
         <div style={{ fontFamily: mono, fontSize: 11, color: (myTurn || stuck) ? T.selBlue : T.muted, marginBottom: 6 }}>
           {peg.turn === me

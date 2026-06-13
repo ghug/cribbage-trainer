@@ -1097,10 +1097,9 @@ export default function CribbagePlay() {
         )}
 
 
-        {(phase === "cutdeal" || phase === "deal" || phase === "discard" || phase === "cut" || (phase === "play" && peg)) && (
+        {(phase === "cutdeal" || phase === "deal" || phase === "discard" || phase === "cut" || (phase === "show" && show) || (phase === "play" && peg)) && (
           <PlayScreen state={state} dispatch={dispatch} me={phase === "discard" ? ds : playMe} needHandoff={needHandoff} />
         )}
-        {phase === "show" && show && (<ShowScreen state={state} dispatch={dispatch} />)}
 
         {phase === "over" && (
           <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 16 }}>
@@ -1236,15 +1235,21 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
   const cutPhase = phase === "cut";
   const cutdealPhase = phase === "cutdeal";              // the opening cut-for-deal reveal
   const dealPhase = phase === "deal";                    // the between-hands "ready to deal" rest
+  const showPhase = phase === "show";                    // counting the hands + crib, one at a time
   const preDeal = cutdealPhase || dealPhase;             // no live hand yet: seats hold no cards
   const P = peg ? peg.hands.length : seats.length;
   const teams = clampTeams(P, settings.teams);
   const pl = plan(P, dealerIdx);
   const ts = seatsAround(P, me);
+  // The show counts one owner at a time: their (face-up) hand or the crib, plus the cut.
+  const info = showPhase ? computeShow(state) : null;
+  const showHand = showPhase && !info.isCrib;            // a seat's hand (not the crib) is up
+  const stepLabel = showPhase ? `${state.show.step + 1} of ${state.show.order.length}` : "";
   // What each seat is holding (face down for the others): nothing before a hand is dealt,
-  // the full dealt hand during the discard, the kept four after it, the live peg hand
-  // during play. (Pre-deal the seats' stale cards from the last hand are ignored.)
-  const hands = peg ? peg.hands : seats.map((s) => (preDeal ? [] : discardPhase ? s.dealt : (s.kept || [])));
+  // the full dealt hand during the discard, the kept four during the show/after it, the
+  // live peg hand during play. (Pre-deal the seats' stale cards from the last hand are
+  // ignored; during the show the played piles are set aside for the kept four.)
+  const hands = (peg && !showPhase) ? peg.hands : seats.map((s) => (preDeal ? [] : discardPhase ? s.dealt : (s.kept || [])));
   const yourHand = hands[me];
   const meName = seatShort(me);
   const turn = peg ? peg.turn : -1;
@@ -1265,6 +1270,11 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
   const isLegal = (c) => discardPhase || legalSet.has(cardId(c));
   // Drop the working selection whenever the actor / phase / turn moves on.
   useEffect(() => { setSel([]); }, [me, phase, turn]);
+  // Muggins claim entry (solo only) resets each counting step.
+  const [claim, setClaim] = React.useState(0);
+  useEffect(() => { setClaim(0); }, [showPhase ? state.show.step : -1]);
+  const muggins = showPhase && mugginsActive(settings) && seatIsHuman(info.owner, settings);
+  const needClaim = muggins && !state.show.claimSubmitted;
 
   const commit = (idxs) => dispatch(discardPhase
     ? { type: "SELECT_DISCARD", idxs: idxs.slice().sort((a, b) => a - b) }
@@ -1288,14 +1298,19 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
   const teammateDeals = cribOurs && !isDealer;
   const discardPrompt = `Tap the ${count === 2 ? "two cards" : "card"} you'll throw to the crib.${count === 2 && sel.length === 1 ? " One more…" : ""}`;
 
-  const cell = (i) => (cutdealPhase
-    ? <DrawCell key={i} i={i} dealerIdx={dealerIdx} card={dealDraw ? dealDraw[i] : null} />
-    : <SeatCell key={i} i={i} dealerIdx={dealerIdx} active={turn === i}
-        played={peg ? peg.played[i] : []} remaining={hands[i].length} />
-  );
+  const cell = (i) => {
+    if (cutdealPhase) return <DrawCell key={i} i={i} dealerIdx={dealerIdx} card={dealDraw ? dealDraw[i] : null} />;
+    // During the show the owner whose hand is up turns it face up; everyone else stays
+    // face down. Otherwise: live peg hand (backs) + played pile (face up).
+    const faceUp = showHand && i === info.owner;
+    const played = faceUp ? seats[i].kept : (peg && !showPhase ? peg.played[i] : []);
+    const remaining = faceUp ? 0 : hands[i].length;
+    return <SeatCell key={i} i={i} dealerIdx={dealerIdx} active={showPhase ? i === info.owner : turn === i}
+      played={played} remaining={remaining} />;
+  };
   // Your own seat at the bottom shows face down: before the cut, while waiting to pass the
   // device, or (during play) your played stack. Hidden while you're actively choosing.
-  const ownFaceDown = cutPhase || needHandoff || (!!peg && peg.played[me].length > 0);
+  const ownFaceDown = !showPhase && (cutPhase || needHandoff || (!!peg && peg.played[me].length > 0));
   return (
     <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 14 }}>
       {ts.top.length > 0 && <div style={{ display: "flex", justifyContent: "space-around" }}>{ts.top.map(cell)}</div>}
@@ -1313,6 +1328,11 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
       ) : dealPhase ? (
         <div style={{ textAlign: "center", minHeight: 64 }}>
           <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 4 }}>{meName}{dealerIdx === me ? " (D)" : ""}</div>
+        </div>
+      ) : showPhase ? (
+        <div style={{ textAlign: "center", minHeight: 80 }}>
+          <div style={{ fontFamily: mono, fontSize: 10, color: info.owner === me ? T.selBlue : T.muted, marginBottom: 4 }}>{meName}{dealerIdx === me ? " (D)" : ""}</div>
+          <Fan items={(showHand && info.owner === me) ? cardItems(seats[me].kept) : backItems((seats[me].kept || []).length)} />
         </div>
       ) : ownFaceDown && (
         <div style={{ textAlign: "center", minHeight: 80 }}>
@@ -1335,6 +1355,22 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
           <div style={{ fontWeight: 700, fontSize: 15 }}>{isDealer ? "Your deal — the crib is yours." : teammateDeals ? `${seatName(dealerIdx)} deals — your team's crib.` : `${seatName(dealerIdx)} deals — the crib is theirs.`}</div>
           <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>{dealBlurb(P)}</div>
         </Panel>
+      ) : showPhase ? (
+        info.isCrib ? (
+          // the crib has no seat — reveal it face up here, where the pile/crib normally sits.
+          <div style={{ background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "12px", minHeight: 88, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+            <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{entLabel(info)} · counting {stepLabel}</span>
+            <Fan items={cardItems(info.cards)} />
+          </div>
+        ) : (
+          <Panel>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>The show · {entLabel(info)}</div>
+              <span style={{ fontFamily: mono, fontSize: 10.5, color: T.muted }}>counting {stepLabel}</span>
+            </div>
+            <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 3 }}>order: pone first, dealer's crib last.</div>
+          </Panel>
+        )
       ) : discardPhase ? (
         <Panel tone={cribOurs ? "good" : "red"}>
           <div style={{ fontWeight: 700, fontSize: 15 }}>{multiHuman ? `${seatName(me)}: ` : ""}{isDealer ? "Your crib — be greedy" : teammateDeals ? `${seatName(dealerIdx)}'s crib — your team's, be greedy` : `Feeds ${seatName(dealerIdx)}'s crib — defend`}</div>
@@ -1360,7 +1396,38 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
         </div>
       )}
 
-      {preDeal ? (
+      {showPhase ? (
+        needClaim ? (
+          <div style={{ background: "rgba(0,0,0,0.26)", borderRadius: 10, padding: "14px 14px 16px" }}>
+            <div style={{ fontSize: 13.5, lineHeight: 1.5, marginBottom: 12 }}>
+              Count {info.isCrib ? "your crib" : "your hand"} with the starter. Claim what you see —
+              miss any and the next opponent takes them.
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, justifyContent: "center", marginBottom: 14 }}>
+              <StepBtn onClick={() => setClaim((v) => Math.max(0, v - 1))}>−</StepBtn>
+              <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 34, minWidth: 48, textAlign: "center" }}>{claim}</span>
+              <StepBtn onClick={() => setClaim((v) => Math.min(29, v + 1))}>+</StepBtn>
+            </div>
+            {bigBtn(`Claim ${claim}`, () => dispatch({ type: "SHOW_CLAIM", value: claim }), "good")}
+          </div>
+        ) : (
+          <div style={{ background: "rgba(0,0,0,0.26)", borderRadius: 10, padding: "12px 14px 14px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
+              <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>scoring</span>
+              <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 20, color: T.ivory }}>{info.total}</span>
+            </div>
+            {info.total > 0
+              ? <CatBars cats={info.acc} scale={info.total} color={info.isCrib ? (seatIsHuman(info.owner, settings) ? T.good : T.pegRed) : T.good} />
+              : <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>nineteen — no points.</div>}
+            {muggins && state.show.claimSubmitted && (
+              <div style={{ fontFamily: mono, fontSize: 11.5, color: state.show.claimValue >= info.total ? T.good : T.pegRed, marginTop: 10 }}>
+                you claimed {state.show.claimValue}{state.show.claimValue < info.total ? ` · missed ${info.total - state.show.claimValue}` : state.show.claimValue > info.total ? " · over-claim, corrected down" : " · spot on"}
+              </div>
+            )}
+            {bigBtn("Continue", () => dispatch({ type: "SHOW_NEXT" }), "wood")}
+          </div>
+        )
+      ) : preDeal ? (
         settings.autoDeal
           ? <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" }}>Dealing…</div>
           : (<div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -1426,65 +1493,6 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
           {!discardPhase && yourHand.length === 0 && <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>your cards are all played</span>}
         </div>
       </div>
-      )}
-    </div>
-  );
-}
-
-function ShowScreen({ state, dispatch }) {
-  const info = computeShow(state);
-  const { show, settings } = state;
-  const muggins = mugginsActive(settings) && seatIsHuman(info.owner, settings);
-  const needClaim = muggins && !show.claimSubmitted;
-  const [claim, setClaim] = React.useState(0);
-  React.useEffect(() => { setClaim(0); }, [show.step]);
-
-  const stepLabel = `${show.step + 1} of ${show.order.length}`;
-  return (
-    <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 14 }}>
-      <Panel>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-          <div style={{ fontWeight: 700, fontSize: 15 }}>The show · {entLabel(info)}</div>
-          <span style={{ fontFamily: mono, fontSize: 10.5, color: T.muted }}>counting {stepLabel}</span>
-        </div>
-        <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 3 }}>order: pone first, dealer's crib last.</div>
-      </Panel>
-
-      <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-        {info.cards.map((c) => <Card key={cardId(c)} card={c} />)}
-        <span style={{ fontFamily: mono, fontSize: 14, color: T.muted, padding: "0 4px" }}>+</span>
-        <Card card={state.starter} />
-      </div>
-
-      {needClaim ? (
-        <div style={{ background: "rgba(0,0,0,0.26)", borderRadius: 10, padding: "14px 14px 16px" }}>
-          <div style={{ fontSize: 13.5, lineHeight: 1.5, marginBottom: 12 }}>
-            Count {info.isCrib ? "your crib" : "your hand"} with the starter. Claim what you see —
-            miss any and the next opponent takes them.
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, justifyContent: "center", marginBottom: 14 }}>
-            <StepBtn onClick={() => setClaim((v) => Math.max(0, v - 1))}>−</StepBtn>
-            <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 34, minWidth: 48, textAlign: "center" }}>{claim}</span>
-            <StepBtn onClick={() => setClaim((v) => Math.min(29, v + 1))}>+</StepBtn>
-          </div>
-          {bigBtn(`Claim ${claim}`, () => dispatch({ type: "SHOW_CLAIM", value: claim }), "good")}
-        </div>
-      ) : (
-        <div style={{ background: "rgba(0,0,0,0.26)", borderRadius: 10, padding: "12px 14px 14px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
-            <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>scoring</span>
-            <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 20, color: T.ivory }}>{info.total}</span>
-          </div>
-          {info.total > 0
-            ? <CatBars cats={info.acc} scale={info.total} color={info.isCrib ? (seatIsHuman(info.owner, settings) ? T.good : T.pegRed) : T.good} />
-            : <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>nineteen — no points.</div>}
-          {muggins && show.claimSubmitted && (
-            <div style={{ fontFamily: mono, fontSize: 11.5, color: show.claimValue >= info.total ? T.good : T.pegRed, marginTop: 10 }}>
-              you claimed {show.claimValue}{show.claimValue < info.total ? ` · missed ${info.total - show.claimValue}` : show.claimValue > info.total ? " · over-claim, corrected down" : " · spot on"}
-            </div>
-          )}
-          {bigBtn("Continue", () => dispatch({ type: "SHOW_NEXT" }), "wood")}
-        </div>
       )}
     </div>
   );

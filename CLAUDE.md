@@ -242,6 +242,14 @@ layout) is derived from the player count via `plan(P, dealerIdx)` / `tableSeats(
   every award and stopping immediately** (a non-dealer to the dealer's left can peg
   out first). Auto-count or **muggins** (you claim your own hand/crib; missed points
   go to the next opponent in counting order; over-claims are corrected down).
+- **Game history** (`localStorage["cribbage:history"]`): each finished game is appended
+  once via a `phase==="over"` effect using `gameRecord(state)` — it buckets your
+  **outcome** (won / lost / skunked / double-skunked, from your team's final score vs
+  `skunkLines(P)`) and sums your team's **pegging / hand / crib** points by history label
+  (partners' entries combine; his-heels→peg, muggins→hand). The **Game history** modal
+  (Settings → Game history) shows combined totals by default and per-`P/teams` config when
+  a chip is picked, adding avg peg/hand/crib for that config. `gameRecord` is React-path
+  only, so `engine/verify_play.js` unit-tests its categorization + skunk-line buckets.
 - **Correctness pitfalls guarded** (see `engine/verify_play.js`): go/31/last-card
   never double-count; his heels = **+2** at the cut; the 121 counting-order
   short-circuit; suits survive pegging (only the rank arrays handed to

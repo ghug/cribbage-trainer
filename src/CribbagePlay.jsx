@@ -661,6 +661,35 @@ function loadSettings() {
 }
 function saveSettings(s) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (e) {} }
 
+// ---- Finished-game history (per device) ----
+const HISTORY_KEY = "cribbage:history";
+function loadHistory() { try { const r = localStorage.getItem(HISTORY_KEY); return r ? JSON.parse(r) : []; } catch (e) { return []; } }
+function saveHistory(h) { try { localStorage.setItem(HISTORY_KEY, JSON.stringify(h)); } catch (e) {} }
+function clearHistory() { try { localStorage.removeItem(HISTORY_KEY); } catch (e) {} }
+
+// Summarize a finished game from your (team's) side: the outcome bucket plus the team's
+// pegging / hand / crib point totals. A team's points are the sum of its members' own
+// logged history entries (partners share the score but only the earner logs the entry),
+// so iterating the team's seats captures every point exactly once.
+function gameRecord(state) {
+  const P = clampPlayers(state.settings.players);
+  const teams = clampTeams(P, state.settings.teams);
+  const mine = teamsList(P, teams).find((m) => m.includes(0)) || [0];
+  let peg = 0, hand = 0, crib = 0;
+  for (const seat of mine) for (const h of (state.seats[seat].history || [])) {
+    const L = h.label || "";
+    if (L.startsWith("pegging") || L === "his heels") peg += h.pts;
+    else if (L.startsWith("hand")) hand += h.pts;
+    else if (L.startsWith("crib")) crib += h.pts;
+    else if (L === "muggins") hand += h.pts;        // claimed an opponent's missed count
+  }
+  const score = state.seats[mine[0]].score;
+  const won = teamOf(state.winner, P, teams) === teamOf(0, P, teams);
+  const { skunk, dbl } = skunkLines(P);
+  const outcome = won ? "won" : score <= dbl ? "doubleSkunked" : score <= skunk ? "skunked" : "lost";
+  return { t: Date.now(), P, teams, outcome, peg, hand, crib, score };
+}
+
 // Cut for deal: each seat draws one card; lowest rank deals. Re-draw on a tie.
 function drawForDealer(P) {
   for (let attempt = 0; attempt < 500; attempt++) {
@@ -829,12 +858,21 @@ export default function CribbagePlay() {
   const [paused, setPaused] = React.useState(false);
   const [confirmHome, setConfirmHome] = React.useState(false);
   const [aboutOpen, setAboutOpen] = React.useState(false);
+  const [historyOpen, setHistoryOpen] = React.useState(false);
   const [sel, setSel] = React.useState([]); // cards selected so far during a 2-card discard
   const { phase, seats, dealerIdx, peg, show, starter, winner, message, settings, dealDraw } = state;
   const players = clampPlayers(settings.players);
   const teams = clampTeams(players, settings.teams);
   setSeatNames(players);
   const humanThrows = plan(players, dealerIdx).throws[0];
+
+  // Record each finished game once (when the board reaches "over" with a winner).
+  const recordedRef = React.useRef(false);
+  useEffect(() => {
+    if (phase === "over" && winner !== null) {
+      if (!recordedRef.current) { recordedRef.current = true; saveHistory([...loadHistory(), gameRecord(state)]); }
+    } else { recordedRef.current = false; }
+  }, [phase, winner]);
 
   const goHome = () => { if (phase === "cutdeal") window.location.href = "index.html"; else setConfirmHome(true); };
   const canPause = settings.autoCut || settings.autoGo || settings.autoDeal || settings.autoContinue || settings.autoPlayOne || settings.autoPlayBest || settings.autoDiscardBest;
@@ -972,7 +1010,7 @@ export default function CribbagePlay() {
       </header>
 
       <main style={{ maxWidth: 560, margin: "0 auto", padding: "16px 16px 0" }}>
-        {settingsOpen && <SettingsPanel settings={settings} dispatch={dispatch} onClose={() => setSettingsOpen(false)} onAbout={() => { setSettingsOpen(false); setAboutOpen(true); }} />}
+        {settingsOpen && <SettingsPanel settings={settings} dispatch={dispatch} onClose={() => setSettingsOpen(false)} onAbout={() => { setSettingsOpen(false); setAboutOpen(true); }} onHistory={() => { setSettingsOpen(false); setHistoryOpen(true); }} />}
         <ScoreRow seats={seats} dealerIdx={dealerIdx} turn={turnNow} winner={phase === "over" ? winner : null}
           onPick={(i) => setHistorySeat((cur) => (cur === i ? null : i))} P={players} teams={teams} />
         {historySeat !== null && <HistoryPanel seatIdx={historySeat} seats={seats} onClose={() => setHistorySeat(null)} P={players} teams={teams} />}
@@ -1109,6 +1147,7 @@ export default function CribbagePlay() {
       </main>
 
       {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
+      {historyOpen && <HistoryModal onClose={() => setHistoryOpen(false)} />}
 
       {confirmHome && (
         <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
@@ -1408,7 +1447,7 @@ const segStyle = (on) => ({
   border: `1px solid ${on ? T.pegIvory : T.line}`, fontWeight: on ? 700 : 400,
 });
 
-function SettingsPanel({ settings, dispatch, onClose, onAbout }) {
+function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
   const Row = ({ title, desc, k, options }) => (
     <div style={{ marginBottom: 14 }}>
       <div style={{ fontWeight: 700, fontSize: 13.5 }}>{title}</div>
@@ -1456,6 +1495,9 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout }) {
       <Row title="Counting" k="counting"
         desc="Auto tallies every hand for you. Muggins: you claim your own hand (and crib when you deal) — miss points and the next opponent takes them."
         options={[["Auto-count", "auto"], ["Muggins", "muggins"]]} />
+      <div style={{ borderTop: `1px solid ${T.line}`, margin: "2px -16px 0", padding: "12px 16px 0" }}>
+        <button onClick={onHistory} style={{ width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12, fontWeight: 700 }}>Game history</button>
+      </div>
       <AboutRow onAbout={onAbout} />
       <button onClick={onClose} style={{
         width: "100%", margin: "12px 0 10px", padding: "12px", borderRadius: 9, border: "none", cursor: "pointer",
@@ -1468,12 +1510,91 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout }) {
 
 function AboutRow({ onAbout }) {
   return (
-    <div style={{ borderTop: `1px solid ${T.line}`, margin: "2px -16px 0", padding: "12px 16px 4px" }}>
+    <div style={{ margin: "0 -16px 0", padding: "8px 16px 4px" }}>
       <button onClick={onAbout} style={{
         width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer",
         border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream,
         fontFamily: mono, fontSize: 12, fontWeight: 700,
       }}>About &amp; feedback</button>
+    </div>
+  );
+}
+
+function HistoryModal({ onClose }) {
+  const [tick, setTick] = React.useState(0);
+  const all = loadHistory();
+  const [sel, setSel] = React.useState("all");
+  const [confirmClear, setConfirmClear] = React.useState(false);
+  const keyOf = (r) => `${r.P}/${r.teams}`;
+  const cfgLabel = (P, t) => (t < P ? `${P}p · ${t} teams` : `${P}-handed`);
+  const configs = Array.from(new Set(all.map(keyOf))).sort((a, b) => {
+    const [pa, ta] = a.split("/").map(Number), [pb, tb] = b.split("/").map(Number);
+    return pa - pb || tb - ta;
+  });
+  const filtered = sel === "all" ? all : all.filter((r) => keyOf(r) === sel);
+  const games = filtered.length;
+  const cnt = (o) => filtered.filter((r) => r.outcome === o).length;
+  const won = cnt("won"), lost = cnt("lost"), sk = cnt("skunked"), dsk = cnt("doubleSkunked");
+  const avg = (k) => (games ? filtered.reduce((a, r) => a + (r[k] || 0), 0) / games : 0);
+  const winPct = games ? Math.round((won / games) * 100) : 0;
+  const specific = sel !== "all";
+
+  const chip = (key, label) => (
+    <button key={key} onClick={() => { setSel(key); setConfirmClear(false); }} style={{
+      padding: "6px 10px", borderRadius: 7, cursor: "pointer", fontFamily: mono, fontSize: 11, fontWeight: 700,
+      border: `1px solid ${sel === key ? T.pegIvory : T.line}`,
+      background: sel === key ? T.pegIvory : "rgba(0,0,0,0.25)", color: sel === key ? "#2A1B0E" : T.cream,
+    }}>{label}</button>
+  );
+  const Stat = ({ label, value, accent }) => (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "7px 0", borderBottom: `1px solid ${T.line}` }}>
+      <span style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>{label}</span>
+      <span style={{ fontFamily: serif, fontSize: 16, fontWeight: 700, color: accent || T.cream }}>{value}</span>
+    </div>
+  );
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 220, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 380, width: "100%", maxHeight: "86vh", overflowY: "auto", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "20px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 14 }}>
+          <span style={{ fontWeight: 700, fontSize: 17 }}>Game history</span>
+          <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>Done</button>
+        </div>
+
+        {all.length === 0 ? (
+          <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, lineHeight: 1.6 }} data-tick={tick}>No finished games yet. Play a game out to the finish and it'll show up here.</div>
+        ) : (
+          <React.Fragment>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+              {chip("all", "All")}
+              {configs.map((k) => { const [P, t] = k.split("/").map(Number); return chip(k, cfgLabel(P, t)); })}
+            </div>
+
+            <Stat label="Games" value={games} />
+            <Stat label="Won" value={`${won} (${winPct}%)`} accent={T.good} />
+            <Stat label="Lost" value={lost} />
+            <Stat label="Skunked 🦨" value={sk} accent={sk ? T.pegRed : T.cream} />
+            <Stat label="Double skunked 🦨🦨" value={dsk} accent={dsk ? T.pegRed : T.cream} />
+
+            {specific ? (
+              <React.Fragment>
+                <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, margin: "14px 0 4px", letterSpacing: 0.3 }}>YOUR AVERAGE POINTS PER GAME</div>
+                <Stat label="Pegging" value={avg("peg").toFixed(1)} />
+                <Stat label="Hand (the show)" value={avg("hand").toFixed(1)} />
+                <Stat label="Crib" value={avg("crib").toFixed(1)} />
+              </React.Fragment>
+            ) : (
+              <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, marginTop: 12, lineHeight: 1.5 }}>Pick a specific size/teams above to see your average pegging, hand, and crib points.</div>
+            )}
+
+            <button onClick={() => { if (confirmClear) { clearHistory(); setSel("all"); setConfirmClear(false); setTick(tick + 1); } else setConfirmClear(true); }} style={{
+              width: "100%", marginTop: 16, padding: "10px", borderRadius: 9, cursor: "pointer",
+              border: `1px solid ${confirmClear ? T.pegRed : T.line}`, background: "rgba(0,0,0,0.25)",
+              color: confirmClear ? T.pegRed : T.muted, fontFamily: mono, fontSize: 11.5, fontWeight: 700,
+            }}>{confirmClear ? "Tap again to erase all history" : "Clear history"}</button>
+          </React.Fragment>
+        )}
+      </div>
     </div>
   );
 }

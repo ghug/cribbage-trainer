@@ -43,7 +43,7 @@ function loadSandbox(seed) {
 }
 
 const S = loadSandbox(1);
-const { reduce, initGame, scoreInto, pegScore, pegChoose } = S;
+const { reduce, initGame, scoreInto, pegScore, pegChoose, gameRecord } = S;
 const pval = (r) => Math.min(r, 10);
 const sameCard = (a, b) => a.r === b.r && a.s === b.s;
 
@@ -244,6 +244,32 @@ function teamsCheck(P, teams, expected) {
 teamsCheck(4, 2, [[0, 2], [1, 3]]);       // across-the-table pairs
 teamsCheck(6, 3, [[0, 3], [1, 4], [2, 5]]); // across pairs
 teamsCheck(6, 2, [[0, 2, 4], [1, 3, 5]]);   // every other seat, three to a team
+
+/* ---- gameRecord: the finished-game history summary (React-path only, so the whole-hand
+       drivers above never exercise it). Categorize team points by label, combine partners,
+       and bucket the outcome by the per-target skunk lines. ---- */
+{
+  const mk = (P, teams, hist, winner) => ({
+    settings: { players: P, teams }, winner,
+    seats: hist.map((h) => ({ history: h, score: (h || []).reduce((a, x) => a + x.pts, 0) })),
+  });
+  // 4-handed solo: categories split by label; a win.
+  let st = mk(4, 4, [[{ pts: 8, label: "pegging · run" }, { pts: 2, label: "his heels" }, { pts: 8, label: "hand · 15s" }, { pts: 5, label: "crib · run" }], [], [], []], 0);
+  st.seats[0].score = 121;
+  let r = gameRecord(st);
+  check(r.peg === 10 && r.hand === 8 && r.crib === 5, `gameRecord categorizes peg/hand/crib (his-heels→peg) got ${r.peg}/${r.hand}/${r.crib}`);
+  check(r.outcome === "won" && r.P === 4 && r.teams === 4, `gameRecord records a win + config (${r.outcome})`);
+  // 4/2 teams: partners 0 & 2 combine.
+  st = mk(4, 2, [[{ pts: 4, label: "pegging · pair" }, { pts: 4, label: "hand · 15s" }], [{ pts: 99, label: "pegging" }], [{ pts: 3, label: "crib · run" }, { pts: 2, label: "pegging · go" }], []], 0);
+  st.seats[0].score = 60;
+  r = gameRecord(st);
+  check(r.peg === 6 && r.hand === 4 && r.crib === 3, `gameRecord combines partner points got ${r.peg}/${r.hand}/${r.crib}`);
+  check(gameRecord(Object.assign(mk(2, 2, [[{ pts: 5, label: "muggins" }, { pts: 7, label: "hand" }], []], 1), {})).hand === 12, "gameRecord lumps muggins into hand");
+  // outcome buckets vs the per-target skunk lines.
+  const lossAt = (P, teams, score) => { const s = mk(P, teams, [[{ pts: score, label: "hand" }], [{ pts: 999, label: "x" }]], 1); s.seats[0].score = score; return gameRecord(s).outcome; };
+  check(lossAt(2, 2, 100) === "lost" && lossAt(2, 2, 90) === "skunked" && lossAt(2, 2, 60) === "doubleSkunked", "gameRecord 121 skunk lines 90/60");
+  check(lossAt(6, 6, 31) === "lost" && lossAt(6, 6, 30) === "skunked" && lossAt(6, 6, 15) === "doubleSkunked", "gameRecord 61 skunk lines 30/15");
+}
 
 console.log(`\nplay.html engine checks: ${ok} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

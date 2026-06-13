@@ -158,8 +158,9 @@ for (const P of SUPPORTED) {
         const sum = (s.history || []).reduce((a, x) => a + x.pts, 0);
         check(sum === s.score, `P=${P}: seat ${i} history sums to score (${sum} vs ${s.score})`);
       });
-      if (maxScore >= 121) check(state.phase === "over", `P=${P}: game ends at 121 (max ${maxScore})`);
-      if (state.phase === "deal") check(maxScore < 121, `P=${P}: no uncrowned winner between hands`);
+      const goal = P >= 5 ? 61 : 121; // 5-/6-handed are short games to 61
+      if (maxScore >= goal) check(state.phase === "over", `P=${P}: game ends at ${goal} (max ${maxScore})`);
+      if (state.phase === "deal") check(maxScore < goal, `P=${P}: no uncrowned winner between hands`);
       prev = state.seats.map((s) => s.score);
     } catch (e) { exceptions++; console.error("  ✗ exception", P, h, e.message); }
   }
@@ -232,8 +233,9 @@ function teamsCheck(P, teams, expected) {
         check(sum === state.seats[m[0]].score, `P=${P}/teams=${teams}: team {${m}} history sums to the shared score`);
       }
       const maxTeam = Math.max(...groups.map((m) => state.seats[m[0]].score));
-      if (maxTeam >= 121) check(state.phase === "over", `P=${P}/teams=${teams}: game ends once a team reaches 121`);
-      if (state.phase === "deal") check(maxTeam < 121, `P=${P}/teams=${teams}: no uncrowned team between hands`);
+      const goal = P >= 5 ? 61 : 121; // 5-/6-handed are short games to 61
+      if (maxTeam >= goal) check(state.phase === "over", `P=${P}/teams=${teams}: game ends once a team reaches ${goal}`);
+      if (state.phase === "deal") check(maxTeam < goal, `P=${P}/teams=${teams}: no uncrowned team between hands`);
     } catch (e) { exceptions++; console.error("  ✗ teams exception", P, teams, h, e.message); }
   }
   check(exceptions === 0, `P=${P}/teams=${teams}: no exceptions across many hands`);

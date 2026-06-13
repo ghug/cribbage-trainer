@@ -296,7 +296,10 @@ function CatBars({ cats, scale, color }) {
   );
 }
 /* ============================ GAME STATE ============================ */
-const TARGET = 121;
+// 5- and 6-handed are short games to 61 (the skunk/double-skunk lines halve to
+// match: 30 and 15); everyone else plays the full 121.
+const targetFor = (P) => (P >= 5 ? 61 : 121);
+const skunkLines = (P) => (P >= 5 ? { skunk: 30, dbl: 15 } : { skunk: 90, dbl: 60 });
 const PLAYER_OPTIONS = [2, 3, 4, 5, 6]; // table sizes this page supports (2 heads-up … 6 cutthroat)
 const clampPlayers = (p) => (PLAYER_OPTIONS.includes(p) ? p : 2);
 // Team counts available at a given table size. Default is one team per player
@@ -486,14 +489,14 @@ function playCard(state, seat, card) {
   let message = pts > 0 ? `${seatName(seat)}: ${scoreCallout(pile, count, pts)}.` : `${sv(seat, "play", "plays")} ${tag(card)} (count ${count}).`;
   const np = { ...peg, hands, count, pile, pileSuited, played, lastPlayer: seat, passes: 0 };
   if (count === 31) { np.count = 0; np.pile = []; np.pileSuited = []; np.lastPlayer = -1; }
-  if (seats[seat].score >= TARGET) return { ...state, seats, peg: np, phase: "over", winner: seat, message };
+  if (seats[seat].score >= targetFor(P)) return { ...state, seats, peg: np, phase: "over", winner: seat, message };
 
   const remaining = hands.reduce((a, h) => a + h.length, 0);
   if (remaining === 0) {
     if (np.lastPlayer >= 0) {
       seats = addScore(seats, seat, 1, "pegging · last card", P, teams);
       message += ` ${seatName(seat)} +1 for last card.`;
-      if (seats[seat].score >= TARGET) return { ...state, seats, peg: np, phase: "over", winner: seat, message };
+      if (seats[seat].score >= targetFor(P)) return { ...state, seats, peg: np, phase: "over", winner: seat, message };
     }
     return { ...state, seats, peg: np, phase: "show", show: initShow(state.dealerIdx, P), message };
   }
@@ -554,7 +557,7 @@ function reduce(state, action) {
       if (hisHeels) {
         seats = addScore(seats, state.dealerIdx, 2, "his heels", P, teams);
         message = `His heels — ${sv(state.dealerIdx, "peg", "pegs")} 2 for the Jack (${tag(starter)}).`;
-        if (seats[state.dealerIdx].score >= TARGET) winner = state.dealerIdx;
+        if (seats[state.dealerIdx].score >= targetFor(P)) winner = state.dealerIdx;
       }
       if (winner !== null) return { ...state, starter, hisHeels, seats, winner, phase: "over", message };
       return { ...state, starter, hisHeels, seats, peg: initPeg(seats, state.dealerIdx, P), phase: "play", message };
@@ -585,7 +588,7 @@ function reduce(state, action) {
         if (peg.lastPlayer >= 0 && peg.count !== 31) {
           seats = addScore(seats, peg.lastPlayer, 1, "pegging · go", P, teams);
           message = `${seatName(peg.lastPlayer)} +1 for the go.`;
-          if (seats[peg.lastPlayer].score >= TARGET) return { ...state, seats, peg: np, phase: "over", winner: peg.lastPlayer, message };
+          if (seats[peg.lastPlayer].score >= targetFor(P)) return { ...state, seats, peg: np, phase: "over", winner: peg.lastPlayer, message };
         }
         np.count = 0; np.pile = []; np.pileSuited = []; np.lastPlayer = -1;
         return { ...state, seats, peg: np, message };
@@ -606,7 +609,7 @@ function reduce(state, action) {
         const claim = state.show.claimValue || 0;
         const awarded = Math.min(claim, info.total);
         seats = addScore(seats, info.owner, awarded, info.isCrib ? "crib (claimed)" : "hand (claimed)", P, teams);
-        if (seats[info.owner].score >= TARGET) winner = info.owner;
+        if (seats[info.owner].score >= targetFor(P)) winner = info.owner;
         const missed = info.total - awarded;
         if (missed > 0 && winner === null) {
           // Missed points go to the next player in counting order who is NOT a partner.
@@ -616,14 +619,14 @@ function reduce(state, action) {
           if (recip === undefined) recip = (state.dealerIdx + 1) % P;
           seats = addScore(seats, recip, missed, "muggins", P, teams);
           message = `Muggins! ${seatName(recip)} claims the ${missed} you missed (had ${info.total}).`;
-          if (seats[recip].score >= TARGET) winner = recip;
+          if (seats[recip].score >= targetFor(P)) winner = recip;
         } else {
           message = `You count ${awarded}${claim > info.total ? " — over-claim corrected down" : ""}.`;
         }
       } else {
         seats = addScore(seats, info.owner, info.total, showLabel(info.isCrib ? "crib" : "hand", info.acc), P, teams);
         message = `${entLabel(info)} scores ${info.total}.`;
-        if (seats[info.owner].score >= TARGET) winner = info.owner;
+        if (seats[info.owner].score >= targetFor(P)) winner = info.owner;
       }
       if (winner !== null) return { ...state, seats, phase: "over", winner, message };
       return { ...state, seats, show: { ...state.show, scored: true }, message };
@@ -709,7 +712,7 @@ function ScoreRow({ seats, dealerIdx, turn, winner, onPick, P, teams }) {
               ))}
             </div>
             <div style={{ fontFamily: serif, fontWeight: 700, fontSize: 22, color: isWin ? T.good : T.ivory }}>{score}</div>
-            <div style={{ marginTop: 4, display: "flex", justifyContent: "center" }}><PegTrack pct={(score / TARGET) * 100} /></div>
+            <div style={{ marginTop: 4, display: "flex", justifyContent: "center" }}><PegTrack pct={(score / targetFor(P)) * 100} /></div>
           </button>
         );
       })}
@@ -765,11 +768,12 @@ function Panel({ children, tone }) {
 
 function SkunkPanel({ seats, winner, P, teams }) {
   const groups = teamsList(P, teams);
+  const { skunk: skLine, dbl: dblLine } = skunkLines(P);
   const losers = groups.map((m) => ({ m, score: seats[m[0]].score })).filter((x) => !x.m.includes(winner));
-  const dbl = losers.filter((x) => x.score <= 60);
-  const sk = losers.filter((x) => x.score > 60 && x.score <= 90);
+  const dbl = losers.filter((x) => x.score <= dblLine);
+  const sk = losers.filter((x) => x.score > dblLine && x.score <= skLine);
   if (!dbl.length && !sk.length) return null;
-  const youSkunked = losers.some((x) => x.m.includes(0) && x.score <= 90);
+  const youSkunked = losers.some((x) => x.m.includes(0) && x.score <= skLine);
   const fmt = (arr) => arr.map((x) => `${teamLabel(x.m)} (${x.score})`).join(", ");
   return (
     <Panel tone={youSkunked ? "red" : "good"}>
@@ -794,8 +798,8 @@ function dealBlurb(P) {
   if (P === 2) return "You're each dealt 6 and throw two to the crib. First to 121 wins.";
   if (P === 3) return "Each player is dealt 5 and throws one; the dealer adds a card off the deck to fill the crib to four. First to 121 wins.";
   if (P === 4) return "Each player is dealt 5 and throws one to the crib. First to 121 wins.";
-  if (P === 5) return "Everyone is dealt 5 and throws one — except the dealer, dealt 4 and keeping them all. First to 121 wins.";
-  return "Everyone is dealt 5 and throws one — except the dealer and the player to their right, dealt 4 and keeping them all. First to 121 wins.";
+  if (P === 5) return "Everyone is dealt 5 and throws one — except the dealer, dealt 4 and keeping them all. Short game: first to 61 wins.";
+  return "Everyone is dealt 5 and throws one — except the dealer and the player to their right, dealt 4 and keeping them all. Short game: first to 61 wins.";
 }
 
 /* ============================ APP ============================ */
@@ -924,7 +928,7 @@ export default function CribbagePlay() {
               display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, lineHeight: 1,
               boxShadow: "inset 0 1px 2px rgba(255,255,255,0.12), 0 2px 5px rgba(0,0,0,0.35)",
             }}>♣</button>
-            <span style={{ fontFamily: mono, fontSize: 12, color: "rgba(42,27,14,0.8)", lineHeight: 1.3 }}>{teams < players ? `${players}-handed · ${teams} teams of ${players / teams}` : `${players}-handed vs ${players - 1} bot${players - 1 === 1 ? "" : "s"}`}<br />first to 121</span>
+            <span style={{ fontFamily: mono, fontSize: 12, color: "rgba(42,27,14,0.8)", lineHeight: 1.3 }}>{teams < players ? `${players}-handed · ${teams} teams of ${players / teams}` : `${players}-handed vs ${players - 1} bot${players - 1 === 1 ? "" : "s"}`}<br />first to {targetFor(players)}</span>
           </div>
           <div style={{ display: "flex", gap: 8, flex: "0 0 auto" }}>
             <button onClick={goHome} aria-label="Home" style={{
@@ -1059,7 +1063,7 @@ export default function CribbagePlay() {
           <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 16 }}>
             <Panel tone="good">
               <div style={{ fontWeight: 700, fontSize: 18 }}>{winner !== null && teamOf(winner, players, teams) === teamOf(0, players, teams) ? "You win! 🎉" : `${teamLabel(teamsList(players, teams).find((m) => m.includes(winner)) || [winner])} wins.`}</div>
-              <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>First to {TARGET}. Final: {teamsList(players, teams).map((m) => `${teamLabel(m)} ${seats[m[0]].score}`).join(" · ")}</div>
+              <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>First to {targetFor(players)}. Final: {teamsList(players, teams).map((m) => `${teamLabel(m)} ${seats[m[0]].score}`).join(" · ")}</div>
             </Panel>
             <SkunkPanel seats={seats} winner={winner} P={players} teams={teams} />
             {bigBtn("Play again", () => dispatch({ type: "PLAY_AGAIN" }), "good")}

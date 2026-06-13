@@ -1300,15 +1300,25 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
     const lit = overPhase ? teamOf(i, P, teams) === teamOf(winner, P, teams) : showPhase ? i === info.owner : turn === i;
     return <SeatCell key={i} i={i} dealerIdx={dealerIdx} active={lit} played={played} remaining={remaining} />;
   };
-  // Your own seat at the bottom. Shown (with a reserved card slot) in every phase except
-  // your active discard/play turn, when the interactive hand sits in the action area below.
-  const showOwn = dealPhase || overPhase || showPhase || cutPhase
-    || (phase === "play" && peg && (needHandoff || peg.played[me].length > 0));
-  const ownItems = showPhase
+  // The discard/play status line, surfaced in the pinned own-seat slot (below) instead of
+  // pushing the action buttons around.
+  const actionPrompt = discardPhase ? discardPrompt
+    : (phase === "play" && peg)
+      ? (peg.turn === me
+          ? (myTurn ? (tapSelect ? "Your turn — tap a card to select, then Play." : "Your turn — tap a card to play.")
+            : stuck ? (settings.autoGo ? "No legal card — passing…" : "No legal card — tap Go to pass.")
+            : "Your cards are all played.")
+          : `${seatName(peg.turn)} to play…`)
+      : null;
+  // Your own seat at the bottom is always pinned (a fixed card slot, so the table never
+  // shifts). It shows your cards when you have any to show there, otherwise the current
+  // status message — never collapsing.
+  const ownCardItems = showPhase
     ? ((showHand && info.owner === me) ? cardItems(seats[me].kept) : backItems((seats[me].kept || []).length))
-    : (emptyTable ? []
-      : peg ? [...(needHandoff ? backItems(peg.hands[me].length) : []), ...cardItems(peg.played[me])]
-      : backItems(hands[me].length));         // the cut: your kept four, face down
+    : cutPhase ? backItems(hands[me].length)                                    // your kept four, face down
+    : needHandoff ? backItems((peg ? peg.hands[me] : seats[me].dealt).length)   // hidden while waiting to pass
+    : [];                                                                       // discard/play active, deal, over
+  const ownMsg = (!ownCardItems.length && actionPrompt) ? actionPrompt : null;
   return (
     <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 14 }}>
       {ts.top.length > 0 && <div style={{ display: "flex", justifyContent: "space-around" }}>{ts.top.map(cell)}</div>}
@@ -1323,15 +1333,17 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
         {ts.right != null && cell(ts.right)}
       </div>
 
-      {/* your own seat at the bottom — always reserves a card slot so the table never
-          collapses, whatever it's holding (or nothing, pre-deal / over / your active turn). */}
+      {/* your own seat at the bottom — always a pinned, fixed-height slot so the table never
+          shifts. It holds your cards, or (when you have none to show) the status message. */}
       {cutdealPhase ? (
         <DrawCell i={me} dealerIdx={dealerIdx} card={dealDraw ? dealDraw[me] : null} />
-      ) : showOwn && (
+      ) : (
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontFamily: mono, fontSize: 10, color: (showPhase ? info.owner === me : turn === me) ? T.selBlue : T.muted, marginBottom: 4 }}>{meName}{dealerIdx === me ? " (D)" : ""}</div>
-          <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" }}>
-            <Fan items={ownItems} />
+          <div style={{ fontFamily: mono, fontSize: 10, color: (showPhase ? info.owner === me : (myTurn || stuck)) ? T.selBlue : T.muted, marginBottom: 4 }}>{meName}{dealerIdx === me ? " (D)" : ""}</div>
+          <div style={{ display: "flex", justifyContent: "center", alignItems: ownMsg ? "center" : "flex-end", height: "var(--ch)", padding: "0 8px" }}>
+            {ownCardItems.length ? <Fan items={ownCardItems} />
+              : ownMsg ? <span style={{ fontFamily: mono, fontSize: 11, lineHeight: 1.45, color: (myTurn || stuck) ? T.selBlue : T.muted }}>{ownMsg}</span>
+              : null}
           </div>
         </div>
       )}
@@ -1452,14 +1464,6 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
           : bigBtn(cutter === me ? "Cut the deck" : `Cut the deck (${seatName(cutter)} turns the starter)`, () => dispatch({ type: "CUT" }), "wood")
       ) : needHandoff ? <PassPanel to={discardPhase ? me : peg.turn} dispatch={dispatch} /> : (
       <div>
-        <div style={{ fontFamily: mono, fontSize: 11, color: (myTurn || stuck) ? T.selBlue : T.muted, marginBottom: 6, lineHeight: 1.45, minHeight: discardPhase && count === 2 ? "2.9em" : undefined }}>
-          {discardPhase ? discardPrompt
-            : peg.turn === me
-            ? (myTurn ? (tapSelect ? "Your turn — tap a card to select, then Play." : "Your turn — tap a card to play.")
-              : stuck ? (settings.autoGo ? "No legal card — passing…" : "No legal card — tap Go to pass.")
-              : "Your cards are all played.")
-            : `${seatName(peg.turn)} to play…`}
-        </div>
         {pending && (discardPhase
           ? <div style={{ marginBottom: 10 }}><DiscardWarning pd={pending} cribIsOurs={cribOurs} dispatch={dispatch} onCancel={() => setSel([])} /></div>
           : <div style={{ marginBottom: 10 }}><PlayWarning pp={pending} dispatch={dispatch} /></div>)}

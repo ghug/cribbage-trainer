@@ -30,6 +30,23 @@ build_one() {
       "$ROOT/$SRC" > "$TMP/app.tsx"
   printf '\nReactDOM.createRoot(document.getElementById("root")).render(React.createElement(%s));\n' "$COMPONENT" >> "$TMP/app.tsx"
 
+  # 1.5) Guard against undefined identifiers (e.g. a render-time `dealer` left behind by
+  #      a refactor). The engine/verify_*.js harnesses only exercise the pure functions,
+  #      never the React render, so a bare ReferenceError inside JSX would otherwise reach
+  #      users as a blank screen. tsc name-resolution catches exactly that. Run it on the
+  #      original $SRC (which imports React/hooks as names) so React/ReactDOM globals don't
+  #      register as false positives the way they would on the import-swapped app.tsx.
+  local NAMEERR
+  NAMEERR="$(npx --no-install tsc "$ROOT/$SRC" \
+      --jsx react --target es2020 --module none --removeComments \
+      --ignoreDeprecations 6.0 --skipLibCheck --noEmit 2>&1 \
+      | grep -i "cannot find name" || true)"
+  if [ -n "$NAMEERR" ]; then
+    echo "✗ build aborted — $SRC references undefined name(s):" >&2
+    echo "$NAMEERR" >&2
+    rm -rf "$TMP"; exit 1
+  fi
+
   # 2) Transpile JSX -> plain JS (modern syntax, comments stripped). Type errors are
   #    expected (the source is untyped JS) and non-fatal; we only want the emit.
   npx --no-install tsc "$TMP/app.tsx" \

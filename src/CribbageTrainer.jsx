@@ -407,7 +407,7 @@ function dominant(cats) {
 }
 
 /* ---- the per-discard explanation ---- */
-function Explain({ opt, dealer, mode, players = 4 }) {
+function Explain({ opt, cribIsOurs, youDeal, mode, players = 4 }) {
   const h = opt.hand, cr = opt.crib, pg = opt.peg;
   const topStr = h.top.map((c) => `${rankLabel(c.r)}→${c.avg.toFixed(1)}`).join("   ");
   const pegWhy = pg.ev >= 3.6
@@ -433,25 +433,25 @@ function Explain({ opt, dealer, mode, players = 4 }) {
       {/* CRIB */}
       <div style={{ height: 1, background: T.line, margin: "13px 0" }} />
       <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 }}>
-        CRIB — your {opt.cards.map(tag).join(" + ")} average{opt.cards.length > 1 ? "" : "s"} {cr.ev.toFixed(2)} {dealer ? "FOR you" : "AGAINST you"}
+        CRIB — your {opt.cards.map(tag).join(" + ")} average{opt.cards.length > 1 ? "" : "s"} {cr.ev.toFixed(2)} {cribIsOurs ? "FOR you" : "AGAINST you"}
       </div>
       <div style={{ fontSize: 13.5, marginBottom: 8 }}>
         Lands points in {(cr.hitRate * 100).toFixed(0)}% of random cribs, mostly via {dominant(cr.cats)}.
-        {dealer ? " Added to your score." : " Handed to the dealer, so subtracted from yours."}
+        {cribIsOurs ? " Added to your side's score." : " Handed to the opposing crib, so subtracted from yours."}
       </div>
-      <CatBars cats={cr.cats} scale={cr.ev} color={dealer ? T.good : T.pegRed} />
+      <CatBars cats={cr.cats} scale={cr.ev} color={cribIsOurs ? T.good : T.pegRed} />
 
       {/* PEGGING */}
       <div style={{ height: 1, background: T.line, margin: "13px 0" }} />
       <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 }}>
-        PEGGING — these four average {pg.ev.toFixed(2)} in play {dealer ? "(you peg last — best seat)" : ""}
+        PEGGING — these four average {pg.ev.toFixed(2)} in play {youDeal ? "(you peg last — best seat)" : ""}
       </div>
       <div style={{ fontSize: 13.5, marginBottom: 4 }}>{pegWhy}</div>
 
       {/* SPREAD + COMPONENTS */}
       <div style={{ height: 1, background: T.line, margin: "13px 0" }} />
       <div style={{ fontFamily: mono, fontSize: 11, color: T.cream, lineHeight: 1.7 }}>
-        <div>hand {h.ev.toFixed(2)} &nbsp; crib {dealer ? "+" : "−"}{cr.ev.toFixed(2)} &nbsp; peg +{pg.ev.toFixed(2)} &nbsp;→&nbsp; <b>net {opt.netEV.toFixed(2)}</b></div>
+        <div>hand {h.ev.toFixed(2)} &nbsp; crib {cribIsOurs ? "+" : "−"}{cr.ev.toFixed(2)} &nbsp; peg +{pg.ev.toFixed(2)} &nbsp;→&nbsp; <b>net {opt.netEV.toFixed(2)}</b></div>
         <div style={{ color: T.muted }}>spread σ {opt.sd.toFixed(2)} &nbsp; range {h.mn}–{h.mx} &nbsp; typical {h.p10}–{h.p90} (hand only)</div>
         {mode !== "ev" && (
           <div style={{ color: mode === "need" ? T.good : T.pegRed }}>
@@ -462,7 +462,7 @@ function Explain({ opt, dealer, mode, players = 4 }) {
       <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, marginTop: 10, lineHeight: 1.5 }}>
         Crib uses role-split discard models{players === 3 ? " plus one card dealt straight off the deck" : ""}; pegging
         simulates {players}-handed play from your seat
-        ({dealer ? "dealer, last to play" : "a non-dealer seat"}) against greedy opponents.
+        ({youDeal ? "dealer, last to play" : "a non-dealer seat"}) against greedy opponents.
       </div>
     </div>
   );
@@ -815,11 +815,11 @@ export default function CribbageTrainer() {
                         <span style={{ display: "block", height: "100%", width: `${Math.max(4, (scoreVal / maxAdj) * 100)}%`, background: isBest ? T.good : isPick ? T.pegRed : "rgba(236,224,182,0.45)" }} />
                       </span>
                       <span style={{ fontFamily: mono, fontSize: 11.5, textAlign: "right", color: T.cream }}>{o.handEV.toFixed(2)}</span>
-                      <span style={{ fontFamily: mono, fontSize: 11.5, textAlign: "right", color: T.muted }}>{dealer ? "+" : "−"}{o.cribEV.toFixed(2)}</span>
+                      <span style={{ fontFamily: mono, fontSize: 11.5, textAlign: "right", color: T.muted }}>{cribIsOurs ? "+" : "−"}{o.cribEV.toFixed(2)}</span>
                       <span style={{ fontFamily: mono, fontSize: 11.5, textAlign: "right", color: T.muted }}>+{o.pegEV.toFixed(2)}</span>
                       <span style={{ fontFamily: mono, fontSize: 12.5, fontWeight: 700, textAlign: "right", color: isBest ? T.good : T.cream }}>{scoreVal.toFixed(2)}</span>
                     </button>
-                    {isOpen && <Explain opt={o} dealer={dealer} mode={mode} players={players} />}
+                    {isOpen && <Explain opt={o} cribIsOurs={cribIsOurs} youDeal={scenario.youDeal} mode={mode} players={players} />}
                   </div>
                 );
               })}

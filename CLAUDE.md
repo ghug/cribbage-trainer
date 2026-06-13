@@ -302,6 +302,14 @@ present in this environment). It regenerates the root pages from `src/`:
   both pass `homeLink "no"` — the shell's optional fixed Home link is unused but kept
   for any future page.
 
+`build_one` first runs a **name-resolution guard**: `tsc --noEmit` on the source, failing
+the build if it reports any `Cannot find name` (an undefined identifier). This catches the
+one bug class the `engine/verify_*.js` harnesses can't — they only exercise the pure
+functions, never the React render, so a bare `ReferenceError` inside JSX (e.g. a leftover
+`dealer` after the team refactor) would otherwise ship and blank the screen on the tap
+that hits it. The check runs on the original `src/*.jsx` (which imports React/hooks as
+names) so the `React`/`ReactDOM` globals aren't false positives.
+
 Historically the trainer's compiled `<script>` was byte-for-byte identical to the
 old single-page `index.html`; that intentionally ended when the in-header Home
 button was added. Deploy = commit the regenerated HTML files (see below); never

@@ -191,6 +191,11 @@ function seatNamesFor(P) {
 let SEAT_NAMES = seatNamesFor(2);
 const setSeatNames = (P) => { SEAT_NAMES = seatNamesFor(P); };
 const seatName = (i) => SEAT_NAMES[i];
+// Short compass labels for the tight grid spots (score columns, cut-for-deal row, the
+// pegging seat cells) so 5-/6-handed tables don't overflow a narrow phone. Prose (the
+// message line, banners, history) keeps the full names.
+const SEAT_SHORT = { West: "W", East: "E", North: "N", Northwest: "NW", Northeast: "NE" };
+const seatShort = (i) => SEAT_SHORT[SEAT_NAMES[i]] || SEAT_NAMES[i];
 const poss = (i) => (i === 0 ? "Your" : `${seatName(i)}'s`);
 const sv = (i, first, third) => (i === 0 ? `You ${first}` : `${seatName(i)} ${third}`);
 const sameCard = (a, b) => a.r === b.r && a.s === b.s;
@@ -263,19 +268,15 @@ function CardBack({ small }) {
   );
 }
 
+// A slim progress rail that fills to the score's share of the target, with a peg at the
+// head. Scales to any column width, so it never wraps into a cramped dot matrix the way
+// a fixed row of holes did on narrow 5-/6-handed layouts.
 function PegTrack({ pct }) {
-  const holes = 22;
-  const pegAt = Math.min(holes - 1, Math.round((pct / 100) * (holes - 1)));
+  const p = Math.max(0, Math.min(100, pct));
   return (
-    <div style={{ display: "flex", gap: 3, alignItems: "center", flexWrap: "wrap" }}>
-      {Array.from({ length: holes }).map((_, i) => {
-        const on = i === pegAt;
-        return (<span key={i} style={{
-          width: on ? 9 : 6, height: on ? 9 : 6, borderRadius: "50%",
-          background: on ? T.pegRed : "rgba(0,0,0,0.4)",
-          boxShadow: on ? "0 0 0 2px rgba(236,220,180,0.5)" : "inset 0 1px 2px rgba(0,0,0,0.6)",
-        }} />);
-      })}
+    <div style={{ position: "relative", width: "100%", height: 8, borderRadius: 4, background: "rgba(0,0,0,0.4)", boxShadow: "inset 0 1px 2px rgba(0,0,0,0.6)" }}>
+      <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${p}%`, borderRadius: 4, background: "rgba(95,164,124,0.55)" }} />
+      <div style={{ position: "absolute", left: `${p}%`, top: "50%", width: 9, height: 9, transform: "translate(-50%,-50%)", borderRadius: "50%", background: T.pegRed, boxShadow: "0 0 0 2px rgba(236,220,180,0.5)" }} />
     </div>
   );
 }
@@ -699,23 +700,23 @@ function ScoreRow({ seats, dealerIdx, turn, winner, onPick, P, teams }) {
         const isWin = winner !== null && members.includes(winner);
         return (
           <button key={gi} onClick={() => onPick(members[0])} title="tap for scoring history" style={{
-            padding: "8px 6px 9px", borderRadius: 9, textAlign: "center", cursor: "pointer", font: "inherit", color: "inherit",
+            padding: "8px 5px 9px", borderRadius: 9, textAlign: "center", cursor: "pointer", font: "inherit", color: "inherit", minWidth: 0, overflow: "hidden",
             background: isWin ? "rgba(95,164,124,0.28)" : isTurn ? "rgba(91,149,194,0.22)" : "rgba(0,0,0,0.22)",
             border: `1px solid ${isWin ? T.good : isTurn ? T.selBlue : T.line}`,
           }}>
             {/* the dealer is still an individual: mark whichever member deals/has the crib */}
-            <div style={{ fontFamily: mono, fontSize: members.length > 1 ? 9.5 : 10.5, color: T.muted, display: "flex", justifyContent: "center", gap: 3, alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ fontFamily: mono, fontSize: members.length > 1 ? 9.5 : 10.5, color: T.muted, display: "flex", justifyContent: "center", gap: 3, alignItems: "center", flexWrap: "wrap", minWidth: 0 }}>
               {members.map((m, k) => (
                 <React.Fragment key={m}>
                   {k > 0 && <span>&amp;</span>}
                   <span style={{ display: "inline-flex", alignItems: "center" }}>
-                    {seatName(m)}{m === dealerIdx && <span style={{ color: T.pegIvory, fontWeight: 700 }} title="dealer — gets the crib this hand">⬤D</span>}
+                    {seatShort(m)}{m === dealerIdx && <span style={{ color: T.pegIvory, fontWeight: 700 }} title="dealer — gets the crib this hand">⬤D</span>}
                   </span>
                 </React.Fragment>
               ))}
             </div>
             <div style={{ fontFamily: serif, fontWeight: 700, fontSize: 22, color: isWin ? T.good : T.ivory }}>{score}</div>
-            <div style={{ marginTop: 4, display: "flex", justifyContent: "center" }}><PegTrack pct={(score / targetFor(P)) * 100} /></div>
+            <div style={{ marginTop: 6, padding: "0 2px" }}><PegTrack pct={(score / targetFor(P)) * 100} /></div>
           </button>
         );
       })}
@@ -1000,10 +1001,10 @@ export default function CribbagePlay() {
               {seats.map((_, i) => {
                 const isD = i === dealerIdx;
                 return (
-                  <div key={i} style={{ flex: 1, textAlign: "center" }}>
-                    <div style={{ fontFamily: mono, fontSize: 10, color: isD ? T.good : T.muted, marginBottom: 4 }}>{seatName(i)}{isD ? " (D)" : ""}</div>
+                  <div key={i} style={{ flex: 1, minWidth: 0, textAlign: "center" }}>
+                    <div style={{ fontFamily: mono, fontSize: 10, color: isD ? T.good : T.muted, marginBottom: 4, whiteSpace: "nowrap" }}>{seatShort(i)}{isD ? " (D)" : ""}</div>
                     <div style={{ display: "flex", justifyContent: "center", opacity: isD ? 1 : 0.65 }}>
-                      {dealDraw ? <div style={{ width: 44 }}><Card card={dealDraw[i]} small /></div> : <CardBack small />}
+                      {dealDraw ? <div style={{ width: "100%", maxWidth: 44 }}><Card card={dealDraw[i]} small /></div> : <CardBack small />}
                     </div>
                   </div>
                 );
@@ -1134,7 +1135,7 @@ export default function CribbagePlay() {
 const STACK_VISIBLE = 0.5;
 const BACK_VISIBLE = 0.32;
 const overlapMargin = (w, vis = STACK_VISIBLE) => -Math.round(w * (1 - vis));
-const cardItems = (cards) => (cards || []).map((c) => ({ key: cardId(c), w: 44, el: <Card card={c} small /> }));
+const cardItems = (cards, vis) => (cards || []).map((c) => ({ key: cardId(c), w: 44, vis, el: <Card card={c} small /> }));
 const backItems = (n) => Array.from({ length: n || 0 }).map((_, k) => ({ key: "b" + k, w: 44, vis: BACK_VISIBLE, el: <CardBack small /> }));
 function Fan({ items }) {
   if (!items.length) return null;
@@ -1148,15 +1149,22 @@ function Fan({ items }) {
     </div>
   );
 }
-function PlayedStack({ cards, backs }) {
-  return <Fan items={(cards && cards.length) ? cardItems(cards) : backItems(backs)} />;
+function PlayedStack({ cards, backs, vis }) {
+  return <Fan items={(cards && cards.length) ? cardItems(cards, vis) : backItems(backs)} />;
+}
+// Overlap fraction that keeps an n-card 44px-wide fan within ~`budget` px (tightening as
+// it grows), capped at the normal spacing. Used for the central play pile, which can run
+// long before a 31/go reset and otherwise overflows a narrow phone.
+function fitVisible(n, budget) {
+  if (n <= 1) return STACK_VISIBLE;
+  return Math.max(0.24, Math.min(STACK_VISIBLE, (budget - 44) / ((n - 1) * 44)));
 }
 
 function SeatCell({ i, dealerIdx, active, played, remaining }) {
   return (
     <div style={{ textAlign: "center", minWidth: 0 }}>
-      <div style={{ fontFamily: mono, fontSize: 10, color: active ? T.selBlue : T.muted, marginBottom: 4 }}>
-        {seatName(i)}{dealerIdx === i ? " (D)" : ""}
+      <div style={{ fontFamily: mono, fontSize: 10, color: active ? T.selBlue : T.muted, marginBottom: 4, whiteSpace: "nowrap" }}>
+        {seatShort(i)}{dealerIdx === i ? " (D)" : ""}
       </div>
       <div style={{ display: "flex", justifyContent: "center", minHeight: 64 }}>
         <Fan items={[...backItems(remaining), ...cardItems(played)]} />
@@ -1238,9 +1246,9 @@ function PlayScreen({ state, dispatch }) {
             <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>pile count</span>
             <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 28, lineHeight: 1, color: peg.count === 31 ? T.good : T.ivory }}>{peg.count}</span>
           </div>
-          <div style={{ flex: "1 1 auto", display: "flex", justifyContent: "center" }}>
+          <div style={{ flex: "1 1 auto", minWidth: 0, overflow: "hidden", display: "flex", justifyContent: "center" }}>
             {peg.pileSuited.length
-              ? <PlayedStack cards={peg.pileSuited} backs={0} />
+              ? <PlayedStack cards={peg.pileSuited} backs={0} vis={fitVisible(peg.pileSuited.length, 180)} />
               : <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>cleared — new count from 0</span>}
           </div>
         </div>
@@ -1273,7 +1281,7 @@ function PlayScreen({ state, dispatch }) {
           if (tapSelect) return <div style={{ minHeight: 44, marginBottom: 10 }}>{action}</div>;
           return action && <div style={{ marginBottom: 10 }}>{action}</div>;
         })()}
-        <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 6, justifyContent: "center", flexWrap: "nowrap" }}>
           {yourHand.map((card) => {
             const legal = legalSet.has(cardId(card));
             const pp = state.pendingPlay;

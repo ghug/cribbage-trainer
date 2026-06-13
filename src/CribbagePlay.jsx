@@ -1418,7 +1418,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
             </div>
             {info.total > 0
               ? <CatBars cats={info.acc} scale={info.total} color={info.isCrib ? (seatIsHuman(info.owner, settings) ? T.good : T.pegRed) : T.good} />
-              : <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>nineteen — no points.</div>}
+              : <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>“nineteen” hand — no points.</div>}
             {muggins && state.show.claimSubmitted && (
               <div style={{ fontFamily: mono, fontSize: 11.5, color: state.show.claimValue >= info.total ? T.good : T.pegRed, marginTop: 10 }}>
                 you claimed {state.show.claimValue}{state.show.claimValue < info.total ? ` · missed ${info.total - state.show.claimValue}` : state.show.claimValue > info.total ? " · over-claim, corrected down" : " · spot on"}

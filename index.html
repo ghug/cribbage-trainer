@@ -297,18 +297,25 @@
           host.appendChild(b);
         });
       }
+      // [teams-value, label] choices, in display order. teams === players is "individual".
+      function teamChoices(P) {
+        if (P === 4) return [[4, "Individual play"], [2, "Teams"]];
+        if (P === 6) return [[6, "Individual play"], [2, "Two teams"], [3, "Three teams"]];
+        return [];
+      }
       function renderTeams() {
         var wrap = document.getElementById('teamsPick');
-        var opts = teamOptions(settings.players);
-        if (opts.length <= 1) { wrap.style.display = 'none'; return; }
+        var choices = teamChoices(settings.players);
+        if (choices.length === 0) { wrap.style.display = 'none'; return; }
         wrap.style.display = '';
-        if (opts.indexOf(settings.teams) < 0) { settings.teams = settings.players; saveSettings(settings); }
+        var values = choices.map(function (c) { return c[0]; });
+        if (values.indexOf(settings.teams) < 0) { settings.teams = settings.players; saveSettings(settings); }
         var host = document.getElementById('teamsSegs');
         host.innerHTML = '';
-        opts.forEach(function (t) {
-          var b = document.createElement('button'); b.type = 'button'; b.textContent = String(t);
-          b.className = 'seg' + (settings.teams === t ? ' on' : '');
-          b.addEventListener('click', function () { settings.teams = t; saveSettings(settings); renderTeams(); });
+        choices.forEach(function (c) {
+          var b = document.createElement('button'); b.type = 'button'; b.textContent = c[1];
+          b.className = 'seg' + (settings.teams === c[0] ? ' on' : '');
+          b.addEventListener('click', function () { settings.teams = c[0]; saveSettings(settings); renderTeams(); });
           host.appendChild(b);
         });
       }

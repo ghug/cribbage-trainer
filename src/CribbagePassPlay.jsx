@@ -337,6 +337,27 @@ function CardRow({ cards, small }) {
   );
 }
 
+// A fanned row of face-up cards (copied from play.html): each later card sits partly on
+// top of the previous one, so a row of plays reads left-to-right with overlap instead of
+// wrapping. `fitVisible` tightens the overlap as the pile grows so it stays one row.
+const STACK_VISIBLE = 0.5;
+const overlapMargin = (w, vis = STACK_VISIBLE) => -Math.round(w * (1 - vis));
+const cardItems = (cards, vis) => (cards || []).map((c) => ({ key: cardId(c), w: 44, vis, el: <Card card={c} small /> }));
+function fitVisible(n, budget) {
+  if (n <= 1) return STACK_VISIBLE;
+  return Math.max(0.24, Math.min(STACK_VISIBLE, (budget - 44) / ((n - 1) * 44)));
+}
+function Fan({ items }) {
+  if (!items.length) return null;
+  return (
+    <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+      {items.map((it, i) => (
+        <div key={it.key} style={{ width: it.w, position: "relative", zIndex: i, marginLeft: i === 0 ? 0 : overlapMargin(it.w, it.vis) }}>{it.el}</div>
+      ))}
+    </div>
+  );
+}
+
 // The "pass the device" privacy block. It sits where the active player's hand would be,
 // so the public table (scores, played cards, the pile, the starter) stays visible while
 // only the incoming player's hand is withheld until they tap.
@@ -489,7 +510,7 @@ function PlayView({ state, dispatch, selCard, setSelCard, needHandoff }) {
       <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 4 }}>{NAMES[i]}{dealer === i ? " (D)" : ""} played</div>
       {/* reserve a card-height row so the table doesn't jump as cards are played */}
       <div style={{ minHeight: 64, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        {peg.played[i].length ? <CardRow cards={peg.played[i]} small /> : <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>—</span>}
+        {peg.played[i].length ? <Fan items={cardItems(peg.played[i])} /> : <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>—</span>}
       </div>
     </div>
   );
@@ -512,7 +533,7 @@ function PlayView({ state, dispatch, selCard, setSelCard, needHandoff }) {
           <div style={{ fontFamily: serif, fontWeight: 700, fontSize: 26, lineHeight: 1, color: peg.count === 31 ? T.good : T.ivory }}>{peg.count}</div>
         </div>
         <div style={{ flex: "1 1 auto", minWidth: 0, overflow: "hidden", minHeight: 62, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          {peg.pileSuited.length ? <CardRow cards={peg.pileSuited} small /> : <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>cleared — new count from 0</span>}
+          {peg.pileSuited.length ? <Fan items={cardItems(peg.pileSuited, fitVisible(peg.pileSuited.length, 180))} /> : <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>cleared — new count from 0</span>}
         </div>
       </div>
 

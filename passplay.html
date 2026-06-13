@@ -370,6 +370,19 @@ function Scoreboard({ scores, dealer, turn, winner }) {
 function CardRow({ cards, small }) {
     return (React.createElement("div", { style: { display: "flex", gap: 6, justifyContent: "center", flexWrap: "wrap" } }, cards.map((c) => React.createElement(Card, { key: cardId(c), card: c, small: small }))));
 }
+const STACK_VISIBLE = 0.5;
+const overlapMargin = (w, vis = STACK_VISIBLE) => -Math.round(w * (1 - vis));
+const cardItems = (cards, vis) => (cards || []).map((c) => ({ key: cardId(c), w: 44, vis, el: React.createElement(Card, { card: c, small: true }) }));
+function fitVisible(n, budget) {
+    if (n <= 1)
+        return STACK_VISIBLE;
+    return Math.max(0.24, Math.min(STACK_VISIBLE, (budget - 44) / ((n - 1) * 44)));
+}
+function Fan({ items }) {
+    if (!items.length)
+        return null;
+    return (React.createElement("div", { style: { display: "flex", alignItems: "flex-end", justifyContent: "center" } }, items.map((it, i) => (React.createElement("div", { key: it.key, style: { width: it.w, position: "relative", zIndex: i, marginLeft: i === 0 ? 0 : overlapMargin(it.w, it.vis) } }, it.el)))));
+}
 function PassPrompt({ to, onReveal }) {
     return (React.createElement("div", { style: { textAlign: "center", padding: "22px 16px", borderRadius: 12, background: "rgba(0,0,0,0.3)", border: `1px solid ${T.line}` } },
         React.createElement("div", { style: { fontSize: 30, marginBottom: 8 } }, "\uD83E\uDD1D"),
@@ -507,7 +520,7 @@ function PlayView({ state, dispatch, selCard, setSelCard, needHandoff }) {
             NAMES[i],
             dealer === i ? " (D)" : "",
             " played"),
-        React.createElement("div", { style: { minHeight: 64, display: "flex", alignItems: "center", justifyContent: "center" } }, peg.played[i].length ? React.createElement(CardRow, { cards: peg.played[i], small: true }) : React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: T.muted } }, "\u2014"))));
+        React.createElement("div", { style: { minHeight: 64, display: "flex", alignItems: "center", justifyContent: "center" } }, peg.played[i].length ? React.createElement(Fan, { items: cardItems(peg.played[i]) }) : React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: T.muted } }, "\u2014"))));
     return (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 14 } },
         playedRow(opp),
         React.createElement("div", { style: { textAlign: "center" } },
@@ -519,7 +532,7 @@ function PlayView({ state, dispatch, selCard, setSelCard, needHandoff }) {
             React.createElement("div", { style: { flex: "0 0 auto", textAlign: "center", padding: "4px 12px", borderRadius: 9, background: "rgba(0,0,0,0.3)", border: `1px solid ${T.line}` } },
                 React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted } }, "count"),
                 React.createElement("div", { style: { fontFamily: serif, fontWeight: 700, fontSize: 26, lineHeight: 1, color: peg.count === 31 ? T.good : T.ivory } }, peg.count)),
-            React.createElement("div", { style: { flex: "1 1 auto", minWidth: 0, overflow: "hidden", minHeight: 62, display: "flex", alignItems: "center", justifyContent: "center" } }, peg.pileSuited.length ? React.createElement(CardRow, { cards: peg.pileSuited, small: true }) : React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: T.muted } }, "cleared \u2014 new count from 0"))),
+            React.createElement("div", { style: { flex: "1 1 auto", minWidth: 0, overflow: "hidden", minHeight: 62, display: "flex", alignItems: "center", justifyContent: "center" } }, peg.pileSuited.length ? React.createElement(Fan, { items: cardItems(peg.pileSuited, fitVisible(peg.pileSuited.length, 180)) }) : React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: T.muted } }, "cleared \u2014 new count from 0"))),
         needHandoff ? (React.createElement(PassPrompt, { to: turn, onReveal: () => dispatch({ type: "READY" }) })) : (React.createElement("div", null,
             React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.selBlue, marginBottom: 8 } },
                 NAMES[turn],

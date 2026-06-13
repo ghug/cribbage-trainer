@@ -717,7 +717,7 @@ export default function CribbageTrainer() {
               display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, lineHeight: 1,
               boxShadow: "inset 0 1px 2px rgba(255,255,255,0.12), 0 2px 5px rgba(0,0,0,0.35)",
             }}>♣</a>
-            <span style={{ fontFamily: mono, fontSize: 12, color: "rgba(42,27,14,0.8)", lineHeight: 1.3 }}>{players === 2 ? "heads-up · 6 cards, discard two" : `${players}-handed · every player for themselves`}</span>
+            <span style={{ fontFamily: mono, fontSize: 12, color: "rgba(42,27,14,0.8)", lineHeight: 1.3 }}>{players === 2 ? "heads-up · 6 cards, discard two" : teams < players ? `${players}-handed · ${teams} teams of ${players / teams}` : `${players}-handed · every player for themselves`}</span>
           </div>
           <div style={{ display: "flex", gap: 8, flex: "0 0 auto" }}>
             <a href="index.html" aria-label="Home" style={{

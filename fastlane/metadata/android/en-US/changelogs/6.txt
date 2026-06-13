@@ -1,0 +1,2 @@
+New in 1.1.2:
+- Fix: the GitHub link in the About screen now opens in your browser (it failed in the offline app before)

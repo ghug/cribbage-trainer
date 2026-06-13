@@ -651,7 +651,7 @@ function reduce(state, action) {
   }
 }
 
-const DEFAULT_SETTINGS = { players: 4, teams: 4, counting: "auto", tapToSelect: true, autoGo: false, warn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
+const DEFAULT_SETTINGS = { players: 4, teams: 4, counting: "auto", tapToSelect: true, autoCut: false, autoGo: false, warn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
 // Settings persist across pages in localStorage under a shared key. try/catch keeps
 // the verification harness (no localStorage) and private-mode browsers happy.
 const SETTINGS_KEY = "cribbage:settings";
@@ -837,7 +837,7 @@ export default function CribbagePlay() {
   const humanThrows = plan(players, dealerIdx).throws[0];
 
   const goHome = () => { if (phase === "cutdeal") window.location.href = "index.html"; else setConfirmHome(true); };
-  const canPause = settings.autoGo || settings.autoDeal || settings.autoContinue || settings.autoPlayOne || settings.autoPlayBest || settings.autoDiscardBest;
+  const canPause = settings.autoCut || settings.autoGo || settings.autoDeal || settings.autoContinue || settings.autoPlayOne || settings.autoPlayBest || settings.autoDiscardBest;
   const autoPaused = paused || settingsOpen || historySeat !== null;
   useEffect(() => { if (!canPause && paused) setPaused(false); }, [canPause, paused]);
   useEffect(() => { if (phase !== "discard") setSel([]); }, [phase]);
@@ -890,10 +890,10 @@ export default function CribbagePlay() {
     return () => clearTimeout(t);
   }, [phase, settings.autoDiscardBest, autoPaused]);
   useEffect(() => {
-    if (phase !== "cut" || autoPaused) return;
+    if (phase !== "cut" || autoPaused || !settings.autoCut) return;
     const t = setTimeout(() => dispatch({ type: "CUT" }), 650);
     return () => clearTimeout(t);
-  }, [phase, autoPaused]);
+  }, [phase, autoPaused, settings.autoCut]);
   useEffect(() => {
     if (phase !== "show" || !show || show.scored) return;
     const info = computeShow(state);
@@ -1085,9 +1085,11 @@ export default function CribbagePlay() {
             <div style={{ display: "flex", justifyContent: "center", gap: 8 }}>
               {[0, 1, 2, 3].map((i) => <CardBack key={i} />)}
             </div>
-            <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" }}>
-              {cutter === 0 ? "You cut" : `${seatName(cutter)} cuts`} the starter…
-            </div>
+            {settings.autoCut
+              ? <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" }}>
+                  {cutter === 0 ? "You cut" : `${seatName(cutter)} cuts`} the starter…
+                </div>
+              : bigBtn(cutter === 0 ? "Cut the deck" : `Cut the deck (${seatName(cutter)} turns the starter)`, () => dispatch({ type: "CUT" }), "wood")}
           </div>
         )}
 
@@ -1427,6 +1429,9 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout }) {
       <Row title="Tap to select, then confirm" k="tapToSelect"
         desc="Tapping a card lifts it to select (tap again to drop it); a Play or Throw-to-crib button above your hand commits the choice. Off: a tap plays or throws immediately."
         options={[["Off", false], ["On", true]]} />
+      <Row title="Cut for the starter" k="autoCut"
+        desc="Manual waits for you to tap to cut the deck and turn the starter; Auto cuts it for you."
+        options={[["Manual", false], ["Auto", true]]} />
       <Row title="Go on no playable card" k="autoGo"
         desc={'When you can’t play, Manual waits for you to tap “Go”; Auto passes for you.'}
         options={[["Manual", false], ["Auto", true]]} />

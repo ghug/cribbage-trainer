@@ -1159,9 +1159,9 @@ function fitVisible(n, budget) {
         return STACK_VISIBLE;
     return Math.max(0.24, Math.min(STACK_VISIBLE, (budget - 68) / ((n - 1) * 68)));
 }
-function SeatCell({ i, dealerIdx, active, played, remaining }) {
+function SeatCell({ i, dealerIdx, active, bold, played, remaining }) {
     return (React.createElement("div", { style: { textAlign: "center", minWidth: 0 } },
-        React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: active ? T.selBlue : T.muted, marginBottom: 4, whiteSpace: "nowrap" } },
+        React.createElement("div", { style: { fontFamily: mono, fontSize: 10, fontWeight: bold ? 700 : 400, color: bold ? T.cream : active ? T.selBlue : T.muted, marginBottom: 4, whiteSpace: "nowrap" } },
             seatShort(i),
             dealerIdx === i ? " (D)" : ""),
         React.createElement("div", { style: { display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" } },
@@ -1273,9 +1273,9 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
             return React.createElement(DrawCell, { key: i, i: i, dealerIdx: dealerIdx, card: dealDraw ? dealDraw[i] : null });
         const faceUp = showHand && i === info.owner;
         const played = (faceUp ? seats[i].kept : (peg && !showPhase && !emptyTable ? peg.played[i] : []));
-        const remaining = faceUp ? 0 : hands[i].length;
-        const lit = overPhase ? teamOf(i, P, teams) === teamOf(winner, P, teams) : showPhase ? i === info.owner : turn === i;
-        return React.createElement(SeatCell, { key: i, i: i, dealerIdx: dealerIdx, active: lit, played: played, remaining: remaining });
+        const remaining = showPhase ? 0 : (faceUp ? 0 : hands[i].length);
+        const lit = overPhase ? teamOf(i, P, teams) === teamOf(winner, P, teams) : showPhase ? false : turn === i;
+        return React.createElement(SeatCell, { key: i, i: i, dealerIdx: dealerIdx, active: lit, bold: faceUp, played: played, remaining: remaining });
     };
     const actionPrompt = discardPhase ? discardPrompt
         : (phase === "play" && peg)
@@ -1285,8 +1285,9 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
                         : "Your cards are all played.")
                 : `${seatName(peg.turn)} to play…`)
             : null;
+    const ownScored = showHand && info.owner === me;
     const ownCardItems = showPhase
-        ? ((showHand && info.owner === me) ? cardItems(seats[me].kept) : backItems((seats[me].kept || []).length))
+        ? (ownScored ? cardItems(seats[me].kept) : [])
         : cutPhase ? backItems(hands[me].length)
             : needHandoff ? backItems((peg ? peg.hands[me] : seats[me].dealt).length)
                 : (phase === "play" && peg) ? cardItems(peg.played[me])
@@ -1300,7 +1301,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
                 React.createElement("div", { style: { display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" } }, starter && !emptyTable ? React.createElement(Card, { card: starter }) : React.createElement(DeckBack, null))),
             React.createElement("div", { style: { minWidth: 0 } }, ts.right != null ? cell(ts.right) : null)),
         cutdealPhase ? (React.createElement(DrawCell, { i: me, dealerIdx: dealerIdx, card: dealDraw ? dealDraw[me] : null })) : (React.createElement("div", { style: { textAlign: "center" } },
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: (showPhase ? info.owner === me : (myTurn || stuck)) ? T.selBlue : T.muted, marginBottom: 4 } },
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, fontWeight: ownScored ? 700 : 400, color: ownScored ? T.cream : (!showPhase && (myTurn || stuck)) ? T.selBlue : T.muted, marginBottom: 4 } },
                 meName,
                 dealerIdx === me ? " (D)" : ""),
             React.createElement("div", { style: { display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)", padding: "0 8px" } }, ownCardItems.length ? React.createElement(Fan, { items: ownCardItems }) : null))),
@@ -1577,7 +1578,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, "Source, bugs & feedback \u2197"),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.8-dev.19"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.8-dev.20"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

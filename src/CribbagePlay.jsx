@@ -1158,10 +1158,10 @@ function fitVisible(n, budget) {
   return Math.max(0.24, Math.min(STACK_VISIBLE, (budget - 68) / ((n - 1) * 68)));
 }
 
-function SeatCell({ i, dealerIdx, active, played, remaining }) {
+function SeatCell({ i, dealerIdx, active, bold, played, remaining }) {
   return (
     <div style={{ textAlign: "center", minWidth: 0 }}>
-      <div style={{ fontFamily: mono, fontSize: 10, color: active ? T.selBlue : T.muted, marginBottom: 4, whiteSpace: "nowrap" }}>
+      <div style={{ fontFamily: mono, fontSize: 10, fontWeight: bold ? 700 : 400, color: bold ? T.cream : active ? T.selBlue : T.muted, marginBottom: 4, whiteSpace: "nowrap" }}>
         {seatShort(i)}{dealerIdx === i ? " (D)" : ""}
       </div>
       <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" }}>
@@ -1292,14 +1292,14 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
 
   const cell = (i) => {
     if (cutdealPhase) return <DrawCell key={i} i={i} dealerIdx={dealerIdx} card={dealDraw ? dealDraw[i] : null} />;
-    // During the show the owner whose hand is up turns it face up; everyone else stays
-    // face down. Otherwise: live peg hand (backs) + played pile (face up). The empty table
-    // (pre-deal / game over) shows bare seats.
+    // During the show the hand being counted turns face up (its label bolded); every other
+    // seat shows nothing — no face-down cards. Otherwise: live peg hand (backs) + played
+    // pile (face up). The empty table (pre-deal / game over) shows bare seats.
     const faceUp = showHand && i === info.owner;
     const played = (faceUp ? seats[i].kept : (peg && !showPhase && !emptyTable ? peg.played[i] : []));
-    const remaining = faceUp ? 0 : hands[i].length;
-    const lit = overPhase ? teamOf(i, P, teams) === teamOf(winner, P, teams) : showPhase ? i === info.owner : turn === i;
-    return <SeatCell key={i} i={i} dealerIdx={dealerIdx} active={lit} played={played} remaining={remaining} />;
+    const remaining = showPhase ? 0 : (faceUp ? 0 : hands[i].length);
+    const lit = overPhase ? teamOf(i, P, teams) === teamOf(winner, P, teams) : showPhase ? false : turn === i;
+    return <SeatCell key={i} i={i} dealerIdx={dealerIdx} active={lit} bold={faceUp} played={played} remaining={remaining} />;
   };
   // The discard/play status line. A bot in the bottom seat (all-bot game) gets the same
   // spectator line as any other seat — it just plays/goes on its own, no human prompts.
@@ -1313,9 +1313,11 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
       : null;
   // Your own seat at the bottom is always pinned (a fixed card slot, so the table never
   // shifts). Like any seat it shows your cards — your played pile during the play, your
-  // kept four (face down) at the cut, your hand in the show — and nothing pre-deal/over.
+  // kept four (face down) at the cut, your hand face up in the show only while it's being
+  // counted — and nothing otherwise.
+  const ownScored = showHand && info.owner === me;       // your hand is the one being counted
   const ownCardItems = showPhase
-    ? ((showHand && info.owner === me) ? cardItems(seats[me].kept) : backItems((seats[me].kept || []).length))
+    ? (ownScored ? cardItems(seats[me].kept) : [])                              // no face-down cards in the show
     : cutPhase ? backItems(hands[me].length)                                    // your kept four, face down
     : needHandoff ? backItems((peg ? peg.hands[me] : seats[me].dealt).length)   // hidden while waiting to pass
     : (phase === "play" && peg) ? cardItems(peg.played[me])                      // your played pile, like every seat
@@ -1346,7 +1348,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
         <DrawCell i={me} dealerIdx={dealerIdx} card={dealDraw ? dealDraw[me] : null} />
       ) : (
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontFamily: mono, fontSize: 10, color: (showPhase ? info.owner === me : (myTurn || stuck)) ? T.selBlue : T.muted, marginBottom: 4 }}>{meName}{dealerIdx === me ? " (D)" : ""}</div>
+          <div style={{ fontFamily: mono, fontSize: 10, fontWeight: ownScored ? 700 : 400, color: ownScored ? T.cream : (!showPhase && (myTurn || stuck)) ? T.selBlue : T.muted, marginBottom: 4 }}>{meName}{dealerIdx === me ? " (D)" : ""}</div>
           <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)", padding: "0 8px" }}>
             {ownCardItems.length ? <Fan items={ownCardItems} /> : null}
           </div>

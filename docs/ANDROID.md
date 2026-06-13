@@ -104,7 +104,9 @@ and variables → Actions) on the repo the workflow runs in:
 Then cut a release:
 
 ```bash
-# bump versionCode (+1) and versionName in android/app/build.gradle first
+# bump versionCode (+1) and versionName in android/app/build.gradle first.
+# Versioning policy: bump ONLY the patch number (e.g. 1.1.0 -> 1.1.1) unless the
+# human explicitly asks for a minor/major bump.
 git tag v1.0.0 && git push origin v1.0.0
 ```
 

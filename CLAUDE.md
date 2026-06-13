@@ -323,6 +323,11 @@ Direct Upload (drag `index.html` in the dashboard), or the REST API with an
 
 ## Android / APK packaging (`android/` + `docs/ANDROID.md`)
 
+> **Release versioning policy (carried preference):** on every release bump **only the
+> patch number** (the 3rd in `versionName`, e.g. `1.1.0 → 1.1.1`) and `versionCode +1`.
+> **Never** advance the major or minor number unless the human explicitly asks. So the
+> next release after `1.1.0` is `1.1.1` (versionCode 5), then `1.1.2`, etc.
+
 Scaffolded for Obtainium / IzzyOnDroid. `android/` is a self-contained Gradle
 project: a single full-screen `WebView` (`MainActivity.java`, no third-party libs,
 **no INTERNET permission** — fully offline) loading `file:///android_asset/index.html`.

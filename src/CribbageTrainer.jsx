@@ -578,7 +578,8 @@ function AboutModal({ onClose }) {
           display: "block", textAlign: "center", padding: "12px", borderRadius: 9, textDecoration: "none", boxSizing: "border-box",
           background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
         }}>Source, bugs &amp; feedback ↗</a>
-        <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 16px", wordBreak: "break-all" }}>github.com/ghug/cribbage-trainer</div>
+        <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" }}>github.com/ghug/cribbage-trainer</div>
+        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center", marginBottom: 16 }}>v__APP_VERSION__</div>
         <button onClick={onClose} style={{ width: "100%", padding: "11px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer", background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: 12.5, fontWeight: 700 }}>Close</button>
       </div>
     </div>

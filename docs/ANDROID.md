@@ -101,13 +101,18 @@ and variables → Actions) on the repo the workflow runs in:
 | `KEY_ALIAS` | e.g. `cribbage` |
 | `KEY_PASSWORD` | key password |
 
-Then cut a release:
+Then cut a release. Day-to-day work commits to the **`dev`** branch (the `VERSION`
+file is `<patch>-dev.<n>`, bumped each code commit). A **release** is requested
+explicitly; only then do you touch `main`:
 
 ```bash
-# bump versionCode (+1) and versionName in android/app/build.gradle first.
-# Versioning policy: bump ONLY the patch number (e.g. 1.1.0 -> 1.1.1) unless the
-# human explicitly asks for a minor/major bump.
-git tag v1.0.0 && git push origin v1.0.0
+# 1. Set VERSION to the release number (drop the -dev.<n>): e.g. echo 1.1.1 > VERSION
+# 2. Bump android/app/build.gradle: versionName to match, versionCode +1.
+#    Versioning policy: bump ONLY the patch number (e.g. 1.1.0 -> 1.1.1) unless a
+#    minor/major bump is explicitly requested. Add fastlane/.../changelogs/<code>.txt.
+# 3. ./build.sh && commit, then push BOTH branches and tag:
+git push origin HEAD:dev && git push origin HEAD:main
+git tag v1.1.1 && git push origin v1.1.1   # the tag triggers the signed-APK build
 ```
 
 The Action produces `cribbage-v1.0.0.apk` on the GitHub Release.

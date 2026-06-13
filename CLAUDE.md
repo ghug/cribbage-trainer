@@ -334,10 +334,24 @@ Direct Upload (drag `index.html` in the dashboard), or the REST API with an
 
 ## Android / APK packaging (`android/` + `docs/ANDROID.md`)
 
-> **Release versioning policy (carried preference):** on every release bump **only the
-> patch number** (the 3rd in `versionName`, e.g. `1.1.0 → 1.1.1`) and `versionCode +1`.
-> **Never** advance the major or minor number unless the human explicitly asks. So the
-> next release after `1.1.0` is `1.1.1` (versionCode 5), then `1.1.2`, etc.
+> **Branch + versioning workflow (carried preference — follow exactly):**
+> - **Default commit branch is `dev`** on `ghug`. Normal work pushes `HEAD:dev`
+>   (`git push "https://x-access-token:${GIT_PAT}@github.com/ghug/cribbage-trainer.git" HEAD:dev`).
+>   **Do NOT push `main`** except for a release (below). `main` is the live/deployed
+>   branch (Cloudflare + Pages deploy from it); `dev` does not deploy.
+> - **`VERSION` (repo root) is the single source of truth** for the displayed version;
+>   `./build.sh` stamps it into each page's About popup (the `__APP_VERSION__` token).
+>   On the dev branch it is `<next-patch>-dev.<n>` (e.g. `1.1.1-dev.1`). **Bump `<n>` by
+>   one on every dev commit that changes code** (docs-only commits don't bump). Keep the
+>   `<next-patch>` part = the patch that the next release will be.
+> - **On a *requested* release only:** set `VERSION` to the release number (drop
+>   `-dev.<n>`), bump `android/app/build.gradle` `versionName` to match and `versionCode
+>   +1`, add the fastlane changelog, `./build.sh`, commit, push **both** `HEAD:dev` and
+>   `HEAD:main`, then tag `v<version>` and push the tag (the tag triggers the signed-APK
+>   build). **Bump only the patch number** (e.g. `1.1.0 → 1.1.1`) — **never** the major
+>   or minor unless the human explicitly asks. So the next release after `1.1.0` is
+>   `1.1.1` (versionCode 5, `VERSION` `1.1.1`), and dev builds toward it are
+>   `1.1.1-dev.1`, `1.1.1-dev.2`, …
 
 Scaffolded for Obtainium / IzzyOnDroid. `android/` is a self-contained Gradle
 project: a single full-screen `WebView` (`MainActivity.java`, no third-party libs,

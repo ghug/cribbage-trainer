@@ -78,3 +78,12 @@ echo "built index.html (landing, copied from src/landing.html)"
 # Both apps render their own Home button in their header, so neither uses the shell link.
 build_one "src/CribbageTrainer.jsx" "trainer.html" "Cribbage Discard Trainer" "CribbageTrainer" "no"
 build_one "src/CribbagePlay.jsx"    "play.html"    "Cribbage — Play"          "CribbagePlay"   "no"
+
+# Stamp the version (read from the VERSION file) into each page's About popup, which
+# carries the __APP_VERSION__ placeholder. VERSION is the single source of truth:
+# "<patch>-dev.<n>" on the dev branch, "<major.minor.patch>" on a release.
+VERSION="$(tr -d '[:space:]' < "$ROOT/VERSION" 2>/dev/null)"
+for f in index.html trainer.html play.html; do
+  sed -i "s/__APP_VERSION__/${VERSION}/g" "$ROOT/$f"
+done
+echo "stamped version v${VERSION}"

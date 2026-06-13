@@ -45,8 +45,9 @@ for React):
 **It is also deployed** to a live, public link via Cloudflare (see Running and
 deploying below): **`https://cribbage-trainer.gabrielhug.workers.dev`** (the root is
 now the welcome page; the trainer is at `/trainer.html`, the game at `/play.html`).
-Pushing to `main` on the `ghug/cribbage-trainer` repo auto-redeploys. Edit the
-source, run `./build.sh`, commit, push — that's the whole update loop.
+Pushing to **`dev`** on the `ghug/cribbage-trainer` repo auto-redeploys the Cloudflare
+`workers.dev` site (GitHub Pages tracks `main`, the release snapshot). Edit the source,
+run `./build.sh`, commit, push `HEAD:dev` — that's the whole update loop.
 
 If you're a Claude Code session picking this up: everything runs locally, is
 published, and the current direction is **(c) keep improving it** (see Good next
@@ -307,15 +308,16 @@ used specifically for deploy because the primary account is private/locked and c
 authorize Cloudflare). Live URL: **`https://cribbage-trainer.gabrielhug.workers.dev`**.
 
 **To ship a change:** edit `src/CribbageTrainer.jsx` → `./build.sh` → commit → push
-to `main` on the `ghug/cribbage-trainer` remote. Cloudflare auto-builds and the live
-URL updates in ~30s. No tokens, no manual upload. (Pushing requires a fine-grained
-GitHub PAT for the `ghug` account scoped to that repo's Contents; the human pastes it
-per session — it is not stored.) The canonical dev repo is a separate,
-private repo on the human's primary account; `ghug` is the public deploy mirror. The exact deploy push (no
-named remote; the PAT goes inline in the URL and must not be committed/logged):
+to **`dev`** on the `ghug/cribbage-trainer` remote. Cloudflare (which tracks `dev`)
+auto-builds and the live `workers.dev` URL updates in ~30s. No tokens, no manual
+upload. (Pushing requires a fine-grained GitHub PAT for the `ghug` account scoped to
+that repo's Contents; the human pastes it per session — it is not stored.) The
+canonical dev repo is a separate, private repo on the human's primary account; `ghug`
+is the public deploy mirror. The exact deploy push (no named remote; the PAT goes
+inline in the URL and must not be committed/logged):
 
 ```
-git push "https://x-access-token:<GHUG_PAT>@github.com/ghug/cribbage-trainer.git" HEAD:main
+git push "https://x-access-token:<GHUG_PAT>@github.com/ghug/cribbage-trainer.git" HEAD:dev
 ```
 
 Note on reachability: whether the sandbox can fetch the live URL depends on the
@@ -337,8 +339,10 @@ Direct Upload (drag `index.html` in the dashboard), or the REST API with an
 > **Branch + versioning workflow (carried preference — follow exactly):**
 > - **Default commit branch is `dev`** on `ghug`. Normal work pushes `HEAD:dev`
 >   (`git push "https://x-access-token:${GIT_PAT}@github.com/ghug/cribbage-trainer.git" HEAD:dev`).
->   **Do NOT push `main`** except for a release (below). `main` is the live/deployed
->   branch (Cloudflare + Pages deploy from it); `dev` does not deploy.
+>   **Cloudflare deploys from `dev`**, so every dev push updates the live `workers.dev`
+>   URL. **GitHub Pages deploys from `main`** (the release snapshot), so the Pages mirror
+>   only changes on a release. **Do NOT push `main`** except for a release (below); `main`
+>   is the **release-snapshot** branch (updated + tagged on release only).
 > - **`VERSION` (repo root) is the single source of truth** for the displayed version;
 >   `./build.sh` stamps it into each page's About popup (the `__APP_VERSION__` token).
 >   On the dev branch it is `<next-patch>-dev.<n>` (e.g. `1.1.1-dev.1`). **Bump `<n>` by

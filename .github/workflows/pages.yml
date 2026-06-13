@@ -2,9 +2,10 @@ name: Deploy to GitHub Pages
 
 # Publishes the static web app to GitHub Pages. Unlike "Deploy from a branch"
 # (which serves the whole repo root, source/Gradle dirs and all), this uploads
-# only the built site: the four root HTML pages and the vendored React. The
-# committed root HTML is the source of truth (same as the Android asset sync),
-# so there is no build step here.
+# only the built site: the root HTML pages and the vendored React. The committed
+# root HTML is the source of truth (same as the Android asset sync), so there is
+# no build step here. Deploys from `main` (the release-snapshot branch); Cloudflare
+# tracks `dev` for the latest work.
 
 on:
   push:

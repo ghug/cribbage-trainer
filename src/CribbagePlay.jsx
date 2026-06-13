@@ -1096,16 +1096,18 @@ export default function CribbagePlay() {
   );
 }
 // A fanned row of cards: each later item sits partly on top of the previous one.
+// Face-down backs stack tighter (they carry no info) than face-up cards.
 const STACK_VISIBLE = 0.5;
-const overlapMargin = (w) => -Math.round(w * (1 - STACK_VISIBLE));
+const BACK_VISIBLE = 0.32;
+const overlapMargin = (w, vis = STACK_VISIBLE) => -Math.round(w * (1 - vis));
 const cardItems = (cards) => (cards || []).map((c) => ({ key: cardId(c), w: 44, el: <Card card={c} small /> }));
-const backItems = (n) => Array.from({ length: n || 0 }).map((_, k) => ({ key: "b" + k, w: 44, el: <CardBack small /> }));
+const backItems = (n) => Array.from({ length: n || 0 }).map((_, k) => ({ key: "b" + k, w: 44, vis: BACK_VISIBLE, el: <CardBack small /> }));
 function Fan({ items }) {
   if (!items.length) return null;
   return (
     <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
       {items.map((it, i) => (
-        <div key={it.key} style={{ width: it.w, position: "relative", zIndex: i, marginLeft: i === 0 ? 0 : overlapMargin(it.w) }}>
+        <div key={it.key} style={{ width: it.w, position: "relative", zIndex: i, marginLeft: i === 0 ? 0 : overlapMargin(it.w, it.vis) }}>
           {it.el}
         </div>
       ))}

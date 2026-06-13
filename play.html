@@ -1112,13 +1112,14 @@ function CribbagePlay() {
                         } }, "Leave")))))));
 }
 const STACK_VISIBLE = 0.5;
-const overlapMargin = (w) => -Math.round(w * (1 - STACK_VISIBLE));
+const BACK_VISIBLE = 0.32;
+const overlapMargin = (w, vis = STACK_VISIBLE) => -Math.round(w * (1 - vis));
 const cardItems = (cards) => (cards || []).map((c) => ({ key: cardId(c), w: 44, el: React.createElement(Card, { card: c, small: true }) }));
-const backItems = (n) => Array.from({ length: n || 0 }).map((_, k) => ({ key: "b" + k, w: 44, el: React.createElement(CardBack, { small: true }) }));
+const backItems = (n) => Array.from({ length: n || 0 }).map((_, k) => ({ key: "b" + k, w: 44, vis: BACK_VISIBLE, el: React.createElement(CardBack, { small: true }) }));
 function Fan({ items }) {
     if (!items.length)
         return null;
-    return (React.createElement("div", { style: { display: "flex", alignItems: "flex-end", justifyContent: "center" } }, items.map((it, i) => (React.createElement("div", { key: it.key, style: { width: it.w, position: "relative", zIndex: i, marginLeft: i === 0 ? 0 : overlapMargin(it.w) } }, it.el)))));
+    return (React.createElement("div", { style: { display: "flex", alignItems: "flex-end", justifyContent: "center" } }, items.map((it, i) => (React.createElement("div", { key: it.key, style: { width: it.w, position: "relative", zIndex: i, marginLeft: i === 0 ? 0 : overlapMargin(it.w, it.vis) } }, it.el)))));
 }
 function PlayedStack({ cards, backs }) {
     return React.createElement(Fan, { items: (cards && cards.length) ? cardItems(cards) : backItems(backs) });
@@ -1337,7 +1338,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, "Source, bugs & feedback \u2197"),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.4-dev.7"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.4-dev.8"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

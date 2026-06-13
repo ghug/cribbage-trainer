@@ -219,6 +219,7 @@
         number of players is set above, on the home page.)</p>
       <div id="settingsList"></div>
       <button class="btn btn-ghost" id="openAbout" type="button" style="margin-top:6px">About &amp; feedback</button>
+      <button class="btn btn-primary" id="settingsContinue" type="button" style="margin:12px 0 10px">Continue game</button>
     </div>
   </div>
 
@@ -324,6 +325,7 @@
 
       document.getElementById('gear').addEventListener('click', function () { settings = loadSettings(); renderSettings(); renderPlayers(); renderTeams(); open(s); });
       document.getElementById('settingsDone').addEventListener('click', function () { close(s); });
+      document.getElementById('settingsContinue').addEventListener('click', function () { close(s); });
       document.getElementById('openAbout').addEventListener('click', function () { close(s); open(a); });
       document.getElementById('footerAbout').addEventListener('click', function () { open(a); });
       document.getElementById('aboutDone').addEventListener('click', function () { close(a); });

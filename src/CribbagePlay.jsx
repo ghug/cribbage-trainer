@@ -1458,7 +1458,7 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout }) {
         options={[["Auto-count", "auto"], ["Muggins", "muggins"]]} />
       <AboutRow onAbout={onAbout} />
       <button onClick={onClose} style={{
-        width: "100%", marginTop: 12, padding: "12px", borderRadius: 10, border: "none", cursor: "pointer",
+        width: "100%", margin: "12px 0 10px", padding: "12px", borderRadius: 10, border: "none", cursor: "pointer",
         background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory,
         fontSize: 15, fontWeight: 700, letterSpacing: 0.3, boxShadow: "0 4px 12px rgba(0,0,0,0.35)",
       }}>Continue game</button>

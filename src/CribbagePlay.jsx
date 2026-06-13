@@ -1158,16 +1158,25 @@ function fitVisible(n, budget) {
   return Math.max(0.24, Math.min(STACK_VISIBLE, (budget - 68) / ((n - 1) * 68)));
 }
 
-function SeatCell({ i, dealerIdx, active, bold, played, remaining }) {
+function SeatCell({ i, dealerIdx, active, played, remaining }) {
   return (
     <div style={{ textAlign: "center", minWidth: 0 }}>
-      <div style={{ fontFamily: mono, fontSize: 10, fontWeight: bold ? 700 : 400, color: bold ? T.cream : active ? T.selBlue : T.muted, marginBottom: 4, whiteSpace: "nowrap" }}>
-        {seatShort(i)}{dealerIdx === i ? " (D)" : ""}
-      </div>
+      <div style={{ marginBottom: 4, whiteSpace: "nowrap" }}><SeatLabel i={i} dealerIdx={dealerIdx} active={active} /></div>
       <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" }}>
         <Fan items={[...backItems(remaining), ...cardItems(played)]} />
       </div>
     </div>
+  );
+}
+
+// One seat's label. The active seat (current pegger / hand being counted) gets a filled
+// chip so it clearly stands out from the dimmed inactive seats in any phase.
+function SeatLabel({ i, dealerIdx, active, name }) {
+  const text = `${name != null ? name : seatShort(i)}${dealerIdx === i ? " (D)" : ""}`;
+  return (
+    <span style={active
+      ? { fontFamily: mono, fontSize: 10, fontWeight: 700, letterSpacing: 0.3, color: T.ivory, background: T.selBlue, padding: "2px 8px", borderRadius: 999, boxShadow: "0 1px 4px rgba(0,0,0,0.45)" }
+      : { fontFamily: mono, fontSize: 10, color: T.muted }}>{text}</span>
   );
 }
 
@@ -1234,13 +1243,13 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
   const ts = seatsAround(P, me);
   // The show counts one owner at a time: their (face-up) hand or the crib, plus the cut.
   const info = showPhase ? computeShow(state) : null;
-  const showHand = showPhase && !info.isCrib;            // a seat's hand (not the crib) is up
   const stepLabel = showPhase ? `${state.show.step + 1} of ${state.show.order.length}` : "";
   // What each seat is holding (face down for the others): nothing before a hand is dealt,
-  // the full dealt hand during the discard, the kept four during the show/after it, the
-  // live peg hand during play. (Pre-deal the seats' stale cards from the last hand are
-  // ignored; during the show the played piles are set aside for the kept four.)
-  const hands = overPhase ? seats.map(() => []) : (peg && !showPhase) ? peg.hands : seats.map((s) => (preDeal ? [] : discardPhase ? s.dealt : (s.kept || [])));
+  // What each seat is holding (face down for the others): nothing before a hand is dealt,
+  // the full dealt hand during the discard, the kept four at the cut, the live peg hand
+  // during play — and, through the show, the same finished peg state (everyone's cards
+  // played and face up), so nothing in the table view changes from play to show.
+  const hands = overPhase ? seats.map(() => []) : peg ? peg.hands : seats.map((s) => (preDeal ? [] : discardPhase ? s.dealt : (s.kept || [])));
   const yourHand = hands[me];
   const meName = seatShort(me);
   const turn = peg ? peg.turn : -1;
@@ -1292,14 +1301,13 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
 
   const cell = (i) => {
     if (cutdealPhase) return <DrawCell key={i} i={i} dealerIdx={dealerIdx} card={dealDraw ? dealDraw[i] : null} />;
-    // During the show the hand being counted turns face up (its label bolded); every other
-    // seat shows nothing — no face-down cards. Otherwise: live peg hand (backs) + played
-    // pile (face up). The empty table (pre-deal / game over) shows bare seats.
-    const faceUp = showHand && i === info.owner;
-    const played = (faceUp ? seats[i].kept : (peg && !showPhase && !emptyTable ? peg.played[i] : []));
-    const remaining = showPhase ? 0 : (faceUp ? 0 : hands[i].length);
-    const lit = overPhase ? teamOf(i, P, teams) === teamOf(winner, P, teams) : showPhase ? false : turn === i;
-    return <SeatCell key={i} i={i} dealerIdx={dealerIdx} active={lit} bold={faceUp} played={played} remaining={remaining} />;
+    // Play and show share one render: each seat's played pile (face up) plus any cards
+    // still in hand (face down). The active seat — whose turn it is, or whose hand is being
+    // counted — is highlighted.
+    const played = peg ? peg.played[i] : [];
+    const remaining = hands[i].length;
+    const active = overPhase ? teamOf(i, P, teams) === teamOf(winner, P, teams) : showPhase ? i === info.owner : turn === i;
+    return <SeatCell key={i} i={i} dealerIdx={dealerIdx} active={active} played={played} remaining={remaining} />;
   };
   // The discard/play status line. A bot in the bottom seat (all-bot game) gets the same
   // spectator line as any other seat — it just plays/goes on its own, no human prompts.
@@ -1312,16 +1320,17 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
           : `${seatName(peg.turn)} to play…`)
       : null;
   // Your own seat at the bottom is always pinned (a fixed card slot, so the table never
-  // shifts). Like any seat it shows your cards — your played pile during the play, your
-  // kept four (face down) at the cut, your hand face up in the show only while it's being
-  // counted — and nothing otherwise.
-  const ownScored = showHand && info.owner === me;       // your hand is the one being counted
-  const ownCardItems = showPhase
-    ? (ownScored ? cardItems(seats[me].kept) : [])                              // no face-down cards in the show
-    : cutPhase ? backItems(hands[me].length)                                    // your kept four, face down
-    : needHandoff ? backItems((peg ? peg.hands[me] : seats[me].dealt).length)   // hidden while waiting to pass
-    : (phase === "play" && peg) ? cardItems(peg.played[me])                      // your played pile, like every seat
-    : [];                                                                       // discard active, deal, over
+  // shifts). Like any seat it shows your cards — your played pile through play and the show,
+  // your kept four (face down) at the cut — and nothing pre-deal/over/while choosing.
+  const ownCardItems = cutPhase ? backItems(hands[me].length)                    // your kept four, face down
+    : needHandoff ? backItems((peg ? peg.hands[me] : seats[me].dealt).length)    // hidden while waiting to pass
+    : (peg && (phase === "play" || showPhase)) ? cardItems(peg.played[me])       // your played pile, like every seat
+    : [];                                                                        // discard active, deal, over
+  // The active seat (your turn / your hand being counted / your winning team) — highlighted.
+  const ownActive = overPhase ? teamOf(me, P, teams) === teamOf(winner, P, teams)
+    : showPhase ? info.owner === me
+    : discardPhase ? myTurn
+    : turn === me;
   return (
     <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 14 }}>
       {/* Fixed grids: every seat owns an equal column whatever it's holding, so the labels
@@ -1348,7 +1357,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
         <DrawCell i={me} dealerIdx={dealerIdx} card={dealDraw ? dealDraw[me] : null} />
       ) : (
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontFamily: mono, fontSize: 10, fontWeight: ownScored ? 700 : 400, color: ownScored ? T.cream : (!showPhase && (myTurn || stuck)) ? T.selBlue : T.muted, marginBottom: 4 }}>{meName}{dealerIdx === me ? " (D)" : ""}</div>
+          <div style={{ marginBottom: 4 }}><SeatLabel i={me} dealerIdx={dealerIdx} active={ownActive} name={meName} /></div>
           <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)", padding: "0 8px" }}>
             {ownCardItems.length ? <Fan items={ownCardItems} /> : null}
           </div>

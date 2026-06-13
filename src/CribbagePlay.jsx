@@ -1301,13 +1301,13 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
     const lit = overPhase ? teamOf(i, P, teams) === teamOf(winner, P, teams) : showPhase ? i === info.owner : turn === i;
     return <SeatCell key={i} i={i} dealerIdx={dealerIdx} active={lit} played={played} remaining={remaining} />;
   };
-  // The discard/play status line, surfaced in the pinned own-seat slot (below) instead of
-  // pushing the action buttons around.
+  // The discard/play status line. A bot in the bottom seat (all-bot game) gets the same
+  // spectator line as any other seat — it just plays/goes on its own, no human prompts.
   const actionPrompt = discardPhase ? discardPrompt
     : (phase === "play" && peg)
-      ? (peg.turn === me
+      ? (peg.turn === me && meHuman
           ? (myTurn ? (tapSelect ? "Your turn — tap a card to select, then Play." : "Your turn — tap a card to play.")
-            : stuck ? ((settings.autoGo || !meHuman) ? "No legal card — passing…" : "No legal card — tap Go to pass.")
+            : stuck ? (settings.autoGo ? "No legal card — passing…" : "No legal card — tap Go to pass.")
             : "Your cards are all played.")
           : `${seatName(peg.turn)} to play…`)
       : null;

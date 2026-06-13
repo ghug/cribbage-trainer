@@ -286,7 +286,7 @@ function Card({ card, onClick, clickable, badge, dim, selected, raised, small, s
                 cursor: clickable ? "pointer" : "default",
                 border: edge ? `2px solid ${edge}` : "1px solid rgba(0,0,0,0.25)",
                 boxShadow: elevated ? "0 8px 18px rgba(0,0,0,0.45)" : "0 4px 10px rgba(0,0,0,0.35)",
-                transform: raised ? "translateY(-20%)" : `translateY(${lift}px)`, transition: "transform 140ms ease, box-shadow 140ms ease",
+                transform: raised ? "translateY(-10%)" : `translateY(${lift}px)`, transition: "transform 140ms ease, box-shadow 140ms ease",
                 opacity: dim ? 0.42 : 1, outlineOffset: 3,
             } },
             React.createElement("span", { style: { display: "block", paddingBottom: "141.18%" } }),
@@ -1055,7 +1055,7 @@ function CribbagePlay() {
             phase === "discard" && (React.createElement("div", { style: { marginTop: 14, display: "flex", flexDirection: "column", gap: 14 } },
                 React.createElement(Panel, { tone: cribIsOurs ? "good" : "red" },
                     React.createElement("div", { style: { fontWeight: 700, fontSize: 15 } }, dealer ? "Your crib — be greedy" : teammateDeals ? `${seatName(dealerIdx)}'s crib — your team's, be greedy` : `Feeds ${seatName(dealerIdx)}'s crib — defend`),
-                    React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 } }, discardPrompt)),
+                    React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3, lineHeight: 1.45, minHeight: humanThrows === 2 ? "2.9em" : undefined } }, discardPrompt)),
                 React.createElement(OpponentBacks, { dealerIdx: dealerIdx, P: players, sizes: plan(players, dealerIdx).sizes }),
                 settings.tapToSelect && !state.pendingDiscard && (React.createElement(ConfirmButton, { label: `Throw to crib${humanThrows === 2 ? ` (${sel.length}/2)` : ""}`, enabled: sel.length === humanThrows, onClick: () => { const idxs = sel.slice().sort((a, b) => a - b); setSel([]); dispatch({ type: "SELECT_DISCARD", idxs }); } })),
                 React.createElement("div", { className: "dealwrap", style: { display: "flex", gap: 8, justifyContent: "center", flexWrap: "nowrap" } }, seats[0].dealt.map((card, i) => {
@@ -1375,7 +1375,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, "Source, bugs & feedback \u2197"),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.5-dev.1"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.5-dev.2"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

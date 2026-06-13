@@ -212,7 +212,7 @@ function Card({ card, onClick, clickable, badge, dim, selected, raised, small, s
   const base = small ? 44 : 68;
   const lift = badge || selected ? -8 : hover && clickable ? -6 : 0;
   const edge = badge ? badge.color : (selected || raised) ? T.selBlue : null;
-  // `raised` (tap-to-select mode) lifts the card by 20% of its own height — a translateY
+  // `raised` (tap-to-select mode) lifts the card by 10% of its own height — a translateY
   // percentage is relative to the element, so it scales with the card automatically.
   const elevated = badge || selected || raised;
   return (
@@ -232,7 +232,7 @@ function Card({ card, onClick, clickable, badge, dim, selected, raised, small, s
           cursor: clickable ? "pointer" : "default",
           border: edge ? `2px solid ${edge}` : "1px solid rgba(0,0,0,0.25)",
           boxShadow: elevated ? "0 8px 18px rgba(0,0,0,0.45)" : "0 4px 10px rgba(0,0,0,0.35)",
-          transform: raised ? "translateY(-20%)" : `translateY(${lift}px)`, transition: "transform 140ms ease, box-shadow 140ms ease",
+          transform: raised ? "translateY(-10%)" : `translateY(${lift}px)`, transition: "transform 140ms ease, box-shadow 140ms ease",
           opacity: dim ? 0.42 : 1, outlineOffset: 3,
         }}
       >
@@ -1033,7 +1033,9 @@ export default function CribbagePlay() {
           <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 14 }}>
             <Panel tone={cribIsOurs ? "good" : "red"}>
               <div style={{ fontWeight: 700, fontSize: 15 }}>{dealer ? "Your crib — be greedy" : teammateDeals ? `${seatName(dealerIdx)}'s crib — your team's, be greedy` : `Feeds ${seatName(dealerIdx)}'s crib — defend`}</div>
-              <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>{discardPrompt}</div>
+              {/* Reserve two lines in heads-up so appending "One more…" can't reflow and
+                  shove the whole table down when it wraps. */}
+              <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3, lineHeight: 1.45, minHeight: humanThrows === 2 ? "2.9em" : undefined }}>{discardPrompt}</div>
             </Panel>
             <OpponentBacks dealerIdx={dealerIdx} P={players} sizes={plan(players, dealerIdx).sizes} />
             {settings.tapToSelect && !state.pendingDiscard && (

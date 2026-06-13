@@ -1164,7 +1164,7 @@ function SeatCell({ i, dealerIdx, active, played, remaining }) {
         React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: active ? T.selBlue : T.muted, marginBottom: 4, whiteSpace: "nowrap" } },
             seatShort(i),
             dealerIdx === i ? " (D)" : ""),
-        React.createElement("div", { style: { display: "flex", justifyContent: "center", minHeight: 64 } },
+        React.createElement("div", { style: { display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" } },
             React.createElement(Fan, { items: [...backItems(remaining), ...cardItems(played)] }))));
 }
 function DrawCell({ i, dealerIdx, card }) {
@@ -1173,7 +1173,7 @@ function DrawCell({ i, dealerIdx, card }) {
         React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: isD ? T.good : T.muted, marginBottom: 4, whiteSpace: "nowrap" } },
             seatShort(i),
             isD ? " (D)" : ""),
-        React.createElement("div", { style: { display: "flex", justifyContent: "center", minHeight: 64 } }, card ? React.createElement(Card, { card: card }) : React.createElement(CardBack, null))));
+        React.createElement("div", { style: { display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" } }, card ? React.createElement(Card, { card: card }) : React.createElement(CardBack, null))));
 }
 function tableSeats(P) {
     if (P === 2)
@@ -1188,10 +1188,10 @@ function seatsAround(P, me) {
     return { top: ts.top.map(at), left: ts.left != null ? at(ts.left) : null, right: ts.right != null ? at(ts.right) : null };
 }
 function DeckBack() {
-    return (React.createElement("div", { style: { position: "relative", width: "calc(var(--cw) + 6px)", height: "calc(var(--ch) + 4px)", margin: "0 auto" } },
-        React.createElement("div", { style: { position: "absolute", left: 6, top: 4 } },
+    return (React.createElement("div", { style: { position: "relative", width: "calc(var(--cw) + 6px)", height: "var(--ch)", margin: "0 auto" } },
+        React.createElement("div", { style: { position: "absolute", left: 6, top: -4 } },
             React.createElement(CardBack, null)),
-        React.createElement("div", { style: { position: "absolute", left: 3, top: 2 } },
+        React.createElement("div", { style: { position: "absolute", left: 3, top: -2 } },
             React.createElement(CardBack, null)),
         React.createElement("div", { style: { position: "absolute", left: 0, top: 0 } },
             React.createElement(CardBack, null))));
@@ -1276,27 +1276,27 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
         const lit = overPhase ? teamOf(i, P, teams) === teamOf(winner, P, teams) : showPhase ? i === info.owner : turn === i;
         return React.createElement(SeatCell, { key: i, i: i, dealerIdx: dealerIdx, active: lit, played: played, remaining: remaining });
     };
-    const ownFaceDown = !showPhase && !overPhase && (cutPhase || needHandoff || (!!peg && peg.played[me].length > 0));
+    const showOwn = dealPhase || overPhase || showPhase || cutPhase
+        || (phase === "play" && peg && (needHandoff || peg.played[me].length > 0));
+    const ownItems = showPhase
+        ? ((showHand && info.owner === me) ? cardItems(seats[me].kept) : backItems((seats[me].kept || []).length))
+        : (emptyTable ? []
+            : peg ? [...(needHandoff ? backItems(peg.hands[me].length) : []), ...cardItems(peg.played[me])]
+                : backItems(hands[me].length));
     return (React.createElement("div", { style: { marginTop: 12, display: "flex", flexDirection: "column", gap: 14 } },
         ts.top.length > 0 && React.createElement("div", { style: { display: "flex", justifyContent: "space-around" } }, ts.top.map(cell)),
         React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: ts.left != null ? "space-between" : "center", gap: 8, padding: "0 6px" } },
             ts.left != null && cell(ts.left),
             React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", flex: "0 0 auto" } },
                 React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 4 } }, "starter"),
-                starter && !emptyTable ? React.createElement(Card, { card: starter }) : React.createElement(DeckBack, null)),
+                React.createElement("div", { style: { display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" } }, starter && !emptyTable ? React.createElement(Card, { card: starter }) : React.createElement(DeckBack, null))),
             ts.right != null && cell(ts.right)),
-        cutdealPhase ? (React.createElement(DrawCell, { i: me, dealerIdx: dealerIdx, card: dealDraw ? dealDraw[me] : null })) : dealPhase ? (React.createElement("div", { style: { textAlign: "center", minHeight: 64 } },
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 4 } },
-                meName,
-                dealerIdx === me ? " (D)" : ""))) : showPhase ? (React.createElement("div", { style: { textAlign: "center", minHeight: 80 } },
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: info.owner === me ? T.selBlue : T.muted, marginBottom: 4 } },
+        cutdealPhase ? (React.createElement(DrawCell, { i: me, dealerIdx: dealerIdx, card: dealDraw ? dealDraw[me] : null })) : showOwn && (React.createElement("div", { style: { textAlign: "center" } },
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: (showPhase ? info.owner === me : turn === me) ? T.selBlue : T.muted, marginBottom: 4 } },
                 meName,
                 dealerIdx === me ? " (D)" : ""),
-            React.createElement(Fan, { items: (showHand && info.owner === me) ? cardItems(seats[me].kept) : backItems((seats[me].kept || []).length) }))) : ownFaceDown && (React.createElement("div", { style: { textAlign: "center", minHeight: 80 } },
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: turn === me ? T.selBlue : T.muted, marginBottom: 4 } },
-                meName,
-                dealerIdx === me ? " (D)" : ""),
-            React.createElement(Fan, { items: [...backItems(peg ? (needHandoff ? peg.hands[me].length : 0) : hands[me].length), ...cardItems(peg ? peg.played[me] : [])] }))),
+            React.createElement("div", { style: { display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" } },
+                React.createElement(Fan, { items: ownItems })))),
         overPhase ? (React.createElement(Panel, { tone: "good" },
             React.createElement("div", { style: { fontWeight: 700, fontSize: 18 } }, winner !== null && teamOf(winner, P, teams) === teamOf(me, P, teams) ? "You win! 🎉" : `${teamLabel(teamsList(P, teams).find((m) => m.includes(winner)) || [winner])} wins.`),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 } },
@@ -1575,7 +1575,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, "Source, bugs & feedback \u2197"),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.8-dev.13"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.8-dev.14"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

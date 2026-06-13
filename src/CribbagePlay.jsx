@@ -1164,7 +1164,7 @@ function SeatCell({ i, dealerIdx, active, played, remaining }) {
       <div style={{ fontFamily: mono, fontSize: 10, color: active ? T.selBlue : T.muted, marginBottom: 4, whiteSpace: "nowrap" }}>
         {seatShort(i)}{dealerIdx === i ? " (D)" : ""}
       </div>
-      <div style={{ display: "flex", justifyContent: "center", minHeight: 64 }}>
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" }}>
         <Fan items={[...backItems(remaining), ...cardItems(played)]} />
       </div>
     </div>
@@ -1180,7 +1180,7 @@ function DrawCell({ i, dealerIdx, card }) {
       <div style={{ fontFamily: mono, fontSize: 10, color: isD ? T.good : T.muted, marginBottom: 4, whiteSpace: "nowrap" }}>
         {seatShort(i)}{isD ? " (D)" : ""}
       </div>
-      <div style={{ display: "flex", justifyContent: "center", minHeight: 64 }}>
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" }}>
         {card ? <Card card={card} /> : <CardBack />}
       </div>
     </div>
@@ -1206,9 +1206,9 @@ function seatsAround(P, me) {
 // cut. Three stacked backs read as a deck rather than a single card.
 function DeckBack() {
   return (
-    <div style={{ position: "relative", width: "calc(var(--cw) + 6px)", height: "calc(var(--ch) + 4px)", margin: "0 auto" }}>
-      <div style={{ position: "absolute", left: 6, top: 4 }}><CardBack /></div>
-      <div style={{ position: "absolute", left: 3, top: 2 }}><CardBack /></div>
+    <div style={{ position: "relative", width: "calc(var(--cw) + 6px)", height: "var(--ch)", margin: "0 auto" }}>
+      <div style={{ position: "absolute", left: 6, top: -4 }}><CardBack /></div>
+      <div style={{ position: "absolute", left: 3, top: -2 }}><CardBack /></div>
       <div style={{ position: "absolute", left: 0, top: 0 }}><CardBack /></div>
     </div>
   );
@@ -1300,9 +1300,15 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
     const lit = overPhase ? teamOf(i, P, teams) === teamOf(winner, P, teams) : showPhase ? i === info.owner : turn === i;
     return <SeatCell key={i} i={i} dealerIdx={dealerIdx} active={lit} played={played} remaining={remaining} />;
   };
-  // Your own seat at the bottom shows face down: before the cut, while waiting to pass the
-  // device, or (during play) your played stack. Hidden while you're actively choosing.
-  const ownFaceDown = !showPhase && !overPhase && (cutPhase || needHandoff || (!!peg && peg.played[me].length > 0));
+  // Your own seat at the bottom. Shown (with a reserved card slot) in every phase except
+  // your active discard/play turn, when the interactive hand sits in the action area below.
+  const showOwn = dealPhase || overPhase || showPhase || cutPhase
+    || (phase === "play" && peg && (needHandoff || peg.played[me].length > 0));
+  const ownItems = showPhase
+    ? ((showHand && info.owner === me) ? cardItems(seats[me].kept) : backItems((seats[me].kept || []).length))
+    : (emptyTable ? []
+      : peg ? [...(needHandoff ? backItems(peg.hands[me].length) : []), ...cardItems(peg.played[me])]
+      : backItems(hands[me].length));         // the cut: your kept four, face down
   return (
     <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 14 }}>
       {ts.top.length > 0 && <div style={{ display: "flex", justifyContent: "space-around" }}>{ts.top.map(cell)}</div>}
@@ -1310,26 +1316,23 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
         {ts.left != null && cell(ts.left)}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: "0 0 auto" }}>
           <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 4 }}>starter</div>
-          {starter && !emptyTable ? <Card card={starter} /> : <DeckBack />}
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" }}>
+            {starter && !emptyTable ? <Card card={starter} /> : <DeckBack />}
+          </div>
         </div>
         {ts.right != null && cell(ts.right)}
       </div>
 
+      {/* your own seat at the bottom — always reserves a card slot so the table never
+          collapses, whatever it's holding (or nothing, pre-deal / over / your active turn). */}
       {cutdealPhase ? (
         <DrawCell i={me} dealerIdx={dealerIdx} card={dealDraw ? dealDraw[me] : null} />
-      ) : dealPhase ? (
-        <div style={{ textAlign: "center", minHeight: 64 }}>
-          <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 4 }}>{meName}{dealerIdx === me ? " (D)" : ""}</div>
-        </div>
-      ) : showPhase ? (
-        <div style={{ textAlign: "center", minHeight: 80 }}>
-          <div style={{ fontFamily: mono, fontSize: 10, color: info.owner === me ? T.selBlue : T.muted, marginBottom: 4 }}>{meName}{dealerIdx === me ? " (D)" : ""}</div>
-          <Fan items={(showHand && info.owner === me) ? cardItems(seats[me].kept) : backItems((seats[me].kept || []).length)} />
-        </div>
-      ) : ownFaceDown && (
-        <div style={{ textAlign: "center", minHeight: 80 }}>
-          <div style={{ fontFamily: mono, fontSize: 10, color: turn === me ? T.selBlue : T.muted, marginBottom: 4 }}>{meName}{dealerIdx === me ? " (D)" : ""}</div>
-          <Fan items={[...backItems(peg ? (needHandoff ? peg.hands[me].length : 0) : hands[me].length), ...cardItems(peg ? peg.played[me] : [])]} />
+      ) : showOwn && (
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontFamily: mono, fontSize: 10, color: (showPhase ? info.owner === me : turn === me) ? T.selBlue : T.muted, marginBottom: 4 }}>{meName}{dealerIdx === me ? " (D)" : ""}</div>
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" }}>
+            <Fan items={ownItems} />
+          </div>
         </div>
       )}
 

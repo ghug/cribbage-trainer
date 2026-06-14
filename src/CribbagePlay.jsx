@@ -1200,8 +1200,20 @@ function seatsAround(P, me) {
   return { top: ts.top.map(at), left: ts.left != null ? at(ts.left) : null, right: ts.right != null ? at(ts.right) : null };
 }
 
-// A small face-down "deck" — the placeholder shown where the starter will sit before the
-// cut. Three stacked backs read as a deck rather than a single card.
+// The deck in the centre of the table: a face-down stack, with the starter laid face up on
+// top once it's been cut. Same --cw footprint in every phase (the stacked backs are
+// absolutely positioned and don't widen the box), so the table never shifts.
+function StarterDeck({ starter }) {
+  return (
+    <div style={{ position: "relative", width: "var(--cw)", height: "var(--ch)", margin: "0 auto" }}>
+      <div style={{ position: "absolute", left: 3, top: -6 }}><CardBack /></div>
+      <div style={{ position: "absolute", left: 2, top: -4 }}><CardBack /></div>
+      <div style={{ position: "absolute", left: 1, top: -2 }}><CardBack /></div>
+      <div style={{ position: "absolute", left: 0, top: 0 }}>{starter ? <Card card={starter} /> : <CardBack />}</div>
+    </div>
+  );
+}
+
 // The single table. Every pre-show phase renders here: the discard, the cut, and the
 // pegging all share one frame (seat ring + starter slot) and one "hand zone" at the
 // bottom — a card grid with tap-to-select and a confirm. Only a small per-phase config
@@ -1215,7 +1227,6 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
   const showPhase = phase === "show";                    // counting the hands + crib, one at a time
   const overPhase = phase === "over";                    // game won — final banner + play again
   const preDeal = cutdealPhase || dealPhase;             // no live hand yet: seats hold no cards
-  const emptyTable = preDeal || overPhase;               // bare ring + deck placeholder, no hands
   const P = peg ? peg.hands.length : seats.length;
   const teams = clampTeams(P, settings.teams);
   const pl = plan(P, dealerIdx);
@@ -1228,7 +1239,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
   // the full dealt hand during the discard, the kept four at the cut, the live peg hand
   // during play — and, through the show, the same finished peg state (everyone's cards
   // played and face up), so nothing in the table view changes from play to show.
-  const hands = overPhase ? seats.map(() => []) : peg ? peg.hands : seats.map((s) => (preDeal ? [] : discardPhase ? s.dealt : (s.kept || [])));
+  const hands = peg ? peg.hands : seats.map((s) => (preDeal ? [] : discardPhase ? s.dealt : (s.kept || [])));
   const yourHand = hands[me];
   const meName = seatShort(me);
   const turn = peg ? peg.turn : -1;
@@ -1287,7 +1298,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
     // Play and show share one render: each seat's played pile (face up) plus any cards
     // still in hand (face down). The active seat — whose turn it is, or whose hand is being
     // counted (or the winning team at game over) — is chip-highlighted.
-    const played = (peg && !overPhase) ? peg.played[i] : [];
+    const played = peg ? peg.played[i] : [];
     const active = overPhase ? teamOf(i, P, teams) === teamOf(winner, P, teams) : showPhase ? i === info.owner : turn === i;
     return <Seat key={i} i={i} dealerIdx={dealerIdx} active={active}
       items={[...backItems(hands[i].length), ...cardItems(played)]} />;
@@ -1304,12 +1315,12 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
       : null;
   // Your own seat at the bottom is always pinned (a fixed card slot, so the table never
   // shifts). It renders through the same Seat component as every other seat: your draw at
-  // the cut-for-deal, your played pile through play and the show, your kept four (face down)
-  // at the cut — and nothing pre-deal/over/while choosing.
+  // the cut-for-deal, your played pile through play / show / over, your kept four (face
+  // down) at the cut — and nothing pre-deal / while choosing.
   const ownCardItems = cutdealPhase ? (dealDraw ? cardItems([dealDraw[me]]) : backItems(1))
     : cutPhase ? backItems(hands[me].length)                                     // your kept four, face down
     : needHandoff ? backItems((peg ? peg.hands[me] : seats[me].dealt).length)    // hidden while waiting to pass
-    : (peg && (phase === "play" || showPhase))
+    : (peg && (phase === "play" || showPhase || overPhase))
       ? (meHuman ? cardItems(peg.played[me])                                     // human: played pile (remainder is the grid)
         : [...backItems(peg.hands[me].length), ...cardItems(peg.played[me])])    // bot: face-down hand under played, like any seat
     : [];                                                                        // discard active, deal, over
@@ -1335,7 +1346,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
             <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>starter</span>
           </div>
           <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" }}>
-            <Fan items={(starter && !emptyTable) ? cardItems([starter]) : backItems(1)} />
+            <StarterDeck starter={(phase === "play" || showPhase || overPhase) ? starter : null} />
           </div>
         </div>
         <div style={{ minWidth: 0 }}>{ts.right != null ? cell(ts.right) : null}</div>

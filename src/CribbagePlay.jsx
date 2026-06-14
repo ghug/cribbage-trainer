@@ -169,6 +169,10 @@ const T = {
   cream: "#ECE0C6", muted: "#A99873", line: "rgba(236,224,182,0.16)",
   good: "#5FA47C", goodDeep: "#3F7E5E", selBlue: "#5B95C2",
 };
+// Render-only i18n: window.t (from i18n.js) with a key fallback. Used in the JSX (never in
+// the reducer), so engine/verify_play.js — which exercises the reducer, not the render — is
+// unaffected and needs no window shim.
+const tr = (k, v) => (typeof window !== "undefined" && window.t) ? window.t(k, v) : k;
 const SUIT = ["♠", "♥", "♦", "♣"];
 const CATS = ["fifteens", "pairs", "runs", "flush", "nobs"];
 const isRed = (s) => s === 1 || s === 2;
@@ -868,8 +872,8 @@ function Panel({ children, tone }) {
 function PassPanel({ to, dispatch }) {
   return (
     <div style={{ textAlign: "center", padding: "20px 16px", borderRadius: 12, background: "rgba(0,0,0,0.3)", border: `1px solid ${T.line}` }}>
-      <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 14 }}>Pass the device to {seatName(to)}</div>
-      <ConfirmButton label={`I’m ${seatName(to)} — show my hand`} enabled onClick={() => dispatch({ type: "TAKE_DEVICE" })} />
+      <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 14 }}>{tr("play.pass.to", { seat: seatName(to) })}</div>
+      <ConfirmButton label={tr("play.pass.take", { seat: seatName(to) })} enabled onClick={() => dispatch({ type: "TAKE_DEVICE" })} />
     </div>
   );
 }
@@ -1374,19 +1378,19 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
           discard shows the crib-intent banner here instead, the cut-for-deal its own. */}
       {overPhase ? (
         <Panel tone="good">
-          <div style={{ fontWeight: 700, fontSize: 18 }}>{winner !== null && teamOf(winner, P, teams) === teamOf(me, P, teams) ? "You win! 🎉" : `${teamLabel(teamsList(P, teams).find((m) => m.includes(winner)) || [winner])} wins.`}</div>
-          <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>First to {targetFor(P)}. Final: {teamsList(P, teams).map((m) => `${teamLabel(m)} ${seats[m[0]].score}`).join(" · ")}</div>
+          <div style={{ fontWeight: 700, fontSize: 18 }}>{winner !== null && teamOf(winner, P, teams) === teamOf(me, P, teams) ? tr("play.win.you") : tr("play.win.team", { team: teamLabel(teamsList(P, teams).find((m) => m.includes(winner)) || [winner]) })}</div>
+          <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>{tr("play.win.final", { target: targetFor(P), scores: teamsList(P, teams).map((m) => `${teamLabel(m)} ${seats[m[0]].score}`).join(" · ") })}</div>
         </Panel>
       ) : cutdealPhase ? (
         <Panel tone={isDealer ? "good" : null}>
-          <div style={{ fontWeight: 700, fontSize: 15 }}>Cut for deal</div>
+          <div style={{ fontWeight: 700, fontSize: 15 }}>{tr("play.cutdeal.title")}</div>
           <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>
-            Lowest card deals — {isDealer ? "you deal" : `${seatName(dealerIdx)} deals`} first this game.
+            {isDealer ? tr("play.cutdeal.subYou") : tr("play.cutdeal.subSeat", { seat: seatName(dealerIdx) })}
           </div>
         </Panel>
       ) : dealPhase ? (
         <Panel tone={cribOurs ? "good" : null}>
-          <div style={{ fontWeight: 700, fontSize: 15 }}>{isDealer ? "Your deal — the crib is yours." : teammateDeals ? `${seatName(dealerIdx)} deals — your team's crib.` : `${seatName(dealerIdx)} deals — the crib is theirs.`}</div>
+          <div style={{ fontWeight: 700, fontSize: 15 }}>{isDealer ? tr("play.deal.yours") : teammateDeals ? tr("play.deal.teammate", { seat: seatName(dealerIdx) }) : tr("play.deal.theirs", { seat: seatName(dealerIdx) })}</div>
           <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>{dealBlurb(P)}</div>
         </Panel>
       ) : showPhase ? (
@@ -1407,24 +1411,24 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
         )
       ) : discardPhase ? (
         <Panel tone={cribOurs ? "good" : "red"}>
-          <div style={{ fontWeight: 700, fontSize: 15 }}>{multiHuman ? `${seatName(me)}: ` : ""}{isDealer ? "Your crib — be greedy" : teammateDeals ? `${seatName(dealerIdx)}'s crib — your team's, be greedy` : `Feeds ${seatName(dealerIdx)}'s crib — defend`}</div>
+          <div style={{ fontWeight: 700, fontSize: 15 }}>{multiHuman ? tr("play.crib.seatPrefix", { seat: seatName(me) }) : ""}{isDealer ? tr("play.crib.greedy") : teammateDeals ? tr("play.crib.teamGreedy", { seat: seatName(dealerIdx) }) : tr("play.crib.defend", { seat: seatName(dealerIdx) })}</div>
         </Panel>
       ) : cutPhase ? (
         <div style={{ background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "12px", minHeight: 88, display: "flex", alignItems: "center", justifyContent: "center", gap: 14 }}>
-          <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{me === dealerIdx ? "your crib" : `${seatName(dealerIdx)}'s crib`}</span>
+          <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{me === dealerIdx ? tr("play.cut.yourCrib") : tr("play.cut.seatCrib", { seat: seatName(dealerIdx) })}</span>
           <Fan items={backItems(crib.length)} />
         </div>
       ) : (
         <div style={{ background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "12px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14, minHeight: "var(--ch)" }}>
             <div style={{ flex: "0 0 auto", display: "flex", flexDirection: "column", alignItems: "center", padding: "4px 12px", borderRadius: 9, background: "rgba(0,0,0,0.3)", border: `1px solid ${T.line}` }}>
-              <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>pile count</span>
+              <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>{tr("play.pile.count")}</span>
               <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 28, lineHeight: 1, color: peg.count === 31 ? T.good : T.ivory }}>{peg.count}</span>
             </div>
             <div style={{ flex: "1 1 auto", minWidth: 0, overflow: "hidden", display: "flex", justifyContent: "center" }}>
               {peg.pileSuited.length
                 ? <PileFan cards={peg.pileSuited} />
-                : <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>cleared — new count from 0</span>}
+                : <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{tr("play.pile.cleared")}</span>}
             </div>
           </div>
         </div>
@@ -1433,7 +1437,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
       {overPhase ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <SkunkPanel seats={seats} winner={winner} P={P} teams={teams} />
-          {bigBtn("Play again", () => dispatch({ type: "PLAY_AGAIN" }), "good")}
+          {bigBtn(tr("play.btn.playAgain"), () => dispatch({ type: "PLAY_AGAIN" }), "good")}
         </div>
       ) : showPhase ? (
         needClaim ? (
@@ -1463,12 +1467,12 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
                 you claimed {state.show.claimValue}{state.show.claimValue < info.total ? ` · missed ${info.total - state.show.claimValue}` : state.show.claimValue > info.total ? " · over-claim, corrected down" : " · spot on"}
               </div>
             )}
-            {bigBtn("Continue", () => dispatch({ type: "SHOW_NEXT" }), "wood")}
+            {bigBtn(tr("play.btn.continue"), () => dispatch({ type: "SHOW_NEXT" }), "wood")}
           </div>
         )
       ) : preDeal ? (
         settings.autoDeal
-          ? <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" }}>Dealing…</div>
+          ? <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" }}>{tr("play.btn.dealing")}</div>
           : (<div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {dealPhase && (
                 <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, lineHeight: 1.7, textAlign: "center" }}>
@@ -1478,14 +1482,14 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
                   <span> — tap ⚙ to change</span>
                 </div>
               )}
-              {bigBtn(isDealer ? window.t("play.deal") : `${window.t("play.deal")} (${seatName(dealerIdx)}'s crib)`, () => dispatch({ type: "DEAL" }), "wood")}
+              {bigBtn(isDealer ? tr("play.deal") : tr("play.dealCrib", { seat: seatName(dealerIdx) }), () => dispatch({ type: "DEAL" }), "wood")}
             </div>)
       ) : cutPhase ? (
         // Auto-cut skips this phase entirely; when it's off, a human cutter taps to cut,
         // while a bot cutter just does it (announced here, advanced on a timer).
         seatIsHuman(cutter, settings)
-          ? bigBtn(`Cut the deck for ${seatName(dealerIdx)}`, () => dispatch({ type: "CUT" }), "wood")
-          : <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" }}>{seatName(cutter)} cuts for the starter…</div>
+          ? bigBtn(tr("play.btn.cutFor", { seat: seatName(dealerIdx) }), () => dispatch({ type: "CUT" }), "wood")
+          : <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" }}>{tr("play.cutMsg", { seat: seatName(cutter) })}</div>
       ) : needHandoff ? <PassPanel to={discardPhase ? me : peg.turn} dispatch={dispatch} /> : (
       <div>
         {pending && (discardPhase
@@ -1500,21 +1504,21 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
               width: "100%", padding: "12px", borderRadius: 10, border: "none", cursor: "pointer",
               background: `linear-gradient(180deg, ${T.pegRed}, #9c3120)`, color: T.ivory,
               fontSize: 15, fontWeight: 700, letterSpacing: 0.3, boxShadow: "0 4px 12px rgba(0,0,0,0.35)",
-            }}>Say "Go" — no legal card</button>;
+            }}>{tr("play.go")}</button>;
           } else if (myTurn && meHuman && tapSelect) {
             // The confirm button doubles as the prompt: disabled "Tap a card…" until a full
             // selection is made, then it enables and reads "Throw to crib" / "Play".
             const ready = sel.length === count && sel.every((i) => isLegal(yourHand[i]));
             const label = discardPhase
-              ? (ready ? "Throw to crib" : sel.length === 0 ? (count === 2 ? "Tap two cards to throw" : "Tap a card to throw") : "Tap one more card")
-              : (ready ? "Play" : "Tap a card to play");
+              ? (ready ? tr("play.throw") : sel.length === 0 ? (count === 2 ? tr("play.tapTwo") : tr("play.tapOne")) : tr("play.tapMore"))
+              : (ready ? tr("play.playCard") : tr("play.tapPlay"));
             el = <ConfirmButton label={label} enabled={ready} onClick={() => { const idxs = sel; setSel([]); commit(idxs); }} />;
           } else {
             const txt = (myTurn && meHuman)                                  // non-tap mode, your turn
-              ? (discardPhase ? "Tap a card to throw" : "Your turn — tap a card to play.")
+              ? (discardPhase ? tr("play.tapOne") : tr("play.yourTurnPlay"))
               : peg ? (peg.turn === me
-                  ? (yourHand.length === 0 ? `${poss(me)} cards are all played.` : `${seatName(me)} to play…`)
-                  : `${seatName(peg.turn)} to play…`)
+                  ? (yourHand.length === 0 ? (seatName(me) === "You" ? tr("play.allPlayed.you") : tr("play.allPlayed.seat", { seat: seatName(me) })) : tr("play.toPlay", { seat: seatName(me) }))
+                  : tr("play.toPlay", { seat: seatName(peg.turn) }))
               : "";
             el = <div style={{ fontFamily: mono, fontSize: 11.5, color: (myTurn || stuck) ? T.selBlue : T.muted, textAlign: "center", lineHeight: 1.4 }}>{txt}</div>;
           }

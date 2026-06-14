@@ -303,6 +303,9 @@ node engine/verify_play.js      # play.html: evals the built consolidated reduce
                                 #   at every table size P=2..6 — deal/crib/starter, go/31/last-card,
                                 #   his-heels +2, the 121 show short-circuit, the skip-discard paths,
                                 #   gameRecord history buckets, + mixed human/bot (hot-seat) games
+node engine/verify_i18n.js      # i18n key-parity: every t()/data-i18n key referenced in src/
+                                #   exists in locales/en.js, no stray/typo keys in a translation,
+                                #   index.js languages all have files. RUN BY ./build.sh (fails build).
 ```
 If you change `scoreInto`, re-run breakdown/pegging tests AND re-check the crib
 swing table above before trusting `analyze()`. If you touch `cribDetail`,
@@ -337,12 +340,18 @@ network, working identically online and offline in the APK. **Architecture:**
 - **Usage:** static HTML uses `data-i18n="key"` (plain text), `data-i18n-html="key"` (rich
   inline markup — the rules), `data-i18n-aria="key"` (aria-label); a small pass on load
   applies all three. JS-generated text calls a `tr()` alias (= `window.t`, key-fallback);
-  React uses `window.t("key")`. **Extracted so far: the entire landing page** (`src/landing.html`
-  — header, rules, nav, settings + about popups, seat diagram, team labels, with interpolation
-  like `landing.seatAria`/`landing.tableTeams`) plus the play game's Deal button. The play game
-  and trainer are otherwise still hard-coded English — extracting those screens is the
-  remaining follow-up. `es.js` translates the landing UI but omits the rules prose, exercising
-  the English fallback.
+  React uses a module-level **`tr(k, v)`** helper (= `window.t`, key-fallback) — kept in the
+  **render only, never the reducer**, so `verify_play.js` (which exercises the reducer, not the
+  render) needs no `window` shim. **Extracted so far: the entire landing page** (`src/landing.html`)
+  **and the play game's PlayScreen** (`src/CribbagePlay.jsx` — buttons, the action-slot
+  prompts/labels, cut-for-deal / deal / crib-intent / cut / win banners, pile labels, the pass
+  panel; with interpolation like `play.toPlay`/`play.win.final`). Still English: the play game's
+  **settings panel, the show/scoring body, history & about modals, skunk panel, and reducer
+  messages** (the latter would need a `window.t` shim in `verify_play.js`), plus the **trainer**.
+  `es.js` translates these; the rules prose is omitted to exercise the English fallback.
+- **Key-parity lint:** `engine/verify_i18n.js` (run by `./build.sh`, fails the build) flags any
+  referenced key missing from `en.js` (renders as the raw key — the "play.deal" bug), any
+  stray/typo key in a translation, and `index.js` languages without a file.
 - The name-guard tolerates `window.t(...)` (property access, not an undefined name), and
   `verify_play.js` is unaffected (it evals the reducer, never the render).
 

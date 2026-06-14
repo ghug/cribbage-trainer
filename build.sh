@@ -108,3 +108,7 @@ for f in index.html trainer.html play.html; do
   sed -i "s/__APP_VERSION__/${VERSION}/g" "$ROOT/$f"
 done
 echo "stamped version v${VERSION}"
+
+# i18n key-parity lint: fail the build if any referenced key is missing from en.js (it would
+# otherwise render as the raw key), or a translation has a stray/typo'd key.
+node "$ROOT/engine/verify_i18n.js"

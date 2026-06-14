@@ -360,11 +360,16 @@ network, working identically online and offline in the APK. **Architecture:**
   getting its own module-level `tr`): the settings panel (size line, role/practice-as options,
   auto-pick), card-picker modal, header (home/settings aria + table-size descriptor + stats),
   the scenario banner, the choose-prompt, the mode labels, the analysis table column headers, and
-  the Deal custom/random buttons — reusing `settings.*`/`about.*`/`common.done` where shared.
-  Still English: the play game's **reducer messages** (the `message` banner + the stored `h.label`
-  values — needs care to keep `h.label` a stable English categorization key while translating display)
-  and the **trainer's analysis prose** (`buildNote`, the per-row `Explain` reasons, the
-  pegging-shape strings, and the board-position/crib-model panel bodies).
+  the Deal custom/random buttons — reusing `settings.*`/`about.*`/`common.done` where shared. The
+  **trainer's analysis prose** is now extracted too (`trainer.cat.*`/`trainer.ex.*`/`trainer.note.*`/
+  `trainer.board.*`/`trainer.model.*`): the scoring-category names (a shared `catName(i)` feeds both
+  `CatBars` and `dominant`, retiring the old `CATS` array), the per-row `Explain` blocks (hand/crib/
+  pegging headers + bodies, the spread/adj component lines, the footer), `buildNote`'s best-line and
+  off-best verdicts, and the board-position + crib-model panel bodies (the latter keeps its inline
+  `<b>` by translating the segments around the bold spans). The whole trainer is now localized.
+  Still English: only the play game's **reducer messages** (the `message` banner + the stored
+  `h.label` values — needs care to keep `h.label` a stable English categorization key, used by
+  `gameRecord` + `verify_play.js`, while translating only the display).
   `es.js` translates these; the rules prose is omitted to exercise the English fallback.
 - **Key-parity lint:** `engine/verify_i18n.js` (run by `./build.sh`, fails the build) flags any
   referenced key missing from `en.js` (renders as the raw key — the "play.deal" bug), any

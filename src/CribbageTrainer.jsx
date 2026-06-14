@@ -293,8 +293,6 @@ const T = {
   good: "#5FA47C", goodDeep: "#3F7E5E", selBlue: "#5B95C2",
 };
 const SUIT = ["♠", "♥", "♦", "♣"];
-const MODE_LABEL_X = { need: "chase points", protect: "protect lead" };
-const CATS = ["fifteens", "pairs", "runs", "flush", "nobs"];
 const isRed = (s) => s === 1 || s === 2;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -303,6 +301,9 @@ const serif = "'Hoefler Text', 'Iowan Old Style', Georgia, 'Times New Roman', se
 // Render-only i18n helper (= window.t with key-fallback). Safe when window is absent
 // (the engine/verify_*.js harnesses run the pure functions in Node) — returns the key.
 const tr = (k, v) => (typeof window !== "undefined" && window.t) ? window.t(k, v) : k;
+// Scoring-category display names, in scoreInto's acc order: 15s/pairs/runs/flush/nobs.
+const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
+const catName = (i) => tr(CAT_KEYS[i]);
 
 function randomHand(count = 5) {
   const deck = deckExcluding([]);
@@ -391,7 +392,7 @@ function CatBars({ cats, scale, color }) {
       {cats.map((v, i) =>
         v < 0.005 ? null : (
           <div key={i} style={{ display: "grid", gridTemplateColumns: "58px 1fr 44px", gap: 8, alignItems: "center" }}>
-            <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{CATS[i]}</span>
+            <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{catName(i)}</span>
             <span style={{ height: 7, background: "rgba(0,0,0,0.28)", borderRadius: 4, overflow: "hidden" }}>
               <span style={{ display: "block", height: "100%", width: `${(v / max) * 100}%`, background: color }} />
             </span>
@@ -406,7 +407,7 @@ function CatBars({ cats, scale, color }) {
 function dominant(cats) {
   let bi = 0;
   for (let i = 1; i < cats.length; i++) if (cats[i] > cats[bi]) bi = i;
-  return cats[bi] > 0.01 ? CATS[bi] : "spread-out points";
+  return cats[bi] > 0.01 ? catName(bi) : tr("trainer.cat.spread");
 }
 
 /* ---- the per-discard explanation ---- */
@@ -414,58 +415,55 @@ function Explain({ opt, cribIsOurs, youDeal, mode, players = 4 }) {
   const h = opt.hand, cr = opt.crib, pg = opt.peg;
   const topStr = h.top.map((c) => `${rankLabel(c.r)}→${c.avg.toFixed(1)}`).join("   ");
   const pegWhy = pg.ev >= 3.6
-    ? "Low, connected cards peg well — flexible counts and pairing/run chances."
+    ? tr("trainer.ex.pegHigh")
     : pg.ev <= 2.6
-      ? "Awkward pegging shape — stiff high cards or a lonely 5 give you little to work with."
-      : "Middling pegging potential.";
+      ? tr("trainer.ex.pegLow")
+      : tr("trainer.ex.pegMid");
   return (
     <div style={{ padding: "12px 12px 14px", background: "rgba(0,0,0,0.26)", borderRadius: 9, marginTop: 6, lineHeight: 1.5 }}>
       {/* HAND */}
       <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 }}>
-        KEPT HAND — averages {h.ev.toFixed(2)} over all {players === 2 ? 46 : 47} cuts
+        {tr("trainer.ex.handHdr", { ev: h.ev.toFixed(2), cuts: players === 2 ? 46 : 47 })}
       </div>
       <div style={{ fontSize: 13.5, marginBottom: 8 }}>
-        {h.locked.toFixed(0)} locked in already, +{h.fromCut.toFixed(2)} on average from the cut.
-        Points are mostly {dominant(h.cats)}.
+        {tr("trainer.ex.handBody", { locked: h.locked.toFixed(0), fromCut: h.fromCut.toFixed(2), cat: dominant(h.cats) })}
       </div>
       <CatBars cats={h.cats} scale={h.ev} color={T.good} />
       <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 8 }}>
-        best cuts (rank → avg total):&nbsp; <span style={{ color: T.cream }}>{topStr}</span>
+        {tr("trainer.ex.bestCuts")}&nbsp; <span style={{ color: T.cream }}>{topStr}</span>
       </div>
 
       {/* CRIB */}
       <div style={{ height: 1, background: T.line, margin: "13px 0" }} />
       <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 }}>
-        CRIB — your {opt.cards.map(tag).join(" + ")} average{opt.cards.length > 1 ? "" : "s"} {cr.ev.toFixed(2)} {cribIsOurs ? "FOR you" : "AGAINST you"}
+        {tr(opt.cards.length > 1 ? "trainer.ex.cribHdrTwo" : "trainer.ex.cribHdrOne", { cards: opt.cards.map(tag).join(" + "), ev: cr.ev.toFixed(2), dir: cribIsOurs ? tr("trainer.ex.forYou") : tr("trainer.ex.againstYou") })}
       </div>
       <div style={{ fontSize: 13.5, marginBottom: 8 }}>
-        Lands points in {(cr.hitRate * 100).toFixed(0)}% of random cribs, mostly via {dominant(cr.cats)}.
-        {cribIsOurs ? " Added to your side's score." : " Handed to the opposing crib, so subtracted from yours."}
+        {tr("trainer.ex.cribBody", { pct: (cr.hitRate * 100).toFixed(0), cat: dominant(cr.cats) })}
+        {cribIsOurs ? tr("trainer.ex.cribOurs") : tr("trainer.ex.cribTheirs")}
       </div>
       <CatBars cats={cr.cats} scale={cr.ev} color={cribIsOurs ? T.good : T.pegRed} />
 
       {/* PEGGING */}
       <div style={{ height: 1, background: T.line, margin: "13px 0" }} />
       <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 }}>
-        PEGGING — these four average {pg.ev.toFixed(2)} in play {youDeal ? "(you peg last — best seat)" : ""}
+        {tr("trainer.ex.pegHdr", { ev: pg.ev.toFixed(2), seat: youDeal ? tr("trainer.ex.pegLast") : "" })}
       </div>
       <div style={{ fontSize: 13.5, marginBottom: 4 }}>{pegWhy}</div>
 
       {/* SPREAD + COMPONENTS */}
       <div style={{ height: 1, background: T.line, margin: "13px 0" }} />
       <div style={{ fontFamily: mono, fontSize: 11, color: T.cream, lineHeight: 1.7 }}>
-        <div>hand {h.ev.toFixed(2)} &nbsp; crib {cribIsOurs ? "+" : "−"}{cr.ev.toFixed(2)} &nbsp; peg +{pg.ev.toFixed(2)} &nbsp;→&nbsp; <b>net {opt.netEV.toFixed(2)}</b></div>
-        <div style={{ color: T.muted }}>spread σ {opt.sd.toFixed(2)} &nbsp; range {h.mn}–{h.mx} &nbsp; typical {h.p10}–{h.p90} (hand only)</div>
+        <div>{tr("trainer.tbl.hand")} {h.ev.toFixed(2)} &nbsp; {tr("trainer.tbl.crib")} {cribIsOurs ? "+" : "−"}{cr.ev.toFixed(2)} &nbsp; {tr("trainer.tbl.peg")} +{pg.ev.toFixed(2)} &nbsp;→&nbsp; <b>{tr("trainer.ex.net", { v: opt.netEV.toFixed(2) })}</b></div>
+        <div style={{ color: T.muted }}>{tr("trainer.ex.spread", { sd: opt.sd.toFixed(2), mn: h.mn, mx: h.mx, p10: h.p10, p90: h.p90 })}</div>
         {mode !== "ev" && (
           <div style={{ color: mode === "need" ? T.good : T.pegRed }}>
-            {MODE_LABEL_X[mode]}: net {mode === "need" ? "+" : "−"} {RISK}·σ → adj {opt.adj.toFixed(2)}
+            {tr("trainer.ex.adjLine", { mode: tr(mode === "need" ? "trainer.mode.need" : "trainer.mode.protect"), sign: mode === "need" ? "+" : "−", risk: RISK, adj: opt.adj.toFixed(2) })}
           </div>
         )}
       </div>
       <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, marginTop: 10, lineHeight: 1.5 }}>
-        Crib uses role-split discard models{players === 3 ? " plus one card dealt straight off the deck" : ""}; pegging
-        simulates {players}-handed play from your seat
-        ({youDeal ? "dealer, last to play" : "a non-dealer seat"}) against greedy opponents.
+        {tr("trainer.ex.footer", { deck: players === 3 ? tr("trainer.ex.footerDeck") : "", p: players, seat: youDeal ? tr("trainer.ex.seatDealer") : tr("trainer.ex.seatNon") })}
       </div>
     </div>
   );
@@ -481,19 +479,21 @@ function buildNote(cribIsOurs, best, chosen) {
   const allHigh = best.cards.every((c) => c.r >= 11 && c.r <= 13);
   if (optimal) {
     if (cribIsOurs) {
-      if (bestHas5) return "Best line. A 5 in your side's crib is gold — it pairs with every ten-card for fifteens.";
-      return "Best line — you keep your strongest four and the throwaway lands in your side's crib anyway.";
+      if (bestHas5) return tr("trainer.note.bestOurs5");
+      return tr("trainer.note.bestOurs");
     }
-    if (bestHas5) return "Best available, though even your safest throw includes a 5 here — sometimes unavoidable.";
-    if (allHigh) return "Best line. High cards can't stretch into long runs, so they're the cheapest gift to the opponents.";
-    return `Best line — you ${multi ? "shed your loners" : "shed a loner"} and starve the opponents' crib.`;
+    if (bestHas5) return tr("trainer.note.bestTheirs5");
+    if (allHigh) return tr("trainer.note.bestTheirsHigh");
+    return multi ? tr("trainer.note.bestTheirsMulti") : tr("trainer.note.bestTheirsOne");
   }
   const delta = best.adj - chosen.adj;
   if (!cribIsOurs && chosen.cards.some((c) => c.r === 5) && !bestHas5)
-    return `You fed the opponents a 5 — the richest crib card (~${chosen.cribEV.toFixed(1)} pts to them). On defense, almost never do this. Throw ${phrase} instead (−${delta.toFixed(2)}).`;
+    return tr("trainer.note.fed5", { cribEV: chosen.cribEV.toFixed(1), phrase, delta: delta.toFixed(2) });
   if (chosen.handEV > best.handEV)
-    return `You kept more hand points, but the crib swing more than canceled it. ${multi ? phrase : "The " + bestLabel} is better by ${delta.toFixed(2)}.`;
-  return `Close, but ${phrase} edges it by ${delta.toFixed(2)} expected points.`;
+    return multi
+      ? tr("trainer.note.handMoreMulti", { phrase, delta: delta.toFixed(2) })
+      : tr("trainer.note.handMoreOne", { label: bestLabel, delta: delta.toFixed(2) });
+  return tr("trainer.note.close", { phrase, delta: delta.toFixed(2) });
 }
 
 // Settings menu. Hosts the trainer's configuration — table size and the role you
@@ -982,19 +982,17 @@ export default function CribbageTrainer() {
               border: `1px solid ${mode === "ev" ? T.line : (mode === "need" ? "rgba(95,164,124,0.5)" : "rgba(200,65,43,0.45)")}`,
               color: T.cream, fontFamily: mono, fontSize: 11.5, display: "flex", justifyContent: "space-between", alignItems: "center",
             }}>
-              <span>board position — {MODE_LABEL[mode]}{modeOverride ? " (manual)" : " (auto)"}</span>
+              <span>{tr("trainer.board.toggle", { mode: MODE_LABEL[mode], state: modeOverride ? tr("trainer.board.stManual") : tr("trainer.board.stAuto") })}</span>
               <span style={{ transform: showBoard ? "rotate(90deg)" : "none", transition: "transform 150ms" }}>{"›"}</span>
             </button>
             {showBoard && (
               <div style={{ padding: "12px 12px 14px", background: "rgba(0,0,0,0.26)", borderRadius: 9, marginTop: 6 }}>
                 <div style={{ fontSize: 13, lineHeight: 1.5, marginBottom: 12 }}>
-                  Enter the pips (game to 121). The recommendation re-ranks: chase upside when you're
-                  behind and someone's near out, or play safe and defend the crib harder when protecting
-                  a lead. Leave at 0 for a neutral, max-EV game.
+                  {tr("trainer.board.body")}
                 </div>
                 <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
-                  {[["your pips", yourPips, setYourPips], ["leader's pips", leaderPips, setLeaderPips]].map(([lbl, val, set]) => (
-                    <label key={lbl} style={{ flex: 1, fontFamily: mono, fontSize: 11, color: T.muted }}>
+                  {[["your", tr("trainer.board.yourPips"), yourPips, setYourPips], ["leader", tr("trainer.board.leaderPips"), leaderPips, setLeaderPips]].map(([id, lbl, val, set]) => (
+                    <label key={id} style={{ flex: 1, fontFamily: mono, fontSize: 11, color: T.muted }}>
                       {lbl}
                       <input type="number" min={0} max={120} value={val}
                         onChange={(e) => set(Math.max(0, Math.min(120, parseInt(e.target.value || "0", 10))))}
@@ -1008,13 +1006,13 @@ export default function CribbageTrainer() {
                 </div>
                 <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 10 }}>
                   {yourPips || leaderPips
-                    ? `you need ${Math.max(0, 121 - yourPips)} to peg out · leader needs ${Math.max(0, 121 - leaderPips)} · auto-suggests ${MODE_LABEL[suggested]}`
-                    : "no score entered — neutral game"}
+                    ? tr("trainer.board.need", { you: Math.max(0, 121 - yourPips), leader: Math.max(0, 121 - leaderPips), mode: MODE_LABEL[suggested] })
+                    : tr("trainer.board.neutral")}
                 </div>
                 <div style={{ display: "flex", gap: 6 }}>
                   {[["auto", null], ["ev", "ev"], ["need", "need"], ["protect", "protect"]].map(([lbl, val]) => {
                     const on = val === modeOverride;
-                    const txt = val === null ? "Auto" : MODE_LABEL[val];
+                    const txt = val === null ? tr("trainer.board.auto") : MODE_LABEL[val];
                     return (
                       <button key={lbl} onClick={() => setModeOverride(val)} style={{
                         flex: 1, padding: "9px 4px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: 10.5,
@@ -1025,8 +1023,7 @@ export default function CribbageTrainer() {
                   })}
                 </div>
                 <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 8, lineHeight: 1.5 }}>
-                  A heuristic risk posture, not a full win-probability solve: chase = net + {RISK}·σ
-                  (reward upside); protect = net − {RISK}·σ and defend the crib ~30% harder.
+                  {tr("trainer.board.risk", { risk: RISK })}
                 </div>
               </div>
             )}
@@ -1038,33 +1035,31 @@ export default function CribbageTrainer() {
               background: "rgba(0,0,0,0.2)", border: `1px solid ${T.line}`, color: T.cream,
               fontFamily: mono, fontSize: 11.5, display: "flex", justifyContent: "space-between", alignItems: "center",
             }}>
-              <span>crib model — role-split discards (passes 2-3 avg)</span>
+              <span>{tr("trainer.model.toggle")}</span>
               <span style={{ transform: showModel ? "rotate(90deg)" : "none", transition: "transform 150ms" }}>{"›"}</span>
             </button>
             {showModel && (
               <div style={{ padding: "12px 12px 14px", background: "rgba(0,0,0,0.26)", borderRadius: 9, marginTop: 6 }}>
                 <div style={{ fontSize: 13, lineHeight: 1.5, marginBottom: 12 }}>
-                  How often each rank is thrown, from a fixed-point self-play calibration
-                  (10,000 hands/pass). Two behaviors: <b>dealers</b> feed their own crib, <b>defenders</b>
-                  surrender junk to an opponent's.{" "}
+                  {tr("trainer.model.introA")}<b>{tr("trainer.model.dealers")}</b>{tr("trainer.model.introMid")}<b>{tr("trainer.model.defenders")}</b>{tr("trainer.model.introB")}{" "}
                   {isTeams
-                    ? `With ${teams} teams, the dealer's crib is fed by their whole side — a thrower on the dealer's team feeds it (dealer-intent), opponents surrender junk (defender-intent). When the crib is on your team you throw greedily; when it's the opponents', you defend. The mix shifts with who deals and team sizes.`
+                    ? tr("trainer.model.teams", { teams })
                     : players === 2
-                    ? "Heads-up, the crib is your two discards + the opponent's two — defender throws when you deal, the dealer's own throws when you defend."
+                    ? tr("trainer.model.heads")
                     : players === 3
-                    ? "Your crib draws two defender throws plus one card dealt off the deck; when you defend, the dealer's crib draws one dealer + one defender throw plus one deck card."
+                    ? tr("trainer.model.three")
                     : players >= 5
-                    ? "You always defend: the dealer is dealt four and throws none, so the dealer's crib is four defender throws (yours + three others) — no dealer salt, so it runs a touch leaner than a 4-handed crib."
-                    : "Your crib draws three defender throws; when you defend, the dealer's crib draws one dealer + two defender throws."}
-                  {" "}The cut stays uniform.
+                    ? tr("trainer.model.five")
+                    : tr("trainer.model.four")}
+                  {" "}{tr("trainer.model.cutUniform")}
                   {players !== 4 && (
-                    <span style={{ color: T.muted }}> &nbsp;({players}-handed reuses the 4-handed discard model — a close approximation, since how players dump junk barely shifts with table size.)</span>
+                    <span style={{ color: T.muted }}> &nbsp;{tr("trainer.model.reuse", { p: players })}</span>
                   )}
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "16px 1fr 1fr", gap: 6, alignItems: "center", marginBottom: 6 }}>
                   <span></span>
-                  <span style={{ fontFamily: mono, fontSize: 10, color: T.good }}>DEALER → own crib</span>
-                  <span style={{ fontFamily: mono, fontSize: 10, color: T.pegRed }}>DEFENDER → opp crib</span>
+                  <span style={{ fontFamily: mono, fontSize: 10, color: T.good }}>{tr("trainer.model.dealerCol")}</span>
+                  <span style={{ fontFamily: mono, fontSize: 10, color: T.pegRed }}>{tr("trainer.model.defenderCol")}</span>
                 </div>
                 {DEALER_DISCARD_PROBS.map((dp, i) => {
                   const r = i + 1;

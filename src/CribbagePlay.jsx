@@ -945,14 +945,12 @@ export default function CribbagePlay() {
     phase === "discard" ? (state.discardSeat != null && state.holder !== state.discardSeat)
     : (phase === "play" && peg) ? (seatIsHuman(peg.turn, settings) && state.holder !== peg.turn && peg.hands[peg.turn].length > 0)
     : false);
-  // Header descriptor — one uniform pattern for every size / team / human-bot mix:
-  //   "<P>-handed · <composition> · <make-up>"
-  const nH = nHumans(players, settings), nB = players - nH;
-  const compStr = teams < players ? `${teams} teams of ${players / teams}` : "individual";
-  const mixStr = nB === 0
-    ? `${nH} human${nH === 1 ? "" : "s"}`
-    : `${nH} human${nH === 1 ? "" : "s"} + ${nB} bot${nB === 1 ? "" : "s"}`;
-  const headLine = `${players}-handed · ${compStr} · ${mixStr}`;
+  // Header descriptor: "<P>-handed, <composition>[, <N> bot(s)]" — composition is
+  // "individual", "teams" (two), or "<N> teams"; the bot count is shown only when any.
+  const nB = players - nHumans(players, settings);
+  const compStr = teams >= players ? "individual" : teams === 2 ? "teams" : `${teams} teams`;
+  const botStr = nB > 0 ? `, ${nB} bot${nB === 1 ? "" : "s"}` : "";
+  const headLine = `${players}-handed, ${compStr}${botStr}`;
 
   // Record each finished game once (when the board reaches "over" with a winner).
   const recordedRef = React.useRef(false);

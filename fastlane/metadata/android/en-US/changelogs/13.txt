@@ -1,0 +1,6 @@
+New in 1.1.9:
+- Auto-cut for the starter is now on by default and happens in the background — straight from the deal to the play
+- The starter sits face up on a visible deck in the centre, and everyone's cards stay on the table through the show and game over
+- Cleaner play screen: tighter spacing, a clearer one-line header, and the action button doubles as its own prompt ("Tap a card to play" → "Play")
+- Colour-blind-safe team colours on the table picker
+- Lots of spectating and hot-seat polish (no more bots called "You", correct face-down card counts, a better-fitting play pile)

@@ -12,19 +12,6 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 
-# The i18n head, INLINED into the HTML: the runtime + language list + English catalogue go
-# straight into the page so the critical translation path needs no external fetch. This is what
-# makes it work identically whether the site is served at the root (Cloudflare workers.dev),
-# under a /<repo>/ subpath (GitHub Pages — relative src="i18n.js" otherwise mis-resolves there),
-# or from file:// in the APK. Only non-English locale files still load externally (via
-# i18nBootstrap, which derives their path from location). No locale string contains "</script>".
-i18n_head() {
-  printf '<script>\n'; cat "$ROOT/i18n.js";          printf '\n</script>\n'
-  printf '<script>\n'; cat "$ROOT/locales/index.js"; printf '\n</script>\n'
-  printf '<script>\n'; cat "$ROOT/locales/en.js";    printf '\n</script>\n'
-  printf '<script>window.i18nBootstrap&&i18nBootstrap();</script>\n'
-}
-
 # build_one <src.jsx> <out.html> <title> <ComponentName>
 # Transpiles a single self-contained React component into a standalone HTML page.
 build_one() {
@@ -82,9 +69,10 @@ build_one() {
 <style>html,body{margin:0;background:#0f2417;min-height:100%}#root{min-height:100vh}</style>
 <script src="vendor/react.production.min.js"></script>
 <script src="vendor/react-dom.production.min.js"></script>
-HTML
-  i18n_head
-  cat <<HTML
+<script src="i18n.js"></script>
+<script src="locales/index.js"></script>
+<script src="locales/en.js"></script>
+<script>window.i18nBootstrap&&i18nBootstrap();</script>
 </head>
 <body>
 ${HOMEHTML}
@@ -104,18 +92,9 @@ HTML
   echo "built $OUT ($(wc -l < "$ROOT/$OUT") lines)"
 }
 
-# Landing page is plain static HTML. Copy it, but splice the inlined i18n head in place of its
-# external <script src="i18n.js">…<i18nBootstrap()> block (src/landing.html keeps the external
-# tags so it still works opened directly; the deployed index.html gets the inlined, subpath-safe
-# version). The block runs from the i18n.js line through the i18nBootstrap() line.
-I18N_TMP="$(mktemp)"; i18n_head > "$I18N_TMP"
-awk -v hf="$I18N_TMP" '
-  index($0, "<script src=\"i18n.js\">") { while ((getline l < hf) > 0) print l; close(hf); blk=1; next }
-  blk { if (index($0, "i18nBootstrap()")) blk=0; next }
-  { print }
-' "$ROOT/src/landing.html" > "$ROOT/index.html"
-rm -f "$I18N_TMP"
-echo "built index.html (landing, i18n head inlined)"
+# Landing page is plain static HTML — no transpile, just copy.
+cp "$ROOT/src/landing.html" "$ROOT/index.html"
+echo "built index.html (landing, copied from src/landing.html)"
 
 # Both apps render their own Home button in their header, so neither uses the shell link.
 build_one "src/CribbageTrainer.jsx" "trainer.html" "Cribbage Discard Trainer" "CribbageTrainer" "no"

@@ -36,13 +36,7 @@
   // file so every t() during the first render already has its translations.
   window.i18nBootstrap = function () {
     var c = (current || "en").replace(/[^a-z0-9-]/gi, "");   // sanitize before injecting
-    // Resolve the locale file against the current page's directory, not a bare relative path,
-    // so it loads the same whether the site is served at the root (Cloudflare), under a
-    // /<repo>/ subpath (GitHub Pages), or from file:// (the APK). en is inlined, never fetched.
-    if (c && c !== "en") {
-      var base = (location && location.pathname ? location.pathname : "/").replace(/[^/]*$/, "");
-      document.write('<script src="' + base + 'locales/' + c + '.js"><\/script>');
-    }
+    if (c && c !== "en") document.write('<script src="locales/' + c + '.js"><\/script>');
   };
 
   function lookup(key) {

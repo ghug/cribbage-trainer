@@ -327,7 +327,7 @@ network, working identically online and offline in the APK. **Architecture:**
 - **`locales/<code>.js`** — one self-registering file per language, each calling
   `cribbageLocale("<code>", { key: "phrase", ... })`. **`locales/en.js` is the source of
   truth and the fallback** for any missing key (so partial translations never blank out).
-  `locales/index.js` lists the available languages. A sample `locales/es.js` is included.
+  `locales/index.js` lists the available languages. A complete `locales/es.js` (Spanish) is included.
 - **Loading is `<script>`-only** (like vendored React) — no `fetch` (blocked for `file://`
   in the no-INTERNET WebView). Each page's `<head>` loads `i18n.js` → `locales/index.js` →
   `locales/en.js` → then `i18nBootstrap()` **`document.write`s the active non-English file
@@ -383,7 +383,8 @@ network, working identically online and offline in the APK. **Architecture:**
   identity checks use `isYou(i)` (`SEAT_NAMES[i] === "You"`), never the translated display — while
   `seatName`/`seatShort` (play) and the landing's `seatNames` map the canonical name through `seat.*`
   for display. Spanish uses Norte/Sur/Este/**Oeste** and NO/NE/SO/SE (W→O, NW→NO, SW→SO).
-  `es.js` translates everything above; the rules prose is omitted to exercise the English fallback.
+  `es.js` translates everything above, including the rules prose (a complete Spanish locale; the
+  English-fallback path still works for any key a partial future locale omits).
 - **Key-parity lint:** `engine/verify_i18n.js` (run by `./build.sh`, fails the build) flags any
   referenced key missing from `en.js` (renders as the raw key — the "play.deal" bug), any
   stray/typo key in a translation, and `index.js` languages without a file.

@@ -1,6 +1,6 @@
-/* Español — sample translation. Mirrors the keys in locales/en.js; the rules prose is left
- * out on purpose to show the English fallback in action for any untranslated key.
- * Note: the game is "Cribbage" (kept), but the extra hand "the crib" = "la cuna" (feminine).
+/* Español — full translation. Mirrors the keys in locales/en.js (any key it omits falls back
+ * to English here). Note: the game is "Cribbage" (kept), but the extra hand "the crib" = "la
+ * cuna" (feminine); keep the inline <b>/<span> markup in the rules.* values when translating.
  */
 cribbageLocale("es", {
   "common.done": "Listo",
@@ -309,5 +309,25 @@ cribbageLocale("es", {
   "trainer.model.dealerCol": "REPARTIDOR → su cuna",
   "trainer.model.defenderCol": "DEFENSOR → cuna rival",
 
-  "rules.summary": "Cómo jugar — reglas básicas"
+  "rules.summary": "Cómo jugar — reglas básicas",
+  "rules.goal.h": "El objetivo",
+  "rules.goal.p": "Sé el primero en anotar <b>121 puntos</b> a lo largo de varios repartos. Anotas tanto durante el juego como al contar las manos (“el conteo”). El reparto pasa un asiento cada mano.",
+  "rules.deal.h": "El reparto y la cuna",
+  "rules.deal.p": "A cada jugador se le reparte una mano pequeña y tira una carta (dos, mano a mano) a la <b>cuna</b> — una mano extra que pertenece al <b>repartidor</b>. La cuna siempre tiene cuatro cartas y se cuenta, con la carta de inicio, como cualquier otra mano. Cuántas cartas se reparten y quién tira depende del número de jugadores — cada partida aquí lo configura por ti.",
+  "rules.cut.h": "El corte — la carta de inicio",
+  "rules.cut.p": "Tras los tiros, se corta la baraja para voltear una <b>carta de inicio</b>. La comparten todas las manos y la cuna al contar. Si la carta de inicio es una <b>jota</b>, el repartidor anota <b>2</b> al instante (“his heels”).",
+  "rules.play.h": "El juego (pegging)",
+  "rules.play.p": "Los jugadores se turnan para poner una carta boca arriba, diciendo el total en voz alta. La cuenta nunca puede pasar de <b>31</b>; si no puedes jugar sin pasarte, dices <b>“Go.”</b> Anota al poner las cartas:",
+  "rules.play.li1": "Deja la cuenta justo en <b>15</b> → 2 · justo en <b>31</b> → 2",
+  "rules.play.li2": "<b>Emparejar</b> la carta anterior → 2 (trío → 6, cuatro → 12)",
+  "rules.play.li3": "Completar una <b>escalera</b> de 3+ con las cartas más recientes (en cualquier orden) → 1 por carta",
+  "rules.play.li4": "<b>Go / última carta:</b> el último jugador que puede poner una carta anota 1 (cuando nadie más puede jugar, o en la última carta del reparto)",
+  "rules.show.h": "El conteo (contar las manos)",
+  "rules.show.p": "Cuando se han jugado todas las cartas, las manos se cuentan en orden — empezando por el jugador a la izquierda del repartidor, el <b>repartidor el último</b>, luego la <b>cuna</b>. Combina las cuatro cartas de cada mano con la carta de inicio y anota (ases = 1, figuras = 10):",
+  "rules.show.li1": "<b>Quinces</b> — cada combinación de cartas que suma 15 → 2 cada una",
+  "rules.show.li2": "<b>Pares</b> — 2 cada uno (así que trío = 6, cuatro = 12)",
+  "rules.show.li3": "<b>Escaleras</b> — tres o más en secuencia → 1 por carta (los duplicados cuentan)",
+  "rules.show.li4": "<b>Color</b> — cuatro cartas del mismo palo → 4; si la carta de inicio también coincide → 5 <span class=\"note\">(la cuna solo anota color cuando las cinco comparten palo)</span>",
+  "rules.show.li5": "<b>Nobs</b> — tener la <b>jota del palo de la carta de inicio</b> → 1",
+  "rules.note29": "La mejor mano posible es 29: tres 5 más la jota del palo del corte, con el cuarto 5 volteado como carta de inicio."
 });

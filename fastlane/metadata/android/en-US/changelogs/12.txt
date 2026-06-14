@@ -1,0 +1,6 @@
+New in 1.1.8:
+- The whole game now plays on one consistent table — every phase (cut for deal, deal, discard, the cut, pegging, the show, and game over) shares the same seat layout, so nothing jumps around as play moves along
+- Cards are a single uniform, responsive size everywhere, face up or down
+- The active player's seat is clearly highlighted in every phase
+- Smoother spectating of all-bot games
+- Layout and polish fixes throughout

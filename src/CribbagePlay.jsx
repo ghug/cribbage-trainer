@@ -1391,7 +1391,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
         </div>
       ) : (
         <div style={{ background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "12px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 14, minHeight: 64 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14, minHeight: "var(--ch)" }}>
             <div style={{ flex: "0 0 auto", display: "flex", flexDirection: "column", alignItems: "center", padding: "4px 12px", borderRadius: 9, background: "rgba(0,0,0,0.3)", border: `1px solid ${T.line}` }}>
               <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>pile count</span>
               <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 28, lineHeight: 1, color: peg.count === 31 ? T.good : T.ivory }}>{peg.count}</span>

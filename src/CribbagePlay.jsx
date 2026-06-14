@@ -1161,11 +1161,11 @@ function fitVisible(n, budget) {
 // One seat, used everywhere — the ring, the cut-for-deal, and your own bottom seat. A
 // fixed-height label row (so the active chip's padding never nudges the cards) sits above
 // a fixed --ch card slot holding a fan of whatever the seat is showing.
-function Seat({ i, dealerIdx, active, dim, items, name }) {
+function Seat({ i, dealerIdx, active, dim, items }) {
   return (
     <div style={{ textAlign: "center", minWidth: 0, opacity: dim ? 0.7 : 1 }}>
       <div style={{ height: 18, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 4 }}>
-        <SeatLabel i={i} dealerIdx={dealerIdx} active={active} name={name} />
+        <SeatLabel i={i} dealerIdx={dealerIdx} active={active} />
       </div>
       <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" }}>
         <Fan items={items} />
@@ -1176,8 +1176,8 @@ function Seat({ i, dealerIdx, active, dim, items, name }) {
 
 // One seat's label. The active seat (current pegger / hand being counted / dealer at the
 // cut-for-deal) gets a filled chip so it clearly stands out from the dimmed inactive seats.
-function SeatLabel({ i, dealerIdx, active, name }) {
-  const text = `${name != null ? name : seatShort(i)}${dealerIdx === i ? " (D)" : ""}`;
+function SeatLabel({ i, dealerIdx, active }) {
+  const text = `${seatShort(i)}${dealerIdx === i ? " (D)" : ""}`;
   return (
     <span style={active
       ? { fontFamily: mono, fontSize: 10, fontWeight: 700, letterSpacing: 0.3, color: T.ivory, background: T.selBlue, padding: "2px 8px", borderRadius: 999, boxShadow: "0 1px 4px rgba(0,0,0,0.45)" }
@@ -1241,7 +1241,6 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
   // played and face up), so nothing in the table view changes from play to show.
   const hands = peg ? peg.hands : seats.map((s) => (preDeal ? [] : discardPhase ? s.dealt : (s.kept || [])));
   const yourHand = hands[me];
-  const meName = seatShort(me);
   const turn = peg ? peg.turn : -1;
   const tapSelect = settings.tapToSelect;
   const cutter = (dealerIdx + P - 1) % P;
@@ -1295,13 +1294,20 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
       return <Seat key={i} i={i} dealerIdx={dealerIdx} active={i === dealerIdx} dim={i !== dealerIdx}
         items={draw ? cardItems([draw]) : backItems(1)} />;
     }
-    // Play and show share one render: each seat's played pile (face up) plus any cards
-    // still in hand (face down). The active seat — whose turn it is, or whose hand is being
-    // counted (or the winning team at game over) — is chip-highlighted.
+    // Every seat (yours included) shows its played pile face up plus any cards still in hand
+    // face down. The one exception: your own remaining hand lives in the interactive grid
+    // below, not face down at your seat — so suppress those backs while the grid is active
+    // (your discard / play turn). The active seat — your discard turn, the current pegger,
+    // the hand being counted, or the winning team — is chip-highlighted.
+    const gridActive = i === me && meHuman && !needHandoff && (discardPhase || (phase === "play" && peg));
+    const remaining = gridActive ? 0 : hands[i].length;
     const played = peg ? peg.played[i] : [];
-    const active = overPhase ? teamOf(i, P, teams) === teamOf(winner, P, teams) : showPhase ? i === info.owner : turn === i;
+    const active = overPhase ? teamOf(i, P, teams) === teamOf(winner, P, teams)
+      : showPhase ? i === info.owner
+      : discardPhase ? (i === me && myTurn)
+      : turn === i;
     return <Seat key={i} i={i} dealerIdx={dealerIdx} active={active}
-      items={[...backItems(hands[i].length), ...cardItems(played)]} />;
+      items={[...backItems(remaining), ...cardItems(played)]} />;
   };
   // The discard/play status line. A bot in the bottom seat (all-bot game) gets the same
   // spectator line as any other seat — it just plays/goes on its own, no human prompts.
@@ -1313,23 +1319,6 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
             : "Your cards are all played.")
           : `${seatName(peg.turn)} to play…`)
       : null;
-  // Your own seat at the bottom is always pinned (a fixed card slot, so the table never
-  // shifts). It renders through the same Seat component as every other seat: your draw at
-  // the cut-for-deal, your played pile through play / show / over, your kept four (face
-  // down) at the cut — and nothing pre-deal / while choosing.
-  const ownCardItems = cutdealPhase ? (dealDraw ? cardItems([dealDraw[me]]) : backItems(1))
-    : cutPhase ? backItems(hands[me].length)                                     // your kept four, face down
-    : needHandoff ? backItems((peg ? peg.hands[me] : seats[me].dealt).length)    // hidden while waiting to pass
-    : (peg && (phase === "play" || showPhase || overPhase))
-      ? (meHuman ? cardItems(peg.played[me])                                     // human: played pile (remainder is the grid)
-        : [...backItems(peg.hands[me].length), ...cardItems(peg.played[me])])    // bot: face-down hand under played, like any seat
-    : [];                                                                        // discard active, deal, over
-  // The active seat (your turn / your hand being counted / dealer at the cut / winning team).
-  const ownActive = cutdealPhase ? me === dealerIdx
-    : overPhase ? teamOf(me, P, teams) === teamOf(winner, P, teams)
-    : showPhase ? info.owner === me
-    : discardPhase ? myTurn
-    : turn === me;
   return (
     <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 14 }}>
       {/* Fixed grids: every seat owns an equal column whatever it's holding, so the labels
@@ -1352,9 +1341,9 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
         <div style={{ minWidth: 0 }}>{ts.right != null ? cell(ts.right) : null}</div>
       </div>
 
-      {/* your own seat at the bottom — always a pinned, fixed-height slot so the table never
-          shifts, holding your cards (or nothing) just like every other seat. */}
-      <Seat i={me} dealerIdx={dealerIdx} active={ownActive} dim={cutdealPhase && me !== dealerIdx} name={meName} items={ownCardItems} />
+      {/* your own seat at the bottom — rendered through the very same cell() as the others,
+          so there's no separate "South" path; its slot is just pinned below the grid. */}
+      {cell(me)}
 
       {/* middle zone: the crib (face down) before play, the live pile during it. The
           discard shows the crib-intent banner here instead, the cut-for-deal its own. */}

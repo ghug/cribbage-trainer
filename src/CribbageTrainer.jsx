@@ -643,9 +643,9 @@ function CardPicker({ count, onPick, onClose }) {
           </div>
           <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>Cancel</button>
         </div>
-        {/* Four suit columns, ranks A->K down each, overlapping vertically by 65% (so each
-            card shows its top 35% — the corner rank+suit — with the bottom card full).
-            marginTop is 65% of the card HEIGHT, expressed as a % of width: 0.65*(96/68). */}
+        {/* Four suit columns, ranks A->K down each, overlapping vertically by 66% (so each
+            card shows its top 34% — the corner rank+suit — with the bottom card full).
+            marginTop is 66% of the card HEIGHT, expressed as a % of width: 0.66*(96/68). */}
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto", margin: "0 -4px", padding: "0 4px 8px" }}>
           <div style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
             {[0, 1, 2, 3].map((s) => (
@@ -655,7 +655,7 @@ function CardPicker({ count, onPick, onClose }) {
                   const id = cardId(c);
                   const on = sel.includes(id);
                   return (
-                    <div key={id} style={{ position: "relative", zIndex: k, marginTop: k === 0 ? 0 : "-91.76%" }}>
+                    <div key={id} style={{ position: "relative", zIndex: k, marginTop: k === 0 ? 0 : "-93.18%" }}>
                       <MiniCard card={c} selected={on} disabled={!on && sel.length >= count} onClick={() => toggle(c)} />
                     </div>
                   );

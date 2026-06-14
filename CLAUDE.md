@@ -356,8 +356,15 @@ network, working identically online and offline in the APK. **Architecture:**
   (`HistoryPanel`) and the aggregate stats modal (`HistoryModal` — chips, the won/lost/skunk
   Stat rows, the averages, the clear-history confirm). Only each entry's `h.label` text stays
   English — it's reducer-generated and stored in localStorage, so it's part of the reducer-message
-  slice. Still English: the play game's **reducer messages** (would need a `window.t` shim in
-  `verify_play.js`), plus the **trainer**.
+  slice. The **trainer's structural chrome** is extracted too (`trainer.*`, with `CribbageTrainer.jsx`
+  getting its own module-level `tr`): the settings panel (size line, role/practice-as options,
+  auto-pick), card-picker modal, header (home/settings aria + table-size descriptor + stats),
+  the scenario banner, the choose-prompt, the mode labels, the analysis table column headers, and
+  the Deal custom/random buttons — reusing `settings.*`/`about.*`/`common.done` where shared.
+  Still English: the play game's **reducer messages** (the `message` banner + the stored `h.label`
+  values — needs care to keep `h.label` a stable English categorization key while translating display)
+  and the **trainer's analysis prose** (`buildNote`, the per-row `Explain` reasons, the
+  pegging-shape strings, and the board-position/crib-model panel bodies).
   `es.js` translates these; the rules prose is omitted to exercise the English fallback.
 - **Key-parity lint:** `engine/verify_i18n.js` (run by `./build.sh`, fails the build) flags any
   referenced key missing from `en.js` (renders as the raw key — the "play.deal" bug), any

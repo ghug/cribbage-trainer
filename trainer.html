@@ -416,6 +416,7 @@ const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r ==
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
 const mono = "ui-monospace, 'SF Mono', Menlo, Consolas, monospace";
 const serif = "'Hoefler Text', 'Iowan Old Style', Georgia, 'Times New Roman', serif";
+const tr = (k, v) => (typeof window !== "undefined" && window.t) ? window.t(k, v) : k;
 function randomHand(count = 5) {
     const deck = deckExcluding([]);
     for (let i = deck.length - 1; i > 0; i--) {
@@ -608,29 +609,27 @@ function SettingsPanel({ players, teams, roleMode, onRoleMode, autoBest, onAutoB
     const isTeams = teams < players;
     const forcedDefend = teams === players && players >= 5;
     const roleOpts = isTeams
-        ? [["random", "Random"], ["ours", "My team's crib"], ["theirs", "Opponents' crib"]]
-        : [["random", `Random (1-in-${players} deal)`], ["deal", "Always dealer"], ["defend", "Always defend"]];
+        ? [["random", tr("trainer.set.role.random")], ["ours", tr("trainer.set.role.ours")], ["theirs", tr("trainer.set.role.theirs")]]
+        : [["random", tr("trainer.set.role.randomDeal", { p: players })], ["deal", tr("trainer.set.role.deal")], ["defend", tr("trainer.set.role.defend")]];
     return (React.createElement("div", { style: { background: "rgba(0,0,0,0.32)", border: `1px solid ${T.line}`, borderRadius: 12, padding: "14px 16px", marginBottom: 16 } },
         React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 } },
-            React.createElement("span", { style: { fontWeight: 700, fontSize: 16 } }, "Settings"),
-            React.createElement("button", { onClick: onClose, style: { padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 } }, "Done")),
+            React.createElement("span", { style: { fontWeight: 700, fontSize: 16 } }, tr("settings.title")),
+            React.createElement("button", { onClick: onClose, style: { padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 } }, tr("common.done"))),
         React.createElement("div", { style: { marginBottom: 14, fontFamily: mono, fontSize: 11, color: T.muted, lineHeight: 1.6 } },
-            "Table size: ",
-            React.createElement("b", { style: { color: T.cream } }, players === 2 ? "2-handed (heads-up) — 6 cards, discard two" : `${players}-handed — 5 cards, discard one`),
-            ". Set it on the home page (the \u201CPlayers at the table\u201D control above Play)."),
-        forcedDefend ? (React.createElement("div", { style: { marginBottom: 14, fontFamily: mono, fontSize: 10.5, color: T.muted, lineHeight: 1.5 } },
-            "In ",
-            players,
-            "-handed (no teams) you always throw into the dealer's crib \u2014 the dealer (and, at 6, the player to their right) is dealt four and discards nothing, so there's no \"as dealer\" discard to practice.")) : (React.createElement("div", { style: { marginBottom: 14 } },
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 } },
-                "practice as",
-                isTeams ? " (whose crib)" : ""),
+            tr("trainer.set.sizeLabel"),
+            " ",
+            React.createElement("b", { style: { color: T.cream } }, players === 2 ? tr("trainer.set.size2") : tr("trainer.set.sizeN", { p: players })),
+            ".",
+            " ",
+            tr("trainer.set.sizeTail")),
+        forcedDefend ? (React.createElement("div", { style: { marginBottom: 14, fontFamily: mono, fontSize: 10.5, color: T.muted, lineHeight: 1.5 } }, tr("trainer.set.forcedDefend", { p: players }))) : (React.createElement("div", { style: { marginBottom: 14 } },
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 } }, isTeams ? tr("trainer.set.practiceAsTeam") : tr("trainer.set.practiceAs")),
             React.createElement("div", { style: { display: "flex", gap: 6 } }, roleOpts.map(([k, label]) => (React.createElement("button", { key: k, onClick: () => onRoleMode(k), style: seg(roleMode === k) }, label)))))),
         React.createElement("div", { style: { marginBottom: 14 } },
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 } }, "on a new hand"),
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 } }, tr("trainer.set.newHand")),
             React.createElement("div", { style: { display: "flex", gap: 6 } },
-                React.createElement("button", { onClick: () => onAutoBest(false), style: seg(!autoBest) }, "I choose"),
-                React.createElement("button", { onClick: () => onAutoBest(true), style: seg(autoBest) }, "Auto-pick the best"))),
+                React.createElement("button", { onClick: () => onAutoBest(false), style: seg(!autoBest) }, tr("trainer.set.iChoose")),
+                React.createElement("button", { onClick: () => onAutoBest(true), style: seg(autoBest) }, tr("trainer.set.autoBest")))),
         React.createElement(LanguageRow, null),
         React.createElement(AboutRow, { onAbout: onAbout })));
 }
@@ -649,7 +648,7 @@ function AboutRow({ onAbout }) {
                 width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer",
                 border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream,
                 fontFamily: mono, fontSize: 12, fontWeight: 700,
-            } }, "About & feedback")));
+            } }, tr("settings.aboutFeedback"))));
 }
 function AboutModal({ onClose }) {
     const REPO = "https://github.com/ghug/cribbage-trainer/";
@@ -658,16 +657,16 @@ function AboutModal({ onClose }) {
             React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 } },
                 React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } },
                     React.createElement("span", { "aria-hidden": "true", style: { flex: "0 0 auto", width: 34, height: 34, borderRadius: 8, background: "rgba(0,0,0,0.25)", color: T.ivory, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, lineHeight: 1 } }, "\u2663"),
-                    React.createElement("span", { style: { fontWeight: 700, fontSize: 17 } }, "About Cribbage Trainer")),
-                React.createElement("button", { onClick: onClose, style: { padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 } }, "Done")),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.6, marginBottom: 12 } }, "An open-source cribbage trainer and game."),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.6, marginBottom: 16 } }, "Found a bug, or have feedback? The source lives on GitHub \u2014 feel free to go there to be part of the conversation."),
+                    React.createElement("span", { style: { fontWeight: 700, fontSize: 17 } }, tr("about.title"))),
+                React.createElement("button", { onClick: onClose, style: { padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 } }, tr("common.done"))),
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.6, marginBottom: 12 } }, tr("about.line1")),
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.6, marginBottom: 16 } }, tr("about.line2")),
             React.createElement("a", { href: REPO, target: "_blank", rel: "noopener noreferrer", style: {
                     display: "block", textAlign: "center", padding: "12px", borderRadius: 9, textDecoration: "none", boxSizing: "border-box",
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
-                } }, "Source, bugs & feedback \u2197"),
+                } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.10-dev.23"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.10-dev.24"))));
 }
 function MiniCard({ card, selected, disabled, onClick }) {
     return (React.createElement("button", { onClick: onClick, disabled: disabled, "aria-pressed": selected, "aria-label": `${rankLabel(card.r)} of ${["spades", "hearts", "diamonds", "clubs"][card.s]}`, style: {
@@ -696,15 +695,9 @@ function CardPicker({ count, onPick, onClose }) {
         React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { position: "absolute", top: 12, bottom: 12, left: "50%", transform: "translateX(-50%)", width: "calc(100% - 24px)", maxWidth: 360, display: "flex", flexDirection: "column", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "16px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)", boxSizing: "border-box" } },
             React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 } },
                 React.createElement("div", null,
-                    React.createElement("div", { style: { fontWeight: 700, fontSize: 16 } }, "Build a hand"),
-                    React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 2 } },
-                        "tap to pick ",
-                        count,
-                        " cards \u00B7 ",
-                        sel.length,
-                        "/",
-                        count)),
-                React.createElement("button", { onClick: onClose, style: { padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 } }, "Cancel")),
+                    React.createElement("div", { style: { fontWeight: 700, fontSize: 16 } }, tr("trainer.picker.title")),
+                    React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 2 } }, tr("trainer.picker.hint", { n: count, sel: sel.length }))),
+                React.createElement("button", { onClick: onClose, style: { padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 } }, tr("trainer.picker.cancel"))),
             React.createElement("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", margin: "0 -4px", padding: "0 4px 8px" } },
                 React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "flex-start" } }, [0, 1, 2, 3].map((s) => (React.createElement("div", { key: s, style: { flex: 1, minWidth: 0 } }, Array.from({ length: 13 }, (_, k) => {
                     const c = { r: k + 1, s };
@@ -719,9 +712,7 @@ function CardPicker({ count, onPick, onClose }) {
                     background: ready ? `linear-gradient(180deg, ${T.good}, ${T.goodDeep})` : "rgba(0,0,0,0.25)",
                     color: ready ? T.ivory : T.muted, opacity: ready ? 1 : 0.6,
                     fontSize: 16, fontWeight: 700, letterSpacing: 0.3, boxShadow: ready ? "0 4px 12px rgba(0,0,0,0.35)" : "none",
-                } },
-                "Deal these ",
-                count))));
+                } }, tr("trainer.picker.deal", { n: count })))));
 }
 const teamOptionsT = (p) => (p === 4 ? [4, 2] : p === 6 ? [6, 3, 2] : [p]);
 function loadTrainerSettings() {
@@ -847,13 +838,13 @@ function CribbageTrainer() {
     const maxAdj = opts ? Math.max(...opts.map((o) => o.adj)) : 1;
     const cribIsOurs = scenario.cribIsOurs;
     const isTeams = teams < players;
-    const bannerTitle = scenario.youDeal ? "Your crib — you're the dealer"
-        : cribIsOurs ? `Your team's crib — your partner deals`
-            : isTeams ? "Opponents' crib — you're defending" : "Not your crib — it feeds the dealer";
-    const bannerSub = cribIsOurs ? "Be greedy: a good throw fattens your side's crib."
-        : "Play defense: surrender the least to the opposing crib.";
+    const bannerTitle = scenario.youDeal ? tr("trainer.banner.youDeal")
+        : cribIsOurs ? tr("trainer.banner.partner")
+            : isTeams ? tr("trainer.banner.oppTeam") : tr("trainer.banner.oppSolo");
+    const bannerSub = cribIsOurs ? tr("trainer.banner.subGreedy")
+        : tr("trainer.banner.subDefend");
     const gridCols = `16px ${discardCount === 2 ? "58px" : "30px"} 1fr 38px 40px 34px 46px`;
-    const MODE_LABEL = { ev: "max EV", need: "chase points", protect: "protect lead" };
+    const MODE_LABEL = { ev: tr("trainer.mode.ev"), need: tr("trainer.mode.need"), protect: tr("trainer.mode.protect") };
     return (React.createElement("div", { style: {
             minHeight: "100%", background: `radial-gradient(120% 90% at 50% 0%, ${T.baizeHi}, ${T.baize})`,
             color: T.cream, fontFamily: serif, padding: "0 0 28px",
@@ -876,19 +867,19 @@ function CribbageTrainer() {
             } },
             React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 } },
                 React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, minWidth: 0 } },
-                    React.createElement("a", { href: "index.html", "aria-label": "Home", title: "Home", style: {
+                    React.createElement("a", { href: "index.html", "aria-label": tr("trainer.home"), title: tr("trainer.home"), style: {
                             flex: "0 0 auto", width: 34, height: 34, borderRadius: 8, background: T.baize, color: T.ivory, textDecoration: "none",
                             display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, lineHeight: 1,
                             boxShadow: "inset 0 1px 2px rgba(255,255,255,0.12), 0 2px 5px rgba(0,0,0,0.35)",
                         } }, "\u2663"),
-                    React.createElement("span", { style: { fontFamily: mono, fontSize: 12, color: "rgba(42,27,14,0.8)", lineHeight: 1.3 } }, players === 2 ? "heads-up · 6 cards, discard two" : teams < players ? `${players}-handed · ${teams} teams of ${players / teams}` : `${players}-handed · every player for themselves`)),
+                    React.createElement("span", { style: { fontFamily: mono, fontSize: 12, color: "rgba(42,27,14,0.8)", lineHeight: 1.3 } }, players === 2 ? tr("trainer.hdr.heads") : teams < players ? tr("trainer.hdr.teams", { p: players, teams, size: players / teams }) : tr("trainer.hdr.solo", { p: players }))),
                 React.createElement("div", { style: { display: "flex", gap: 8, flex: "0 0 auto" } },
-                    React.createElement("a", { href: "index.html", "aria-label": "Home", style: {
+                    React.createElement("a", { href: "index.html", "aria-label": tr("trainer.home"), style: {
                             width: 40, height: 40, borderRadius: 10, textDecoration: "none",
                             border: "1px solid rgba(0,0,0,0.28)", background: "rgba(42,27,14,0.14)",
                             color: "#2A1B0E", fontSize: 19, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
                         } }, "\u2302"),
-                    React.createElement("button", { onClick: () => setShowSettings((o) => !o), "aria-label": "Settings", "aria-expanded": showSettings, style: {
+                    React.createElement("button", { onClick: () => setShowSettings((o) => !o), "aria-label": tr("settings.title"), "aria-expanded": showSettings, style: {
                             width: 40, height: 40, borderRadius: 10, cursor: "pointer",
                             border: "1px solid rgba(0,0,0,0.28)", background: showSettings ? "rgba(42,27,14,0.28)" : "rgba(42,27,14,0.14)",
                             color: "#2A1B0E", fontSize: 20, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
@@ -898,15 +889,18 @@ function CribbageTrainer() {
             React.createElement("div", { style: { marginTop: 10, display: "flex", gap: 18, flexWrap: "wrap", fontFamily: mono, fontSize: 12, color: "#2A1B0E" } },
                 React.createElement("span", null,
                     React.createElement("b", { style: { fontSize: 15 } }, stats.hands),
-                    " hands"),
+                    " ",
+                    tr("trainer.stat.hands")),
                 React.createElement("span", null,
                     React.createElement("b", { style: { fontSize: 15 } },
                         stats.hands ? acc.toFixed(0) : "–",
                         "%"),
-                    " optimal"),
+                    " ",
+                    tr("trainer.stat.optimal")),
                 React.createElement("span", null,
                     React.createElement("b", { style: { fontSize: 15 } }, stats.hands ? avgLost.toFixed(2) : "–"),
-                    " avg pts lost"))),
+                    " ",
+                    tr("trainer.stat.lost")))),
         React.createElement("main", { style: { maxWidth: 560, margin: "0 auto", padding: "18px 16px 0" } },
             showSettings && React.createElement(SettingsPanel, { players: players, teams: teams, roleMode: roleMode, onRoleMode: setRoleMode, autoBest: autoBest, onAutoBest: (v) => { setAutoBest(v); saveAutoBest(v); }, onClose: () => setShowSettings(false), onAbout: () => { setShowSettings(false); setAboutOpen(true); } }),
             aboutOpen && React.createElement(AboutModal, { onClose: () => setAboutOpen(false) }),
@@ -922,9 +916,11 @@ function CribbageTrainer() {
                     React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 2 } }, bannerSub))),
             React.createElement("p", { style: { fontFamily: mono, fontSize: 12, color: T.muted, margin: "18px 2px 6px" } }, phase === "choose"
                 ? (discardCount === 2
-                    ? `Tap two cards you'd throw to the crib.${selected.length === 1 ? " One more…" : ""}`
-                    : "Tap the card you'd throw to the crib.")
-                : `Ranked by ${MODE_LABEL[mode]}${mode === "ev" ? "" : " (net " + (mode === "need" ? "+" : "−") + " risk·σ)"} — tap any row for the why.`),
+                    ? (selected.length === 1 ? tr("trainer.prompt.tapTwoMore") : tr("trainer.prompt.tapTwo"))
+                    : tr("trainer.prompt.tapOne"))
+                : (mode === "ev"
+                    ? tr("trainer.prompt.ranked", { mode: MODE_LABEL[mode] })
+                    : tr("trainer.prompt.rankedRisk", { mode: MODE_LABEL[mode], sign: mode === "need" ? "+" : "−" }))),
             React.createElement("div", { className: phase === "choose" ? "dealwrap" : "", style: { display: "flex", gap: 8, justifyContent: "center", flexWrap: "nowrap" } }, hand.map((card, i) => {
                 let badge = null, dim = false, sel = false;
                 if (phase === "revealed") {
@@ -951,14 +947,12 @@ function CribbageTrainer() {
                     } }, buildNote(cribIsOurs, best, chosen)),
                 React.createElement("div", { style: { display: "grid", gridTemplateColumns: gridCols, gap: 5, fontFamily: mono, fontSize: 10, color: T.muted, padding: "0 4px 2px" } },
                     React.createElement("span", null),
-                    React.createElement("span", null, "throw"),
-                    React.createElement("span", null,
-                        mode === "ev" ? "net" : "adj",
-                        " (bar)"),
-                    React.createElement("span", { style: { textAlign: "right" } }, "hand"),
-                    React.createElement("span", { style: { textAlign: "right" } }, "crib"),
-                    React.createElement("span", { style: { textAlign: "right" } }, "peg"),
-                    React.createElement("span", { style: { textAlign: "right" } }, mode === "ev" ? "net" : "adj")),
+                    React.createElement("span", null, tr("trainer.tbl.throw")),
+                    React.createElement("span", null, tr("trainer.tbl.bar", { m: mode === "ev" ? tr("trainer.tbl.net") : tr("trainer.tbl.adj") })),
+                    React.createElement("span", { style: { textAlign: "right" } }, tr("trainer.tbl.hand")),
+                    React.createElement("span", { style: { textAlign: "right" } }, tr("trainer.tbl.crib")),
+                    React.createElement("span", { style: { textAlign: "right" } }, tr("trainer.tbl.peg")),
+                    React.createElement("span", { style: { textAlign: "right" } }, mode === "ev" ? tr("trainer.tbl.net") : tr("trainer.tbl.adj"))),
                 React.createElement("div", { style: { display: "grid", gap: 4 } }, opts.map((o) => {
                     const isBest = o.id === best.id, isPick = o.id === chosenId, isOpen = expanded === o.id;
                     const scoreVal = mode === "ev" ? o.netEV : o.adj;
@@ -985,7 +979,7 @@ function CribbageTrainer() {
                         isOpen && React.createElement(Explain, { opt: o, cribIsOurs: cribIsOurs, youDeal: scenario.youDeal, mode: mode, players: players })));
                 })))),
             React.createElement("div", { style: { marginTop: 22, display: "flex", flexDirection: "column", gap: 14 } },
-                React.createElement("div", { style: { display: "flex", gap: 10 } }, [["Deal custom", () => setPickerOpen(true)], ["Deal random", deal]].map(([label, onClick]) => (React.createElement("button", { key: label, onClick: onClick, style: {
+                React.createElement("div", { style: { display: "flex", gap: 10 } }, [[tr("trainer.dealCustom"), () => setPickerOpen(true)], [tr("trainer.dealRandom"), deal]].map(([label, onClick]) => (React.createElement("button", { key: label, onClick: onClick, style: {
                         flex: 1, padding: "13px", borderRadius: 10, border: "none", cursor: "pointer",
                         background: `linear-gradient(180deg, ${T.woodL}, ${T.woodM})`, color: "#2A1B0E",
                         fontSize: 16, fontWeight: 700, letterSpacing: 0.3, boxShadow: "0 4px 12px rgba(0,0,0,0.35)",

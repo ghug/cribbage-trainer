@@ -300,6 +300,9 @@ const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r ==
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
 const mono = "ui-monospace, 'SF Mono', Menlo, Consolas, monospace";
 const serif = "'Hoefler Text', 'Iowan Old Style', Georgia, 'Times New Roman', serif";
+// Render-only i18n helper (= window.t with key-fallback). Safe when window is absent
+// (the engine/verify_*.js harnesses run the pure functions in Node) — returns the key.
+const tr = (k, v) => (typeof window !== "undefined" && window.t) ? window.t(k, v) : k;
 
 function randomHand(count = 5) {
   const deck = deckExcluding([]);
@@ -506,29 +509,27 @@ function SettingsPanel({ players, teams, roleMode, onRoleMode, autoBest, onAutoB
   const forcedDefend = teams === players && players >= 5; // solo 5/6: you can only defend
   // role options map to roleMode: solo uses deal/defend; teams use ours/theirs.
   const roleOpts = isTeams
-    ? [["random", "Random"], ["ours", "My team's crib"], ["theirs", "Opponents' crib"]]
-    : [["random", `Random (1-in-${players} deal)`], ["deal", "Always dealer"], ["defend", "Always defend"]];
+    ? [["random", tr("trainer.set.role.random")], ["ours", tr("trainer.set.role.ours")], ["theirs", tr("trainer.set.role.theirs")]]
+    : [["random", tr("trainer.set.role.randomDeal", { p: players })], ["deal", tr("trainer.set.role.deal")], ["defend", tr("trainer.set.role.defend")]];
   return (
     <div style={{ background: "rgba(0,0,0,0.32)", border: `1px solid ${T.line}`, borderRadius: 12, padding: "14px 16px", marginBottom: 16 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-        <span style={{ fontWeight: 700, fontSize: 16 }}>Settings</span>
-        <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>Done</button>
+        <span style={{ fontWeight: 700, fontSize: 16 }}>{tr("settings.title")}</span>
+        <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>{tr("common.done")}</button>
       </div>
 
       <div style={{ marginBottom: 14, fontFamily: mono, fontSize: 11, color: T.muted, lineHeight: 1.6 }}>
-        Table size: <b style={{ color: T.cream }}>{players === 2 ? "2-handed (heads-up) — 6 cards, discard two" : `${players}-handed — 5 cards, discard one`}</b>.
-        Set it on the home page (the “Players at the table” control above Play).
+        {tr("trainer.set.sizeLabel")} <b style={{ color: T.cream }}>{players === 2 ? tr("trainer.set.size2") : tr("trainer.set.sizeN", { p: players })}</b>.{" "}
+        {tr("trainer.set.sizeTail")}
       </div>
 
       {forcedDefend ? (
         <div style={{ marginBottom: 14, fontFamily: mono, fontSize: 10.5, color: T.muted, lineHeight: 1.5 }}>
-          In {players}-handed (no teams) you always throw into the dealer's crib — the dealer
-          (and, at 6, the player to their right) is dealt four and discards nothing, so there's
-          no "as dealer" discard to practice.
+          {tr("trainer.set.forcedDefend", { p: players })}
         </div>
       ) : (
         <div style={{ marginBottom: 14 }}>
-          <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 }}>practice as{isTeams ? " (whose crib)" : ""}</div>
+          <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 }}>{isTeams ? tr("trainer.set.practiceAsTeam") : tr("trainer.set.practiceAs")}</div>
           <div style={{ display: "flex", gap: 6 }}>
             {roleOpts.map(([k, label]) => (
               <button key={k} onClick={() => onRoleMode(k)} style={seg(roleMode === k)}>{label}</button>
@@ -538,10 +539,10 @@ function SettingsPanel({ players, teams, roleMode, onRoleMode, autoBest, onAutoB
       )}
 
       <div style={{ marginBottom: 14 }}>
-        <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 }}>on a new hand</div>
+        <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 }}>{tr("trainer.set.newHand")}</div>
         <div style={{ display: "flex", gap: 6 }}>
-          <button onClick={() => onAutoBest(false)} style={seg(!autoBest)}>I choose</button>
-          <button onClick={() => onAutoBest(true)} style={seg(autoBest)}>Auto-pick the best</button>
+          <button onClick={() => onAutoBest(false)} style={seg(!autoBest)}>{tr("trainer.set.iChoose")}</button>
+          <button onClick={() => onAutoBest(true)} style={seg(autoBest)}>{tr("trainer.set.autoBest")}</button>
         </div>
       </div>
 
@@ -577,7 +578,7 @@ function AboutRow({ onAbout }) {
         width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer",
         border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream,
         fontFamily: mono, fontSize: 12, fontWeight: 700,
-      }}>About &amp; feedback</button>
+      }}>{tr("settings.aboutFeedback")}</button>
     </div>
   );
 }
@@ -593,20 +594,20 @@ function AboutModal({ onClose }) {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span aria-hidden="true" style={{ flex: "0 0 auto", width: 34, height: 34, borderRadius: 8, background: "rgba(0,0,0,0.25)", color: T.ivory, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, lineHeight: 1 }}>♣</span>
-            <span style={{ fontWeight: 700, fontSize: 17 }}>About Cribbage Trainer</span>
+            <span style={{ fontWeight: 700, fontSize: 17 }}>{tr("about.title")}</span>
           </div>
-          <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>Done</button>
+          <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>{tr("common.done")}</button>
         </div>
         <div style={{ fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.6, marginBottom: 12 }}>
-          An open-source cribbage trainer and game.
+          {tr("about.line1")}
         </div>
         <div style={{ fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.6, marginBottom: 16 }}>
-          Found a bug, or have feedback? The source lives on GitHub — feel free to go there to be part of the conversation.
+          {tr("about.line2")}
         </div>
         <a href={REPO} target="_blank" rel="noopener noreferrer" style={{
           display: "block", textAlign: "center", padding: "12px", borderRadius: 9, textDecoration: "none", boxSizing: "border-box",
           background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
-        }}>Source, bugs &amp; feedback ↗</a>
+        }}>{tr("about.sourceLink")}</a>
         <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" }}>github.com/ghug/cribbage-trainer</div>
         <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" }}>v__APP_VERSION__</div>
       </div>
@@ -659,10 +660,10 @@ function CardPicker({ count, onPick, onClose }) {
       <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", top: 12, bottom: 12, left: "50%", transform: "translateX(-50%)", width: "calc(100% - 24px)", maxWidth: 360, display: "flex", flexDirection: "column", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "16px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)", boxSizing: "border-box" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
           <div>
-            <div style={{ fontWeight: 700, fontSize: 16 }}>Build a hand</div>
-            <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 2 }}>tap to pick {count} cards · {sel.length}/{count}</div>
+            <div style={{ fontWeight: 700, fontSize: 16 }}>{tr("trainer.picker.title")}</div>
+            <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 2 }}>{tr("trainer.picker.hint", { n: count, sel: sel.length })}</div>
           </div>
-          <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>Cancel</button>
+          <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>{tr("trainer.picker.cancel")}</button>
         </div>
         {/* Four suit columns, ranks A->K down each, overlapping vertically by 66% (so each
             card shows its top 34% — the corner rank+suit — with the bottom card full).
@@ -692,7 +693,7 @@ function CardPicker({ count, onPick, onClose }) {
             background: ready ? `linear-gradient(180deg, ${T.good}, ${T.goodDeep})` : "rgba(0,0,0,0.25)",
             color: ready ? T.ivory : T.muted, opacity: ready ? 1 : 0.6,
             fontSize: 16, fontWeight: 700, letterSpacing: 0.3, boxShadow: ready ? "0 4px 12px rgba(0,0,0,0.35)" : "none",
-          }}>Deal these {count}</button>
+          }}>{tr("trainer.picker.deal", { n: count })}</button>
       </div>
     </div>
   );
@@ -815,13 +816,13 @@ export default function CribbageTrainer() {
   const cribIsOurs = scenario.cribIsOurs;
   const isTeams = teams < players;
   // banner: you deal · your team's crib (partner deals) · opponents' crib
-  const bannerTitle = scenario.youDeal ? "Your crib — you're the dealer"
-    : cribIsOurs ? `Your team's crib — your partner deals`
-    : isTeams ? "Opponents' crib — you're defending" : "Not your crib — it feeds the dealer";
-  const bannerSub = cribIsOurs ? "Be greedy: a good throw fattens your side's crib."
-    : "Play defense: surrender the least to the opposing crib.";
+  const bannerTitle = scenario.youDeal ? tr("trainer.banner.youDeal")
+    : cribIsOurs ? tr("trainer.banner.partner")
+    : isTeams ? tr("trainer.banner.oppTeam") : tr("trainer.banner.oppSolo");
+  const bannerSub = cribIsOurs ? tr("trainer.banner.subGreedy")
+    : tr("trainer.banner.subDefend");
   const gridCols = `16px ${discardCount === 2 ? "58px" : "30px"} 1fr 38px 40px 34px 46px`;
-  const MODE_LABEL = { ev: "max EV", need: "chase points", protect: "protect lead" };
+  const MODE_LABEL = { ev: tr("trainer.mode.ev"), need: tr("trainer.mode.need"), protect: tr("trainer.mode.protect") };
 
   return (
     <div style={{
@@ -847,20 +848,20 @@ export default function CribbageTrainer() {
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-            <a href="index.html" aria-label="Home" title="Home" style={{
+            <a href="index.html" aria-label={tr("trainer.home")} title={tr("trainer.home")} style={{
               flex: "0 0 auto", width: 34, height: 34, borderRadius: 8, background: T.baize, color: T.ivory, textDecoration: "none",
               display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, lineHeight: 1,
               boxShadow: "inset 0 1px 2px rgba(255,255,255,0.12), 0 2px 5px rgba(0,0,0,0.35)",
             }}>♣</a>
-            <span style={{ fontFamily: mono, fontSize: 12, color: "rgba(42,27,14,0.8)", lineHeight: 1.3 }}>{players === 2 ? "heads-up · 6 cards, discard two" : teams < players ? `${players}-handed · ${teams} teams of ${players / teams}` : `${players}-handed · every player for themselves`}</span>
+            <span style={{ fontFamily: mono, fontSize: 12, color: "rgba(42,27,14,0.8)", lineHeight: 1.3 }}>{players === 2 ? tr("trainer.hdr.heads") : teams < players ? tr("trainer.hdr.teams", { p: players, teams, size: players / teams }) : tr("trainer.hdr.solo", { p: players })}</span>
           </div>
           <div style={{ display: "flex", gap: 8, flex: "0 0 auto" }}>
-            <a href="index.html" aria-label="Home" style={{
+            <a href="index.html" aria-label={tr("trainer.home")} style={{
               width: 40, height: 40, borderRadius: 10, textDecoration: "none",
               border: "1px solid rgba(0,0,0,0.28)", background: "rgba(42,27,14,0.14)",
               color: "#2A1B0E", fontSize: 19, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
             }}>⌂</a>
-            <button onClick={() => setShowSettings((o) => !o)} aria-label="Settings" aria-expanded={showSettings} style={{
+            <button onClick={() => setShowSettings((o) => !o)} aria-label={tr("settings.title")} aria-expanded={showSettings} style={{
               width: 40, height: 40, borderRadius: 10, cursor: "pointer",
               border: "1px solid rgba(0,0,0,0.28)", background: showSettings ? "rgba(42,27,14,0.28)" : "rgba(42,27,14,0.14)",
               color: "#2A1B0E", fontSize: 20, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
@@ -869,9 +870,9 @@ export default function CribbageTrainer() {
         </div>
         <div style={{ marginTop: 12 }}><PegTrack pct={acc} /></div>
         <div style={{ marginTop: 10, display: "flex", gap: 18, flexWrap: "wrap", fontFamily: mono, fontSize: 12, color: "#2A1B0E" }}>
-          <span><b style={{ fontSize: 15 }}>{stats.hands}</b> hands</span>
-          <span><b style={{ fontSize: 15 }}>{stats.hands ? acc.toFixed(0) : "–"}%</b> optimal</span>
-          <span><b style={{ fontSize: 15 }}>{stats.hands ? avgLost.toFixed(2) : "–"}</b> avg pts lost</span>
+          <span><b style={{ fontSize: 15 }}>{stats.hands}</b> {tr("trainer.stat.hands")}</span>
+          <span><b style={{ fontSize: 15 }}>{stats.hands ? acc.toFixed(0) : "–"}%</b> {tr("trainer.stat.optimal")}</span>
+          <span><b style={{ fontSize: 15 }}>{stats.hands ? avgLost.toFixed(2) : "–"}</b> {tr("trainer.stat.lost")}</span>
         </div>
       </header>
 
@@ -894,9 +895,11 @@ export default function CribbageTrainer() {
         <p style={{ fontFamily: mono, fontSize: 12, color: T.muted, margin: "18px 2px 6px" }}>
           {phase === "choose"
             ? (discardCount === 2
-                ? `Tap two cards you'd throw to the crib.${selected.length === 1 ? " One more…" : ""}`
-                : "Tap the card you'd throw to the crib.")
-            : `Ranked by ${MODE_LABEL[mode]}${mode === "ev" ? "" : " (net " + (mode === "need" ? "+" : "−") + " risk·σ)"} — tap any row for the why.`}
+                ? (selected.length === 1 ? tr("trainer.prompt.tapTwoMore") : tr("trainer.prompt.tapTwo"))
+                : tr("trainer.prompt.tapOne"))
+            : (mode === "ev"
+                ? tr("trainer.prompt.ranked", { mode: MODE_LABEL[mode] })
+                : tr("trainer.prompt.rankedRisk", { mode: MODE_LABEL[mode], sign: mode === "need" ? "+" : "−" }))}
         </p>
         <div className={phase === "choose" ? "dealwrap" : ""} style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "nowrap" }}>
           {hand.map((card, i) => {
@@ -923,9 +926,9 @@ export default function CribbageTrainer() {
             }}>{buildNote(cribIsOurs, best, chosen)}</div>
 
             <div style={{ display: "grid", gridTemplateColumns: gridCols, gap: 5, fontFamily: mono, fontSize: 10, color: T.muted, padding: "0 4px 2px" }}>
-              <span></span><span>throw</span><span>{mode === "ev" ? "net" : "adj"} (bar)</span>
-              <span style={{ textAlign: "right" }}>hand</span><span style={{ textAlign: "right" }}>crib</span>
-              <span style={{ textAlign: "right" }}>peg</span><span style={{ textAlign: "right" }}>{mode === "ev" ? "net" : "adj"}</span>
+              <span></span><span>{tr("trainer.tbl.throw")}</span><span>{tr("trainer.tbl.bar", { m: mode === "ev" ? tr("trainer.tbl.net") : tr("trainer.tbl.adj") })}</span>
+              <span style={{ textAlign: "right" }}>{tr("trainer.tbl.hand")}</span><span style={{ textAlign: "right" }}>{tr("trainer.tbl.crib")}</span>
+              <span style={{ textAlign: "right" }}>{tr("trainer.tbl.peg")}</span><span style={{ textAlign: "right" }}>{mode === "ev" ? tr("trainer.tbl.net") : tr("trainer.tbl.adj")}</span>
             </div>
 
             <div style={{ display: "grid", gap: 4 }}>
@@ -963,7 +966,7 @@ export default function CribbageTrainer() {
 
         <div style={{ marginTop: 22, display: "flex", flexDirection: "column", gap: 14 }}>
           <div style={{ display: "flex", gap: 10 }}>
-            {[["Deal custom", () => setPickerOpen(true)], ["Deal random", deal]].map(([label, onClick]) => (
+            {[[tr("trainer.dealCustom"), () => setPickerOpen(true)], [tr("trainer.dealRandom"), deal]].map(([label, onClick]) => (
               <button key={label} onClick={onClick} style={{
                 flex: 1, padding: "13px", borderRadius: 10, border: "none", cursor: "pointer",
                 background: `linear-gradient(180deg, ${T.woodL}, ${T.woodM})`, color: "#2A1B0E",

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from "react";
+import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
 
 /* ============================================================
    VERIFIED CRIBBAGE ENGINE
@@ -749,8 +749,10 @@ export default function CribbageTrainer() {
   const deal = useCallback(() => dealHand(players), [dealHand, players]);
 
   const handSize = players === 2 ? 6 : 5;                 // cards dealt (heads-up deals 6)
+  const forcePickRef = useRef(false);                     // one-shot: auto-pick the next choose hand
   const dealCustom = useCallback((cards) => {
     const sc = trainerScenario(roleMode, players, teams);
+    forcePickRef.current = true;                          // a custom hand always reveals the best
     setHand(cards.slice().sort((a, b) => a.r - b.r || a.s - b.s)); setScenario(sc);
     setSelected([]); setChosenId(null); setExpanded(null); setPhase("choose");
     setPickerOpen(false);
@@ -766,9 +768,11 @@ export default function CribbageTrainer() {
     setStats((s) => ({ hands: s.hands + 1, optimal: s.optimal + (delta < 0.1 ? 1 : 0), lost: s.lost + delta }));
   }, [hand, scenario, mode, players, teams]);
 
-  // Auto-pick the optimal discard as soon as a hand is in the choose phase, when enabled.
+  // Auto-pick the optimal discard once a hand is in the choose phase — when the setting is
+  // on, or always after a "Deal custom" (the one-shot forcePickRef).
   useEffect(() => {
-    if (!autoBest || phase !== "choose") return;
+    if (phase !== "choose" || (!autoBest && !forcePickRef.current)) return;
+    forcePickRef.current = false;
     pick(analyze(hand, scenario, mode, players, teams)[0].idxs);
   }, [autoBest, phase, hand, scenario, mode, players, teams, pick]);
 

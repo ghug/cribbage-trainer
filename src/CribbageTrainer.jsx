@@ -602,9 +602,12 @@ function MiniCard({ card, selected, disabled, onClick }) {
     <button onClick={onClick} disabled={disabled} aria-pressed={selected}
       aria-label={`${rankLabel(card.r)} of ${["spades", "hearts", "diamonds", "clubs"][card.s]}`}
       style={{
+        // Constant 1px border + a 6px outline for selection: an outline doesn't change the
+        // card's box, so selecting one never resizes it or shifts the cards below.
         width: "100%", boxSizing: "border-box", borderRadius: 6, padding: 0, background: T.ivory, position: "relative",
         cursor: disabled ? "default" : "pointer",
-        border: selected ? `6px solid ${T.selBlue}` : "1px solid rgba(0,0,0,0.25)",
+        border: "1px solid rgba(0,0,0,0.25)",
+        outline: selected ? `6px solid ${T.selBlue}` : "none", outlineOffset: "-3px",
         boxShadow: selected ? "0 4px 12px rgba(0,0,0,0.45)" : "0 2px 5px rgba(0,0,0,0.3)",
         opacity: disabled ? 0.4 : 1, transition: "opacity 120ms, box-shadow 120ms",
       }}>

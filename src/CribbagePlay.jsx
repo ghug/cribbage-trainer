@@ -531,8 +531,13 @@ function dealNewHand(state) {
     holder: firstHuman(P, state.settings), discardSeat: humanThrowers.length ? humanThrowers[0] : null,
   };
   if (humanThrowers.length === 0) {
-    // No human throws this hand — the crib is already complete, so skip to the cut.
-    const msg = d === 0 ? "Your deal — no throw. The crib is yours." : "No throw for you this hand — on to the cut.";
+    // No human throws this hand — the crib is already complete, so skip to the cut. Frame
+    // the note from the lone human's seat (if any); with no single human (all-bot spectate
+    // or 2+ humans) keep it neutral rather than addressing a "you" who isn't there.
+    const you = soleHuman(P, state.settings);
+    const msg = you < 0 ? `${seatName(d)} deals — on to the cut.`
+      : you === d ? "Your deal — no throw. The crib is yours."
+      : "No throw for you this hand — on to the cut.";
     return afterCrib({ ...base, crib: assembleCrib(seats, deck, pl), phase: "cut", message: msg, discardSeat: null });
   }
   return base;

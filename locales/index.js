@@ -9,5 +9,6 @@ cribbageLanguages([
   { code: "en", name: "English" },
   { code: "es", name: "Español" },
   { code: "fr", name: "Français" },
+  { code: "ru", name: "Русский" },
   { code: "zh-Hans", name: "简体中文" }
 ]);

@@ -7,5 +7,6 @@
  */
 cribbageLanguages([
   { code: "en", name: "English" },
-  { code: "es", name: "Español" }
+  { code: "es", name: "Español" },
+  { code: "zh-Hans", name: "简体中文" }
 ]);

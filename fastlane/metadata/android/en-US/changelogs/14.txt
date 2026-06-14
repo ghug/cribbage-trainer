@@ -1,0 +1,5 @@
+New in 1.1.10:
+- The app now speaks more than one language — a full Spanish translation is included, and you can switch languages from the landing page or the in-game settings (more languages can be added over time)
+- Every screen is translated: the menu, the whole game (banners, the play, the show, history, win/skunk), and the Discard Trainer's analysis and explanations
+- Discard Trainer: a new "Deal custom" button builds any exact hand from a card picker, and an "Auto-pick the best" option can choose the optimal discard for you on each new hand
+- Polish and fixes throughout

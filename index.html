@@ -128,9 +128,489 @@
   .lang-row[hidden]{ display:none }  /* author display:flex would otherwise beat the UA [hidden] rule */
   .lang-row select{ font:inherit; color:var(--cream); background:rgba(0,0,0,0.25); border:1px solid var(--line); border-radius:7px; padding:4px 8px }
 </style>
-<script src="i18n.js"></script>
-<script src="locales/index.js"></script>
-<script src="locales/en.js"></script>
+<script>
+/* Minimal, offline-first internationalization for the cribbage pages.
+ *
+ * Design (built to scale to ~200 languages without a bundler or network):
+ *  - Each language is one self-registering file, locales/<code>.js, that calls
+ *    cribbageLocale("<code>", { key: "translated phrase", ... }).
+ *  - English (locales/en.js) is ALWAYS loaded as the source of truth and the fallback for
+ *    any missing key, so a partially-translated language never shows blanks.
+ *  - locales/index.js registers the catalogue of available languages for the picker.
+ *  - The active language (localStorage "cribbage:lang") is pulled in *synchronously* at
+ *    <head> parse time by i18nBootstrap() (a document.write <script> tag), so t() already
+ *    resolves before the first render — no flash of English, no async wait.
+ *  - Loading is via <script> tags only (exactly like the vendored React), so it works the
+ *    same when served over the web and offline inside the APK (file:// assets, no fetch,
+ *    no INTERNET permission). Only the picked language's file is ever loaded.
+ *
+ * Usage from app code:  t("some.key")  or  t("some.key", { name: "North" })   ({name} interpolates)
+ * Switch language:      i18n.set(code); location.reload();
+ */
+(function () {
+  var LANG_KEY = "cribbage:lang";
+  var STRINGS = {};        // code -> { key: phrase }
+  var LANGS = [];          // [{ code, name }]
+  var current = "en";
+  try { current = localStorage.getItem(LANG_KEY) || "en"; } catch (e) {}
+
+  // A locale file registers its phrases (merged, so a file may be split if ever wanted).
+  window.cribbageLocale = function (code, map) {
+    STRINGS[code] = STRINGS[code] || {};
+    for (var k in map) if (Object.prototype.hasOwnProperty.call(map, k)) STRINGS[code][k] = map[k];
+  };
+
+  // locales/index.js registers the list of available languages for the picker.
+  window.cribbageLanguages = function (list) { LANGS = list || []; };
+
+  // Called once from <head>, right after en.js: synchronously load the active non-English
+  // file so every t() during the first render already has its translations.
+  window.i18nBootstrap = function () {
+    var c = (current || "en").replace(/[^a-z0-9-]/gi, "");   // sanitize before injecting
+    // Resolve the locale file against the current page's directory, not a bare relative path,
+    // so it loads the same whether the site is served at the root (Cloudflare), under a
+    // /<repo>/ subpath (GitHub Pages), or from file:// (the APK). en is inlined, never fetched.
+    if (c && c !== "en") {
+      var base = (location && location.pathname ? location.pathname : "/").replace(/[^/]*$/, "");
+      document.write('<script src="' + base + 'locales/' + c + '.js"><\/script>');
+    }
+  };
+
+  function lookup(key) {
+    var s = STRINGS[current] && STRINGS[current][key];
+    if (s == null) s = STRINGS.en && STRINGS.en[key];        // fall back to English…
+    return s == null ? key : s;                              // …then to the key itself
+  }
+
+  // Translate a key, interpolating {placeholder} tokens from vars when given.
+  window.t = function (key, vars) {
+    var s = lookup(key);
+    return vars ? s.replace(/\{(\w+)\}/g, function (m, k) { return vars[k] != null ? vars[k] : m; }) : s;
+  };
+
+  window.i18n = {
+    get lang() { return current; },
+    languages: function () { return LANGS.slice(); },
+    set: function (code) { try { localStorage.setItem(LANG_KEY, code); } catch (e) {} current = code; }
+  };
+})();
+
+</script>
+<script>
+/* The catalogue of available languages. As translations are added, append { code, name }
+ * here — `name` written in the language's own script — and ship a matching locales/<code>.js.
+ * The picker reads this list; English is always present as the fallback.
+ *
+ * This is where the eventual ~200 languages get listed (one tiny line each). Only the
+ * picked language's locales/<code>.js is actually loaded, so the list staying long is cheap.
+ */
+cribbageLanguages([
+  { code: "en", name: "English" },
+  { code: "es", name: "Español" },
+  { code: "fr", name: "Français" },
+  { code: "ru", name: "Русский" },
+  { code: "zh-Hans", name: "简体中文" }
+]);
+
+</script>
+<script>
+/* English — the source of truth and the fallback for every key. Every other locales/<code>.js
+ * mirrors these keys with translated values (any key it omits falls back to English here).
+ * Add new phrases here first, with stable keys, namespaced by page/area. Values prefixed via
+ * data-i18n-html (the rules) may contain inline markup — keep the tags when translating.
+ */
+cribbageLocale("en", {
+  // shared
+  "common.done": "Done",
+  "common.about": "About",
+  "common.on": "On",
+  "common.off": "Off",
+  "common.manual": "Manual",
+  "common.auto": "Auto",
+  "common.language": "Language",
+  "role.human": "human",
+  "role.bot": "bot",
+  "app.title": "Cribbage Trainer",
+  // compass seat names — full (play game prose/banners) + abbreviations (score columns,
+  // landing seat diagram). "You"/"S"/etc. stay the canonical identity keys in code; only
+  // the display is translated. en abbreviations match the English compass initials.
+  "seat.you": "You",
+  "seat.south": "South",
+  "seat.north": "North",
+  "seat.west": "West",
+  "seat.east": "East",
+  "seat.northwest": "Northwest",
+  "seat.northeast": "Northeast",
+  "seat.southwest": "Southwest",
+  "seat.southeast": "Southeast",
+  "seat.youShort": "You",
+  "seat.s": "S",
+  "seat.n": "N",
+  "seat.w": "W",
+  "seat.e": "E",
+  "seat.nw": "NW",
+  "seat.ne": "NE",
+  "seat.sw": "SW",
+  "seat.se": "SE",
+
+  // play game — buttons, prompts, banners (the PlayScreen)
+  "play.deal": "Deal",
+  "play.dealCrib": "Deal ({seat}'s crib)",
+  "play.btn.dealing": "Dealing…",
+  "play.btn.cutFor": "Cut the deck for {seat}",
+  "play.cutMsg": "{seat} cuts for the starter…",
+  "play.btn.playAgain": "Play again",
+  "play.btn.continue": "Continue",
+  "play.go": "Say “Go” — no legal card",
+  "play.throw": "Throw to crib",
+  "play.tapOne": "Tap a card to throw",
+  "play.tapTwo": "Tap two cards to throw",
+  "play.tapMore": "Tap one more card",
+  "play.playCard": "Play",
+  "play.tapPlay": "Tap a card to play",
+  "play.yourTurnPlay": "Your turn — tap a card to play.",
+  "play.toPlay": "{seat} to play…",
+  "play.allPlayed.you": "Your cards are all played.",
+  "play.allPlayed.seat": "{seat}’s cards are all played.",
+  "play.win.you": "You win! 🎉",
+  "play.win.team": "{team} wins.",
+  "play.win.final": "First to {target}. Final: {scores}",
+  "play.cutdeal.title": "Cut for deal",
+  "play.cutdeal.subYou": "Lowest card deals — you deal first this game.",
+  "play.cutdeal.subSeat": "Lowest card deals — {seat} deals first this game.",
+  "play.deal.yours": "Your deal — the crib is yours.",
+  "play.deal.teammate": "{seat} deals — your team’s crib.",
+  "play.deal.theirs": "{seat} deals — the crib is theirs.",
+  "play.crib.seatPrefix": "{seat}: ",
+  "play.crib.greedy": "Your crib — be greedy",
+  "play.crib.teamGreedy": "{seat}’s crib — your team’s, be greedy",
+  "play.crib.defend": "Feeds {seat}’s crib — defend",
+  "play.cut.yourCrib": "your crib",
+  "play.cut.seatCrib": "{seat}’s crib",
+  "play.pile.count": "pile count",
+  "play.pile.cleared": "cleared — new count from 0",
+  "play.pass.to": "Pass the device to {seat}",
+  "play.pass.take": "I’m {seat} — show my hand",
+  // the show / counting body + the skunk panel
+  "play.show.yourCrib": "Your crib",
+  "play.show.yourHand": "Your hand",
+  "play.show.seatCrib": "{seat}’s crib",
+  "play.show.seatHand": "{seat}’s hand",
+  "play.show.step": "{n} of {m}",
+  "play.show.entCounting": "{ent} · counting {step}",
+  "play.show.title": "The show · {ent}",
+  "play.show.counting": "counting {step}",
+  "play.show.order": "order: pone first, dealer’s crib last.",
+  "play.show.claimCrib": "Count your crib with the starter. Claim what you see — miss any and the next opponent takes them.",
+  "play.show.claimHand": "Count your hand with the starter. Claim what you see — miss any and the next opponent takes them.",
+  "play.show.claimBtn": "Claim {n}",
+  "play.show.scoring": "scoring",
+  "play.show.nineteen": "“nineteen” hand — no points.",
+  "play.show.claimedMissed": "you claimed {n} · missed {m}",
+  "play.show.claimedOver": "you claimed {n} · over-claim, corrected down",
+  "play.show.claimedSpot": "you claimed {n} · spot on",
+  "play.skunk.double": "Double skunk 🦨🦨 — {list}",
+  "play.skunk.single": "Skunk 🦨 — {list}",
+  // game history — the per-seat scoring popup + the aggregate stats modal
+  "play.hist.scoringGame": "{team} — scoring this game",
+  "play.hist.close": "Close",
+  "play.hist.noPoints": "No points yet.",
+  "play.hist.colFor": "for",
+  "play.hist.colPts": "pts",
+  "play.hist.total": "total",
+  "play.hist.title": "Game history",
+  "play.hist.empty": "No finished games yet. Play a game out to the finish and it’ll show up here.",
+  "play.hist.all": "All",
+  "play.hist.cfgTeams": "{p}p · {teams} teams",
+  "play.hist.cfgHanded": "{p}-handed",
+  "play.hist.games": "Games",
+  "play.hist.won": "Won",
+  "play.hist.wonValue": "{n} ({pct}%)",
+  "play.hist.lost": "Lost",
+  "play.hist.skunked": "Skunked 🦨",
+  "play.hist.dblSkunked": "Double skunked 🦨🦨",
+  "play.hist.avgHeader": "YOUR AVERAGE POINTS PER GAME",
+  "play.hist.pegging": "Pegging",
+  "play.hist.hand": "Hand (the show)",
+  "play.hist.crib": "Crib",
+  "play.hist.pickHint": "Pick a specific size/teams above to see your average pegging, hand, and crib points.",
+  "play.hist.clearConfirm": "Tap again to erase all history",
+  "play.hist.clear": "Clear history",
+  // reducer status banner — the transient message line. (history h.label values stay English.)
+  "play.peg.fifteen": "fifteen",
+  "play.peg.thirtyOne": "thirty-one",
+  "play.peg.pair": "pair",
+  "play.peg.pairRoyal": "pair royal",
+  "play.peg.doublePairRoyal": "double pair royal",
+  "play.peg.run": "run of {m}",
+  "play.peg.points": "points",
+  "play.msg.cut": "Cut: {card}.",
+  "play.msg.hisHeelsYou": "His heels — you peg 2 for the Jack ({card}).",
+  "play.msg.hisHeelsSeat": "His heels — {seat} pegs 2 for the Jack ({card}).",
+  "play.msg.dealsCut": "{seat} deals — on to the cut.",
+  "play.msg.yourDealNoThrow": "Your deal — no throw. The crib is yours.",
+  "play.msg.noThrowYou": "No throw for you this hand — on to the cut.",
+  "play.msg.pegScore": "{seat}: {reason} for {pts}.",
+  "play.msg.pegPlayYou": "You play {card} (count {count}).",
+  "play.msg.pegPlaySeat": "{seat} plays {card} (count {count}).",
+  "play.msg.goYou": "You say “go”.",
+  "play.msg.goSeat": "{seat} says “go”.",
+  "play.msg.goPoint": "{seat} +1 for the go.",
+  "play.msg.muggins": "Muggins! {seat} claims the {missed} you missed (had {total}).",
+  "play.msg.count": "You count {n}.",
+  "play.msg.countOver": "You count {n} — over-claim corrected down.",
+  "play.msg.scores": "{ent} scores {total}.",
+  "play.msg.handComplete": "Hand complete — deal the next.",
+  // in-game header descriptor, deal blurb, and the pre-deal config hint
+  "play.hdr.handed": "{p}-handed",
+  "play.hdr.teamsN": ", {teams} teams",
+  "play.hdr.teams": ", teams",
+  "play.hdr.bot": ", {n} bot",
+  "play.hdr.bots": ", {n} bots",
+  "play.hdr.playTo": "play to {target}",
+  "play.deal.blurb2": "You're each dealt 6 and throw two to the crib. First to 121 wins.",
+  "play.deal.blurb3": "Each player is dealt 5 and throws one; the dealer adds a card off the deck to fill the crib to four. First to 121 wins.",
+  "play.deal.blurb4": "Each player is dealt 5 and throws one to the crib. First to 121 wins.",
+  "play.deal.blurb5": "Everyone is dealt 5 and throws one — except the dealer, dealt 4 and keeping them all. Short game: first to 61 wins.",
+  "play.deal.blurb6": "Everyone is dealt 5 and throws one — except the dealer and the player to their right, dealt 4 and keeping them all. Short game: first to 61 wins.",
+  "play.cfg.counting": "counting",
+  "play.cfg.goNoCard": "go on no card",
+  "play.cfg.warn": "weak-play warnings",
+  "play.cfg.muggins": "muggins",
+  "play.cfg.auto": "auto",
+  "play.cfg.manual": "manual",
+  "play.cfg.on": "on",
+  "play.cfg.off": "off",
+  "play.cfg.tapChange": "— tap ⚙ to change",
+  // card select badges, leave-home confirm, empty-hand note, weak-play warnings
+  "play.handEmpty": "your cards are all played",
+  "play.sel.play": "PLAY",
+  "play.sel.throw": "THROW",
+  "play.home.title": "Leave to the home menu?",
+  "play.home.body": "This ends the current game — scores aren't saved.",
+  "play.home.keep": "Keep playing",
+  "play.home.leave": "Leave",
+  "play.warn.title": "Not the best throw — off by {delta} pts",
+  "play.warn.best": "Best:",
+  "play.warn.yours": "Yours:",
+  "play.warn.line": "throw {thrown} · keep {keep} · hand {hand} · crib {crib} {side} →",
+  "play.warn.net": "net {net}",
+  "play.warn.forSide": "for your side",
+  "play.warn.toOpp": "to the opponents",
+  "play.warn.explain": "“hand” = your kept cards averaged over every cut; “crib” = the thrown card(s)’ average value in the crib ({dir}). Net is the two combined.",
+  "play.warn.dirOurs": "added to your side’s score",
+  "play.warn.dirOpp": "given to the opponents, so subtracted",
+  "play.warn.throwAnyway": "Throw {thrown} anyway",
+  "play.warn.pickAgain": "Pick again",
+  "play.warn.leavesOne": "That leaves {n} point on the table",
+  "play.warn.leavesMany": "That leaves {n} points on the table",
+  "play.warn.playLineA": "{card} scores {pts} here · ",
+  "play.warn.playLineB": " would score {pts} (+{delta}).",
+  "play.warn.playAnyway": "Play {card} anyway",
+
+  // landing — header, nav, footer
+  "landing.tagline": "play vs bots or friends and sharpen your discards",
+  "landing.playersAtTable": "Players at the table",
+  "landing.seatHint": "Tap any seat to set it as a 🧑 human or 🤖 bot.",
+  "landing.teams": "Teams",
+  "landing.teamsNote": "— how the table splits up",
+  "landing.language": "Language",
+  "landing.play.title": "Play",
+  "landing.play.sub": "vs bots or friends · 2–6 players",
+  "landing.play.desc": "Play a full game — against the computer, or pass the device for hot-seat games with friends by setting any seat to a human on the table above. Set the size and teams there too: heads-up through six-handed, individual or in teams.",
+  "landing.trainer.title": "Discard Trainer",
+  "landing.trainer.sub": "analyze & rank every throw",
+  "landing.trainer.desc": "Deal a hand and see all discards ranked by expected points — hand value over every cut, crib swing, and pegging potential, each fully explained. Follows the table size above — 2- through 6-handed, individual play or teams.",
+  "landing.footer.note": "Open-source cribbage practice.",
+  // seat diagram (interpolated)
+  "landing.youPrefix": "You - ",
+  "landing.seatAria": "{name} — {role}, tap to switch",
+  "landing.tableIndividual": "{p}-handed",
+  "landing.tableTeams": "{p}-handed · {teams} teams",
+  "landing.firstTo": "first to {target}",
+  "landing.team.individual": "Individual play",
+  "landing.team.teams": "Teams",
+  "landing.team.two": "Two teams",
+  "landing.team.three": "Three teams",
+
+  // settings popup
+  "settings.title": "Settings",
+  "settings.intro": "These apply to the Play game and are saved on this device. (The number of players is set above, on the home page.)",
+  "settings.aboutFeedback": "About & feedback",
+  "settings.continue": "Continue game",
+  "settings.tapToSelect.title": "Tap to select, then confirm",
+  "settings.tapToSelect.desc": "Tapping a card lifts it to select (tap again to drop it); a Play or Throw-to-crib button above your hand commits the choice. Off: a tap plays or throws immediately.",
+  "settings.autoCut.title": "Cut for the starter",
+  "settings.autoCut.desc": "Auto (default) turns the starter in the background and goes straight to the play; Manual waits for you to tap when you’re the one cutting.",
+  "settings.history": "Game history",
+  "settings.counting.title": "Counting",
+  "settings.counting.desc": "Auto tallies every hand. Muggins: you claim your own hand (and crib when you deal) — miss points and the next opponent takes them.",
+  "settings.counting.disabledDesc": "Muggins is only available in a solo (one-human) game; hot-seat tables auto-count.",
+  "settings.counting.optAuto": "Auto-count",
+  "settings.counting.optMuggins": "Muggins",
+  "settings.autoGo.title": "Go on no playable card",
+  "settings.autoGo.desc": "When you can’t play, Manual waits for you to tap “Go”; Auto passes for you.",
+  "settings.warn.title": "Warn on a weak play",
+  "settings.warn.desc": "Pause and explain when a throw to the crib, or a pegging card that leaves a point on the table, isn’t the best — with a chance to take it back.",
+  "settings.autoPlayOne.title": "Auto-play a forced card",
+  "settings.autoPlayOne.desc": "When only one of your cards is legal to peg, play it for you.",
+  "settings.autoPlayBest.title": "Auto-play the best card",
+  "settings.autoPlayBest.desc": "On your turn to peg, play the best card automatically — the same policy the bots use. Full autopilot for the play.",
+  "settings.autoDiscardBest.title": "Auto-discard the best throw",
+  "settings.autoDiscardBest.desc": "At the discard, throw the best card(s) for your position automatically — accounting for whose crib it is.",
+  "settings.autoContinue.title": "Auto-continue the show",
+  "settings.autoContinue.desc": "Advance the counting automatically (still pauses for your muggins claim).",
+  "settings.autoDeal.title": "Auto-deal the next hand",
+  "settings.autoDeal.desc": "Deal the next hand automatically once a hand is fully counted.",
+
+  // about popup
+  "about.title": "About Cribbage Trainer",
+  "about.line1": "An open-source cribbage trainer and game.",
+  "about.line2": "Found a bug, or have feedback? The source lives on GitHub — feel free to go there to be part of the conversation.",
+  "about.sourceLink": "Source, bugs & feedback ↗",
+
+  // discard trainer — chrome + key view labels
+  "trainer.home": "Home",
+  "trainer.set.sizeLabel": "Table size:",
+  "trainer.set.size2": "2-handed (heads-up) — 6 cards, discard two",
+  "trainer.set.sizeN": "{p}-handed — 5 cards, discard one",
+  "trainer.set.sizeTail": "Set it on the home page (the “Players at the table” control above Play).",
+  "trainer.set.forcedDefend": "In {p}-handed (no teams) you always throw into the dealer’s crib — the dealer (and, at 6, the player to their right) is dealt four and discards nothing, so there’s no “as dealer” discard to practice.",
+  "trainer.set.practiceAs": "practice as",
+  "trainer.set.practiceAsTeam": "practice as (whose crib)",
+  "trainer.set.role.random": "Random",
+  "trainer.set.role.randomDeal": "Random (1-in-{p} deal)",
+  "trainer.set.role.ours": "My team’s crib",
+  "trainer.set.role.theirs": "Opponents’ crib",
+  "trainer.set.role.deal": "Always dealer",
+  "trainer.set.role.defend": "Always defend",
+  "trainer.set.newHand": "on a new hand",
+  "trainer.set.iChoose": "I choose",
+  "trainer.set.autoBest": "Auto-pick the best",
+  "trainer.picker.title": "Build a hand",
+  "trainer.picker.hint": "tap to pick {n} cards · {sel}/{n}",
+  "trainer.picker.cancel": "Cancel",
+  "trainer.picker.deal": "Deal these {n}",
+  "trainer.hdr.heads": "heads-up · 6 cards, discard two",
+  "trainer.hdr.teams": "{p}-handed · {teams} teams of {size}",
+  "trainer.hdr.solo": "{p}-handed · every player for themselves",
+  "trainer.stat.hands": "hands",
+  "trainer.stat.optimal": "optimal",
+  "trainer.stat.lost": "avg pts lost",
+  "trainer.banner.youDeal": "Your crib — you’re the dealer",
+  "trainer.banner.partner": "Your team’s crib — your partner deals",
+  "trainer.banner.oppTeam": "Opponents’ crib — you’re defending",
+  "trainer.banner.oppSolo": "Not your crib — it feeds the dealer",
+  "trainer.banner.subGreedy": "Be greedy: a good throw fattens your side’s crib.",
+  "trainer.banner.subDefend": "Play defense: surrender the least to the opposing crib.",
+  "trainer.prompt.tapTwo": "Tap two cards you’d throw to the crib.",
+  "trainer.prompt.tapTwoMore": "Tap two cards you’d throw to the crib. One more…",
+  "trainer.prompt.tapOne": "Tap the card you’d throw to the crib.",
+  "trainer.prompt.ranked": "Ranked by {mode} — tap any row for the why.",
+  "trainer.prompt.rankedRisk": "Ranked by {mode} (net {sign} risk·σ) — tap any row for the why.",
+  "trainer.mode.ev": "max EV",
+  "trainer.mode.need": "chase points",
+  "trainer.mode.protect": "protect lead",
+  "trainer.tbl.throw": "throw",
+  "trainer.tbl.net": "net",
+  "trainer.tbl.adj": "adj",
+  "trainer.tbl.bar": "{m} (bar)",
+  "trainer.tbl.hand": "hand",
+  "trainer.tbl.crib": "crib",
+  "trainer.tbl.peg": "peg",
+  "trainer.dealCustom": "Deal custom",
+  "trainer.dealRandom": "Deal random",
+
+  // discard trainer — analysis prose (Explain rows, buildNote, board + crib-model panels)
+  "trainer.cat.fifteens": "fifteens",
+  "trainer.cat.pairs": "pairs",
+  "trainer.cat.runs": "runs",
+  "trainer.cat.flush": "flush",
+  "trainer.cat.nobs": "nobs",
+  "trainer.cat.spread": "spread-out points",
+  "trainer.ex.pegHigh": "Low, connected cards peg well — flexible counts and pairing/run chances.",
+  "trainer.ex.pegLow": "Awkward pegging shape — stiff high cards or a lonely 5 give you little to work with.",
+  "trainer.ex.pegMid": "Middling pegging potential.",
+  "trainer.ex.handHdr": "KEPT HAND — averages {ev} over all {cuts} cuts",
+  "trainer.ex.handBody": "{locked} locked in already, +{fromCut} on average from the cut. Points are mostly {cat}.",
+  "trainer.ex.bestCuts": "best cuts (rank → avg total):",
+  "trainer.ex.cribHdrOne": "CRIB — your {cards} averages {ev} {dir}",
+  "trainer.ex.cribHdrTwo": "CRIB — your {cards} average {ev} {dir}",
+  "trainer.ex.forYou": "FOR you",
+  "trainer.ex.againstYou": "AGAINST you",
+  "trainer.ex.cribBody": "Lands points in {pct}% of random cribs, mostly via {cat}.",
+  "trainer.ex.cribOurs": " Added to your side’s score.",
+  "trainer.ex.cribTheirs": " Handed to the opposing crib, so subtracted from yours.",
+  "trainer.ex.pegHdr": "PEGGING — these four average {ev} in play {seat}",
+  "trainer.ex.pegLast": "(you peg last — best seat)",
+  "trainer.ex.net": "net {v}",
+  "trainer.ex.spread": "spread σ {sd}   range {mn}–{mx}   typical {p10}–{p90} (hand only)",
+  "trainer.ex.adjLine": "{mode}: net {sign} {risk}·σ → adj {adj}",
+  "trainer.ex.footer": "Crib uses role-split discard models{deck}; pegging simulates {p}-handed play from your seat ({seat}) against greedy opponents.",
+  "trainer.ex.footerDeck": " plus one card dealt straight off the deck",
+  "trainer.ex.seatDealer": "dealer, last to play",
+  "trainer.ex.seatNon": "a non-dealer seat",
+  "trainer.note.bestOurs5": "Best line. A 5 in your side’s crib is gold — it pairs with every ten-card for fifteens.",
+  "trainer.note.bestOurs": "Best line — you keep your strongest four and the throwaway lands in your side’s crib anyway.",
+  "trainer.note.bestTheirs5": "Best available, though even your safest throw includes a 5 here — sometimes unavoidable.",
+  "trainer.note.bestTheirsHigh": "Best line. High cards can’t stretch into long runs, so they’re the cheapest gift to the opponents.",
+  "trainer.note.bestTheirsOne": "Best line — you shed a loner and starve the opponents’ crib.",
+  "trainer.note.bestTheirsMulti": "Best line — you shed your loners and starve the opponents’ crib.",
+  "trainer.note.fed5": "You fed the opponents a 5 — the richest crib card (~{cribEV} pts to them). On defense, almost never do this. Throw {phrase} instead (−{delta}).",
+  "trainer.note.handMoreOne": "You kept more hand points, but the crib swing more than canceled it. The {label} is better by {delta}.",
+  "trainer.note.handMoreMulti": "You kept more hand points, but the crib swing more than canceled it. {phrase} is better by {delta}.",
+  "trainer.note.close": "Close, but {phrase} edges it by {delta} expected points.",
+  "trainer.board.toggle": "board position — {mode} ({state})",
+  "trainer.board.stManual": "manual",
+  "trainer.board.stAuto": "auto",
+  "trainer.board.body": "Enter the pips (game to 121). The recommendation re-ranks: chase upside when you’re behind and someone’s near out, or play safe and defend the crib harder when protecting a lead. Leave at 0 for a neutral, max-EV game.",
+  "trainer.board.yourPips": "your pips",
+  "trainer.board.leaderPips": "leader’s pips",
+  "trainer.board.need": "you need {you} to peg out · leader needs {leader} · auto-suggests {mode}",
+  "trainer.board.neutral": "no score entered — neutral game",
+  "trainer.board.auto": "Auto",
+  "trainer.board.risk": "A heuristic risk posture, not a full win-probability solve: chase = net + {risk}·σ (reward upside); protect = net − {risk}·σ and defend the crib ~30% harder.",
+  "trainer.model.toggle": "crib model — role-split discards (passes 2-3 avg)",
+  "trainer.model.introA": "How often each rank is thrown, from a fixed-point self-play calibration (10,000 hands/pass). Two behaviors: ",
+  "trainer.model.dealers": "dealers",
+  "trainer.model.introMid": " feed their own crib, ",
+  "trainer.model.defenders": "defenders",
+  "trainer.model.introB": " surrender junk to an opponent’s.",
+  "trainer.model.teams": "With {teams} teams, the dealer’s crib is fed by their whole side — a thrower on the dealer’s team feeds it (dealer-intent), opponents surrender junk (defender-intent). When the crib is on your team you throw greedily; when it’s the opponents’, you defend. The mix shifts with who deals and team sizes.",
+  "trainer.model.heads": "Heads-up, the crib is your two discards + the opponent’s two — defender throws when you deal, the dealer’s own throws when you defend.",
+  "trainer.model.three": "Your crib draws two defender throws plus one card dealt off the deck; when you defend, the dealer’s crib draws one dealer + one defender throw plus one deck card.",
+  "trainer.model.five": "You always defend: the dealer is dealt four and throws none, so the dealer’s crib is four defender throws (yours + three others) — no dealer salt, so it runs a touch leaner than a 4-handed crib.",
+  "trainer.model.four": "Your crib draws three defender throws; when you defend, the dealer’s crib draws one dealer + two defender throws.",
+  "trainer.model.cutUniform": "The cut stays uniform.",
+  "trainer.model.reuse": "({p}-handed reuses the 4-handed discard model — a close approximation, since how players dump junk barely shifts with table size.)",
+  "trainer.model.dealerCol": "DEALER → own crib",
+  "trainer.model.defenderCol": "DEFENDER → opp crib",
+
+  // rules (rich text — keep the <b>/<span> tags when translating)
+  "rules.summary": "How to play — basic rules",
+  "rules.goal.h": "The goal",
+  "rules.goal.p": "Be the first to peg <b>121 points</b> over a series of deals. You score both during the play and when hands are counted (“the show”). The deal passes one seat each hand.",
+  "rules.deal.h": "The deal & the crib",
+  "rules.deal.p": "Each player is dealt a small hand and throws a card (two, heads-up) into the <b>crib</b> — a bonus hand that belongs to the <b>dealer</b>. The crib always holds four cards and is counted, with the starter, like any other hand. How many cards are dealt and who throws depends on the number of players — each game here sets that up for you.",
+  "rules.cut.h": "The cut — the starter",
+  "rules.cut.p": "After the throws, the deck is cut to turn up one <b>starter</b> card. It’s shared by every hand and the crib when counting. If the starter is a <b>Jack</b>, the dealer immediately pegs <b>2</b> (“his heels”).",
+  "rules.play.h": "The play (pegging)",
+  "rules.play.p": "Players take turns laying a card face-up, calling the running total out loud. The count may never pass <b>31</b>; if you can’t play without going over you say <b>“Go.”</b> Score as you lay cards down:",
+  "rules.play.li1": "Make the count exactly <b>15</b> → 2 · make exactly <b>31</b> → 2",
+  "rules.play.li2": "<b>Pair</b> the previous card → 2 (three of a kind → 6, four → 12)",
+  "rules.play.li3": "Complete a <b>run</b> of 3+ with the most recent cards (any order) → 1 per card",
+  "rules.play.li4": "<b>Go / last card:</b> the last player able to lay a card pegs 1 (when no one else can play, or at the final card of the deal)",
+  "rules.show.h": "The show (counting hands)",
+  "rules.show.p": "When all cards are played, hands are counted in order — starting with the player to the dealer’s left, the <b>dealer last</b>, then the <b>crib</b>. Combine each hand’s four cards with the starter and score (aces = 1, face cards = 10):",
+  "rules.show.li1": "<b>Fifteens</b> — every combination of cards adding to 15 → 2 each",
+  "rules.show.li2": "<b>Pairs</b> — 2 each (so three of a kind = 6, four = 12)",
+  "rules.show.li3": "<b>Runs</b> — three or more in sequence → 1 per card (duplicates count)",
+  "rules.show.li4": "<b>Flush</b> — four cards one suit → 4; if the starter matches too → 5 <span class=\"note\">(the crib only scores a flush when all five share a suit)</span>",
+  "rules.show.li5": "<b>Nobs</b> — holding the <b>Jack of the starter’s suit</b> → 1",
+  "rules.note29": "The best possible hand is 29: three 5s plus the Jack of the cut’s suit, with the fourth 5 turned as the starter."
+});
+
+</script>
 <script>window.i18nBootstrap&&i18nBootstrap();</script>
 </head>
 <body>
@@ -269,7 +749,7 @@
       <a class="btn btn-primary" href="https://github.com/ghug/cribbage-trainer/"
          target="_blank" rel="noopener noreferrer" data-i18n="about.sourceLink">Source, bugs &amp; feedback ↗</a>
       <div class="repo-url" style="margin-bottom:4px">github.com/ghug/cribbage-trainer</div>
-      <div class="repo-url">v1.1.12-dev.1</div>
+      <div class="repo-url">v1.1.12-dev.2</div>
     </div>
   </div>
 

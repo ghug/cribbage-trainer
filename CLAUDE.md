@@ -335,14 +335,25 @@ network, working identically online and offline in the APK. **Architecture:**
   and Simplified Chinese (`zh-Hans.js`, "简体中文"; crib=副牌, dealer=庄家, starter=起始牌,
   the show=计分环节, pegging=出牌, skunk=臭鼬; compass seats use 东/南/西/北 + 西北/东北/西南/东南).
 - **Loading is `<script>`-only** (like vendored React) — no `fetch` (blocked for `file://`
-  in the no-INTERNET WebView). Each page's `<head>` loads `i18n.js` → `locales/index.js` →
-  `locales/en.js` → then `i18nBootstrap()` **`document.write`s the active non-English file
-  synchronously**, so `t()` resolves before first render (no English flash). Only the
-  picked language's file ever loads, so a 200-line `index.js` stays cheap.
-- **Wiring:** `build.sh`'s HTML shell injects those four head scripts into `trainer.html`
-  and `play.html`; `src/landing.html` has them too. `android/app/build.gradle`'s
-  `syncWebAssets` bundles `i18n.js` + `locales/**` into the APK; `.assetsignore` does not
-  exclude them, so Cloudflare serves them too.
+  in the no-INTERNET WebView). The critical path — `i18n.js` (runtime), `locales/index.js`
+  (language list), `locales/en.js` (source-of-truth catalogue) — is **INLINED into each
+  page's `<head>` at build time** (not loaded via `<script src>`). This is deliberate: a
+  relative `src="i18n.js"` mis-resolves on GitHub Pages' `/<repo>/` subpath (it'd hit the
+  domain root), which left the `.io` mirror showing raw keys; inlining the bytes means the
+  English path needs **zero external fetch** and works identically at the root (Cloudflare),
+  on a subpath (Pages), and from `file://` (APK). Then `i18nBootstrap()` **`document.write`s
+  the active non-English file synchronously** — and it derives that file's path from
+  `location.pathname` (the page's own directory), so the subpath resolves there too. `t()`
+  resolves before first render (no English flash); only the picked language's file fetches.
+- **Wiring:** `build.sh`'s `i18n_head()` emits the three inlined `<script>` blocks + the
+  bootstrap call. For `trainer.html`/`play.html` the HTML shell calls it directly; for
+  `index.html` the build **splices** it in place of `src/landing.html`'s external i18n
+  `<script src>` block (an awk pass from the `i18n.js` line through `i18nBootstrap()`), so
+  `src/landing.html` keeps its external tags (works opened directly) while the deployed
+  `index.html` is inlined. `android/app/build.gradle`'s `syncWebAssets` still bundles
+  `i18n.js` + `locales/**` into the APK (the non-English files load externally); `.assetsignore`
+  does not exclude them, so Cloudflare serves them too. (No locale string contains `</script>`,
+  so inlining the catalogue can't break out of the block.)
 - **Usage:** static HTML uses `data-i18n="key"` (plain text), `data-i18n-html="key"` (rich
   inline markup — the rules), `data-i18n-aria="key"` (aria-label); a small pass on load
   applies all three. JS-generated text calls a `tr()` alias (= `window.t`, key-fallback);

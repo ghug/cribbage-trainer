@@ -657,7 +657,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, "Source, bugs & feedback \u2197"),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.10-dev.13"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.10-dev.14"))));
 }
 function MiniCard({ card, selected, disabled, onClick }) {
     return (React.createElement("button", { onClick: onClick, disabled: disabled, "aria-pressed": selected, "aria-label": `${rankLabel(card.r)} of ${["spades", "hearts", "diamonds", "clubs"][card.s]}`, style: {
@@ -682,8 +682,8 @@ function CardPicker({ count, onPick, onClose }) {
         setSel((s) => s.includes(id) ? s.filter((x) => x !== id) : (s.length >= count ? s : [...s, id]));
     };
     const ready = sel.length === count;
-    return (React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 230, background: "rgba(0,0,0,0.62)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 16, boxSizing: "border-box" }, onClick: onClose },
-        React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { flex: "0 1 auto", minHeight: 0, maxWidth: 360, width: "100%", display: "flex", flexDirection: "column", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "16px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" } },
+    return (React.createElement("div", { style: { position: "fixed", inset: 0, height: "100dvh", zIndex: 230, background: "rgba(0,0,0,0.62)", display: "flex", flexDirection: "column", alignItems: "center", padding: 12, boxSizing: "border-box" }, onClick: onClose },
+        React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { flex: 1, minHeight: 0, maxWidth: 360, width: "100%", display: "flex", flexDirection: "column", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "16px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" } },
             React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 } },
                 React.createElement("div", null,
                     React.createElement("div", { style: { fontWeight: 700, fontSize: 16 } }, "Build a hand"),

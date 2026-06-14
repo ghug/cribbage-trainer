@@ -663,7 +663,7 @@ export default function CribbageTrainer() {
     const best = res[0];
     const chosen = res.find((o) => o.id === id);
     const delta = best.adj - chosen.adj;
-    setChosenId(id); setExpanded(id); setPhase("revealed");
+    setChosenId(id); setExpanded(null); setPhase("revealed");
     setStats((s) => ({ hands: s.hands + 1, optimal: s.optimal + (delta < 0.1 ? 1 : 0), lost: s.lost + delta }));
   }, [hand, scenario, mode, players, teams]);
 

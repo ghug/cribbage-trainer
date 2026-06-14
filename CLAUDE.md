@@ -347,8 +347,12 @@ network, working identically online and offline in the APK. **Architecture:**
   prompts/labels, cut-for-deal / deal / crib-intent / cut / win banners, pile labels, the pass
   panel; with interpolation like `play.toPlay`/`play.win.final`). The play game's **settings
   panel + About modal** are extracted too (sharing the `settings.*`/`about.*` keys with the
-  landing — one canonical description per setting). Still English: the play game's **show/
-  scoring body, history modal, skunk panel, and reducer messages** (the latter would need a
+  landing — one canonical description per setting). The **show/scoring body + skunk panel**
+  are extracted as well (`play.show.*`/`play.skunk.*`): the counting headers/step labels, the
+  muggins claim prompt + claim button, the scoring/“nineteen”/claim-result lines, and the
+  skunk/double-skunk banner. Note `entLabel` (plain, used by the reducer's score message) got
+  a render-only i18n twin **`entText`** so the reducer stays `window`-free for `verify_play.js`.
+  Still English: the play game's **history modal and reducer messages** (the latter would need a
   `window.t` shim in `verify_play.js`), plus the **trainer**.
   `es.js` translates these; the rules prose is omitted to exercise the English fallback.
 - **Key-parity lint:** `engine/verify_i18n.js` (run by `./build.sh`, fails the build) flags any

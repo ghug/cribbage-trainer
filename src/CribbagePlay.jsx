@@ -412,6 +412,13 @@ function computeShow(state) {
   return { ent, owner, cards, acc, total, isCrib };
 }
 const entLabel = (info) => `${poss(info.owner)} ${info.isCrib ? "crib" : "hand"}`;
+// Render-only, i18n'd twin of entLabel (entLabel stays plain so the reducer's score
+// message at SHOW_NEXT keeps working under verify_play.js, which has no window.t shim).
+const entText = (info) => {
+  const you = seatName(info.owner) === "You";
+  if (info.isCrib) return you ? tr("play.show.yourCrib") : tr("play.show.seatCrib", { seat: seatName(info.owner) });
+  return you ? tr("play.show.yourHand") : tr("play.show.seatHand", { seat: seatName(info.owner) });
+};
 
 function pegReason(pile, count) {
   const parts = [];
@@ -889,8 +896,8 @@ function SkunkPanel({ seats, winner, P, teams }) {
   const fmt = (arr) => arr.map((x) => `${teamLabel(x.m)} (${x.score})`).join(", ");
   return (
     <Panel tone={youSkunked ? "red" : "good"}>
-      {dbl.length > 0 && <div style={{ fontWeight: 700, fontSize: 15 }}>Double skunk 🦨🦨 — {fmt(dbl)}</div>}
-      {sk.length > 0 && <div style={{ fontWeight: 700, fontSize: 15, marginTop: dbl.length ? 4 : 0 }}>Skunk 🦨 — {fmt(sk)}</div>}
+      {dbl.length > 0 && <div style={{ fontWeight: 700, fontSize: 15 }}>{tr("play.skunk.double", { list: fmt(dbl) })}</div>}
+      {sk.length > 0 && <div style={{ fontWeight: 700, fontSize: 15, marginTop: dbl.length ? 4 : 0 }}>{tr("play.skunk.single", { list: fmt(sk) })}</div>}
     </Panel>
   );
 }
@@ -1274,7 +1281,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
   const ts = seatsAround(P, me);
   // The show counts one owner at a time: their (face-up) hand or the crib, plus the cut.
   const info = showPhase ? computeShow(state) : null;
-  const stepLabel = showPhase ? `${state.show.step + 1} of ${state.show.order.length}` : "";
+  const stepLabel = showPhase ? tr("play.show.step", { n: state.show.step + 1, m: state.show.order.length }) : "";
   // What each seat is holding (face down for the others): nothing before a hand is dealt;
   // during the discard, its current hand — the kept four once it has thrown, else the full
   // dealt hand — so a seat drops to four as soon as it discards; the kept four at the cut;
@@ -1397,16 +1404,16 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
         info.isCrib ? (
           // the crib has no seat — reveal it face up here, where the pile/crib normally sits.
           <div style={{ background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "12px", minHeight: 88, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-            <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{entLabel(info)} · counting {stepLabel}</span>
+            <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{tr("play.show.entCounting", { ent: entText(info), step: stepLabel })}</span>
             <Fan items={cardItems(info.cards)} />
           </div>
         ) : (
           <Panel>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-              <div style={{ fontWeight: 700, fontSize: 15 }}>The show · {entLabel(info)}</div>
-              <span style={{ fontFamily: mono, fontSize: 10.5, color: T.muted }}>counting {stepLabel}</span>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>{tr("play.show.title", { ent: entText(info) })}</div>
+              <span style={{ fontFamily: mono, fontSize: 10.5, color: T.muted }}>{tr("play.show.counting", { step: stepLabel })}</span>
             </div>
-            <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 3 }}>order: pone first, dealer's crib last.</div>
+            <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 3 }}>{tr("play.show.order")}</div>
           </Panel>
         )
       ) : discardPhase ? (
@@ -1443,28 +1450,31 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
         needClaim ? (
           <div style={{ background: "rgba(0,0,0,0.26)", borderRadius: 10, padding: "14px 14px 16px" }}>
             <div style={{ fontSize: 13.5, lineHeight: 1.5, marginBottom: 12 }}>
-              Count {info.isCrib ? "your crib" : "your hand"} with the starter. Claim what you see —
-              miss any and the next opponent takes them.
+              {info.isCrib ? tr("play.show.claimCrib") : tr("play.show.claimHand")}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 12, justifyContent: "center", marginBottom: 14 }}>
               <StepBtn onClick={() => setClaim((v) => Math.max(0, v - 1))}>−</StepBtn>
               <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 34, minWidth: 48, textAlign: "center" }}>{claim}</span>
               <StepBtn onClick={() => setClaim((v) => Math.min(29, v + 1))}>+</StepBtn>
             </div>
-            {bigBtn(`Claim ${claim}`, () => dispatch({ type: "SHOW_CLAIM", value: claim }), "good")}
+            {bigBtn(tr("play.show.claimBtn", { n: claim }), () => dispatch({ type: "SHOW_CLAIM", value: claim }), "good")}
           </div>
         ) : (
           <div style={{ background: "rgba(0,0,0,0.26)", borderRadius: 10, padding: "12px 14px 14px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
-              <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>scoring</span>
+              <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{tr("play.show.scoring")}</span>
               <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 20, color: T.ivory }}>{info.total}</span>
             </div>
             {info.total > 0
               ? <CatBars cats={info.acc} scale={info.total} color={info.isCrib ? (seatIsHuman(info.owner, settings) ? T.good : T.pegRed) : T.good} />
-              : <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>“nineteen” hand — no points.</div>}
+              : <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>{tr("play.show.nineteen")}</div>}
             {muggins && state.show.claimSubmitted && (
               <div style={{ fontFamily: mono, fontSize: 11.5, color: state.show.claimValue >= info.total ? T.good : T.pegRed, marginTop: 10 }}>
-                you claimed {state.show.claimValue}{state.show.claimValue < info.total ? ` · missed ${info.total - state.show.claimValue}` : state.show.claimValue > info.total ? " · over-claim, corrected down" : " · spot on"}
+                {state.show.claimValue < info.total
+                  ? tr("play.show.claimedMissed", { n: state.show.claimValue, m: info.total - state.show.claimValue })
+                  : state.show.claimValue > info.total
+                    ? tr("play.show.claimedOver", { n: state.show.claimValue })
+                    : tr("play.show.claimedSpot", { n: state.show.claimValue })}
               </div>
             )}
             {bigBtn(tr("play.btn.continue"), () => dispatch({ type: "SHOW_NEXT" }), "wood")}

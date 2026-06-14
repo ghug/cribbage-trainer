@@ -247,7 +247,7 @@ function Card({ card, onClick, clickable, badge, dim, selected, raised, selLabel
         <span style={{
           fontFamily: mono, fontSize: 9.5, letterSpacing: 0.4, fontWeight: 700,
           color: T.ivory, background: badge ? badge.color : T.selBlue, padding: "2px 6px", borderRadius: 4, whiteSpace: "nowrap",
-        }}>{badge ? badge.text : (selLabel || "THROW")}</span>
+        }}>{badge ? badge.text : (selLabel || tr("play.sel.throw"))}</span>
       )}
       <button
         onClick={clickable ? onClick : undefined}
@@ -952,11 +952,11 @@ function bigBtn(label, onClick, tone) {
 }
 
 function dealBlurb(P) {
-  if (P === 2) return "You're each dealt 6 and throw two to the crib. First to 121 wins.";
-  if (P === 3) return "Each player is dealt 5 and throws one; the dealer adds a card off the deck to fill the crib to four. First to 121 wins.";
-  if (P === 4) return "Each player is dealt 5 and throws one to the crib. First to 121 wins.";
-  if (P === 5) return "Everyone is dealt 5 and throws one — except the dealer, dealt 4 and keeping them all. Short game: first to 61 wins.";
-  return "Everyone is dealt 5 and throws one — except the dealer and the player to their right, dealt 4 and keeping them all. Short game: first to 61 wins.";
+  if (P === 2) return tr("play.deal.blurb2");
+  if (P === 3) return tr("play.deal.blurb3");
+  if (P === 4) return tr("play.deal.blurb4");
+  if (P === 5) return tr("play.deal.blurb5");
+  return tr("play.deal.blurb6");
 }
 
 /* ============================ APP ============================ */
@@ -984,9 +984,9 @@ export default function CribbagePlay() {
   // split (i.e. 6-handed); where there's a single option (4-handed) just "teams".
   const nB = players - nHumans(players, settings);
   const teamCounted = teamOptions(players).filter((t) => t < players).length > 1;
-  const teamStr = teams < players ? `, ${teamCounted ? `${teams} teams` : "teams"}` : "";
-  const botStr = nB > 0 ? `, ${nB} bot${nB === 1 ? "" : "s"}` : "";
-  const headLine = `${players}-handed${teamStr}${botStr}`;
+  const teamStr = teams < players ? (teamCounted ? tr("play.hdr.teamsN", { teams }) : tr("play.hdr.teams")) : "";
+  const botStr = nB > 0 ? tr(nB === 1 ? "play.hdr.bot" : "play.hdr.bots", { n: nB }) : "";
+  const headLine = tr("play.hdr.handed", { p: players }) + teamStr + botStr;
 
   // Record each finished game once (when the board reaches "over" with a winner).
   const recordedRef = React.useRef(false);
@@ -1104,7 +1104,7 @@ export default function CribbagePlay() {
               display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, lineHeight: 1,
               boxShadow: "inset 0 1px 2px rgba(255,255,255,0.12), 0 2px 5px rgba(0,0,0,0.35)",
             }}>♣</button>
-            <span style={{ fontFamily: mono, fontSize: 12, color: "rgba(42,27,14,0.8)", lineHeight: 1.3 }}>{headLine}<br />play to {targetFor(players)}</span>
+            <span style={{ fontFamily: mono, fontSize: 12, color: "rgba(42,27,14,0.8)", lineHeight: 1.3 }}>{headLine}<br />{tr("play.hdr.playTo", { target: targetFor(players) })}</span>
           </div>
           <div style={{ display: "flex", gap: 8, flex: "0 0 auto" }}>
             <button onClick={goHome} aria-label="Home" style={{
@@ -1165,17 +1165,17 @@ export default function CribbagePlay() {
         <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
           onClick={() => setConfirmHome(false)}>
           <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 360, width: "100%", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "18px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" }}>
-            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6 }}>Leave to the home menu?</div>
-            <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, lineHeight: 1.5, marginBottom: 16 }}>This ends the current game — scores aren't saved.</div>
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6 }}>{tr("play.home.title")}</div>
+            <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, lineHeight: 1.5, marginBottom: 16 }}>{tr("play.home.body")}</div>
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={() => setConfirmHome(false)} style={{
                 flex: 1, padding: "12px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer",
                 background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: 13, fontWeight: 700,
-              }}>Keep playing</button>
+              }}>{tr("play.home.keep")}</button>
               <a href="index.html" style={{
                 flex: 1, padding: "12px", borderRadius: 9, cursor: "pointer", textDecoration: "none", textAlign: "center", boxSizing: "border-box",
                 background: `linear-gradient(180deg, ${T.pegRed}, #9c3120)`, color: T.ivory, fontFamily: mono, fontSize: 13, fontWeight: 700,
-              }}>Leave</a>
+              }}>{tr("play.home.leave")}</a>
             </div>
           </div>
         </div>
@@ -1509,10 +1509,10 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
           : (<div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {dealPhase && (
                 <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, lineHeight: 1.7, textAlign: "center" }}>
-                  counting <b style={{ color: T.cream }}>{mugginsActive(settings) ? "muggins" : "auto"}</b> ·{" "}
-                  go on no card <b style={{ color: T.cream }}>{settings.autoGo ? "auto" : "manual"}</b> ·{" "}
-                  weak-play warnings <b style={{ color: T.cream }}>{settings.warn ? "on" : "off"}</b>
-                  <span> — tap ⚙ to change</span>
+                  {tr("play.cfg.counting")} <b style={{ color: T.cream }}>{mugginsActive(settings) ? tr("play.cfg.muggins") : tr("play.cfg.auto")}</b> ·{" "}
+                  {tr("play.cfg.goNoCard")} <b style={{ color: T.cream }}>{settings.autoGo ? tr("play.cfg.auto") : tr("play.cfg.manual")}</b> ·{" "}
+                  {tr("play.cfg.warn")} <b style={{ color: T.cream }}>{settings.warn ? tr("play.cfg.on") : tr("play.cfg.off")}</b>
+                  <span> {tr("play.cfg.tapChange")}</span>
                 </div>
               )}
               {bigBtn(isDealer ? tr("play.deal") : tr("play.dealCrib", { seat: seatName(dealerIdx) }), () => dispatch({ type: "DEAL" }), "wood")}
@@ -1565,7 +1565,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
               const legal = isLegal(card);
               const chosen = pending ? pendIdxs.includes(i) : sel.includes(i);
               return (
-                <Card key={cardId(card)} card={card} selLabel={discardPhase ? undefined : "PLAY"}
+                <Card key={cardId(card)} card={card} selLabel={discardPhase ? undefined : tr("play.sel.play")}
                   clickable={pending ? true : (myTurn && legal)}
                   selected={!tapSelect && chosen}
                   raised={tapSelect && chosen}
@@ -1573,7 +1573,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
                   onClick={() => tapCard(i)} />
               );
             })}
-            {!discardPhase && yourHand.length === 0 && <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>your cards are all played</span>}
+            {!discardPhase && yourHand.length === 0 && <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{tr("play.handEmpty")}</span>}
           </div>
         )}
       </div>
@@ -1585,33 +1585,32 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
 // Warning when the human's throw isn't the best available. thrown is an array (1 or 2).
 function DiscardWarning({ pd, cribIsOurs, dispatch, onCancel }) {
   const { chosen, best, delta } = pd;
-  const side = cribIsOurs ? "for your side" : "to the opponents";
+  const side = cribIsOurs ? tr("play.warn.forSide") : tr("play.warn.toOpp");
   const thrownTag = (o) => o.thrown.map(tag).join(" ");
   const Line = ({ label, o, strong }) => (
     <div style={{ fontFamily: mono, fontSize: 11.5, lineHeight: 1.6, color: strong ? T.cream : T.muted }}>
-      <b style={{ color: strong ? T.good : T.ivory }}>{label}</b> throw {thrownTag(o)} · keep {o.four.map(tag).join(" ")} · hand {o.keptEV.toFixed(2)} · crib {o.cribSwing.toFixed(2)} {side} → net <b>{o.value.toFixed(2)}</b>
+      <b style={{ color: strong ? T.good : T.ivory }}>{label}</b> {tr("play.warn.line", { thrown: thrownTag(o), keep: o.four.map(tag).join(" "), hand: o.keptEV.toFixed(2), crib: o.cribSwing.toFixed(2), side })} <b>{tr("play.warn.net", { net: o.value.toFixed(2) })}</b>
     </div>
   );
   return (
     <Panel tone="red">
-      <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>Not the best throw — off by {delta.toFixed(2)} pts</div>
+      <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>{tr("play.warn.title", { delta: delta.toFixed(2) })}</div>
       <div style={{ display: "grid", gap: 6, marginBottom: 10 }}>
-        <Line label="Best:&nbsp;" o={best} strong />
-        <Line label="Yours:" o={chosen} />
+        <Line label={tr("play.warn.best")} o={best} strong />
+        <Line label={tr("play.warn.yours")} o={chosen} />
       </div>
       <div style={{ fontSize: 12.5, lineHeight: 1.5, color: T.cream, marginBottom: 12 }}>
-        “hand” = your kept cards averaged over every cut; “crib” = the thrown card(s)' average value in the crib
-        ({cribIsOurs ? "added to your side's score" : "given to the opponents, so subtracted"}). Net is the two combined.
+        {tr("play.warn.explain", { dir: cribIsOurs ? tr("play.warn.dirOurs") : tr("play.warn.dirOpp") })}
       </div>
       <div style={{ display: "flex", gap: 8 }}>
         <button onClick={() => dispatch({ type: "CONFIRM_DISCARD" })} style={{
           flex: 1, padding: "11px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer",
           background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
-        }}>Throw {thrownTag(chosen)} anyway</button>
+        }}>{tr("play.warn.throwAnyway", { thrown: thrownTag(chosen) })}</button>
         <button onClick={() => { dispatch({ type: "CANCEL_DISCARD" }); if (onCancel) onCancel(); }} style={{
           flex: 1, padding: "11px", borderRadius: 9, border: "none", cursor: "pointer",
           background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
-        }}>Pick again</button>
+        }}>{tr("play.warn.pickAgain")}</button>
       </div>
     </Panel>
   );
@@ -1828,19 +1827,19 @@ function AboutModal({ onClose }) {
 function PlayWarning({ pp, dispatch }) {
   return (
     <Panel tone="red">
-      <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>That leaves {pp.delta} point{pp.delta === 1 ? "" : "s"} on the table</div>
+      <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>{tr(pp.delta === 1 ? "play.warn.leavesOne" : "play.warn.leavesMany", { n: pp.delta })}</div>
       <div style={{ fontFamily: mono, fontSize: 11.5, lineHeight: 1.6, color: T.cream, marginBottom: 12 }}>
-        {tag(pp.card)} scores {pp.chosenPts} here · <b style={{ color: T.good }}>{tag(pp.bestCard)}</b> would score {pp.bestPts} (+{pp.delta}).
+        {tr("play.warn.playLineA", { card: tag(pp.card), pts: pp.chosenPts })}<b style={{ color: T.good }}>{tag(pp.bestCard)}</b>{tr("play.warn.playLineB", { pts: pp.bestPts, delta: pp.delta })}
       </div>
       <div style={{ display: "flex", gap: 8 }}>
         <button onClick={() => dispatch({ type: "CONFIRM_PLAY" })} style={{
           flex: 1, padding: "11px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer",
           background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
-        }}>Play {tag(pp.card)} anyway</button>
+        }}>{tr("play.warn.playAnyway", { card: tag(pp.card) })}</button>
         <button onClick={() => dispatch({ type: "CANCEL_PLAY" })} style={{
           flex: 1, padding: "11px", borderRadius: 9, border: "none", cursor: "pointer",
           background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
-        }}>Pick again</button>
+        }}>{tr("play.warn.pickAgain")}</button>
       </div>
     </Panel>
   );

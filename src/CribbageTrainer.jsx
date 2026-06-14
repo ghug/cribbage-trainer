@@ -635,7 +635,7 @@ function CardPicker({ count, onPick, onClose }) {
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 230, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
       onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 360, width: "100%", maxHeight: "92vh", display: "flex", flexDirection: "column", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "16px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 360, width: "100%", maxHeight: "100%", display: "flex", flexDirection: "column", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "16px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
           <div>
             <div style={{ fontWeight: 700, fontSize: 16 }}>Build a hand</div>

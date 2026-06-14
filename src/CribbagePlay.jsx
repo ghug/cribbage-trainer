@@ -210,10 +210,8 @@ const seatName = (i) => SEAT_NAMES[i];
 // message line, banners, history) keeps the full names.
 const SEAT_SHORT = { North: "N", South: "S", West: "W", East: "E", Northwest: "NW", Northeast: "NE", Southwest: "SW", Southeast: "SE" };
 const seatShort = (i) => SEAT_SHORT[SEAT_NAMES[i]] || SEAT_NAMES[i];
-// "you" is whichever seat setSeatNames marked (the lone human), so detect it via the name —
+// "you" is whichever seat setSeatNames marked (the lone human), detected via the name —
 // not a hard-coded seat 0, which is a bot in an all-bot or human-elsewhere game.
-const poss = (i) => (seatName(i) === "You" ? "Your" : `${seatName(i)}'s`);
-const sv = (i, first, third) => (seatName(i) === "You" ? `You ${first}` : `${seatName(i)} ${third}`);
 const sameCard = (a, b) => a.r === b.r && a.s === b.s;
 const sameSet = (a, b) => a.length === b.length && a.every((x) => b.includes(x));
 
@@ -411,29 +409,42 @@ function computeShow(state) {
   const total = scoreInto(cards, starter, isCrib, acc);
   return { ent, owner, cards, acc, total, isCrib };
 }
-const entLabel = (info) => `${poss(info.owner)} ${info.isCrib ? "crib" : "hand"}`;
-// Render-only, i18n'd twin of entLabel (entLabel stays plain so the reducer's score
-// message at SHOW_NEXT keeps working under verify_play.js, which has no window.t shim).
+// The counted entity's label ("Your hand" / "{seat}'s crib"), used in the show panels and
+// the reducer's score message. It calls tr(), which falls back to the key under
+// verify_play.js (no window) — harmless, since that harness never inspects the message text.
 const entText = (info) => {
   const you = seatName(info.owner) === "You";
   if (info.isCrib) return you ? tr("play.show.yourCrib") : tr("play.show.seatCrib", { seat: seatName(info.owner) });
   return you ? tr("play.show.yourHand") : tr("play.show.seatHand", { seat: seatName(info.owner) });
 };
 
-function pegReason(pile, count) {
+// Detect the scoring reasons for the just-played card as a token list, so the same
+// detection feeds two formatters: pegReason (English — the STORED history label, kept
+// stable for gameRecord categorization + verify_play.js) and pegReasonTr (translated —
+// the transient status message only). { t } is the token; runs carry their length m.
+function pegParts(pile, count) {
   const parts = [];
-  if (count === 15) parts.push("fifteen");
-  if (count === 31) parts.push("thirty-one");
+  if (count === 15) parts.push({ t: "fifteen" });
+  if (count === 31) parts.push({ t: "thirtyOne" });
   const n = pile.length, last = pile[n - 1];
   let k = 1; for (let i = n - 2; i >= 0; i--) { if (pile[i] === last) k++; else break; }
-  if (k === 2) parts.push("pair"); else if (k === 3) parts.push("pair royal"); else if (k >= 4) parts.push("double pair royal");
+  if (k === 2) parts.push({ t: "pair" }); else if (k === 3) parts.push({ t: "pairRoyal" }); else if (k >= 4) parts.push({ t: "doublePairRoyal" });
   for (let m = Math.min(n, 7); m >= 3; m--) {
     const tail = pile.slice(n - m);
-    if (new Set(tail).size === m && Math.max(...tail) - Math.min(...tail) === m - 1) { parts.push(`run of ${m}`); break; }
+    if (new Set(tail).size === m && Math.max(...tail) - Math.min(...tail) === m - 1) { parts.push({ t: "run", m }); break; }
   }
-  return parts.length ? parts.join(" + ") : "points";
+  return parts;
 }
-const scoreCallout = (pile, count, pts) => `${pegReason(pile, count)} for ${pts}`;
+const PEG_EN = { fifteen: "fifteen", thirtyOne: "thirty-one", pair: "pair", pairRoyal: "pair royal", doublePairRoyal: "double pair royal" };
+const PEG_KEY = { fifteen: "play.peg.fifteen", thirtyOne: "play.peg.thirtyOne", pair: "play.peg.pair", pairRoyal: "play.peg.pairRoyal", doublePairRoyal: "play.peg.doublePairRoyal" };
+function pegReason(pile, count) {
+  const parts = pegParts(pile, count);
+  return parts.length ? parts.map((p) => p.t === "run" ? `run of ${p.m}` : PEG_EN[p.t]).join(" + ") : "points";
+}
+const pegReasonTr = (pile, count) => {
+  const parts = pegParts(pile, count);
+  return parts.length ? parts.map((p) => p.t === "run" ? tr("play.peg.run", { m: p.m }) : tr(PEG_KEY[p.t])).join(" + ") : tr("play.peg.points");
+};
 
 const CAT_SHORT = ["15s", "pairs", "runs", "flush", "nobs"];
 const showLabel = (kind, acc) => {
@@ -508,10 +519,12 @@ function applyCut(state) {
   const pl = plan(P, state.dealerIdx);
   const starter = state.deck[pl.starterIdx];
   const hisHeels = starter.r === 11;
-  let seats = state.seats, winner = null, message = `Cut: ${tag(starter)}.`;
+  let seats = state.seats, winner = null, message = tr("play.msg.cut", { card: tag(starter) });
   if (hisHeels) {
     seats = addScore(seats, state.dealerIdx, 2, "his heels", P, teams);
-    message = `His heels — ${sv(state.dealerIdx, "peg", "pegs")} 2 for the Jack (${tag(starter)}).`;
+    message = seatName(state.dealerIdx) === "You"
+      ? tr("play.msg.hisHeelsYou", { card: tag(starter) })
+      : tr("play.msg.hisHeelsSeat", { seat: seatName(state.dealerIdx), card: tag(starter) });
     if (seats[state.dealerIdx].score >= targetFor(P)) winner = state.dealerIdx;
   }
   if (winner !== null) return { ...state, starter, hisHeels, seats, winner, phase: "over", message };
@@ -548,9 +561,9 @@ function dealNewHand(state) {
     // the note from the lone human's seat (if any); with no single human (all-bot spectate
     // or 2+ humans) keep it neutral rather than addressing a "you" who isn't there.
     const you = soleHuman(P, state.settings);
-    const msg = you < 0 ? `${seatName(d)} deals — on to the cut.`
-      : you === d ? "Your deal — no throw. The crib is yours."
-      : "No throw for you this hand — on to the cut.";
+    const msg = you < 0 ? tr("play.msg.dealsCut", { seat: seatName(d) })
+      : you === d ? tr("play.msg.yourDealNoThrow")
+      : tr("play.msg.noThrowYou");
     return afterCrib({ ...base, crib: assembleCrib(seats, deck, pl), phase: "cut", message: msg, discardSeat: null });
   }
   return base;
@@ -569,7 +582,11 @@ function playCard(state, seat, card) {
   const played = peg.played.map((p, i) => (i === seat ? p.concat(card) : p));
   const pts = pegScore(pile, count);
   let seats = addScore(state.seats, seat, pts, `pegging · ${pegReason(pile, count)}`, P, teams);
-  let message = pts > 0 ? `${seatName(seat)}: ${scoreCallout(pile, count, pts)}.` : `${sv(seat, "play", "plays")} ${tag(card)} (count ${count}).`;
+  let message = pts > 0
+    ? tr("play.msg.pegScore", { seat: seatName(seat), reason: pegReasonTr(pile, count), pts })
+    : (seatName(seat) === "You"
+        ? tr("play.msg.pegPlayYou", { card: tag(card), count })
+        : tr("play.msg.pegPlaySeat", { seat: seatName(seat), card: tag(card), count }));
   const np = { ...peg, hands, count, pile, pileSuited, played, lastPlayer: seat, passes: 0 };
   if (count === 31) { np.count = 0; np.pile = []; np.pileSuited = []; np.lastPlayer = -1; }
   if (seats[seat].score >= targetFor(P)) return { ...state, seats, peg: np, phase: "over", winner: seat, message };
@@ -659,18 +676,19 @@ function reduce(state, action) {
     case "PASS_GO": {
       const peg = state.peg, seat = action.seat;
       const passes = peg.passes + 1;
+      const goMsg = seatName(seat) === "You" ? tr("play.msg.goYou") : tr("play.msg.goSeat", { seat: seatName(seat) });
       if (passes >= P) {
-        let seats = state.seats, message = `${sv(seat, "say", "says")} "go".`;
+        let seats = state.seats, message = goMsg;
         const np = { ...peg, passes: 0, turn: (seat + 1) % P };
         if (peg.lastPlayer >= 0 && peg.count !== 31) {
           seats = addScore(seats, peg.lastPlayer, 1, "pegging · go", P, teams);
-          message = `${seatName(peg.lastPlayer)} +1 for the go.`;
+          message = tr("play.msg.goPoint", { seat: seatName(peg.lastPlayer) });
           if (seats[peg.lastPlayer].score >= targetFor(P)) return { ...state, seats, peg: np, phase: "over", winner: peg.lastPlayer, message };
         }
         np.count = 0; np.pile = []; np.pileSuited = []; np.lastPlayer = -1;
         return { ...state, seats, peg: np, message };
       }
-      return { ...state, peg: { ...peg, passes, turn: (seat + 1) % P }, message: `${sv(seat, "say", "says")} "go".` };
+      return { ...state, peg: { ...peg, passes, turn: (seat + 1) % P }, message: goMsg };
     }
 
     case "SHOW_CLAIM":
@@ -695,14 +713,14 @@ function reduce(state, action) {
           if (recip === undefined) recip = rest.find((o) => o !== info.owner);
           if (recip === undefined) recip = (state.dealerIdx + 1) % P;
           seats = addScore(seats, recip, missed, "muggins", P, teams);
-          message = `Muggins! ${seatName(recip)} claims the ${missed} you missed (had ${info.total}).`;
+          message = tr("play.msg.muggins", { seat: seatName(recip), missed, total: info.total });
           if (seats[recip].score >= targetFor(P)) winner = recip;
         } else {
-          message = `You count ${awarded}${claim > info.total ? " — over-claim corrected down" : ""}.`;
+          message = claim > info.total ? tr("play.msg.countOver", { n: awarded }) : tr("play.msg.count", { n: awarded });
         }
       } else {
         seats = addScore(seats, info.owner, info.total, showLabel(info.isCrib ? "crib" : "hand", info.acc), P, teams);
-        message = `${entLabel(info)} scores ${info.total}.`;
+        message = tr("play.msg.scores", { ent: entText(info), total: info.total });
         if (seats[info.owner].score >= targetFor(P)) winner = info.owner;
       }
       if (winner !== null) return { ...state, seats, phase: "over", winner, message };
@@ -712,7 +730,7 @@ function reduce(state, action) {
     case "SHOW_NEXT": {
       const nextStep = state.show.step + 1;
       if (nextStep >= state.show.order.length)
-        return { ...state, phase: "deal", dealerIdx: (state.dealerIdx + 1) % P, show: null, peg: null, message: "Hand complete — deal the next." };
+        return { ...state, phase: "deal", dealerIdx: (state.dealerIdx + 1) % P, show: null, peg: null, message: tr("play.msg.handComplete") };
       return { ...state, show: { ...state.show, step: nextStep, scored: false, claimSubmitted: false, claimValue: null } };
     }
 

@@ -367,10 +367,17 @@ network, working identically online and offline in the APK. **Architecture:**
   pegging headers + bodies, the spread/adj component lines, the footer), `buildNote`'s best-line and
   off-best verdicts, and the board-position + crib-model panel bodies (the latter keeps its inline
   `<b>` by translating the segments around the bold spans). The whole trainer is now localized.
-  Still English: only the play game's **reducer messages** (the `message` banner + the stored
-  `h.label` values — needs care to keep `h.label` a stable English categorization key, used by
-  `gameRecord` + `verify_play.js`, while translating only the display).
-  `es.js` translates these; the rules prose is omitted to exercise the English fallback.
+  The play game's **reducer status banner** is the last extracted (`play.msg.*`/`play.peg.*`): the
+  cut / his-heels / deal-skip / pegging-play / go / muggins / count / hand-scores / hand-complete
+  lines. The reducer calls `tr()` directly — safe under `verify_play.js`, whose vm has no `window`,
+  so `tr` returns the key (and the harness never inspects `message` text). The pegging vocabulary is
+  detected once (`pegParts`) and formatted two ways: `pegReason` (English) for the **stored** history
+  `h.label` and `pegReasonTr` (translated) for the transient banner — so the only thing still English
+  is each entry's stored `h.label` itself, deliberately kept as a **stable categorization key** that
+  `gameRecord` string-matches and `verify_play.js` asserts on (translated only would mix languages in
+  localStorage and break categorization). With that, **every user-facing surface is localized.** The
+  refactor also retired the now-dead `entLabel`/`poss`/`sv`/`scoreCallout` helpers.
+  `es.js` translates everything above; the rules prose is omitted to exercise the English fallback.
 - **Key-parity lint:** `engine/verify_i18n.js` (run by `./build.sh`, fails the build) flags any
   referenced key missing from `en.js` (renders as the raw key — the "play.deal" bug), any
   stray/typo key in a translation, and `index.js` languages without a file.

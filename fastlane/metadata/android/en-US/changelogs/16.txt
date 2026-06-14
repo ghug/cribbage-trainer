@@ -1,0 +1,3 @@
+New in 1.1.12:
+- Fixes the language system on the GitHub Pages mirror, where the app could show raw labels (like "app.title") instead of translated text. The translations now load reliably no matter how the site is hosted.
+- No gameplay changes — this is a packaging/loading fix.

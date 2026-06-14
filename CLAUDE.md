@@ -334,11 +334,15 @@ network, working identically online and offline in the APK. **Architecture:**
   and `play.html`; `src/landing.html` has them too. `android/app/build.gradle`'s
   `syncWebAssets` bundles `i18n.js` + `locales/**` into the APK; `.assetsignore` does not
   exclude them, so Cloudflare serves them too.
-- **Usage:** static HTML uses `data-i18n="key"` (the landing applies it on load); React/JS
-  uses `window.t("key")`. **Proof-of-concept wired so far:** landing's two card titles + the
-  "Language" label + a footer language picker, and the play game's Deal button
-  (`window.t("play.deal")`). Everything else is still hard-coded English — migrating UI
-  strings to `t("…")` (and filling `locales/en.js`) is the incremental follow-up.
+- **Usage:** static HTML uses `data-i18n="key"` (plain text), `data-i18n-html="key"` (rich
+  inline markup — the rules), `data-i18n-aria="key"` (aria-label); a small pass on load
+  applies all three. JS-generated text calls a `tr()` alias (= `window.t`, key-fallback);
+  React uses `window.t("key")`. **Extracted so far: the entire landing page** (`src/landing.html`
+  — header, rules, nav, settings + about popups, seat diagram, team labels, with interpolation
+  like `landing.seatAria`/`landing.tableTeams`) plus the play game's Deal button. The play game
+  and trainer are otherwise still hard-coded English — extracting those screens is the
+  remaining follow-up. `es.js` translates the landing UI but omits the rules prose, exercising
+  the English fallback.
 - The name-guard tolerates `window.t(...)` (property access, not an undefined name), and
   `verify_play.js` is unaffected (it evals the reducer, never the render).
 

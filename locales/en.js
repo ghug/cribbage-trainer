@@ -1,13 +1,96 @@
 /* English — the source of truth and the fallback for every key. Every other locales/<code>.js
- * mirrors these keys with translated values. Add new phrases here first (stable keys), then
- * translators fill the same keys in their own file. Keys are namespaced by page/area.
- *
- * (Foundation pass: only a handful of keys are wired up so far — the architecture is in place
- * for the rest of the UI strings to migrate to t("…") over time.)
+ * mirrors these keys with translated values (any key it omits falls back to English here).
+ * Add new phrases here first, with stable keys, namespaced by page/area. Values prefixed via
+ * data-i18n-html (the rules) may contain inline markup — keep the tags when translating.
  */
 cribbageLocale("en", {
-  "landing.play.title": "Play",
-  "landing.trainer.title": "Discard Trainer",
+  // shared
+  "common.done": "Done",
+  "common.about": "About",
+  "common.on": "On",
+  "common.off": "Off",
+  "common.manual": "Manual",
+  "common.auto": "Auto",
+  "role.human": "human",
+  "role.bot": "bot",
+  "app.title": "Cribbage Trainer",
+
+  // landing — header, nav, footer
+  "landing.tagline": "play vs bots or friends and sharpen your discards",
+  "landing.playersAtTable": "Players at the table",
+  "landing.seatHint": "Tap any seat to set it as a 🧑 human or 🤖 bot.",
+  "landing.teams": "Teams",
+  "landing.teamsNote": "— how the table splits up",
   "landing.language": "Language",
-  "play.deal": "Deal"
+  "landing.play.title": "Play",
+  "landing.play.sub": "vs bots or friends · 2–6 players",
+  "landing.play.desc": "Play a full game — against the computer, or pass the device for hot-seat games with friends by setting any seat to a human on the table above. Set the size and teams there too: heads-up through six-handed, individual or in teams.",
+  "landing.trainer.title": "Discard Trainer",
+  "landing.trainer.sub": "analyze & rank every throw",
+  "landing.trainer.desc": "Deal a hand and see all discards ranked by expected points — hand value over every cut, crib swing, and pegging potential, each fully explained. Follows the table size above — 2- through 6-handed, individual play or teams.",
+  "landing.footer.note": "Open-source cribbage practice.",
+  // seat diagram (interpolated)
+  "landing.youPrefix": "You - ",
+  "landing.seatAria": "{name} — {role}, tap to switch",
+  "landing.tableIndividual": "{p}-handed",
+  "landing.tableTeams": "{p}-handed · {teams} teams",
+  "landing.firstTo": "first to {target}",
+  "landing.team.individual": "Individual play",
+  "landing.team.teams": "Teams",
+  "landing.team.two": "Two teams",
+  "landing.team.three": "Three teams",
+
+  // settings popup
+  "settings.title": "Settings",
+  "settings.intro": "These apply to the Play game and are saved on this device. (The number of players is set above, on the home page.)",
+  "settings.aboutFeedback": "About & feedback",
+  "settings.continue": "Continue game",
+  "settings.counting.title": "Counting",
+  "settings.counting.desc": "Auto tallies every hand. Muggins: you claim your own hand (and crib when you deal) — miss points and the next opponent takes them.",
+  "settings.counting.disabledDesc": "Muggins is only available in a solo (one-human) game; hot-seat tables auto-count.",
+  "settings.counting.optAuto": "Auto-count",
+  "settings.counting.optMuggins": "Muggins",
+  "settings.autoGo.title": "Go on no playable card",
+  "settings.autoGo.desc": "When you can’t play, Manual waits for you to tap “Go”; Auto passes for you.",
+  "settings.warn.title": "Warn on a weak play",
+  "settings.warn.desc": "Pause and explain when a throw to the crib, or a pegging card that leaves a point on the table, isn’t the best — with a chance to take it back.",
+  "settings.autoPlayOne.title": "Auto-play a forced card",
+  "settings.autoPlayOne.desc": "When only one of your cards is legal to peg, play it for you.",
+  "settings.autoPlayBest.title": "Auto-play the best card",
+  "settings.autoPlayBest.desc": "On your turn to peg, play the best card automatically — the same policy the bots use. Full autopilot for the play.",
+  "settings.autoDiscardBest.title": "Auto-discard the best throw",
+  "settings.autoDiscardBest.desc": "At the discard, throw the best card(s) for your position automatically — accounting for whose crib it is.",
+  "settings.autoContinue.title": "Auto-continue the show",
+  "settings.autoContinue.desc": "Advance the counting automatically (still pauses for your muggins claim).",
+  "settings.autoDeal.title": "Auto-deal the next hand",
+  "settings.autoDeal.desc": "Deal the next hand automatically once a hand is fully counted.",
+
+  // about popup
+  "about.title": "About Cribbage Trainer",
+  "about.line1": "An open-source cribbage trainer and game.",
+  "about.line2": "Found a bug, or have feedback? The source lives on GitHub — feel free to go there to be part of the conversation.",
+  "about.sourceLink": "Source, bugs & feedback ↗",
+
+  // rules (rich text — keep the <b>/<span> tags when translating)
+  "rules.summary": "How to play — basic rules",
+  "rules.goal.h": "The goal",
+  "rules.goal.p": "Be the first to peg <b>121 points</b> over a series of deals. You score both during the play and when hands are counted (“the show”). The deal passes one seat each hand.",
+  "rules.deal.h": "The deal & the crib",
+  "rules.deal.p": "Each player is dealt a small hand and throws a card (two, heads-up) into the <b>crib</b> — a bonus hand that belongs to the <b>dealer</b>. The crib always holds four cards and is counted, with the starter, like any other hand. How many cards are dealt and who throws depends on the number of players — each game here sets that up for you.",
+  "rules.cut.h": "The cut — the starter",
+  "rules.cut.p": "After the throws, the deck is cut to turn up one <b>starter</b> card. It’s shared by every hand and the crib when counting. If the starter is a <b>Jack</b>, the dealer immediately pegs <b>2</b> (“his heels”).",
+  "rules.play.h": "The play (pegging)",
+  "rules.play.p": "Players take turns laying a card face-up, calling the running total out loud. The count may never pass <b>31</b>; if you can’t play without going over you say <b>“Go.”</b> Score as you lay cards down:",
+  "rules.play.li1": "Make the count exactly <b>15</b> → 2 · make exactly <b>31</b> → 2",
+  "rules.play.li2": "<b>Pair</b> the previous card → 2 (three of a kind → 6, four → 12)",
+  "rules.play.li3": "Complete a <b>run</b> of 3+ with the most recent cards (any order) → 1 per card",
+  "rules.play.li4": "<b>Go / last card:</b> the last player able to lay a card pegs 1 (when no one else can play, or at the final card of the deal)",
+  "rules.show.h": "The show (counting hands)",
+  "rules.show.p": "When all cards are played, hands are counted in order — starting with the player to the dealer’s left, the <b>dealer last</b>, then the <b>crib</b>. Combine each hand’s four cards with the starter and score (aces = 1, face cards = 10):",
+  "rules.show.li1": "<b>Fifteens</b> — every combination of cards adding to 15 → 2 each",
+  "rules.show.li2": "<b>Pairs</b> — 2 each (so three of a kind = 6, four = 12)",
+  "rules.show.li3": "<b>Runs</b> — three or more in sequence → 1 per card (duplicates count)",
+  "rules.show.li4": "<b>Flush</b> — four cards one suit → 4; if the starter matches too → 5 <span class=\"note\">(the crib only scores a flush when all five share a suit)</span>",
+  "rules.show.li5": "<b>Nobs</b> — holding the <b>Jack of the starter’s suit</b> → 1",
+  "rules.note29": "The best possible hand is 29: three 5s plus the Jack of the cut’s suit, with the fourth 5 turned as the starter."
 });

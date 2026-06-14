@@ -136,74 +136,74 @@
   <header>
     <div class="hdr-row">
       <div class="brand">
-        <span class="logo" role="img" aria-label="Cribbage Trainer">♣</span>
+        <span class="logo" role="img" aria-label="Cribbage Trainer" data-i18n-aria="app.title">♣</span>
         <div>
-          <h1>Cribbage Trainer</h1>
-          <p>play vs bots or friends and sharpen your discards</p>
+          <h1 data-i18n="app.title">Cribbage Trainer</h1>
+          <p data-i18n="landing.tagline">play vs bots or friends and sharpen your discards</p>
         </div>
       </div>
-      <button id="gear" class="gear" type="button" aria-label="Settings" aria-haspopup="dialog">⚙</button>
+      <button id="gear" class="gear" type="button" aria-label="Settings" aria-haspopup="dialog" data-i18n-aria="settings.title">⚙</button>
     </div>
   </header>
   <main>
     <details class="rules">
-      <summary>How to play — basic rules <span class="chev" aria-hidden="true">›</span></summary>
+      <summary><span data-i18n="rules.summary">How to play — basic rules</span> <span class="chev" aria-hidden="true">›</span></summary>
       <div class="rules-body">
-        <h3>The goal</h3>
-        <p>Be the first to peg <b>121 points</b> over a series of deals. You score both
+        <h3 data-i18n="rules.goal.h">The goal</h3>
+        <p data-i18n-html="rules.goal.p">Be the first to peg <b>121 points</b> over a series of deals. You score both
           during the play and when hands are counted (“the show”). The deal passes one
           seat each hand.</p>
 
-        <h3>The deal &amp; the crib</h3>
-        <p>Each player is dealt a small hand and throws a card (two, heads-up) into the
+        <h3 data-i18n="rules.deal.h">The deal &amp; the crib</h3>
+        <p data-i18n-html="rules.deal.p">Each player is dealt a small hand and throws a card (two, heads-up) into the
           <b>crib</b> — a bonus hand that belongs to the <b>dealer</b>. The crib always
           holds four cards and is counted, with the starter, like any other hand. How
           many cards are dealt and who throws depends on the number of players — each
           game here sets that up for you.</p>
 
-        <h3>The cut — the starter</h3>
-        <p>After the throws, the deck is cut to turn up one <b>starter</b> card. It’s
+        <h3 data-i18n="rules.cut.h">The cut — the starter</h3>
+        <p data-i18n-html="rules.cut.p">After the throws, the deck is cut to turn up one <b>starter</b> card. It’s
           shared by every hand and the crib when counting. If the starter is a <b>Jack</b>,
           the dealer immediately pegs <b>2</b> (“his heels”).</p>
 
-        <h3>The play (pegging)</h3>
-        <p>Players take turns laying a card face-up, calling the running total out loud.
+        <h3 data-i18n="rules.play.h">The play (pegging)</h3>
+        <p data-i18n-html="rules.play.p">Players take turns laying a card face-up, calling the running total out loud.
           The count may never pass <b>31</b>; if you can’t play without going over you say
           <b>“Go.”</b> Score as you lay cards down:</p>
         <ul>
-          <li>Make the count exactly <b>15</b> → 2 · make exactly <b>31</b> → 2</li>
-          <li><b>Pair</b> the previous card → 2 (three of a kind → 6, four → 12)</li>
-          <li>Complete a <b>run</b> of 3+ with the most recent cards (any order) → 1 per card</li>
-          <li><b>Go / last card:</b> the last player able to lay a card pegs 1 (when no one
+          <li data-i18n-html="rules.play.li1">Make the count exactly <b>15</b> → 2 · make exactly <b>31</b> → 2</li>
+          <li data-i18n-html="rules.play.li2"><b>Pair</b> the previous card → 2 (three of a kind → 6, four → 12)</li>
+          <li data-i18n-html="rules.play.li3">Complete a <b>run</b> of 3+ with the most recent cards (any order) → 1 per card</li>
+          <li data-i18n-html="rules.play.li4"><b>Go / last card:</b> the last player able to lay a card pegs 1 (when no one
             else can play, or at the final card of the deal)</li>
         </ul>
 
-        <h3>The show (counting hands)</h3>
-        <p>When all cards are played, hands are counted in order — starting with the
+        <h3 data-i18n="rules.show.h">The show (counting hands)</h3>
+        <p data-i18n-html="rules.show.p">When all cards are played, hands are counted in order — starting with the
           player to the dealer’s left, the <b>dealer last</b>, then the <b>crib</b>. Combine
           each hand’s four cards with the starter and score (aces = 1, face cards = 10):</p>
         <ul>
-          <li><b>Fifteens</b> — every combination of cards adding to 15 → 2 each</li>
-          <li><b>Pairs</b> — 2 each (so three of a kind = 6, four = 12)</li>
-          <li><b>Runs</b> — three or more in sequence → 1 per card (duplicates count)</li>
-          <li><b>Flush</b> — four cards one suit → 4; if the starter matches too → 5
+          <li data-i18n-html="rules.show.li1"><b>Fifteens</b> — every combination of cards adding to 15 → 2 each</li>
+          <li data-i18n-html="rules.show.li2"><b>Pairs</b> — 2 each (so three of a kind = 6, four = 12)</li>
+          <li data-i18n-html="rules.show.li3"><b>Runs</b> — three or more in sequence → 1 per card (duplicates count)</li>
+          <li data-i18n-html="rules.show.li4"><b>Flush</b> — four cards one suit → 4; if the starter matches too → 5
             <span class="note">(the crib only scores a flush when all five share a suit)</span></li>
-          <li><b>Nobs</b> — holding the <b>Jack of the starter’s suit</b> → 1</li>
+          <li data-i18n-html="rules.show.li5"><b>Nobs</b> — holding the <b>Jack of the starter’s suit</b> → 1</li>
         </ul>
-        <p class="note">The best possible hand is 29: three 5s plus the Jack of the cut’s
+        <p class="note" data-i18n="rules.note29">The best possible hand is 29: three 5s plus the Jack of the cut’s
           suit, with the fourth 5 turned as the starter.</p>
       </div>
     </details>
 
     <nav class="cards">
       <div class="players-pick">
-        <div class="pp-label">Players at the table</div>
+        <div class="pp-label" data-i18n="landing.playersAtTable">Players at the table</div>
         <div class="pp-segs" id="playersSegs"></div>
       </div>
       <div class="seat-diagram" id="seatDiagram"></div>
-      <div class="seat-hint">Tap any seat to set it as a 🧑 human or 🤖 bot.</div>
+      <div class="seat-hint" data-i18n="landing.seatHint">Tap any seat to set it as a 🧑 human or 🤖 bot.</div>
       <div class="players-pick" id="teamsPick">
-        <div class="pp-label">Teams <span class="pp-note">— how the table splits up</span></div>
+        <div class="pp-label"><span data-i18n="landing.teams">Teams</span> <span class="pp-note" data-i18n="landing.teamsNote">— how the table splits up</span></div>
         <div class="pp-segs" id="teamsSegs"></div>
       </div>
       <a class="option" href="play.html">
@@ -211,11 +211,11 @@
           <span class="pip play">♥</span>
           <div>
             <div class="opt-title" data-i18n="landing.play.title">Play</div>
-            <div class="opt-sub">vs bots or friends · 2–6 players</div>
+            <div class="opt-sub" data-i18n="landing.play.sub">vs bots or friends · 2–6 players</div>
           </div>
           <span class="arrow">›</span>
         </div>
-        <div class="opt-desc">Play a full game — against the computer, or pass the device for hot-seat
+        <div class="opt-desc" data-i18n="landing.play.desc">Play a full game — against the computer, or pass the device for hot-seat
           games with friends by setting any seat to a human on the table above. Set the size and teams
           there too: heads-up through six-handed, individual or in teams.</div>
       </a>
@@ -224,47 +224,47 @@
           <span class="pip train">♣</span>
           <div>
             <div class="opt-title" data-i18n="landing.trainer.title">Discard Trainer</div>
-            <div class="opt-sub">analyze &amp; rank every throw</div>
+            <div class="opt-sub" data-i18n="landing.trainer.sub">analyze &amp; rank every throw</div>
           </div>
           <span class="arrow">›</span>
         </div>
-        <div class="opt-desc">Deal a hand and see all discards ranked by expected points —
+        <div class="opt-desc" data-i18n="landing.trainer.desc">Deal a hand and see all discards ranked by expected points —
           hand value over every cut, crib swing, and pegging potential, each fully explained.
           Follows the table size above — 2- through 6-handed, individual play or teams.</div>
       </a>
     </nav>
   </main>
   <footer>
-    Open-source cribbage practice. <button id="footerAbout" class="link-btn" type="button">About</button>
+    <span data-i18n="landing.footer.note">Open-source cribbage practice.</span> <button id="footerAbout" class="link-btn" type="button" data-i18n="common.about">About</button>
     <div class="lang-row"><label for="langPick" data-i18n="landing.language">Language</label><select id="langPick"></select></div>
   </footer>
 
-  <div class="overlay" id="settingsOverlay" role="dialog" aria-modal="true" aria-label="Settings">
+  <div class="overlay" id="settingsOverlay" role="dialog" aria-modal="true" aria-label="Settings" data-i18n-aria="settings.title">
     <div class="modal">
       <div class="modal-head">
-        <h2>Settings</h2>
-        <button class="btn btn-ghost btn-sm" id="settingsDone" type="button">Done</button>
+        <h2 data-i18n="settings.title">Settings</h2>
+        <button class="btn btn-ghost btn-sm" id="settingsDone" type="button" data-i18n="common.done">Done</button>
       </div>
-      <p class="set-intro">These apply to the Play game and are saved on this device. (The
+      <p class="set-intro" data-i18n="settings.intro">These apply to the Play game and are saved on this device. (The
         number of players is set above, on the home page.)</p>
       <div id="settingsList"></div>
-      <button class="btn btn-ghost" id="openAbout" type="button" style="margin-top:6px">About &amp; feedback</button>
-      <button class="btn btn-primary" id="settingsContinue" type="button" style="margin:12px 0 10px">Continue game</button>
+      <button class="btn btn-ghost" id="openAbout" type="button" style="margin-top:6px" data-i18n="settings.aboutFeedback">About &amp; feedback</button>
+      <button class="btn btn-primary" id="settingsContinue" type="button" style="margin:12px 0 10px" data-i18n="settings.continue">Continue game</button>
     </div>
   </div>
 
-  <div class="overlay" id="aboutOverlay" role="dialog" aria-modal="true" aria-label="About">
+  <div class="overlay" id="aboutOverlay" role="dialog" aria-modal="true" aria-label="About" data-i18n-aria="about.title">
     <div class="modal">
       <div class="modal-head">
         <span class="logo" aria-hidden="true">♣</span>
-        <h2 style="flex:1">About Cribbage Trainer</h2>
-        <button class="btn btn-ghost btn-sm" id="aboutDone" type="button">Done</button>
+        <h2 style="flex:1" data-i18n="about.title">About Cribbage Trainer</h2>
+        <button class="btn btn-ghost btn-sm" id="aboutDone" type="button" data-i18n="common.done">Done</button>
       </div>
-      <p>An open-source cribbage trainer and game.</p>
-      <p>Found a bug, or have feedback? The source lives on GitHub — feel free to go
+      <p data-i18n="about.line1">An open-source cribbage trainer and game.</p>
+      <p data-i18n="about.line2">Found a bug, or have feedback? The source lives on GitHub — feel free to go
         there to be part of the conversation.</p>
       <a class="btn btn-primary" href="https://github.com/ghug/cribbage-trainer/"
-         target="_blank" rel="noopener noreferrer">Source, bugs &amp; feedback ↗</a>
+         target="_blank" rel="noopener noreferrer" data-i18n="about.sourceLink">Source, bugs &amp; feedback ↗</a>
       <div class="repo-url" style="margin-bottom:4px">github.com/ghug/cribbage-trainer</div>
       <div class="repo-url">v__APP_VERSION__</div>
     </div>
@@ -277,21 +277,24 @@
       function open(el) { el.classList.add('open'); }
       function close(el) { el.classList.remove('open'); }
 
-      // ---- i18n: translate [data-i18n] elements and wire the language picker ----
-      if (window.t) {
-        var nodes = document.querySelectorAll('[data-i18n]');
-        for (var i = 0; i < nodes.length; i++) nodes[i].textContent = t(nodes[i].getAttribute('data-i18n'));
-        var pick = document.getElementById('langPick');
-        if (pick && window.i18n) {
-          var langs = i18n.languages();
-          for (var j = 0; j < langs.length; j++) {
-            var o = document.createElement('option');
-            o.value = langs[j].code; o.textContent = langs[j].name;
-            if (langs[j].code === i18n.lang) o.selected = true;
-            pick.appendChild(o);
-          }
-          pick.addEventListener('change', function () { i18n.set(this.value); location.reload(); });
+      // ---- i18n: a safe translate alias, the static-text pass, and the language picker ----
+      var tr = (window.t) ? window.t : function (k) { return k; };  // falls back to the key
+      (function applyI18n() {
+        var n, i;
+        n = document.querySelectorAll('[data-i18n]'); for (i = 0; i < n.length; i++) n[i].textContent = tr(n[i].getAttribute('data-i18n'));
+        n = document.querySelectorAll('[data-i18n-html]'); for (i = 0; i < n.length; i++) n[i].innerHTML = tr(n[i].getAttribute('data-i18n-html'));
+        n = document.querySelectorAll('[data-i18n-aria]'); for (i = 0; i < n.length; i++) n[i].setAttribute('aria-label', tr(n[i].getAttribute('data-i18n-aria')));
+      })();
+      var pick = document.getElementById('langPick');
+      if (pick && window.i18n) {
+        var langs = i18n.languages();
+        for (var lj = 0; lj < langs.length; lj++) {
+          var o = document.createElement('option');
+          o.value = langs[lj].code; o.textContent = langs[lj].name;
+          if (langs[lj].code === i18n.lang) o.selected = true;
+          pick.appendChild(o);
         }
+        pick.addEventListener('change', function () { i18n.set(this.value); location.reload(); });
       }
 
       // Game settings, shared across every page via localStorage (same key the games
@@ -299,15 +302,16 @@
       var SETTINGS_KEY = "cribbage:settings";
       var DEFAULTS = { players: 4, teams: 4, seats: [], counting: "auto", autoGo: false, warn: true, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false, autoContinue: false, autoDeal: false };
       // "Players" lives on the main page (above Play); the rest are in this popup.
+      // title/desc/option labels are i18n keys, translated via tr() at render time.
       var ROWS = [
-        { k: "counting", title: "Counting", desc: "Auto tallies every hand. Muggins: you claim your own hand (and crib when you deal) — miss points and the next opponent takes them.", opts: [["Auto-count", "auto"], ["Muggins", "muggins"]] },
-        { k: "autoGo", title: "Go on no playable card", desc: "When you can’t play, Manual waits for you to tap “Go”; Auto passes for you.", opts: [["Manual", false], ["Auto", true]] },
-        { k: "warn", title: "Warn on a weak play", desc: "Pause and explain when a throw to the crib, or a pegging card that leaves a point on the table, isn’t the best — with a chance to take it back.", opts: [["On", true], ["Off", false]] },
-        { k: "autoPlayOne", title: "Auto-play a forced card", desc: "When only one of your cards is legal to peg, play it for you.", opts: [["Off", false], ["On", true]] },
-        { k: "autoPlayBest", title: "Auto-play the best card", desc: "On your turn to peg, play the best card automatically — the same policy the bots use. Full autopilot for the play.", opts: [["Off", false], ["On", true]] },
-        { k: "autoDiscardBest", title: "Auto-discard the best throw", desc: "At the discard, throw the best card(s) for your position automatically — accounting for whose crib it is.", opts: [["Off", false], ["On", true]] },
-        { k: "autoContinue", title: "Auto-continue the show", desc: "Advance the counting automatically (still pauses for your muggins claim).", opts: [["Off", false], ["On", true]] },
-        { k: "autoDeal", title: "Auto-deal the next hand", desc: "Deal the next hand automatically once a hand is fully counted.", opts: [["Off", false], ["On", true]] }
+        { k: "counting", title: "settings.counting.title", desc: "settings.counting.desc", disabledDesc: "settings.counting.disabledDesc", opts: [["settings.counting.optAuto", "auto"], ["settings.counting.optMuggins", "muggins"]] },
+        { k: "autoGo", title: "settings.autoGo.title", desc: "settings.autoGo.desc", opts: [["common.manual", false], ["common.auto", true]] },
+        { k: "warn", title: "settings.warn.title", desc: "settings.warn.desc", opts: [["common.on", true], ["common.off", false]] },
+        { k: "autoPlayOne", title: "settings.autoPlayOne.title", desc: "settings.autoPlayOne.desc", opts: [["common.off", false], ["common.on", true]] },
+        { k: "autoPlayBest", title: "settings.autoPlayBest.title", desc: "settings.autoPlayBest.desc", opts: [["common.off", false], ["common.on", true]] },
+        { k: "autoDiscardBest", title: "settings.autoDiscardBest.title", desc: "settings.autoDiscardBest.desc", opts: [["common.off", false], ["common.on", true]] },
+        { k: "autoContinue", title: "settings.autoContinue.title", desc: "settings.autoContinue.desc", opts: [["common.off", false], ["common.on", true]] },
+        { k: "autoDeal", title: "settings.autoDeal.title", desc: "settings.autoDeal.desc", opts: [["common.off", false], ["common.on", true]] }
       ];
       function loadSettings() { try { var r = localStorage.getItem(SETTINGS_KEY); if (r) { var o = JSON.parse(r); var m = {}; for (var key in DEFAULTS) m[key] = (key in o) ? o[key] : DEFAULTS[key]; return m; } } catch (e) {} var d = {}; for (var k2 in DEFAULTS) d[k2] = DEFAULTS[k2]; return d; }
       function saveSettings(o) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(o)); } catch (e) {} }
@@ -320,13 +324,13 @@
           // Muggins is solo-only — disable the Counting row when the table has 2+ humans.
           var disabled = row.k === 'counting' && humans > 1;
           var wrap = document.createElement('div'); wrap.className = 'set-row' + (disabled ? ' disabled' : '');
-          var t = document.createElement('div'); t.className = 'set-title'; t.textContent = row.title; wrap.appendChild(t);
+          var titleEl = document.createElement('div'); titleEl.className = 'set-title'; titleEl.textContent = tr(row.title); wrap.appendChild(titleEl);
           var d = document.createElement('div'); d.className = 'set-desc';
-          d.textContent = disabled ? 'Muggins is only available in a solo (one-human) game; hot-seat tables auto-count.' : row.desc;
+          d.textContent = tr(disabled ? row.disabledDesc : row.desc);
           wrap.appendChild(d);
           var segs = document.createElement('div'); segs.className = 'set-segs';
           row.opts.forEach(function (opt) {
-            var b = document.createElement('button'); b.type = 'button'; b.textContent = opt[0];
+            var b = document.createElement('button'); b.type = 'button'; b.textContent = tr(opt[0]);
             b.className = 'seg' + (settings[row.k] === opt[1] ? ' on' : '');
             if (disabled) { b.disabled = true; }
             else { b.addEventListener('click', function () { settings[row.k] = opt[1]; saveSettings(settings); renderSettings(); }); }
@@ -396,16 +400,17 @@
         // maximally separated hues distinguishable under all common colour-vision types.
         var palette = ['#56B4E9', '#E69F00', '#CC79A7']; // one colour per team when partnered
         var byTeam = teams < P, target = P >= 5 ? 61 : 121;
-        var center = (byTeam ? (P + '-handed · ' + teams + ' teams') : (P + '-handed')) + '<br>first to ' + target;
+        var center = (byTeam ? tr('landing.tableTeams', { p: P, teams: teams }) : tr('landing.tableIndividual', { p: P })) + '<br>' + tr('landing.firstTo', { target: target });
         var html = '<div class="seat-table"><span class="tlabel">' + center + '</span></div>';
         for (var i = 0; i < P; i++) {
           var avStyle = byTeam ? (' style="border-color:' + palette[i % teams] + '"') : '';
           var human = roles[i] === 'human';
           var isYou = human && humans === 1;                 // a lone human is "you"
-          var label = (isYou ? 'You - ' : '') + names[i];
+          var label = (isYou ? tr('landing.youPrefix') : '') + names[i];
           var ps = 'left:' + pos[i][0] + '%;top:' + pos[i][1] + '%';
           var cls = 'seat seat-btn ' + roles[i] + (isYou ? ' you' : '');
-          html += '<button type="button" class="' + cls + '" data-seat="' + i + '" style="' + ps + '" aria-label="' + names[i] + ' — ' + roles[i] + ', tap to switch">'
+          var aria = tr('landing.seatAria', { name: names[i], role: tr(human ? 'role.human' : 'role.bot') });
+          html += '<button type="button" class="' + cls + '" data-seat="' + i + '" style="' + ps + '" aria-label="' + aria + '">'
             + '<span class="avatar"' + avStyle + '>' + (human ? '🧑' : '🤖') + '</span><span class="seat-name">' + label + '</span></button>';
         }
         host.innerHTML = html;
@@ -416,8 +421,8 @@
       }
       // [teams-value, label] choices, in display order. teams === players is "individual".
       function teamChoices(P) {
-        if (P === 4) return [[4, "Individual play"], [2, "Teams"]];
-        if (P === 6) return [[6, "Individual play"], [2, "Two teams"], [3, "Three teams"]];
+        if (P === 4) return [[4, "landing.team.individual"], [2, "landing.team.teams"]];
+        if (P === 6) return [[6, "landing.team.individual"], [2, "landing.team.two"], [3, "landing.team.three"]];
         return [];
       }
       function renderTeams() {
@@ -429,7 +434,7 @@
         // single greyed "Individual play" so the control is always present.
         if (choices.length === 0) {
           wrap.classList.add('disabled');
-          var d = document.createElement('button'); d.type = 'button'; d.textContent = 'Individual play';
+          var d = document.createElement('button'); d.type = 'button'; d.textContent = tr('landing.team.individual');
           d.className = 'seg on'; d.disabled = true;
           host.appendChild(d);
           return;
@@ -438,7 +443,7 @@
         var values = choices.map(function (c) { return c[0]; });
         if (values.indexOf(settings.teams) < 0) { settings.teams = settings.players; saveSettings(settings); }
         choices.forEach(function (c) {
-          var b = document.createElement('button'); b.type = 'button'; b.textContent = c[1];
+          var b = document.createElement('button'); b.type = 'button'; b.textContent = tr(c[1]);
           b.className = 'seg' + (settings.teams === c[0] ? ' on' : '');
           b.addEventListener('click', function () { settings.teams = c[0]; saveSettings(settings); renderTeams(); renderSeatDiagram(); });
           host.appendChild(b);

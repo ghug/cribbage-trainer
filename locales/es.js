@@ -1,9 +1,68 @@
-/* Español — sample translation demonstrating the locale-file format. Mirrors the keys in
- * locales/en.js; any key left out simply falls back to English.
+/* Español — sample translation. Mirrors the keys in locales/en.js; the rules prose is left
+ * out on purpose to show the English fallback in action for any untranslated key.
  */
 cribbageLocale("es", {
-  "landing.play.title": "Jugar",
-  "landing.trainer.title": "Entrenador de descartes",
+  "common.done": "Listo",
+  "common.about": "Acerca de",
+  "common.on": "Sí",
+  "common.off": "No",
+  "common.manual": "Manual",
+  "common.auto": "Automático",
+  "role.human": "humano",
+  "role.bot": "bot",
+  "app.title": "Entrenador de Cribbage",
+
+  "landing.tagline": "juega contra bots o amigos y mejora tus descartes",
+  "landing.playersAtTable": "Jugadores en la mesa",
+  "landing.seatHint": "Toca cualquier asiento para ponerlo como 🧑 humano o 🤖 bot.",
+  "landing.teams": "Equipos",
+  "landing.teamsNote": "— cómo se divide la mesa",
   "landing.language": "Idioma",
-  "play.deal": "Repartir"
+  "landing.play.title": "Jugar",
+  "landing.play.sub": "contra bots o amigos · 2–6 jugadores",
+  "landing.play.desc": "Juega una partida completa — contra la máquina, o pasa el dispositivo para jugar con amigos en el mismo asiento poniendo cualquier asiento como humano en la mesa de arriba. Ajusta también el tamaño y los equipos: desde mano a mano hasta seis jugadores, individual o en equipos.",
+  "landing.trainer.title": "Entrenador de descartes",
+  "landing.trainer.sub": "analiza y clasifica cada descarte",
+  "landing.trainer.desc": "Reparte una mano y ve todos los descartes ordenados por puntos esperados — valor de la mano sobre cada corte, influencia en el crib y potencial de juego, todo explicado. Sigue el tamaño de mesa de arriba — de 2 a 6 jugadores, individual o en equipos.",
+  "landing.footer.note": "Práctica de cribbage de código abierto.",
+  "landing.youPrefix": "Tú - ",
+  "landing.seatAria": "{name} — {role}, toca para cambiar",
+  "landing.tableIndividual": "{p} jugadores",
+  "landing.tableTeams": "{p} jugadores · {teams} equipos",
+  "landing.firstTo": "primero a {target}",
+  "landing.team.individual": "Juego individual",
+  "landing.team.teams": "Equipos",
+  "landing.team.two": "Dos equipos",
+  "landing.team.three": "Tres equipos",
+
+  "settings.title": "Ajustes",
+  "settings.intro": "Estos se aplican a la partida y se guardan en este dispositivo. (El número de jugadores se ajusta arriba, en la página de inicio.)",
+  "settings.aboutFeedback": "Acerca de y comentarios",
+  "settings.continue": "Continuar partida",
+  "settings.counting.title": "Conteo",
+  "settings.counting.desc": "El automático cuenta cada mano. Muggins: reclamas tu propia mano (y el crib cuando repartes) — si fallas puntos, el siguiente rival se los lleva.",
+  "settings.counting.disabledDesc": "Muggins solo está disponible en una partida individual (un humano); las mesas compartidas cuentan automáticamente.",
+  "settings.counting.optAuto": "Conteo automático",
+  "settings.counting.optMuggins": "Muggins",
+  "settings.autoGo.title": "Pasar sin carta jugable",
+  "settings.autoGo.desc": "Cuando no puedes jugar, Manual espera a que toques “Go”; Automático pasa por ti.",
+  "settings.warn.title": "Avisar de una jugada débil",
+  "settings.warn.desc": "Pausa y explica cuando un descarte al crib, o una carta de juego que deja un punto sobre la mesa, no es la mejor — con opción de deshacerlo.",
+  "settings.autoPlayOne.title": "Jugar carta forzada",
+  "settings.autoPlayOne.desc": "Cuando solo una de tus cartas es legal, la juega por ti.",
+  "settings.autoPlayBest.title": "Jugar la mejor carta",
+  "settings.autoPlayBest.desc": "En tu turno, juega la mejor carta automáticamente — la misma política que usan los bots. Piloto automático del juego.",
+  "settings.autoDiscardBest.title": "Descartar el mejor",
+  "settings.autoDiscardBest.desc": "En el descarte, tira automáticamente la mejor carta para tu posición — teniendo en cuenta de quién es el crib.",
+  "settings.autoContinue.title": "Continuar el conteo solo",
+  "settings.autoContinue.desc": "Avanza el conteo automáticamente (aún pausa para tu reclamo de muggins).",
+  "settings.autoDeal.title": "Repartir la siguiente mano",
+  "settings.autoDeal.desc": "Reparte la siguiente mano automáticamente una vez contada por completo.",
+
+  "about.title": "Acerca del Entrenador de Cribbage",
+  "about.line1": "Un entrenador y juego de cribbage de código abierto.",
+  "about.line2": "¿Encontraste un error o tienes comentarios? El código está en GitHub — pásate por allí para participar.",
+  "about.sourceLink": "Código, errores y comentarios ↗",
+
+  "rules.summary": "Cómo jugar — reglas básicas"
 });

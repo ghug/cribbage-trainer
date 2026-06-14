@@ -1202,16 +1202,6 @@ function seatsAround(P, me) {
 
 // A small face-down "deck" — the placeholder shown where the starter will sit before the
 // cut. Three stacked backs read as a deck rather than a single card.
-function DeckBack() {
-  return (
-    <div style={{ position: "relative", width: "calc(var(--cw) + 6px)", height: "var(--ch)", margin: "0 auto" }}>
-      <div style={{ position: "absolute", left: 6, top: -4 }}><CardBack /></div>
-      <div style={{ position: "absolute", left: 3, top: -2 }}><CardBack /></div>
-      <div style={{ position: "absolute", left: 0, top: 0 }}><CardBack /></div>
-    </div>
-  );
-}
-
 // The single table. Every pre-show phase renders here: the discard, the cut, and the
 // pegging all share one frame (seat ring + starter slot) and one "hand zone" at the
 // bottom — a card grid with tap-to-select and a confirm. Only a small per-phase config
@@ -1341,9 +1331,11 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 8, padding: "0 6px" }}>
         <div style={{ minWidth: 0 }}>{ts.left != null ? cell(ts.left) : null}</div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: "0 0 auto" }}>
-          <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 4 }}>starter</div>
+          <div style={{ height: 18, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 4 }}>
+            <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>starter</span>
+          </div>
           <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" }}>
-            {starter && !emptyTable ? <Card card={starter} /> : <DeckBack />}
+            <Fan items={(starter && !emptyTable) ? cardItems([starter]) : backItems(1)} />
           </div>
         </div>
         <div style={{ minWidth: 0 }}>{ts.right != null ? cell(ts.right) : null}</div>

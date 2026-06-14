@@ -1184,15 +1184,6 @@ function seatsAround(P, me) {
     const ts = tableSeats(P), at = (rel) => (me + rel) % P;
     return { top: ts.top.map(at), left: ts.left != null ? at(ts.left) : null, right: ts.right != null ? at(ts.right) : null };
 }
-function DeckBack() {
-    return (React.createElement("div", { style: { position: "relative", width: "calc(var(--cw) + 6px)", height: "var(--ch)", margin: "0 auto" } },
-        React.createElement("div", { style: { position: "absolute", left: 6, top: -4 } },
-            React.createElement(CardBack, null)),
-        React.createElement("div", { style: { position: "absolute", left: 3, top: -2 } },
-            React.createElement(CardBack, null)),
-        React.createElement("div", { style: { position: "absolute", left: 0, top: 0 } },
-            React.createElement(CardBack, null))));
-}
 function PlayScreen({ state, dispatch, me, needHandoff }) {
     const { peg, starter, dealerIdx, crib, seats, settings, phase, dealDraw, winner } = state;
     const discardPhase = phase === "discard";
@@ -1298,8 +1289,10 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
         React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 8, padding: "0 6px" } },
             React.createElement("div", { style: { minWidth: 0 } }, ts.left != null ? cell(ts.left) : null),
             React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", flex: "0 0 auto" } },
-                React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 4 } }, "starter"),
-                React.createElement("div", { style: { display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" } }, starter && !emptyTable ? React.createElement(Card, { card: starter }) : React.createElement(DeckBack, null))),
+                React.createElement("div", { style: { height: 18, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 4 } },
+                    React.createElement("span", { style: { fontFamily: mono, fontSize: 10, color: T.muted } }, "starter")),
+                React.createElement("div", { style: { display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" } },
+                    React.createElement(Fan, { items: (starter && !emptyTable) ? cardItems([starter]) : backItems(1) }))),
             React.createElement("div", { style: { minWidth: 0 } }, ts.right != null ? cell(ts.right) : null)),
         React.createElement(Seat, { i: me, dealerIdx: dealerIdx, active: ownActive, dim: cutdealPhase && me !== dealerIdx, name: meName, items: ownCardItems }),
         overPhase ? (React.createElement(Panel, { tone: "good" },
@@ -1575,7 +1568,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, "Source, bugs & feedback \u2197"),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.8-dev.23"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.8-dev.24"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

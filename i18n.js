@@ -14,12 +14,14 @@
  *    no INTERNET permission). Only the picked language's file is ever loaded.
  *
  * Usage from app code:  t("some.key")  or  t("some.key", { name: "North" })   ({name} interpolates)
- * Switch language:      i18n.choose(code)   (persists + reloads, reflecting it in the URL)
+ * Switch language:      i18n.choose(code)   (live — no page reload; updates the URL + re-renders)
+ * Re-render hook:       i18n.onChange(fn)   (each UI registers; called after the new locale loads)
  */
 (function () {
   var LANG_KEY = "cribbage:lang";
   var STRINGS = {};        // code -> { key: phrase }
   var LANGS = [];          // [{ code, name }]
+  var listeners = [];      // re-render callbacks, fired after a live language switch
 
   // The URL for a given language: non-English carries ?lang=<code> so the page is copy/shareable;
   // English strips it (kept clean). Preserves any other query params and the hash.
@@ -56,6 +58,18 @@
   // locales/index.js registers the list of available languages for the picker.
   window.cribbageLanguages = function (list) { LANGS = list || []; };
 
+  // Lazily load a locale file for a LIVE switch (after first paint), then call cb. English is
+  // inlined and any already-loaded locale is in STRINGS, so those resolve immediately. Uses an
+  // appended <script> (not document.write, which only works during the initial parse); the
+  // relative src resolves under the page's directory, the same on the web and from file://.
+  function loadLocale(code, cb) {
+    if (!code || code === "en" || STRINGS[code]) { if (cb) cb(); return; }
+    var s = document.createElement("script");
+    s.src = "locales/" + code.replace(/[^a-z0-9-]/gi, "") + ".js";
+    s.onload = s.onerror = function () { if (cb) cb(); };   // on failure, fall back to English
+    document.head.appendChild(s);
+  }
+
   // Called once from <head>, right after en.js: synchronously load the active non-English
   // file so every t() during the first render already has its translations.
   window.i18nBootstrap = function () {
@@ -79,13 +93,20 @@
     get lang() { return current; },
     languages: function () { return LANGS.slice(); },
     set: function (code) { try { localStorage.setItem(LANG_KEY, code); } catch (e) {} current = code; },
-    // Pick a language: persist it and reload with the URL reflecting it (so a non-English page
-    // is shareable). On file:// (APK) just reload — localStorage carries the choice there.
+    // Register a re-render callback, fired (with the new code) after a live switch loads the locale.
+    onChange: function (fn) { if (typeof fn === "function") listeners.push(fn); },
+    // Pick a language LIVE — no page reload. Persist it, mirror it in the URL bar (replaceState,
+    // no navigation), lazily load the locale, then flip `current` and notify the UIs to re-render.
+    // `current` flips only after the file is in, so there's no flash of half-translated text.
     choose: function (code) {
       try { localStorage.setItem(LANG_KEY, code); } catch (e) {}
-      current = code;
-      if (location.protocol === "file:") location.reload();
-      else location.href = langURL(code);
+      try {
+        if (location.protocol !== "file:" && history && history.replaceState) history.replaceState(null, "", langURL(code));
+      } catch (e) {}
+      loadLocale(code, function () {
+        current = code;
+        for (var i = 0; i < listeners.length; i++) { try { listeners[i](code); } catch (e2) {} }
+      });
     }
   };
 })();

@@ -282,12 +282,13 @@
 
       // ---- i18n: a safe translate alias, the static-text pass, and the language picker ----
       var tr = (window.t) ? window.t : function (k) { return k; };  // falls back to the key
-      (function applyI18n() {
+      function applyI18n() {
         var n, i;
         n = document.querySelectorAll('[data-i18n]'); for (i = 0; i < n.length; i++) n[i].textContent = tr(n[i].getAttribute('data-i18n'));
         n = document.querySelectorAll('[data-i18n-html]'); for (i = 0; i < n.length; i++) n[i].innerHTML = tr(n[i].getAttribute('data-i18n-html'));
         n = document.querySelectorAll('[data-i18n-aria]'); for (i = 0; i < n.length; i++) n[i].setAttribute('aria-label', tr(n[i].getAttribute('data-i18n-aria')));
-      })();
+      }
+      applyI18n();
       // Wire any language <select> (the settings modal + the footer share this helper).
       function setupLangPick(pick) {
         if (!pick || !window.i18n) return false;
@@ -464,6 +465,10 @@
       }
       renderPlayers();
       renderTeams();
+
+      // Live language switch (no reload): re-run the static text pass and re-render the
+      // JS-built controls (settings rows, players, teams + seat diagram) in the new language.
+      if (window.i18n && i18n.onChange) i18n.onChange(function () { applyI18n(); renderSettings(); renderPlayers(); renderTeams(); });
 
       document.getElementById('gear').addEventListener('click', function () { settings = loadSettings(); renderSettings(); renderPlayers(); renderTeams(); open(s); });
       document.getElementById('settingsDone').addEventListener('click', function () { close(s); });

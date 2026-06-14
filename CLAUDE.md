@@ -322,13 +322,18 @@ network, working identically online and offline in the APK. **Architecture:**
 - **`i18n.js`** (repo root) — the runtime. Defines globals `t(key, vars)` (lookup with
   `{placeholder}` interpolation), `cribbageLocale(code, map)` (a locale file registers its
   phrases), `cribbageLanguages(list)` (the picker catalogue), `i18nBootstrap()`, and
-  `i18n` (`.lang`, `.languages()`, `.set(code)`). Active language persists in
-  `localStorage["cribbage:lang"]`. The URL **mirrors** the active language so a non-English page
-  is copy/shareable: on load the active lang is resolved (`?lang=<code>` param > stored > en) and
-  `history.replaceState` rewrites the URL to carry `?lang=<code>` for non-English (or strip it for
-  English), preserving other query params + the hash. The pickers call `i18n.choose(code)`, which
-  persists and reloads via that URL (so switching updates the bar; no stale param). Skipped on
-  `file://` (the APK has no URL bar; localStorage drives it there). Unknown codes fall back to en.
+  `i18n` (`.lang`, `.languages()`, `.set(code)`, `.choose(code)`, `.onChange(fn)`). Active language
+  persists in `localStorage["cribbage:lang"]`. The URL **mirrors** the active language so a
+  non-English page is copy/shareable: on load the active lang is resolved (`?lang=<code>` param >
+  stored > en) and `history.replaceState` rewrites the URL to carry `?lang=<code>` for non-English
+  (or strip it for English), preserving other query params + the hash. **`i18n.choose(code)`
+  switches LIVE — no page reload:** it persists, `replaceState`s the URL, lazily loads the locale
+  via an appended `<script>` (`loadLocale`; en is inlined, already-loaded locales are instant),
+  flips `current` only **after** the file is in (no half-translated flash), then fires the
+  `onChange` listeners. Each UI registers one: the **landing** re-runs `applyI18n()` + its render
+  fns; the **play/trainer React apps** bump a `useState` to re-render the whole tree (game/reducer
+  state untouched — only `tr()` text changes). Works the same on `file://` (the APK appends a local
+  `<script>`; the URL bar is just skipped there). Unknown codes fall back to en.
 - **`locales/<code>.js`** — one self-registering file per language, each calling
   `cribbageLocale("<code>", { key: "phrase", ... })`. **`locales/en.js` is the source of
   truth and the fallback** for any missing key (so partial translations never blank out).

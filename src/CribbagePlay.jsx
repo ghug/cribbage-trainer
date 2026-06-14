@@ -971,6 +971,14 @@ export default function CribbagePlay() {
   const [confirmHome, setConfirmHome] = React.useState(false);
   const [aboutOpen, setAboutOpen] = React.useState(false);
   const [historyOpen, setHistoryOpen] = React.useState(false);
+  // Live language switch: re-render the whole tree when i18n.choose() loads a new locale (the
+  // game/reducer state is untouched — only the text from tr() changes). Render-only; no effect
+  // on verify_play.js, which evals the reducer, not the React render.
+  const [, bumpLang] = React.useState(0);
+  useEffect(() => {
+    const i = (typeof window !== "undefined") ? window.i18n : null;
+    if (i && i.onChange) i.onChange(() => bumpLang((v) => v + 1));
+  }, []);
   const { phase, seats, dealerIdx, peg, show, starter, winner, message, settings } = state;
   const players = clampPlayers(settings.players);
   const teams = clampTeams(players, settings.teams);

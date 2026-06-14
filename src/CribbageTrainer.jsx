@@ -757,6 +757,12 @@ export default function CribbageTrainer() {
   const [leaderPips, setLeaderPips] = useState(0);
   const [modeOverride, setModeOverride] = useState(null); // null = auto from pips
   const [stats, setStats] = useState({ hands: 0, optimal: 0, lost: 0 });
+  // Live language switch: re-render when i18n.choose() loads a new locale (no page reload).
+  const [, bumpLang] = useState(0);
+  useEffect(() => {
+    const i = (typeof window !== "undefined") ? window.i18n : null;
+    if (i && i.onChange) i.onChange(() => bumpLang((v) => v + 1));
+  }, []);
 
   const suggested = suggestMode(yourPips, leaderPips);
   const mode = modeOverride || suggested;

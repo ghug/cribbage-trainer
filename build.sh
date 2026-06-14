@@ -69,6 +69,10 @@ build_one() {
 <style>html,body{margin:0;background:#0f2417;min-height:100%}#root{min-height:100vh}</style>
 <script src="vendor/react.production.min.js"></script>
 <script src="vendor/react-dom.production.min.js"></script>
+<script src="i18n.js"></script>
+<script src="locales/index.js"></script>
+<script src="locales/en.js"></script>
+<script>window.i18nBootstrap&&i18nBootstrap();</script>
 </head>
 <body>
 ${HOMEHTML}

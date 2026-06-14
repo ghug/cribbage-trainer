@@ -40,6 +40,8 @@ tasks.register('syncWebAssets', Copy) {
     from(repoRoot) {
         include 'index.html', 'trainer.html', 'play.html'
         include 'vendor/**'
+        include 'i18n.js'
+        include 'locales/**'
     }
 }
 tasks.named('preBuild') { dependsOn 'syncWebAssets' }

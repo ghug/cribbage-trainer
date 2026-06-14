@@ -124,7 +124,13 @@
   .seat .seat-name{ font-family:var(--mono); font-size:9.5px; color:var(--muted); white-space:nowrap }
   .seat.you .seat-name{ color:var(--cream) }
   .seat-hint{ font-family:var(--mono); font-size:10.5px; line-height:1.45; color:var(--muted); text-align:center; margin:-2px auto 10px; max-width:280px }
+  .lang-row{ display:flex; align-items:center; justify-content:center; gap:8px; margin-top:10px; font-family:var(--mono); font-size:11px; color:var(--muted) }
+  .lang-row select{ font:inherit; color:var(--cream); background:rgba(0,0,0,0.25); border:1px solid var(--line); border-radius:7px; padding:4px 8px }
 </style>
+<script src="i18n.js"></script>
+<script src="locales/index.js"></script>
+<script src="locales/en.js"></script>
+<script>window.i18nBootstrap&&i18nBootstrap();</script>
 </head>
 <body>
   <header>
@@ -204,7 +210,7 @@
         <div class="opt-row">
           <span class="pip play">♥</span>
           <div>
-            <div class="opt-title">Play</div>
+            <div class="opt-title" data-i18n="landing.play.title">Play</div>
             <div class="opt-sub">vs bots or friends · 2–6 players</div>
           </div>
           <span class="arrow">›</span>
@@ -217,7 +223,7 @@
         <div class="opt-row">
           <span class="pip train">♣</span>
           <div>
-            <div class="opt-title">Discard Trainer</div>
+            <div class="opt-title" data-i18n="landing.trainer.title">Discard Trainer</div>
             <div class="opt-sub">analyze &amp; rank every throw</div>
           </div>
           <span class="arrow">›</span>
@@ -230,6 +236,7 @@
   </main>
   <footer>
     Open-source cribbage practice. <button id="footerAbout" class="link-btn" type="button">About</button>
+    <div class="lang-row"><label for="langPick" data-i18n="landing.language">Language</label><select id="langPick"></select></div>
   </footer>
 
   <div class="overlay" id="settingsOverlay" role="dialog" aria-modal="true" aria-label="Settings">
@@ -259,7 +266,7 @@
       <a class="btn btn-primary" href="https://github.com/ghug/cribbage-trainer/"
          target="_blank" rel="noopener noreferrer">Source, bugs &amp; feedback ↗</a>
       <div class="repo-url" style="margin-bottom:4px">github.com/ghug/cribbage-trainer</div>
-      <div class="repo-url">v1.1.9</div>
+      <div class="repo-url">v1.1.10-dev.1</div>
     </div>
   </div>
 
@@ -269,6 +276,23 @@
       var a = document.getElementById('aboutOverlay');
       function open(el) { el.classList.add('open'); }
       function close(el) { el.classList.remove('open'); }
+
+      // ---- i18n: translate [data-i18n] elements and wire the language picker ----
+      if (window.t) {
+        var nodes = document.querySelectorAll('[data-i18n]');
+        for (var i = 0; i < nodes.length; i++) nodes[i].textContent = t(nodes[i].getAttribute('data-i18n'));
+        var pick = document.getElementById('langPick');
+        if (pick && window.i18n) {
+          var langs = i18n.languages();
+          for (var j = 0; j < langs.length; j++) {
+            var o = document.createElement('option');
+            o.value = langs[j].code; o.textContent = langs[j].name;
+            if (langs[j].code === i18n.lang) o.selected = true;
+            pick.appendChild(o);
+          }
+          pick.addEventListener('change', function () { i18n.set(this.value); location.reload(); });
+        }
+      }
 
       // Game settings, shared across every page via localStorage (same key the games
       // read/write), so a toggle here — or in any game — sticks everywhere.

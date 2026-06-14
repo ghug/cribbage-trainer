@@ -8,6 +8,10 @@
 <style>html,body{margin:0;background:#0f2417;min-height:100%}#root{min-height:100vh}</style>
 <script src="vendor/react.production.min.js"></script>
 <script src="vendor/react-dom.production.min.js"></script>
+<script src="i18n.js"></script>
+<script src="locales/index.js"></script>
+<script src="locales/en.js"></script>
+<script>window.i18nBootstrap&&i18nBootstrap();</script>
 </head>
 <body>
 
@@ -1382,7 +1386,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
                     "weak-play warnings ",
                     React.createElement("b", { style: { color: T.cream } }, settings.warn ? "on" : "off"),
                     React.createElement("span", null, " \u2014 tap \u2699 to change"))),
-                bigBtn(isDealer ? "Deal" : `Deal (${seatName(dealerIdx)}'s crib)`, () => dispatch({ type: "DEAL" }), "wood")))) : cutPhase ? (seatIsHuman(cutter, settings)
+                bigBtn(isDealer ? window.t("play.deal") : `${window.t("play.deal")} (${seatName(dealerIdx)}'s crib)`, () => dispatch({ type: "DEAL" }), "wood")))) : cutPhase ? (seatIsHuman(cutter, settings)
             ? bigBtn(`Cut the deck for ${seatName(dealerIdx)}`, () => dispatch({ type: "CUT" }), "wood")
             : React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" } },
                 seatName(cutter),
@@ -1589,7 +1593,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, "Source, bugs & feedback \u2197"),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.9"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.10-dev.1"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

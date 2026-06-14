@@ -311,6 +311,37 @@ swing table above before trusting `analyze()`. If you touch `cribDetail`,
 `verify_play.js` reads the **built** `play.html`, so run `./build.sh` first when you
 change `src/CribbagePlay.jsx`.
 
+## Internationalization (i18n) — foundation laid, strings not yet migrated
+
+The app is wired to become multilingual (target: ~200 languages) without a bundler or
+network, working identically online and offline in the APK. **Architecture:**
+
+- **`i18n.js`** (repo root) — the runtime. Defines globals `t(key, vars)` (lookup with
+  `{placeholder}` interpolation), `cribbageLocale(code, map)` (a locale file registers its
+  phrases), `cribbageLanguages(list)` (the picker catalogue), `i18nBootstrap()`, and
+  `i18n` (`.lang`, `.languages()`, `.set(code)`). Active language persists in
+  `localStorage["cribbage:lang"]`.
+- **`locales/<code>.js`** — one self-registering file per language, each calling
+  `cribbageLocale("<code>", { key: "phrase", ... })`. **`locales/en.js` is the source of
+  truth and the fallback** for any missing key (so partial translations never blank out).
+  `locales/index.js` lists the available languages. A sample `locales/es.js` is included.
+- **Loading is `<script>`-only** (like vendored React) — no `fetch` (blocked for `file://`
+  in the no-INTERNET WebView). Each page's `<head>` loads `i18n.js` → `locales/index.js` →
+  `locales/en.js` → then `i18nBootstrap()` **`document.write`s the active non-English file
+  synchronously**, so `t()` resolves before first render (no English flash). Only the
+  picked language's file ever loads, so a 200-line `index.js` stays cheap.
+- **Wiring:** `build.sh`'s HTML shell injects those four head scripts into `trainer.html`
+  and `play.html`; `src/landing.html` has them too. `android/app/build.gradle`'s
+  `syncWebAssets` bundles `i18n.js` + `locales/**` into the APK; `.assetsignore` does not
+  exclude them, so Cloudflare serves them too.
+- **Usage:** static HTML uses `data-i18n="key"` (the landing applies it on load); React/JS
+  uses `window.t("key")`. **Proof-of-concept wired so far:** landing's two card titles + the
+  "Language" label + a footer language picker, and the play game's Deal button
+  (`window.t("play.deal")`). Everything else is still hard-coded English — migrating UI
+  strings to `t("…")` (and filling `locales/en.js`) is the incremental follow-up.
+- The name-guard tolerates `window.t(...)` (property access, not an undefined name), and
+  `verify_play.js` is unaffected (it evals the reducer, never the render).
+
 ## Running and deploying
 
 **Run locally (already works):** open `index.html` in a browser (the welcome page),

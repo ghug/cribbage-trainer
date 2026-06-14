@@ -1478,7 +1478,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
                   <span> — tap ⚙ to change</span>
                 </div>
               )}
-              {bigBtn(isDealer ? "Deal" : `Deal (${seatName(dealerIdx)}'s crib)`, () => dispatch({ type: "DEAL" }), "wood")}
+              {bigBtn(isDealer ? window.t("play.deal") : `${window.t("play.deal")} (${seatName(dealerIdx)}'s crib)`, () => dispatch({ type: "DEAL" }), "wood")}
             </div>)
       ) : cutPhase ? (
         // Auto-cut skips this phase entirely; when it's off, a human cutter taps to cut,

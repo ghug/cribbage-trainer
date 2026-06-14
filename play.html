@@ -1270,7 +1270,6 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
     const cribOurs = teamOf(dealerIdx, P, teams) === teamOf(me, P, teams);
     const isDealer = me === dealerIdx;
     const teammateDeals = cribOurs && !isDealer;
-    const discardPrompt = `Tap the ${count === 2 ? "two cards" : "card"} you'll throw to the crib.${count === 2 && sel.length === 1 ? " One more…" : ""}`;
     const cell = (i) => {
         if (cutdealPhase) {
             const draw = dealDraw ? dealDraw[i] : null;
@@ -1285,14 +1284,6 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
                     : turn === i;
         return React.createElement(Seat, { key: i, i: i, dealerIdx: dealerIdx, active: active, items: [...backItems(remaining), ...cardItems(played)] });
     };
-    const actionPrompt = discardPhase ? discardPrompt
-        : (phase === "play" && peg)
-            ? (peg.turn === me && meHuman
-                ? (myTurn ? (tapSelect ? "Your turn — tap a card to select, then Play." : "Your turn — tap a card to play.")
-                    : stuck ? (settings.autoGo ? "No legal card — passing…" : "No legal card — tap Go to pass.")
-                        : "Your cards are all played.")
-                : `${seatName(peg.turn)} to play…`)
-            : null;
     return (React.createElement("div", { style: { marginTop: 6, display: "flex", flexDirection: "column", gap: 10 } },
         ts.top.length > 0 && (React.createElement("div", { style: { display: "grid", gridTemplateColumns: `repeat(${ts.top.length}, 1fr)`, gap: 8 } }, ts.top.map(cell))),
         React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 8, padding: "0 6px" } },
@@ -1384,27 +1375,37 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
             : React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" } },
                 seatName(cutter),
                 " cuts for the starter\u2026")) : needHandoff ? React.createElement(PassPanel, { to: discardPhase ? me : peg.turn, dispatch: dispatch }) : (React.createElement("div", null,
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: (myTurn || stuck) ? T.selBlue : T.muted, marginBottom: 6, lineHeight: 1.45, minHeight: "2.9em", display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center" } }, actionPrompt),
             pending && (discardPhase
                 ? React.createElement("div", { style: { marginBottom: 10 } },
                     React.createElement(DiscardWarning, { pd: pending, cribIsOurs: cribOurs, dispatch: dispatch, onCancel: () => setSel([]) }))
                 : React.createElement("div", { style: { marginBottom: 10 } },
                     React.createElement(PlayWarning, { pp: pending, dispatch: dispatch }))),
-            (() => {
-                const goBtn = stuck && !settings.autoGo && meHuman
-                    ? React.createElement("button", { onClick: () => dispatch({ type: "PASS_GO", seat: me }), style: {
+            !pending && (() => {
+                let el = null;
+                if (stuck && !settings.autoGo && meHuman) {
+                    el = React.createElement("button", { onClick: () => dispatch({ type: "PASS_GO", seat: me }), style: {
                             width: "100%", padding: "12px", borderRadius: 10, border: "none", cursor: "pointer",
                             background: `linear-gradient(180deg, ${T.pegRed}, #9c3120)`, color: T.ivory,
                             fontSize: 15, fontWeight: 700, letterSpacing: 0.3, boxShadow: "0 4px 12px rgba(0,0,0,0.35)",
-                        } }, "Say \"Go\"")
-                    : null;
-                const confirmBtn = tapSelect && myTurn && !pending && meHuman
-                    ? React.createElement(ConfirmButton, { label: discardPhase ? `Throw to crib${count === 2 ? ` (${sel.length}/2)` : ""}` : "Play", enabled: sel.length === count && sel.every((i) => isLegal(yourHand[i])), onClick: () => { const idxs = sel; setSel([]); commit(idxs); } })
-                    : null;
-                const action = goBtn || confirmBtn;
-                if (tapSelect)
-                    return React.createElement("div", { style: { minHeight: 44, marginBottom: 10 } }, action);
-                return action && React.createElement("div", { style: { marginBottom: 10 } }, action);
+                        } }, "Say \"Go\" \u2014 no legal card");
+                }
+                else if (myTurn && meHuman && tapSelect) {
+                    const ready = sel.length === count && sel.every((i) => isLegal(yourHand[i]));
+                    const label = discardPhase
+                        ? (ready ? "Throw to crib" : sel.length === 0 ? (count === 2 ? "Tap two cards to throw" : "Tap a card to throw") : "Tap one more card")
+                        : (ready ? "Play" : "Tap a card to play");
+                    el = React.createElement(ConfirmButton, { label: label, enabled: ready, onClick: () => { const idxs = sel; setSel([]); commit(idxs); } });
+                }
+                else {
+                    const txt = (myTurn && meHuman)
+                        ? (discardPhase ? "Tap a card to throw" : "Your turn — tap a card to play.")
+                        : peg ? (peg.turn === me
+                            ? (yourHand.length === 0 ? `${poss(me)} cards are all played.` : `${seatName(me)} to play…`)
+                            : `${seatName(peg.turn)} to play…`)
+                            : "";
+                    el = React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: (myTurn || stuck) ? T.selBlue : T.muted, textAlign: "center", lineHeight: 1.4 } }, txt);
+                }
+                return React.createElement("div", { style: { minHeight: 44, marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center" } }, el);
             })(),
             meHuman && (React.createElement("div", { className: discardPhase ? "dealwrap" : undefined, style: { display: "flex", gap: 6, justifyContent: "center", flexWrap: "nowrap" } },
                 yourHand.map((card, i) => {
@@ -1576,7 +1577,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, "Source, bugs & feedback \u2197"),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.9-dev.16"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.9-dev.17"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

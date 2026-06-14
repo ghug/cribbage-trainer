@@ -1308,7 +1308,6 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
   const cribOurs = teamOf(dealerIdx, P, teams) === teamOf(me, P, teams);
   const isDealer = me === dealerIdx;
   const teammateDeals = cribOurs && !isDealer;
-  const discardPrompt = `Tap the ${count === 2 ? "two cards" : "card"} you'll throw to the crib.${count === 2 && sel.length === 1 ? " One more…" : ""}`;
 
   const cell = (i) => {
     if (cutdealPhase) {                                    // cut for deal: each seat's single draw, dealer lit
@@ -1331,16 +1330,6 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
     return <Seat key={i} i={i} dealerIdx={dealerIdx} active={active}
       items={[...backItems(remaining), ...cardItems(played)]} />;
   };
-  // The discard/play status line. A bot in the bottom seat (all-bot game) gets the same
-  // spectator line as any other seat — it just plays/goes on its own, no human prompts.
-  const actionPrompt = discardPhase ? discardPrompt
-    : (phase === "play" && peg)
-      ? (peg.turn === me && meHuman
-          ? (myTurn ? (tapSelect ? "Your turn — tap a card to select, then Play." : "Your turn — tap a card to play.")
-            : stuck ? (settings.autoGo ? "No legal card — passing…" : "No legal card — tap Go to pass.")
-            : "Your cards are all played.")
-          : `${seatName(peg.turn)} to play…`)
-      : null;
   return (
     <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 10 }}>
       {/* Fixed grids: every seat owns an equal column whatever it's holding, so the labels
@@ -1484,31 +1473,37 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
           : <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" }}>{seatName(cutter)} cuts for the starter…</div>
       ) : needHandoff ? <PassPanel to={discardPhase ? me : peg.turn} dispatch={dispatch} /> : (
       <div>
-        {/* Fixed two-line slot so the status text (which can wrap) never nudges the button. */}
-        <div style={{ fontFamily: mono, fontSize: 11, color: (myTurn || stuck) ? T.selBlue : T.muted, marginBottom: 6, lineHeight: 1.45, minHeight: "2.9em", display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
-          {actionPrompt}
-        </div>
         {pending && (discardPhase
           ? <div style={{ marginBottom: 10 }}><DiscardWarning pd={pending} cribIsOurs={cribOurs} dispatch={dispatch} onCancel={() => setSel([])} /></div>
           : <div style={{ marginBottom: 10 }}><PlayWarning pp={pending} dispatch={dispatch} /></div>)}
-        {(() => {
-          const goBtn = stuck && !settings.autoGo && meHuman
-            ? <button onClick={() => dispatch({ type: "PASS_GO", seat: me })} style={{
-                width: "100%", padding: "12px", borderRadius: 10, border: "none", cursor: "pointer",
-                background: `linear-gradient(180deg, ${T.pegRed}, #9c3120)`, color: T.ivory,
-                fontSize: 15, fontWeight: 700, letterSpacing: 0.3, boxShadow: "0 4px 12px rgba(0,0,0,0.35)",
-              }}>Say "Go"</button>
-            : null;
-          const confirmBtn = tapSelect && myTurn && !pending && meHuman
-            ? <ConfirmButton label={discardPhase ? `Throw to crib${count === 2 ? ` (${sel.length}/2)` : ""}` : "Play"}
-                enabled={sel.length === count && sel.every((i) => isLegal(yourHand[i]))}
-                onClick={() => { const idxs = sel; setSel([]); commit(idxs); }} />
-            : null;
-          const action = goBtn || confirmBtn;
-          // In tap-to-select mode keep a constant-height slot so the button appearing and
-          // vanishing as the turn passes doesn't bounce the hand up/down.
-          if (tapSelect) return <div style={{ minHeight: 44, marginBottom: 10 }}>{action}</div>;
-          return action && <div style={{ marginBottom: 10 }}>{action}</div>;
+        {!pending && (() => {
+          // One fixed-height slot below the table: an action button when there's something to
+          // do, otherwise the status line in the very same place — no separate prompt above.
+          let el = null;
+          if (stuck && !settings.autoGo && meHuman) {
+            el = <button onClick={() => dispatch({ type: "PASS_GO", seat: me })} style={{
+              width: "100%", padding: "12px", borderRadius: 10, border: "none", cursor: "pointer",
+              background: `linear-gradient(180deg, ${T.pegRed}, #9c3120)`, color: T.ivory,
+              fontSize: 15, fontWeight: 700, letterSpacing: 0.3, boxShadow: "0 4px 12px rgba(0,0,0,0.35)",
+            }}>Say "Go" — no legal card</button>;
+          } else if (myTurn && meHuman && tapSelect) {
+            // The confirm button doubles as the prompt: disabled "Tap a card…" until a full
+            // selection is made, then it enables and reads "Throw to crib" / "Play".
+            const ready = sel.length === count && sel.every((i) => isLegal(yourHand[i]));
+            const label = discardPhase
+              ? (ready ? "Throw to crib" : sel.length === 0 ? (count === 2 ? "Tap two cards to throw" : "Tap a card to throw") : "Tap one more card")
+              : (ready ? "Play" : "Tap a card to play");
+            el = <ConfirmButton label={label} enabled={ready} onClick={() => { const idxs = sel; setSel([]); commit(idxs); }} />;
+          } else {
+            const txt = (myTurn && meHuman)                                  // non-tap mode, your turn
+              ? (discardPhase ? "Tap a card to throw" : "Your turn — tap a card to play.")
+              : peg ? (peg.turn === me
+                  ? (yourHand.length === 0 ? `${poss(me)} cards are all played.` : `${seatName(me)} to play…`)
+                  : `${seatName(peg.turn)} to play…`)
+              : "";
+            el = <div style={{ fontFamily: mono, fontSize: 11.5, color: (myTurn || stuck) ? T.selBlue : T.muted, textAlign: "center", lineHeight: 1.4 }}>{txt}</div>;
+          }
+          return <div style={{ minHeight: 44, marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>{el}</div>;
         })()}
         {/* The interactive hand is only for a human in this seat; a bot (all-bot spectate)
             keeps its cards face down under its played pile, like every other seat. */}

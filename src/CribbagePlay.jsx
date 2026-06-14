@@ -1319,7 +1319,9 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
   const ownCardItems = cutdealPhase ? (dealDraw ? cardItems([dealDraw[me]]) : backItems(1))
     : cutPhase ? backItems(hands[me].length)                                     // your kept four, face down
     : needHandoff ? backItems((peg ? peg.hands[me] : seats[me].dealt).length)    // hidden while waiting to pass
-    : (peg && (phase === "play" || showPhase)) ? cardItems(peg.played[me])       // your played pile, like every seat
+    : (peg && (phase === "play" || showPhase))
+      ? (meHuman ? cardItems(peg.played[me])                                     // human: played pile (remainder is the grid)
+        : [...backItems(peg.hands[me].length), ...cardItems(peg.played[me])])    // bot: face-down hand under played, like any seat
     : [];                                                                        // discard active, deal, over
   // The active seat (your turn / your hand being counted / dealer at the cut / winning team).
   const ownActive = cutdealPhase ? me === dealerIdx
@@ -1482,7 +1484,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
                 fontSize: 15, fontWeight: 700, letterSpacing: 0.3, boxShadow: "0 4px 12px rgba(0,0,0,0.35)",
               }}>Say "Go"</button>
             : null;
-          const confirmBtn = tapSelect && myTurn && !pending
+          const confirmBtn = tapSelect && myTurn && !pending && meHuman
             ? <ConfirmButton label={discardPhase ? `Throw to crib${count === 2 ? ` (${sel.length}/2)` : ""}` : "Play"}
                 enabled={sel.length === count && sel.every((i) => isLegal(yourHand[i]))}
                 onClick={() => { const idxs = sel; setSel([]); commit(idxs); }} />
@@ -1493,21 +1495,25 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
           if (tapSelect) return <div style={{ minHeight: 44, marginBottom: 10 }}>{action}</div>;
           return action && <div style={{ marginBottom: 10 }}>{action}</div>;
         })()}
-        <div className={discardPhase ? "dealwrap" : undefined} style={{ display: "flex", gap: 6, justifyContent: "center", flexWrap: "nowrap" }}>
-          {yourHand.map((card, i) => {
-            const legal = isLegal(card);
-            const chosen = pending ? pendIdxs.includes(i) : sel.includes(i);
-            return (
-              <Card key={cardId(card)} card={card} selLabel={discardPhase ? undefined : "PLAY"}
-                clickable={pending ? true : (myTurn && legal)}
-                selected={!tapSelect && chosen}
-                raised={tapSelect && chosen}
-                dim={!pending && !legal && turn === me}
-                onClick={() => tapCard(i)} />
-            );
-          })}
-          {!discardPhase && yourHand.length === 0 && <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>your cards are all played</span>}
-        </div>
+        {/* The interactive hand is only for a human in this seat; a bot (all-bot spectate)
+            keeps its cards face down under its played pile, like every other seat. */}
+        {meHuman && (
+          <div className={discardPhase ? "dealwrap" : undefined} style={{ display: "flex", gap: 6, justifyContent: "center", flexWrap: "nowrap" }}>
+            {yourHand.map((card, i) => {
+              const legal = isLegal(card);
+              const chosen = pending ? pendIdxs.includes(i) : sel.includes(i);
+              return (
+                <Card key={cardId(card)} card={card} selLabel={discardPhase ? undefined : "PLAY"}
+                  clickable={pending ? true : (myTurn && legal)}
+                  selected={!tapSelect && chosen}
+                  raised={tapSelect && chosen}
+                  dim={!pending && !legal && turn === me}
+                  onClick={() => tapCard(i)} />
+              );
+            })}
+            {!discardPhase && yourHand.length === 0 && <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>your cards are all played</span>}
+          </div>
+        )}
       </div>
       )}
     </div>

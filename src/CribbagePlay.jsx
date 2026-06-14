@@ -785,7 +785,7 @@ function initGame() { return newGameState(null); }
 function ScoreRow({ seats, dealerIdx, turn, winner, onPick, P, teams }) {
   const groups = teamsList(P, teams);
   return (
-    <div style={{ display: "grid", gridTemplateColumns: `repeat(${groups.length},1fr)`, gap: 6, margin: "0 0 6px" }}>
+    <div style={{ display: "grid", gridTemplateColumns: `repeat(${groups.length},1fr)`, gap: 6, margin: "0 0 2px" }}>
       {groups.map((members, gi) => {
         const score = seats[members[0]].score;       // shared across the team
         const isTurn = members.includes(turn);
@@ -1095,7 +1095,7 @@ export default function CribbagePlay() {
       </header>
 
       <main style={{
-        maxWidth: 560, margin: "0 auto", padding: "16px 16px 0",
+        maxWidth: 560, margin: "0 auto", padding: "10px 16px 0",
         // One card width drives the whole table: six across the column (minus the 16px
         // gutters and five 6px gaps), capped so cards never get bigger than the old 68px.
         "--cw": "min(68px, calc((min(100vw, 560px) - 62px) / 6))",
@@ -1114,7 +1114,7 @@ export default function CribbagePlay() {
 
         {/* Always rendered (even when empty) so the table below never jumps between phases
             that carry a message and those that don't. */}
-        <div style={{ fontFamily: mono, fontSize: 12, color: T.cream, margin: "10px 2px 4px", minHeight: 16, lineHeight: 1.45 }}>
+        <div style={{ fontFamily: mono, fontSize: 12, color: T.cream, margin: "5px 2px 3px", minHeight: 16, lineHeight: 1.45 }}>
           {message}
         </div>
 
@@ -1342,7 +1342,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
           : `${seatName(peg.turn)} to play…`)
       : null;
   return (
-    <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 14 }}>
+    <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 10 }}>
       {/* Fixed grids: every seat owns an equal column whatever it's holding, so the labels
           (and their hands) always center on the same spot in every phase. */}
       {ts.top.length > 0 && (

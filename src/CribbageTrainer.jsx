@@ -646,7 +646,7 @@ function CardPicker({ count, onPick, onClose }) {
         {/* Four suit columns, ranks A->K down each, overlapping vertically by 65% (so each
             card shows its top 35% — the corner rank+suit — with the bottom card full).
             marginTop is 65% of the card HEIGHT, expressed as a % of width: 0.65*(96/68). */}
-        <div style={{ overflowY: "auto", margin: "0 -4px", padding: "0 4px 8px" }}>
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", margin: "0 -4px", padding: "0 4px 8px" }}>
           <div style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
             {[0, 1, 2, 3].map((s) => (
               <div key={s} style={{ flex: 1, minWidth: 0 }}>

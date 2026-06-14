@@ -1,12 +1,16 @@
-Cribbage Trainer is two tools in one, behind a small landing page — a discard trainer to sharpen your throws, and a full game against the computer.
+Cribbage Trainer is two tools in one, behind a small landing page — a discard trainer to sharpen your throws, and a full, playable game for two to six players.
 
 Discard Trainer
 
-Deal a hand and see every possible discard ranked by expected points, each one fully explained: the kept hand's exact average over all 46/47 possible cuts, the crib swing for the card(s) you throw, and pegging potential. Practice 4- and 3-handed "cutthroat" (every player for themselves) or 2-handed heads-up, as dealer or defender, with an optional board-position mode that re-ranks for chasing points or protecting a lead.
+Deal a hand and see every possible discard ranked by expected points, each one fully explained: the kept hand's exact average over all 46/47 possible cuts, the crib swing for the card(s) you throw, and pegging potential. Practice any table size from 2-handed heads-up through 6-handed — individual "cutthroat" (every player for themselves) or in teams — as the dealer or a defender, with an optional board-position mode that re-ranks your options for chasing points or protecting a lead. You can deal a random hand or build an exact one to study.
 
-Play a Game (vs 3 bots)
+Play a Game
 
-A complete game of 4-player cutthroat cribbage against three computer opponents: cut for deal, discard, cut the starter, interactive pegging, the show, and the race to 121. Count automatically or play muggins (claim your own points). Optional warnings flag a weak discard — or a pegging play that leaves points on the table — with a chance to take it back. A pause control and a per-player scoring history are a tap away, plus settings to auto-play forced cards, auto-cut, auto-deal, and auto-continue.
+A complete game of cribbage for 2 to 6 players: cut for deal, discard, cut the starter, interactive pegging, the show, and the race to the finish (121, or a short game to 61 at five and six players). Play against the computer, or set any seat to a human and pass the device for hot-seat games with friends — individually or in teams. Count automatically or play muggins (claim your own points). Optional warnings flag a weak discard, or a pegging play that leaves points on the table, with a chance to take it back. A per-player scoring history and an across-games stats tracker are a tap away, plus settings to auto-play forced cards, auto-cut, auto-deal, and auto-continue.
+
+Languages
+
+Available in English, Spanish, French, Russian, and Simplified Chinese, switchable any time.
 
 Private and offline
 

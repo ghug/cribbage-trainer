@@ -345,9 +345,11 @@ network, working identically online and offline in the APK. **Architecture:**
   render) needs no `window` shim. **Extracted so far: the entire landing page** (`src/landing.html`)
   **and the play game's PlayScreen** (`src/CribbagePlay.jsx` — buttons, the action-slot
   prompts/labels, cut-for-deal / deal / crib-intent / cut / win banners, pile labels, the pass
-  panel; with interpolation like `play.toPlay`/`play.win.final`). Still English: the play game's
-  **settings panel, the show/scoring body, history & about modals, skunk panel, and reducer
-  messages** (the latter would need a `window.t` shim in `verify_play.js`), plus the **trainer**.
+  panel; with interpolation like `play.toPlay`/`play.win.final`). The play game's **settings
+  panel + About modal** are extracted too (sharing the `settings.*`/`about.*` keys with the
+  landing — one canonical description per setting). Still English: the play game's **show/
+  scoring body, history modal, skunk panel, and reducer messages** (the latter would need a
+  `window.t` shim in `verify_play.js`), plus the **trainer**.
   `es.js` translates these; the rules prose is omitted to exercise the English fallback.
 - **Key-parity lint:** `engine/verify_i18n.js` (run by `./build.sh`, fails the build) flags any
   referenced key missing from `en.js` (renders as the raw key — the "play.deal" bug), any

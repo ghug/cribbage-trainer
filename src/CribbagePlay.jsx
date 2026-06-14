@@ -1603,54 +1603,53 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
       </div>
     </div>
   );
+  const off = tr("common.off"), on = tr("common.on"), manual = tr("common.manual"), auto = tr("common.auto");
   return (
     <div style={{ background: "rgba(0,0,0,0.32)", border: `1px solid ${T.line}`, borderRadius: 12, padding: "14px 16px 4px", marginBottom: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <span style={{ fontWeight: 700, fontSize: 16 }}>Settings</span>
-        <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>Done</button>
+        <span style={{ fontWeight: 700, fontSize: 16 }}>{tr("settings.title")}</span>
+        <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>{tr("common.done")}</button>
       </div>
-      <Row title="Tap to select, then confirm" k="tapToSelect"
-        desc="Tapping a card lifts it to select (tap again to drop it); a Play or Throw-to-crib button above your hand commits the choice. Off: a tap plays or throws immediately."
-        options={[["Off", false], ["On", true]]} />
-      <Row title="Cut for the starter" k="autoCut"
-        desc="Auto (default) turns the starter in the background and goes straight to the play; Manual waits for you to tap when you're the one cutting."
-        options={[["Manual", false], ["Auto", true]]} />
-      <Row title="Go on no playable card" k="autoGo"
-        desc={'When you can’t play, Manual waits for you to tap “Go”; Auto passes for you.'}
-        options={[["Manual", false], ["Auto", true]]} />
-      <Row title="Warn on a weak play" k="warn"
-        desc="Pause and explain when your throw to the crib — or a pegging card that leaves a point on the table — isn’t the best, with a chance to take it back."
-        options={[["On", true], ["Off", false]]} />
-      <Row title="Auto-play a forced card" k="autoPlayOne"
-        desc="When only one of your cards is legal to peg, play it for you."
-        options={[["Off", false], ["On", true]]} />
-      <Row title="Auto-play the best card" k="autoPlayBest"
-        desc="On your turn to peg, play the best card automatically — the same policy the bots use. Full autopilot for the play."
-        options={[["Off", false], ["On", true]]} />
-      <Row title="Auto-discard the best throw" k="autoDiscardBest"
-        desc="At the discard, throw the best card(s) for your position automatically — accounting for whether the crib is yours or the dealer's."
-        options={[["Off", false], ["On", true]]} />
-      <Row title="Auto-continue the show" k="autoContinue"
-        desc="Advance the counting automatically (still pauses for your muggins claim)."
-        options={[["Off", false], ["On", true]]} />
-      <Row title="Auto-deal the next hand" k="autoDeal"
-        desc="Deal the next hand automatically once a hand is fully counted."
-        options={[["Off", false], ["On", true]]} />
-      <Row title="Counting" k="counting" disabled={!soloGame}
-        desc={soloGame
-          ? "Auto tallies every hand for you. Muggins: you claim your own hand (and crib when you deal) — miss points and the next opponent takes them."
-          : "Auto tallies every hand. Muggins is only available in a solo (one-human) game; hot-seat tables auto-count."}
-        options={[["Auto-count", "auto"], ["Muggins", "muggins"]]} />
+      <Row title={tr("settings.tapToSelect.title")} k="tapToSelect"
+        desc={tr("settings.tapToSelect.desc")}
+        options={[[off, false], [on, true]]} />
+      <Row title={tr("settings.autoCut.title")} k="autoCut"
+        desc={tr("settings.autoCut.desc")}
+        options={[[manual, false], [auto, true]]} />
+      <Row title={tr("settings.autoGo.title")} k="autoGo"
+        desc={tr("settings.autoGo.desc")}
+        options={[[manual, false], [auto, true]]} />
+      <Row title={tr("settings.warn.title")} k="warn"
+        desc={tr("settings.warn.desc")}
+        options={[[on, true], [off, false]]} />
+      <Row title={tr("settings.autoPlayOne.title")} k="autoPlayOne"
+        desc={tr("settings.autoPlayOne.desc")}
+        options={[[off, false], [on, true]]} />
+      <Row title={tr("settings.autoPlayBest.title")} k="autoPlayBest"
+        desc={tr("settings.autoPlayBest.desc")}
+        options={[[off, false], [on, true]]} />
+      <Row title={tr("settings.autoDiscardBest.title")} k="autoDiscardBest"
+        desc={tr("settings.autoDiscardBest.desc")}
+        options={[[off, false], [on, true]]} />
+      <Row title={tr("settings.autoContinue.title")} k="autoContinue"
+        desc={tr("settings.autoContinue.desc")}
+        options={[[off, false], [on, true]]} />
+      <Row title={tr("settings.autoDeal.title")} k="autoDeal"
+        desc={tr("settings.autoDeal.desc")}
+        options={[[off, false], [on, true]]} />
+      <Row title={tr("settings.counting.title")} k="counting" disabled={!soloGame}
+        desc={tr(soloGame ? "settings.counting.desc" : "settings.counting.disabledDesc")}
+        options={[[tr("settings.counting.optAuto"), "auto"], [tr("settings.counting.optMuggins"), "muggins"]]} />
       <LanguageRow />
       <div style={{ borderTop: `1px solid ${T.line}`, margin: "2px -16px 0", padding: "12px 16px 0" }}>
-        <button onClick={onHistory} style={{ width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12, fontWeight: 700 }}>Game history</button>
+        <button onClick={onHistory} style={{ width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12, fontWeight: 700 }}>{tr("settings.history")}</button>
       </div>
       <AboutRow onAbout={onAbout} />
       <button onClick={onClose} style={{
         width: "100%", margin: "12px 0 10px", padding: "12px", borderRadius: 9, border: "none", cursor: "pointer",
         background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory,
         fontFamily: mono, fontSize: 12.5, fontWeight: 700,
-      }}>Continue game</button>
+      }}>{tr("settings.continue")}</button>
     </div>
   );
 }
@@ -1679,7 +1678,7 @@ function AboutRow({ onAbout }) {
         width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer",
         border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream,
         fontFamily: mono, fontSize: 12, fontWeight: 700,
-      }}>About &amp; feedback</button>
+      }}>{tr("settings.aboutFeedback")}</button>
     </div>
   );
 }
@@ -1772,20 +1771,20 @@ function AboutModal({ onClose }) {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span aria-hidden="true" style={{ flex: "0 0 auto", width: 34, height: 34, borderRadius: 8, background: "rgba(0,0,0,0.25)", color: T.ivory, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, lineHeight: 1 }}>♣</span>
-            <span style={{ fontWeight: 700, fontSize: 17 }}>About Cribbage Trainer</span>
+            <span style={{ fontWeight: 700, fontSize: 17 }}>{tr("about.title")}</span>
           </div>
-          <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>Done</button>
+          <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>{tr("common.done")}</button>
         </div>
         <div style={{ fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.6, marginBottom: 12 }}>
-          An open-source cribbage trainer and game.
+          {tr("about.line1")}
         </div>
         <div style={{ fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.6, marginBottom: 16 }}>
-          Found a bug, or have feedback? The source lives on GitHub — feel free to go there to be part of the conversation.
+          {tr("about.line2")}
         </div>
         <a href={REPO} target="_blank" rel="noopener noreferrer" style={{
           display: "block", textAlign: "center", padding: "12px", borderRadius: 9, textDecoration: "none", boxSizing: "border-box",
           background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
-        }}>Source, bugs &amp; feedback ↗</a>
+        }}>{tr("about.sourceLink")}</a>
         <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" }}>github.com/ghug/cribbage-trainer</div>
         <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" }}>v__APP_VERSION__</div>
       </div>

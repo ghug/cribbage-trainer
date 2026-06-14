@@ -206,8 +206,10 @@ const seatName = (i) => SEAT_NAMES[i];
 // message line, banners, history) keeps the full names.
 const SEAT_SHORT = { North: "N", South: "S", West: "W", East: "E", Northwest: "NW", Northeast: "NE", Southwest: "SW", Southeast: "SE" };
 const seatShort = (i) => SEAT_SHORT[SEAT_NAMES[i]] || SEAT_NAMES[i];
-const poss = (i) => (i === 0 ? "Your" : `${seatName(i)}'s`);
-const sv = (i, first, third) => (i === 0 ? `You ${first}` : `${seatName(i)} ${third}`);
+// "you" is whichever seat setSeatNames marked (the lone human), so detect it via the name —
+// not a hard-coded seat 0, which is a bot in an all-bot or human-elsewhere game.
+const poss = (i) => (seatName(i) === "You" ? "Your" : `${seatName(i)}'s`);
+const sv = (i, first, third) => (seatName(i) === "You" ? `You ${first}` : `${seatName(i)} ${third}`);
 const sameCard = (a, b) => a.r === b.r && a.s === b.s;
 const sameSet = (a, b) => a.length === b.length && a.every((x) => b.includes(x));
 

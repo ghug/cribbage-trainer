@@ -1168,16 +1168,31 @@ function Fan({ items }) {
     </div>
   );
 }
-function PlayedStack({ cards, backs, vis }) {
-  return <Fan items={(cards && cards.length) ? cardItems(cards, vis) : backItems(backs)} />;
-}
-// Overlap fraction that keeps an n-card fan within ~`budget` px (tightening as it grows),
-// capped at the normal spacing. Used for the central play pile, which can run long before
-// a 31/go reset and otherwise overflows a narrow phone. Sized against the widest a card
-// gets (68px) so it always fits, whatever the responsive `--cw` works out to.
-function fitVisible(n, budget) {
-  if (n <= 1) return STACK_VISIBLE;
-  return Math.max(0.24, Math.min(STACK_VISIBLE, (budget - 68) / ((n - 1) * 68)));
+// The central play pile. Cards sit at the normal 0.3 spacing whenever they fit, and tighten
+// only as much as the *measured* available width requires — so a long run no longer crams
+// itself into a fixed guess of the width and leaves the rest of the row empty.
+function PileFan({ cards }) {
+  const ref = React.useRef(null);
+  const [w, setW] = React.useState(0);
+  useEffect(() => {
+    const el = ref.current; if (!el) return;
+    const update = () => setW(el.clientWidth);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const n = cards.length;
+  // the actual card width (matches the --cw CSS formula)
+  const cw = Math.min(68, (Math.min(typeof window !== "undefined" ? window.innerWidth : 560, 560) - 62) / 6);
+  // vis fits n cards of width cw into w:  w = cw*(1 + (n-1)*vis)  →  vis = (w/cw - 1)/(n-1)
+  const vis = (n <= 1 || w === 0 || cw === 0) ? STACK_VISIBLE
+    : Math.max(0.12, Math.min(STACK_VISIBLE, (w / cw - 1) / (n - 1)));
+  return (
+    <div ref={ref} style={{ width: "100%", display: "flex", justifyContent: "center" }}>
+      <Fan items={cardItems(cards, vis)} />
+    </div>
+  );
 }
 
 // One seat, used everywhere — the ring, the cut-for-deal, and your own bottom seat. A
@@ -1408,7 +1423,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
             </div>
             <div style={{ flex: "1 1 auto", minWidth: 0, overflow: "hidden", display: "flex", justifyContent: "center" }}>
               {peg.pileSuited.length
-                ? <PlayedStack cards={peg.pileSuited} backs={0} vis={fitVisible(peg.pileSuited.length, 180)} />
+                ? <PileFan cards={peg.pileSuited} />
                 : <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>cleared — new count from 0</span>}
             </div>
           </div>

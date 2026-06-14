@@ -1159,13 +1159,25 @@ function Fan({ items }) {
         return null;
     return (React.createElement("div", { style: { display: "flex", alignItems: "flex-end", justifyContent: "center" } }, items.map((it, i) => (React.createElement("div", { key: it.key, style: { width: "var(--cw)", position: "relative", zIndex: i, marginLeft: i === 0 ? 0 : `calc(var(--cw) * ${-(1 - it.vis)})` } }, it.el)))));
 }
-function PlayedStack({ cards, backs, vis }) {
-    return React.createElement(Fan, { items: (cards && cards.length) ? cardItems(cards, vis) : backItems(backs) });
-}
-function fitVisible(n, budget) {
-    if (n <= 1)
-        return STACK_VISIBLE;
-    return Math.max(0.24, Math.min(STACK_VISIBLE, (budget - 68) / ((n - 1) * 68)));
+function PileFan({ cards }) {
+    const ref = React.useRef(null);
+    const [w, setW] = React.useState(0);
+    useEffect(() => {
+        const el = ref.current;
+        if (!el)
+            return;
+        const update = () => setW(el.clientWidth);
+        update();
+        const ro = new ResizeObserver(update);
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, []);
+    const n = cards.length;
+    const cw = Math.min(68, (Math.min(typeof window !== "undefined" ? window.innerWidth : 560, 560) - 62) / 6);
+    const vis = (n <= 1 || w === 0 || cw === 0) ? STACK_VISIBLE
+        : Math.max(0.12, Math.min(STACK_VISIBLE, (w / cw - 1) / (n - 1)));
+    return (React.createElement("div", { ref: ref, style: { width: "100%", display: "flex", justifyContent: "center" } },
+        React.createElement(Fan, { items: cardItems(cards, vis) })));
 }
 function Seat({ i, dealerIdx, active, dim, items }) {
     return (React.createElement("div", { style: { textAlign: "center", minWidth: 0, opacity: dim ? 0.7 : 1 } },
@@ -1331,7 +1343,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
                     React.createElement("span", { style: { fontFamily: mono, fontSize: 10, color: T.muted } }, "pile count"),
                     React.createElement("span", { style: { fontFamily: serif, fontWeight: 700, fontSize: 28, lineHeight: 1, color: peg.count === 31 ? T.good : T.ivory } }, peg.count)),
                 React.createElement("div", { style: { flex: "1 1 auto", minWidth: 0, overflow: "hidden", display: "flex", justifyContent: "center" } }, peg.pileSuited.length
-                    ? React.createElement(PlayedStack, { cards: peg.pileSuited, backs: 0, vis: fitVisible(peg.pileSuited.length, 180) })
+                    ? React.createElement(PileFan, { cards: peg.pileSuited })
                     : React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: T.muted } }, "cleared \u2014 new count from 0"))))),
         overPhase ? (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 16 } },
             React.createElement(SkunkPanel, { seats: seats, winner: winner, P: P, teams: teams }),
@@ -1577,7 +1589,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, "Source, bugs & feedback \u2197"),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.9-dev.17"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.9-dev.18"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

@@ -840,15 +840,15 @@ function HistoryPanel({ seatIdx, seats, onClose, P, teams }) {
   return (
     <div style={{ background: "rgba(0,0,0,0.32)", border: `1px solid ${T.line}`, borderRadius: 12, padding: "14px 16px 12px", marginBottom: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-        <span style={{ fontWeight: 700, fontSize: 15 }}>{teamLabel(members)} — scoring this game</span>
-        <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>Close</button>
+        <span style={{ fontWeight: 700, fontSize: 15 }}>{tr("play.hist.scoringGame", { team: teamLabel(members) })}</span>
+        <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>{tr("play.hist.close")}</button>
       </div>
       {hist.length === 0 ? (
-        <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>No points yet.</div>
+        <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>{tr("play.hist.noPoints")}</div>
       ) : (
         <div style={{ display: "grid", gap: 3 }}>
           <div style={{ display: "grid", gridTemplateColumns: cols, gap: 8, fontFamily: mono, fontSize: 10, color: T.muted, paddingBottom: 2 }}>
-            <span>for</span><span style={{ textAlign: "right" }}>pts</span><span style={{ textAlign: "right" }}>total</span>
+            <span>{tr("play.hist.colFor")}</span><span style={{ textAlign: "right" }}>{tr("play.hist.colPts")}</span><span style={{ textAlign: "right" }}>{tr("play.hist.total")}</span>
           </div>
           {hist.map((h, k) => { run += h.pts; return (
             <div key={k} style={{ display: "grid", gridTemplateColumns: cols, gap: 8, fontFamily: mono, fontSize: 11.5, alignItems: "baseline" }}>
@@ -860,7 +860,7 @@ function HistoryPanel({ seatIdx, seats, onClose, P, teams }) {
         </div>
       )}
       <div style={{ display: "flex", justifyContent: "space-between", borderTop: `1px solid ${T.line}`, marginTop: 8, paddingTop: 8, fontFamily: mono, fontSize: 12 }}>
-        <span style={{ color: T.muted }}>total</span>
+        <span style={{ color: T.muted }}>{tr("play.hist.total")}</span>
         <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 18, color: T.ivory }}>{total}</span>
       </div>
     </div>
@@ -1699,7 +1699,7 @@ function HistoryModal({ onClose }) {
   const [sel, setSel] = React.useState("all");
   const [confirmClear, setConfirmClear] = React.useState(false);
   const keyOf = (r) => `${r.P}/${r.teams}`;
-  const cfgLabel = (P, t) => (t < P ? `${P}p · ${t} teams` : `${P}-handed`);
+  const cfgLabel = (P, t) => (t < P ? tr("play.hist.cfgTeams", { p: P, teams: t }) : tr("play.hist.cfgHanded", { p: P }));
   const configs = Array.from(new Set(all.map(keyOf))).sort((a, b) => {
     const [pa, ta] = a.split("/").map(Number), [pb, tb] = b.split("/").map(Number);
     return pa - pb || tb - ta;
@@ -1730,41 +1730,41 @@ function HistoryModal({ onClose }) {
     <div style={{ position: "fixed", inset: 0, zIndex: 220, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
       <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 380, width: "100%", maxHeight: "86vh", overflowY: "auto", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "20px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 14 }}>
-          <span style={{ fontWeight: 700, fontSize: 17 }}>Game history</span>
-          <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>Done</button>
+          <span style={{ fontWeight: 700, fontSize: 17 }}>{tr("play.hist.title")}</span>
+          <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>{tr("common.done")}</button>
         </div>
 
         {all.length === 0 ? (
-          <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, lineHeight: 1.6 }} data-tick={tick}>No finished games yet. Play a game out to the finish and it'll show up here.</div>
+          <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, lineHeight: 1.6 }} data-tick={tick}>{tr("play.hist.empty")}</div>
         ) : (
           <React.Fragment>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
-              {chip("all", "All")}
+              {chip("all", tr("play.hist.all"))}
               {configs.map((k) => { const [P, t] = k.split("/").map(Number); return chip(k, cfgLabel(P, t)); })}
             </div>
 
-            <Stat label="Games" value={games} />
-            <Stat label="Won" value={`${won} (${winPct}%)`} accent={T.good} />
-            <Stat label="Lost" value={lost} />
-            <Stat label="Skunked 🦨" value={sk} accent={sk ? T.pegRed : T.cream} />
-            <Stat label="Double skunked 🦨🦨" value={dsk} accent={dsk ? T.pegRed : T.cream} />
+            <Stat label={tr("play.hist.games")} value={games} />
+            <Stat label={tr("play.hist.won")} value={tr("play.hist.wonValue", { n: won, pct: winPct })} accent={T.good} />
+            <Stat label={tr("play.hist.lost")} value={lost} />
+            <Stat label={tr("play.hist.skunked")} value={sk} accent={sk ? T.pegRed : T.cream} />
+            <Stat label={tr("play.hist.dblSkunked")} value={dsk} accent={dsk ? T.pegRed : T.cream} />
 
             {specific ? (
               <React.Fragment>
-                <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, margin: "14px 0 4px", letterSpacing: 0.3 }}>YOUR AVERAGE POINTS PER GAME</div>
-                <Stat label="Pegging" value={avg("peg").toFixed(1)} />
-                <Stat label="Hand (the show)" value={avg("hand").toFixed(1)} />
-                <Stat label="Crib" value={avg("crib").toFixed(1)} />
+                <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, margin: "14px 0 4px", letterSpacing: 0.3 }}>{tr("play.hist.avgHeader")}</div>
+                <Stat label={tr("play.hist.pegging")} value={avg("peg").toFixed(1)} />
+                <Stat label={tr("play.hist.hand")} value={avg("hand").toFixed(1)} />
+                <Stat label={tr("play.hist.crib")} value={avg("crib").toFixed(1)} />
               </React.Fragment>
             ) : (
-              <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, marginTop: 12, lineHeight: 1.5 }}>Pick a specific size/teams above to see your average pegging, hand, and crib points.</div>
+              <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, marginTop: 12, lineHeight: 1.5 }}>{tr("play.hist.pickHint")}</div>
             )}
 
             <button onClick={() => { if (confirmClear) { clearHistory(); setSel("all"); setConfirmClear(false); setTick(tick + 1); } else setConfirmClear(true); }} style={{
               width: "100%", marginTop: 16, padding: "10px", borderRadius: 9, cursor: "pointer",
               border: `1px solid ${confirmClear ? T.pegRed : T.line}`, background: "rgba(0,0,0,0.25)",
               color: confirmClear ? T.pegRed : T.muted, fontFamily: mono, fontSize: 11.5, fontWeight: 700,
-            }}>{confirmClear ? "Tap again to erase all history" : "Clear history"}</button>
+            }}>{confirmClear ? tr("play.hist.clearConfirm") : tr("play.hist.clear")}</button>
           </React.Fragment>
         )}
       </div>

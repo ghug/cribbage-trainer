@@ -352,8 +352,12 @@ network, working identically online and offline in the APK. **Architecture:**
   muggins claim prompt + claim button, the scoring/“nineteen”/claim-result lines, and the
   skunk/double-skunk banner. Note `entLabel` (plain, used by the reducer's score message) got
   a render-only i18n twin **`entText`** so the reducer stays `window`-free for `verify_play.js`.
-  Still English: the play game's **history modal and reducer messages** (the latter would need a
-  `window.t` shim in `verify_play.js`), plus the **trainer**.
+  The **game-history popups** are extracted too (`play.hist.*`): the per-seat scoring panel
+  (`HistoryPanel`) and the aggregate stats modal (`HistoryModal` — chips, the won/lost/skunk
+  Stat rows, the averages, the clear-history confirm). Only each entry's `h.label` text stays
+  English — it's reducer-generated and stored in localStorage, so it's part of the reducer-message
+  slice. Still English: the play game's **reducer messages** (would need a `window.t` shim in
+  `verify_play.js`), plus the **trainer**.
   `es.js` translates these; the rules prose is omitted to exercise the English fallback.
 - **Key-parity lint:** `engine/verify_i18n.js` (run by `./build.sh`, fails the build) flags any
   referenced key missing from `en.js` (renders as the raw key — the "play.deal" bug), any

@@ -12,6 +12,7 @@ cribbageLocale("es", {
   "role.human": "humano",
   "role.bot": "bot",
   "app.title": "Entrenador de Cribbage",
+  "play.deal": "Repartir",
 
   "landing.tagline": "juega contra bots o amigos y mejora tus descartes",
   "landing.playersAtTable": "Jugadores en la mesa",

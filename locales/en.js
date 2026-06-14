@@ -15,6 +15,7 @@ cribbageLocale("en", {
   "role.human": "human",
   "role.bot": "bot",
   "app.title": "Cribbage Trainer",
+  "play.deal": "Deal",
 
   // landing — header, nav, footer
   "landing.tagline": "play vs bots or friends and sharpen your discards",

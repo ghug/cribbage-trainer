@@ -796,7 +796,7 @@ cribbageLocale("en", {
       <a class="btn btn-primary" href="https://github.com/ghug/cribbage-trainer/"
          target="_blank" rel="noopener noreferrer" data-i18n="about.sourceLink">Source, bugs &amp; feedback ↗</a>
       <div class="repo-url" style="margin-bottom:4px">github.com/ghug/cribbage-trainer</div>
-      <div class="repo-url">v1.1.15-dev.3</div>
+      <div class="repo-url">v1.1.15-dev.4</div>
     </div>
   </div>
 
@@ -993,9 +993,13 @@ cribbageLocale("en", {
       renderPlayers();
       renderTeams();
 
-      // Live language switch (no reload): re-run the static text pass and re-render the
-      // JS-built controls (settings rows, players, teams + seat diagram) in the new language.
-      if (window.i18n && i18n.onChange) i18n.onChange(function () { applyI18n(); renderSettings(); renderPlayers(); renderTeams(); });
+      // Live language switch (no reload): re-run the static text pass, re-render the JS-built
+      // controls (settings rows, players, teams + seat diagram) in the new language, and sync
+      // both <select>s (a switch from one shouldn't leave the other showing the old value).
+      if (window.i18n && i18n.onChange) i18n.onChange(function () {
+        applyI18n(); renderSettings(); renderPlayers(); renderTeams();
+        ['langPick', 'footerLangPick'].forEach(function (id) { var el = document.getElementById(id); if (el) el.value = i18n.lang; });
+      });
 
       document.getElementById('gear').addEventListener('click', function () { settings = loadSettings(); renderSettings(); renderPlayers(); renderTeams(); open(s); });
       document.getElementById('settingsDone').addEventListener('click', function () { close(s); });

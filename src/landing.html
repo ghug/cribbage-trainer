@@ -376,15 +376,20 @@
           6: [[50, 85], [13, 63], [13, 31], [50, 11], [87, 31], [87, 63]]
         }[P];
       }
+      // Canonical position-based abbreviations (S, N, W, E, NW, NE, SW, SE) → translated for
+      // display via seat.* keys (S→S, W→O in Spanish, etc.), matching the games' seatShort.
+      var SEAT_ABBR_KEY = { S: 'seat.s', N: 'seat.n', W: 'seat.w', E: 'seat.e', NW: 'seat.nw', NE: 'seat.ne', SW: 'seat.sw', SE: 'seat.se' };
       function seatNames(P) {
-        // position-based abbreviations (S, N, W, E, NW, NE, SW, SE)
-        if (P === 2) return ['S', 'N'];
-        var n = new Array(P); n[0] = 'S';
-        n[1] = P === 6 ? 'SW' : 'W'; n[P - 1] = P === 6 ? 'SE' : 'E';
-        var tops = []; for (var i = 2; i <= P - 2; i++) tops.push(i);
-        var labels = tops.length <= 1 ? ['N'] : tops.length === 2 ? ['NW', 'NE'] : ['NW', 'N', 'NE'];
-        tops.forEach(function (sx, k) { n[sx] = labels[k]; });
-        return n;
+        var n;
+        if (P === 2) n = ['S', 'N'];
+        else {
+          n = new Array(P); n[0] = 'S';
+          n[1] = P === 6 ? 'SW' : 'W'; n[P - 1] = P === 6 ? 'SE' : 'E';
+          var tops = []; for (var i = 2; i <= P - 2; i++) tops.push(i);
+          var labels = tops.length <= 1 ? ['N'] : tops.length === 2 ? ['NW', 'NE'] : ['NW', 'N', 'NE'];
+          tops.forEach(function (sx, k) { n[sx] = labels[k]; });
+        }
+        return n.map(function (c) { return tr(SEAT_ABBR_KEY[c] || c); });
       }
       // Each seat is human or bot (stored in settings.seats). Default: South (seat 0) is a
       // human and the rest bots — but any seat, South included, can be toggled.

@@ -15,6 +15,27 @@ cribbageLocale("en", {
   "role.human": "human",
   "role.bot": "bot",
   "app.title": "Cribbage Trainer",
+  // compass seat names — full (play game prose/banners) + abbreviations (score columns,
+  // landing seat diagram). "You"/"S"/etc. stay the canonical identity keys in code; only
+  // the display is translated. en abbreviations match the English compass initials.
+  "seat.you": "You",
+  "seat.south": "South",
+  "seat.north": "North",
+  "seat.west": "West",
+  "seat.east": "East",
+  "seat.northwest": "Northwest",
+  "seat.northeast": "Northeast",
+  "seat.southwest": "Southwest",
+  "seat.southeast": "Southeast",
+  "seat.youShort": "You",
+  "seat.s": "S",
+  "seat.n": "N",
+  "seat.w": "W",
+  "seat.e": "E",
+  "seat.nw": "NW",
+  "seat.ne": "NE",
+  "seat.sw": "SW",
+  "seat.se": "SE",
 
   // play game — buttons, prompts, banners (the PlayScreen)
   "play.deal": "Deal",

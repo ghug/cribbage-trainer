@@ -202,14 +202,19 @@ function seatNamesFor(P, youSeat) {
   if (youSeat != null && youSeat >= 0) names[youSeat] = "You";
   return names;
 }
+// SEAT_NAMES holds the canonical English identity ("You"/"South"/"Northwest"/…). Identity
+// checks use it directly (isYou); display goes through seatName/seatShort, which translate
+// the canonical name to the active language via these key maps.
 let SEAT_NAMES = seatNamesFor(2, 0);
 const setSeatNames = (P, youSeat) => { SEAT_NAMES = seatNamesFor(P, youSeat); };
-const seatName = (i) => SEAT_NAMES[i];
+const SEAT_NAME_KEY = { You: "seat.you", South: "seat.south", North: "seat.north", West: "seat.west", East: "seat.east", Northwest: "seat.northwest", Northeast: "seat.northeast", Southwest: "seat.southwest", Southeast: "seat.southeast" };
+const seatName = (i) => tr(SEAT_NAME_KEY[SEAT_NAMES[i]] || SEAT_NAMES[i]);
+const isYou = (i) => SEAT_NAMES[i] === "You";
 // Short compass labels for the tight grid spots (score columns, cut-for-deal row, the
 // pegging seat cells) so 5-/6-handed tables don't overflow a narrow phone. Prose (the
-// message line, banners, history) keeps the full names.
-const SEAT_SHORT = { North: "N", South: "S", West: "W", East: "E", Northwest: "NW", Northeast: "NE", Southwest: "SW", Southeast: "SE" };
-const seatShort = (i) => SEAT_SHORT[SEAT_NAMES[i]] || SEAT_NAMES[i];
+// message line, banners, history) keeps the full names. Translated like seatName.
+const SEAT_SHORT_KEY = { You: "seat.youShort", North: "seat.n", South: "seat.s", West: "seat.w", East: "seat.e", Northwest: "seat.nw", Northeast: "seat.ne", Southwest: "seat.sw", Southeast: "seat.se" };
+const seatShort = (i) => tr(SEAT_SHORT_KEY[SEAT_NAMES[i]] || SEAT_NAMES[i]);
 // "you" is whichever seat setSeatNames marked (the lone human), detected via the name —
 // not a hard-coded seat 0, which is a bot in an all-bot or human-elsewhere game.
 const sameCard = (a, b) => a.r === b.r && a.s === b.s;
@@ -413,7 +418,7 @@ function computeShow(state) {
 // the reducer's score message. It calls tr(), which falls back to the key under
 // verify_play.js (no window) — harmless, since that harness never inspects the message text.
 const entText = (info) => {
-  const you = seatName(info.owner) === "You";
+  const you = isYou(info.owner);
   if (info.isCrib) return you ? tr("play.show.yourCrib") : tr("play.show.seatCrib", { seat: seatName(info.owner) });
   return you ? tr("play.show.yourHand") : tr("play.show.seatHand", { seat: seatName(info.owner) });
 };
@@ -522,7 +527,7 @@ function applyCut(state) {
   let seats = state.seats, winner = null, message = tr("play.msg.cut", { card: tag(starter) });
   if (hisHeels) {
     seats = addScore(seats, state.dealerIdx, 2, "his heels", P, teams);
-    message = seatName(state.dealerIdx) === "You"
+    message = isYou(state.dealerIdx)
       ? tr("play.msg.hisHeelsYou", { card: tag(starter) })
       : tr("play.msg.hisHeelsSeat", { seat: seatName(state.dealerIdx), card: tag(starter) });
     if (seats[state.dealerIdx].score >= targetFor(P)) winner = state.dealerIdx;
@@ -584,7 +589,7 @@ function playCard(state, seat, card) {
   let seats = addScore(state.seats, seat, pts, `pegging · ${pegReason(pile, count)}`, P, teams);
   let message = pts > 0
     ? tr("play.msg.pegScore", { seat: seatName(seat), reason: pegReasonTr(pile, count), pts })
-    : (seatName(seat) === "You"
+    : (isYou(seat)
         ? tr("play.msg.pegPlayYou", { card: tag(card), count })
         : tr("play.msg.pegPlaySeat", { seat: seatName(seat), card: tag(card), count }));
   const np = { ...peg, hands, count, pile, pileSuited, played, lastPlayer: seat, passes: 0 };
@@ -676,7 +681,7 @@ function reduce(state, action) {
     case "PASS_GO": {
       const peg = state.peg, seat = action.seat;
       const passes = peg.passes + 1;
-      const goMsg = seatName(seat) === "You" ? tr("play.msg.goYou") : tr("play.msg.goSeat", { seat: seatName(seat) });
+      const goMsg = isYou(seat) ? tr("play.msg.goYou") : tr("play.msg.goSeat", { seat: seatName(seat) });
       if (passes >= P) {
         let seats = state.seats, message = goMsg;
         const np = { ...peg, passes: 0, turn: (seat + 1) % P };
@@ -1545,7 +1550,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
             const txt = (myTurn && meHuman)                                  // non-tap mode, your turn
               ? (discardPhase ? tr("play.tapOne") : tr("play.yourTurnPlay"))
               : peg ? (peg.turn === me
-                  ? (yourHand.length === 0 ? (seatName(me) === "You" ? tr("play.allPlayed.you") : tr("play.allPlayed.seat", { seat: seatName(me) })) : tr("play.toPlay", { seat: seatName(me) }))
+                  ? (yourHand.length === 0 ? (isYou(me) ? tr("play.allPlayed.you") : tr("play.allPlayed.seat", { seat: seatName(me) })) : tr("play.toPlay", { seat: seatName(me) }))
                   : tr("play.toPlay", { seat: seatName(peg.turn) }))
               : "";
             el = <div style={{ fontFamily: mono, fontSize: 11.5, color: (myTurn || stuck) ? T.selBlue : T.muted, textAlign: "center", lineHeight: 1.4 }}>{txt}</div>;

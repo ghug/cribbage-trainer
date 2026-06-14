@@ -377,6 +377,12 @@ network, working identically online and offline in the APK. **Architecture:**
   `gameRecord` string-matches and `verify_play.js` asserts on (translated only would mix languages in
   localStorage and break categorization). With that, **every user-facing surface is localized.** The
   refactor also retired the now-dead `entLabel`/`poss`/`sv`/`scoreCallout` helpers.
+  The **compass seat names** are localized too (`seat.*` keys), both the full names (You/South/…/
+  Northwest, in play prose/banners) and the abbreviations (You/S/…/NW, in the score columns and the
+  landing seat diagram). `SEAT_NAMES` keeps the **canonical English** strings as the identity key —
+  identity checks use `isYou(i)` (`SEAT_NAMES[i] === "You"`), never the translated display — while
+  `seatName`/`seatShort` (play) and the landing's `seatNames` map the canonical name through `seat.*`
+  for display. Spanish uses Norte/Sur/Este/**Oeste** and NO/NE/SO/SE (W→O, NW→NO, SW→SO).
   `es.js` translates everything above; the rules prose is omitted to exercise the English fallback.
 - **Key-parity lint:** `engine/verify_i18n.js` (run by `./build.sh`, fails the build) flags any
   referenced key missing from `en.js` (renders as the raw key — the "play.deal" bug), any

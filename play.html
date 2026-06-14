@@ -266,9 +266,11 @@ function seatNamesFor(P, youSeat) {
 }
 let SEAT_NAMES = seatNamesFor(2, 0);
 const setSeatNames = (P, youSeat) => { SEAT_NAMES = seatNamesFor(P, youSeat); };
-const seatName = (i) => SEAT_NAMES[i];
-const SEAT_SHORT = { North: "N", South: "S", West: "W", East: "E", Northwest: "NW", Northeast: "NE", Southwest: "SW", Southeast: "SE" };
-const seatShort = (i) => SEAT_SHORT[SEAT_NAMES[i]] || SEAT_NAMES[i];
+const SEAT_NAME_KEY = { You: "seat.you", South: "seat.south", North: "seat.north", West: "seat.west", East: "seat.east", Northwest: "seat.northwest", Northeast: "seat.northeast", Southwest: "seat.southwest", Southeast: "seat.southeast" };
+const seatName = (i) => tr(SEAT_NAME_KEY[SEAT_NAMES[i]] || SEAT_NAMES[i]);
+const isYou = (i) => SEAT_NAMES[i] === "You";
+const SEAT_SHORT_KEY = { You: "seat.youShort", North: "seat.n", South: "seat.s", West: "seat.w", East: "seat.e", Northwest: "seat.nw", Northeast: "seat.ne", Southwest: "seat.sw", Southeast: "seat.se" };
+const seatShort = (i) => tr(SEAT_SHORT_KEY[SEAT_NAMES[i]] || SEAT_NAMES[i]);
 const sameCard = (a, b) => a.r === b.r && a.s === b.s;
 const sameSet = (a, b) => a.length === b.length && a.every((x) => b.includes(x));
 function freshDeck() {
@@ -438,7 +440,7 @@ function computeShow(state) {
     return { ent, owner, cards, acc, total, isCrib };
 }
 const entText = (info) => {
-    const you = seatName(info.owner) === "You";
+    const you = isYou(info.owner);
     if (info.isCrib)
         return you ? tr("play.show.yourCrib") : tr("play.show.seatCrib", { seat: seatName(info.owner) });
     return you ? tr("play.show.yourHand") : tr("play.show.seatHand", { seat: seatName(info.owner) });
@@ -549,7 +551,7 @@ function applyCut(state) {
     let seats = state.seats, winner = null, message = tr("play.msg.cut", { card: tag(starter) });
     if (hisHeels) {
         seats = addScore(seats, state.dealerIdx, 2, "his heels", P, teams);
-        message = seatName(state.dealerIdx) === "You"
+        message = isYou(state.dealerIdx)
             ? tr("play.msg.hisHeelsYou", { card: tag(starter) })
             : tr("play.msg.hisHeelsSeat", { seat: seatName(state.dealerIdx), card: tag(starter) });
         if (seats[state.dealerIdx].score >= targetFor(P))
@@ -614,7 +616,7 @@ function playCard(state, seat, card) {
     let seats = addScore(state.seats, seat, pts, `pegging · ${pegReason(pile, count)}`, P, teams);
     let message = pts > 0
         ? tr("play.msg.pegScore", { seat: seatName(seat), reason: pegReasonTr(pile, count), pts })
-        : (seatName(seat) === "You"
+        : (isYou(seat)
             ? tr("play.msg.pegPlayYou", { card: tag(card), count })
             : tr("play.msg.pegPlaySeat", { seat: seatName(seat), card: tag(card), count }));
     const np = { ...peg, hands, count, pile, pileSuited, played, lastPlayer: seat, passes: 0 };
@@ -708,7 +710,7 @@ function reduce(state, action) {
         case "PASS_GO": {
             const peg = state.peg, seat = action.seat;
             const passes = peg.passes + 1;
-            const goMsg = seatName(seat) === "You" ? tr("play.msg.goYou") : tr("play.msg.goSeat", { seat: seatName(seat) });
+            const goMsg = isYou(seat) ? tr("play.msg.goYou") : tr("play.msg.goSeat", { seat: seatName(seat) });
             if (passes >= P) {
                 let seats = state.seats, message = goMsg;
                 const np = { ...peg, passes: 0, turn: (seat + 1) % P };
@@ -1410,7 +1412,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
                     const txt = (myTurn && meHuman)
                         ? (discardPhase ? tr("play.tapOne") : tr("play.yourTurnPlay"))
                         : peg ? (peg.turn === me
-                            ? (yourHand.length === 0 ? (seatName(me) === "You" ? tr("play.allPlayed.you") : tr("play.allPlayed.seat", { seat: seatName(me) })) : tr("play.toPlay", { seat: seatName(me) }))
+                            ? (yourHand.length === 0 ? (isYou(me) ? tr("play.allPlayed.you") : tr("play.allPlayed.seat", { seat: seatName(me) })) : tr("play.toPlay", { seat: seatName(me) }))
                             : tr("play.toPlay", { seat: seatName(peg.turn) }))
                             : "";
                     el = React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: (myTurn || stuck) ? T.selBlue : T.muted, textAlign: "center", lineHeight: 1.4 } }, txt);
@@ -1596,7 +1598,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.10-dev.27"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.10-dev.28"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

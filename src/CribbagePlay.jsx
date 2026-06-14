@@ -174,7 +174,10 @@ const T = {
 // unaffected and needs no window shim.
 const tr = (k, v) => (typeof window !== "undefined" && window.t) ? window.t(k, v) : k;
 const SUIT = ["♠", "♥", "♦", "♣"];
-const CATS = ["fifteens", "pairs", "runs", "flush", "nobs"];
+// Scoring-category display names for the show panel's CatBars — reuses the trainer's
+// shared category keys (fifteens/pairs/runs/flush/nobs) so all locales cover them.
+const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
+const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -307,7 +310,7 @@ function CatBars({ cats, scale, color }) {
       {cats.map((v, i) =>
         v < 0.005 ? null : (
           <div key={i} style={{ display: "grid", gridTemplateColumns: "58px 1fr 30px", gap: 8, alignItems: "center" }}>
-            <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{CATS[i]}</span>
+            <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{catName(i)}</span>
             <span style={{ height: 7, background: "rgba(0,0,0,0.28)", borderRadius: 4, overflow: "hidden" }}>
               <span style={{ display: "block", height: "100%", width: `${(v / max) * 100}%`, background: color }} />
             </span>

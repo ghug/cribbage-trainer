@@ -1,7 +1,7 @@
 /* 简体中文 (Simplified Chinese) — full translation. Mirrors the keys in locales/en.js (any
  * key it omits falls back to English). Terms: crib=副牌, dealer=庄家, starter=起始牌,
  * the show=计分环节, pegging=出牌, skunk=臭鼬 (matches 🦨). Jargon kept: Go / His heels /
- * Muggins / Nobs. Keep every {placeholder} and the inline <b>/<span> markup in rules.* values.
+ * Muggins (Nobs→诺布斯). Keep every {placeholder} and the inline <b>/<span> markup in rules.* values.
  */
 cribbageLocale("zh-Hans", {
   // shared
@@ -305,7 +305,7 @@ cribbageLocale("zh-Hans", {
   "trainer.cat.pairs": "对子",
   "trainer.cat.runs": "顺子",
   "trainer.cat.flush": "同花",
-  "trainer.cat.nobs": "同花J",
+  "trainer.cat.nobs": "诺布斯",
   "trainer.cat.spread": "分散得分",
   "trainer.ex.pegHigh": "低张且相连的牌出牌效果好——点数灵活，且有成对/凑顺的机会。",
   "trainer.ex.pegLow": "出牌牌型别扭——僵硬的大牌或孤零零的5，让你几乎无从发挥。",
@@ -385,6 +385,6 @@ cribbageLocale("zh-Hans", {
   "rules.show.li2": "<b>对子</b> —— 各2分（所以三条 = 6，四条 = 12）",
   "rules.show.li3": "<b>顺子</b> —— 三张或更多连续 → 每张1分（重复也计）",
   "rules.show.li4": "<b>同花</b> —— 四张同花色 → 4；若起始牌也同花 → 5 <span class=\"note\">（副牌只有五张全同花色时才算同花）</span>",
-  "rules.show.li5": "<b>Nobs</b> —— 手中持有 <b>与起始牌同花色的J</b> → 1",
+  "rules.show.li5": "<b>诺布斯</b> —— 手中持有 <b>与起始牌同花色的J</b> → 1",
   "rules.note29": "最好的一手是29分：三张5加上与切牌同花色的J，第四张5作为起始牌翻出。"
 });

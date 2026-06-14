@@ -602,9 +602,9 @@ function MiniCard({ card, selected, disabled, onClick }) {
     <button onClick={onClick} disabled={disabled} aria-pressed={selected}
       aria-label={`${rankLabel(card.r)} of ${["spades", "hearts", "diamonds", "clubs"][card.s]}`}
       style={{
-        width: "100%", borderRadius: 6, padding: 0, background: T.ivory, position: "relative",
+        width: "100%", boxSizing: "border-box", borderRadius: 6, padding: 0, background: T.ivory, position: "relative",
         cursor: disabled ? "default" : "pointer",
-        border: selected ? `2px solid ${T.selBlue}` : "1px solid rgba(0,0,0,0.25)",
+        border: selected ? `6px solid ${T.selBlue}` : "1px solid rgba(0,0,0,0.25)",
         boxShadow: selected ? "0 4px 12px rgba(0,0,0,0.45)" : "0 2px 5px rgba(0,0,0,0.3)",
         opacity: disabled ? 0.4 : 1, transition: "opacity 120ms, box-shadow 120ms",
       }}>
@@ -652,7 +652,7 @@ function CardPicker({ count, onPick, onClose }) {
                   const id = cardId(c);
                   const on = sel.includes(id);
                   return (
-                    <div key={id} style={{ position: "relative", zIndex: on ? 100 + k : k, marginTop: k === 0 ? 0 : "-84.71%" }}>
+                    <div key={id} style={{ position: "relative", zIndex: k, marginTop: k === 0 ? 0 : "-84.71%" }}>
                       <MiniCard card={c} selected={on} disabled={!on && sel.length >= count} onClick={() => toggle(c)} />
                     </div>
                   );

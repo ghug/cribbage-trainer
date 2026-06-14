@@ -640,13 +640,25 @@ function CardPicker({ count, onPick, onClose }) {
           </div>
           <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>Cancel</button>
         </div>
-        <div style={{ overflowY: "auto", margin: "0 -4px", padding: "0 4px 4px" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
-            {deck.map((c) => {
-              const id = cardId(c);
-              const on = sel.includes(id);
-              return <MiniCard key={id} card={c} selected={on} disabled={!on && sel.length >= count} onClick={() => toggle(c)} />;
-            })}
+        {/* Four suit columns, ranks A->K down each, overlapping vertically by 60% (so each
+            card shows its top 40% — the corner rank+suit — with the bottom card full).
+            marginTop is 60% of the card HEIGHT, expressed as a % of width: 0.6*(96/68). */}
+        <div style={{ overflowY: "auto", margin: "0 -4px", padding: "0 4px 8px" }}>
+          <div style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
+            {[0, 1, 2, 3].map((s) => (
+              <div key={s} style={{ flex: 1, minWidth: 0 }}>
+                {Array.from({ length: 13 }, (_, k) => {
+                  const c = { r: k + 1, s };
+                  const id = cardId(c);
+                  const on = sel.includes(id);
+                  return (
+                    <div key={id} style={{ position: "relative", zIndex: on ? 100 + k : k, marginTop: k === 0 ? 0 : "-84.71%" }}>
+                      <MiniCard card={c} selected={on} disabled={!on && sel.length >= count} onClick={() => toggle(c)} />
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
           </div>
         </div>
         <button onClick={ready ? () => onPick(deck.filter((c) => sel.includes(cardId(c)))) : undefined} disabled={!ready}

@@ -2,10 +2,11 @@ name: Deploy to GitHub Pages
 
 # Publishes the static web app to GitHub Pages. Unlike "Deploy from a branch"
 # (which serves the whole repo root, source/Gradle dirs and all), this uploads
-# only the built site: the root HTML pages and the vendored React. The committed
-# root HTML is the source of truth (same as the Android asset sync), so there is
-# no build step here. Deploys from `main` (the release-snapshot branch); Cloudflare
-# tracks `dev` for the latest work.
+# only the built site: the root HTML pages, the vendored React, and the i18n
+# runtime + locale catalogues (i18n.js + locales/, needed since translations
+# load via <script>). The committed root HTML is the source of truth (same as the
+# Android asset sync), so there is no build step here. Deploys from `main` (the
+# release-snapshot branch); Cloudflare tracks `dev` for the latest work.
 
 on:
   push:
@@ -15,6 +16,8 @@ on:
       - "trainer.html"
       - "play.html"
       - "vendor/**"
+      - "i18n.js"
+      - "locales/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -43,6 +46,8 @@ jobs:
           mkdir -p _site/vendor
           cp index.html trainer.html play.html _site/
           cp vendor/react.production.min.js vendor/react-dom.production.min.js _site/vendor/
+          cp i18n.js _site/                # i18n runtime
+          cp -r locales _site/locales      # language list + per-language catalogues
           touch _site/.nojekyll   # skip Jekyll; serve files verbatim
 
       - uses: actions/configure-pages@v5

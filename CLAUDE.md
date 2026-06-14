@@ -327,7 +327,9 @@ network, working identically online and offline in the APK. **Architecture:**
 - **`locales/<code>.js`** — one self-registering file per language, each calling
   `cribbageLocale("<code>", { key: "phrase", ... })`. **`locales/en.js` is the source of
   truth and the fallback** for any missing key (so partial translations never blank out).
-  `locales/index.js` lists the available languages. Complete locales ship for Spanish (`es.js`)
+  `locales/index.js` lists the available languages. Complete locales ship for Spanish (`es.js`),
+  French (`fr.js`, name "Français"; crib=le crib, dealer=le donneur, starter=la retourne, the
+  show=le décompte, pegging=le jeu, skunk=mouffette, flush=couleur, run=suite; compass N/S/E/O),
   and Simplified Chinese (`zh-Hans.js`, name "简体中文"; crib=副牌, dealer=庄家, starter=起始牌,
   the show=计分环节, pegging=出牌, skunk=臭鼬; compass seats use 东/南/西/北 + 西北/东北/西南/东南).
 - **Loading is `<script>`-only** (like vendored React) — no `fetch` (blocked for `file://`

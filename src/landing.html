@@ -368,7 +368,9 @@
         var P = settings.players, teams = settings.teams;
         var pos = seatLayout(P), names = seatNames(P), roles = seatRoles(P);
         var humans = roles.filter(function (r) { return r === 'human'; }).length;
-        var palette = ['#5FA47C', '#5B95C2', '#C8412B']; // one colour per team when partnered
+        // Okabe–Ito colour-blind-safe trio (sky blue / orange / reddish-purple): three
+        // maximally separated hues distinguishable under all common colour-vision types.
+        var palette = ['#56B4E9', '#E69F00', '#CC79A7']; // one colour per team when partnered
         var byTeam = teams < P, target = P >= 5 ? 61 : 121;
         var center = (byTeam ? (P + '-handed · ' + teams + ' teams') : (P + '-handed')) + '<br>first to ' + target;
         var html = '<div class="seat-table"><span class="tlabel">' + center + '</span></div>';

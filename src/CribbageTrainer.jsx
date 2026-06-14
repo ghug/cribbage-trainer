@@ -633,13 +633,12 @@ function CardPicker({ count, onPick, onClose }) {
   };
   const ready = sel.length === count;
   return (
-    <>
-    {/* Height via 100dvh (the visible viewport, tracking the mobile chrome) with a 100vh
-        fallback — set with no `bottom`, so it isn't over-constrained and actually applies. */}
-    <style>{`.cp-overlay{height:100vh;height:100dvh}`}</style>
-    <div className="cp-overlay" style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 230, background: "rgba(0,0,0,0.62)", display: "flex", flexDirection: "column", alignItems: "center", padding: 12, boxSizing: "border-box" }}
+    // Full-screen fixed backdrop (the reliable visible-area box on mobile); the modal is
+    // pinned to its top/bottom edges with position:absolute, so its height is the visible
+    // viewport minus the gutters — no vh/dvh/flex-fill that mis-resolves with the chrome.
+    <div style={{ position: "fixed", inset: 0, zIndex: 230, background: "rgba(0,0,0,0.62)" }}
       onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} style={{ flex: 1, minHeight: 0, maxWidth: 360, width: "100%", display: "flex", flexDirection: "column", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "16px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", top: 12, bottom: 12, left: "50%", transform: "translateX(-50%)", width: "calc(100% - 24px)", maxWidth: 360, display: "flex", flexDirection: "column", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "16px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)", boxSizing: "border-box" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
           <div>
             <div style={{ fontWeight: 700, fontSize: 16 }}>Build a hand</div>
@@ -678,7 +677,6 @@ function CardPicker({ count, onPick, onClose }) {
           }}>Deal these {count}</button>
       </div>
     </div>
-    </>
   );
 }
 

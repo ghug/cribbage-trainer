@@ -657,7 +657,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, "Source, bugs & feedback \u2197"),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.10-dev.15"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.10-dev.16"))));
 }
 function MiniCard({ card, selected, disabled, onClick }) {
     return (React.createElement("button", { onClick: onClick, disabled: disabled, "aria-pressed": selected, "aria-label": `${rankLabel(card.r)} of ${["spades", "hearts", "diamonds", "clubs"][card.s]}`, style: {
@@ -682,38 +682,36 @@ function CardPicker({ count, onPick, onClose }) {
         setSel((s) => s.includes(id) ? s.filter((x) => x !== id) : (s.length >= count ? s : [...s, id]));
     };
     const ready = sel.length === count;
-    return (React.createElement(React.Fragment, null,
-        React.createElement("style", null, `.cp-overlay{height:100vh;height:100dvh}`),
-        React.createElement("div", { className: "cp-overlay", style: { position: "fixed", top: 0, left: 0, right: 0, zIndex: 230, background: "rgba(0,0,0,0.62)", display: "flex", flexDirection: "column", alignItems: "center", padding: 12, boxSizing: "border-box" }, onClick: onClose },
-            React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { flex: 1, minHeight: 0, maxWidth: 360, width: "100%", display: "flex", flexDirection: "column", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "16px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" } },
-                React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 } },
-                    React.createElement("div", null,
-                        React.createElement("div", { style: { fontWeight: 700, fontSize: 16 } }, "Build a hand"),
-                        React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 2 } },
-                            "tap to pick ",
-                            count,
-                            " cards \u00B7 ",
-                            sel.length,
-                            "/",
-                            count)),
-                    React.createElement("button", { onClick: onClose, style: { padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 } }, "Cancel")),
-                React.createElement("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", margin: "0 -4px", padding: "0 4px 8px" } },
-                    React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "flex-start" } }, [0, 1, 2, 3].map((s) => (React.createElement("div", { key: s, style: { flex: 1, minWidth: 0 } }, Array.from({ length: 13 }, (_, k) => {
-                        const c = { r: k + 1, s };
-                        const id = cardId(c);
-                        const on = sel.includes(id);
-                        return (React.createElement("div", { key: id, style: { position: "relative", zIndex: k, marginTop: k === 0 ? 0 : "-93.18%" } },
-                            React.createElement(MiniCard, { card: c, selected: on, disabled: !on && sel.length >= count, onClick: () => toggle(c) })));
-                    })))))),
-                React.createElement("button", { onClick: ready ? () => onPick(deck.filter((c) => sel.includes(cardId(c)))) : undefined, disabled: !ready, style: {
-                        marginTop: 14, width: "100%", padding: "13px", borderRadius: 10, border: "none",
-                        cursor: ready ? "pointer" : "default",
-                        background: ready ? `linear-gradient(180deg, ${T.good}, ${T.goodDeep})` : "rgba(0,0,0,0.25)",
-                        color: ready ? T.ivory : T.muted, opacity: ready ? 1 : 0.6,
-                        fontSize: 16, fontWeight: 700, letterSpacing: 0.3, boxShadow: ready ? "0 4px 12px rgba(0,0,0,0.35)" : "none",
-                    } },
-                    "Deal these ",
-                    count)))));
+    return (React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 230, background: "rgba(0,0,0,0.62)" }, onClick: onClose },
+        React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { position: "absolute", top: 12, bottom: 12, left: "50%", transform: "translateX(-50%)", width: "calc(100% - 24px)", maxWidth: 360, display: "flex", flexDirection: "column", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "16px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)", boxSizing: "border-box" } },
+            React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 } },
+                React.createElement("div", null,
+                    React.createElement("div", { style: { fontWeight: 700, fontSize: 16 } }, "Build a hand"),
+                    React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 2 } },
+                        "tap to pick ",
+                        count,
+                        " cards \u00B7 ",
+                        sel.length,
+                        "/",
+                        count)),
+                React.createElement("button", { onClick: onClose, style: { padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 } }, "Cancel")),
+            React.createElement("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", margin: "0 -4px", padding: "0 4px 8px" } },
+                React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "flex-start" } }, [0, 1, 2, 3].map((s) => (React.createElement("div", { key: s, style: { flex: 1, minWidth: 0 } }, Array.from({ length: 13 }, (_, k) => {
+                    const c = { r: k + 1, s };
+                    const id = cardId(c);
+                    const on = sel.includes(id);
+                    return (React.createElement("div", { key: id, style: { position: "relative", zIndex: k, marginTop: k === 0 ? 0 : "-93.18%" } },
+                        React.createElement(MiniCard, { card: c, selected: on, disabled: !on && sel.length >= count, onClick: () => toggle(c) })));
+                })))))),
+            React.createElement("button", { onClick: ready ? () => onPick(deck.filter((c) => sel.includes(cardId(c)))) : undefined, disabled: !ready, style: {
+                    marginTop: 14, width: "100%", padding: "13px", borderRadius: 10, border: "none",
+                    cursor: ready ? "pointer" : "default",
+                    background: ready ? `linear-gradient(180deg, ${T.good}, ${T.goodDeep})` : "rgba(0,0,0,0.25)",
+                    color: ready ? T.ivory : T.muted, opacity: ready ? 1 : 0.6,
+                    fontSize: 16, fontWeight: 700, letterSpacing: 0.3, boxShadow: ready ? "0 4px 12px rgba(0,0,0,0.35)" : "none",
+                } },
+                "Deal these ",
+                count))));
 }
 const teamOptionsT = (p) => (p === 4 ? [4, 2] : p === 6 ? [6, 3, 2] : [p]);
 function loadTrainerSettings() {

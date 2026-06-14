@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 
 /* ============================================================
    VERIFIED CRIBBAGE ENGINE
@@ -496,7 +496,7 @@ function buildNote(cribIsOurs, best, chosen) {
 // Settings menu. Hosts the trainer's configuration — table size and the role you
 // practice — plus the standard About entry shared with the games. (Board position
 // stays inline on the main screen, alongside the live analysis it re-ranks.)
-function SettingsPanel({ players, teams, roleMode, onRoleMode, onClose, onAbout }) {
+function SettingsPanel({ players, teams, roleMode, onRoleMode, autoBest, onAutoBest, onClose, onAbout }) {
   const seg = (on) => ({
     flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: 11.5,
     background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
@@ -536,6 +536,14 @@ function SettingsPanel({ players, teams, roleMode, onRoleMode, onClose, onAbout 
           </div>
         </div>
       )}
+
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 }}>on a new hand</div>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button onClick={() => onAutoBest(false)} style={seg(!autoBest)}>I choose</button>
+          <button onClick={() => onAutoBest(true)} style={seg(autoBest)}>Auto-pick the best</button>
+        </div>
+      </div>
 
       <AboutRow onAbout={onAbout} />
     </div>
@@ -606,6 +614,9 @@ function loadTrainerSettings() {
   } catch (e) {}
   return { players, teams };
 }
+// Trainer-only toggle (persisted): auto-pick the optimal discard the moment a hand is dealt.
+function loadAutoBest() { try { return localStorage.getItem("cribbage:trainerAutoBest") === "1"; } catch (e) { return false; } }
+function saveAutoBest(v) { try { localStorage.setItem("cribbage:trainerAutoBest", v ? "1" : "0"); } catch (e) {} }
 // The trainer scenario per hand: `cribIsOurs` (the crib lands on your team) drives the
 // crib sign/composition; `youDeal` (you're literally the dealer) drives the pegging
 // seat. At solo 5-/6-handed the dealer is dealt four and throws none, so you can only
@@ -627,6 +638,7 @@ function trainerScenario(roleMode, players, teams) {
 export default function CribbageTrainer() {
   const [{ players, teams }] = useState(loadTrainerSettings); // from the landing's global Players/Teams setting
   const [roleMode, setRoleMode] = useState("random");
+  const [autoBest, setAutoBest] = useState(loadAutoBest);   // auto-pick the best discard on deal
   const [hand, setHand] = useState(() => randomHand(players === 2 ? 6 : 5));
   const [scenario, setScenario] = useState(() => trainerScenario("random", players, teams));
   const [phase, setPhase] = useState("choose");
@@ -666,6 +678,12 @@ export default function CribbageTrainer() {
     setChosenId(id); setExpanded(null); setPhase("revealed");
     setStats((s) => ({ hands: s.hands + 1, optimal: s.optimal + (delta < 0.1 ? 1 : 0), lost: s.lost + delta }));
   }, [hand, scenario, mode, players, teams]);
+
+  // Auto-pick the optimal discard as soon as a hand is in the choose phase, when enabled.
+  useEffect(() => {
+    if (!autoBest || phase !== "choose") return;
+    pick(analyze(hand, scenario, mode, players, teams)[0].idxs);
+  }, [autoBest, phase, hand, scenario, mode, players, teams, pick]);
 
   const toggleSelect = useCallback((i) => {
     if (selected.includes(i)) { setSelected(selected.filter((x) => x !== i)); return; } // tap again to deselect
@@ -743,7 +761,7 @@ export default function CribbageTrainer() {
       </header>
 
       <main style={{ maxWidth: 560, margin: "0 auto", padding: "18px 16px 0" }}>
-        {showSettings && <SettingsPanel players={players} teams={teams} roleMode={roleMode} onRoleMode={setRoleMode} onClose={() => setShowSettings(false)} onAbout={() => { setShowSettings(false); setAboutOpen(true); }} />}
+        {showSettings && <SettingsPanel players={players} teams={teams} roleMode={roleMode} onRoleMode={setRoleMode} autoBest={autoBest} onAutoBest={(v) => { setAutoBest(v); saveAutoBest(v); }} onClose={() => setShowSettings(false)} onAbout={() => { setShowSettings(false); setAboutOpen(true); }} />}
         {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
         <div style={{
           display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", borderRadius: 10,

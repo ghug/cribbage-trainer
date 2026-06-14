@@ -18,7 +18,7 @@
 <div id="root"></div>
 <script>
 "use strict";
-const { useState, useMemo, useCallback } = React;
+const { useState, useMemo, useCallback, useEffect } = React;
 const fifteenVal = (r) => Math.min(r, 10);
 function scoreInto(four, starter, isCrib, acc) {
     const all = [...four, starter];
@@ -599,7 +599,7 @@ function buildNote(cribIsOurs, best, chosen) {
         return `You kept more hand points, but the crib swing more than canceled it. ${multi ? phrase : "The " + bestLabel} is better by ${delta.toFixed(2)}.`;
     return `Close, but ${phrase} edges it by ${delta.toFixed(2)} expected points.`;
 }
-function SettingsPanel({ players, teams, roleMode, onRoleMode, onClose, onAbout }) {
+function SettingsPanel({ players, teams, roleMode, onRoleMode, autoBest, onAutoBest, onClose, onAbout }) {
     const seg = (on) => ({
         flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: 11.5,
         background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
@@ -626,6 +626,11 @@ function SettingsPanel({ players, teams, roleMode, onRoleMode, onClose, onAbout 
                 "practice as",
                 isTeams ? " (whose crib)" : ""),
             React.createElement("div", { style: { display: "flex", gap: 6 } }, roleOpts.map(([k, label]) => (React.createElement("button", { key: k, onClick: () => onRoleMode(k), style: seg(roleMode === k) }, label)))))),
+        React.createElement("div", { style: { marginBottom: 14 } },
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 } }, "on a new hand"),
+            React.createElement("div", { style: { display: "flex", gap: 6 } },
+                React.createElement("button", { onClick: () => onAutoBest(false), style: seg(!autoBest) }, "I choose"),
+                React.createElement("button", { onClick: () => onAutoBest(true), style: seg(autoBest) }, "Auto-pick the best"))),
         React.createElement(AboutRow, { onAbout: onAbout })));
 }
 function AboutRow({ onAbout }) {
@@ -669,6 +674,16 @@ function loadTrainerSettings() {
     catch (e) { }
     return { players, teams };
 }
+function loadAutoBest() { try {
+    return localStorage.getItem("cribbage:trainerAutoBest") === "1";
+}
+catch (e) {
+    return false;
+} }
+function saveAutoBest(v) { try {
+    localStorage.setItem("cribbage:trainerAutoBest", v ? "1" : "0");
+}
+catch (e) { } }
 function trainerScenario(roleMode, players, teams) {
     const teamSize = players / teams;
     const dealerThrows = players <= 4;
@@ -688,6 +703,7 @@ function trainerScenario(roleMode, players, teams) {
 function CribbageTrainer() {
     const [{ players, teams }] = useState(loadTrainerSettings);
     const [roleMode, setRoleMode] = useState("random");
+    const [autoBest, setAutoBest] = useState(loadAutoBest);
     const [hand, setHand] = useState(() => randomHand(players === 2 ? 6 : 5));
     const [scenario, setScenario] = useState(() => trainerScenario("random", players, teams));
     const [phase, setPhase] = useState("choose");
@@ -727,6 +743,11 @@ function CribbageTrainer() {
         setPhase("revealed");
         setStats((s) => ({ hands: s.hands + 1, optimal: s.optimal + (delta < 0.1 ? 1 : 0), lost: s.lost + delta }));
     }, [hand, scenario, mode, players, teams]);
+    useEffect(() => {
+        if (!autoBest || phase !== "choose")
+            return;
+        pick(analyze(hand, scenario, mode, players, teams)[0].idxs);
+    }, [autoBest, phase, hand, scenario, mode, players, teams, pick]);
     const toggleSelect = useCallback((i) => {
         if (selected.includes(i)) {
             setSelected(selected.filter((x) => x !== i));
@@ -808,7 +829,7 @@ function CribbageTrainer() {
                     React.createElement("b", { style: { fontSize: 15 } }, stats.hands ? avgLost.toFixed(2) : "–"),
                     " avg pts lost"))),
         React.createElement("main", { style: { maxWidth: 560, margin: "0 auto", padding: "18px 16px 0" } },
-            showSettings && React.createElement(SettingsPanel, { players: players, teams: teams, roleMode: roleMode, onRoleMode: setRoleMode, onClose: () => setShowSettings(false), onAbout: () => { setShowSettings(false); setAboutOpen(true); } }),
+            showSettings && React.createElement(SettingsPanel, { players: players, teams: teams, roleMode: roleMode, onRoleMode: setRoleMode, autoBest: autoBest, onAutoBest: (v) => { setAutoBest(v); saveAutoBest(v); }, onClose: () => setShowSettings(false), onAbout: () => { setShowSettings(false); setAboutOpen(true); } }),
             aboutOpen && React.createElement(AboutModal, { onClose: () => setAboutOpen(false) }),
             React.createElement("div", { style: {
                     display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", borderRadius: 10,

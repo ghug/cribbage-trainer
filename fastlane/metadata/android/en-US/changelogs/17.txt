@@ -1,0 +1,3 @@
+New in 1.1.13:
+- Fully fixes language switching on the web (GitHub Pages) version, where picking a non-English language failed to load. The other languages are now published and load correctly; English is built in so it always works.
+- No gameplay changes — a hosting/packaging fix.

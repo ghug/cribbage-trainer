@@ -335,22 +335,26 @@ network, working identically online and offline in the APK. **Architecture:**
   and Simplified Chinese (`zh-Hans.js`, "简体中文"; crib=副牌, dealer=庄家, starter=起始牌,
   the show=计分环节, pegging=出牌, skunk=臭鼬; compass seats use 东/南/西/北 + 西北/东北/西南/东南).
 - **Loading is `<script>`-only** (like vendored React) — no `fetch` (blocked for `file://`
-  in the no-INTERNET WebView). Each page's `<head>` loads `i18n.js` → `locales/index.js` →
-  `locales/en.js` (relative `<script src>`), then `i18nBootstrap()` **`document.write`s the
-  active non-English file synchronously**, so `t()` resolves before first render (no English
-  flash). Only the picked language's file ever loads, so a long `index.js` stays cheap. The
-  relative paths resolve the same at a site root (Cloudflare), under a `/<repo>/` subpath
-  (GitHub Pages, with the trailing slash Pages adds), and from `file://` (APK).
-- **Wiring / deploy gotcha:** `build.sh`'s HTML shell injects those four head scripts into
-  `trainer.html`/`play.html`; `src/landing.html` has them too (copied verbatim). The APK gets
-  them via `android/app/build.gradle`'s `syncWebAssets` (`.assetsignore` doesn't exclude them),
-  and Cloudflare serves the repo root verbatim — so both pick up `i18n.js`/`locales/`
-  automatically. **GitHub Pages does NOT**: it publishes via `.github/workflows/pages.yml`,
-  whose `Assemble site` step copies an *explicit* file list into `_site/`. That list must
-  include **`i18n.js` and `locales/`** (and the `on.push.paths` trigger should list them too) —
-  it originally only copied the HTML + `vendor/react*`, so the `.io` mirror 404'd every i18n
-  script and rendered raw keys. If you add a new top-level asset the web app loads, add it to
-  `pages.yml` or it'll be missing on Pages only.
+  in the no-INTERNET WebView). The **primary path is INLINED** into each page's `<head>` at
+  build time — the runtime (`i18n.js`), language list (`locales/index.js`), and English
+  catalogue (`locales/en.js`) — so the default experience needs **zero external fetch** and
+  can't be broken by a host/deploy that fails to serve those files. **Non-English locales are
+  NOT inlined:** `i18nBootstrap()` lazy-loads only the picked one via `document.write('<script
+  src="locales/<code>.js">')` (synchronously, so `t()` resolves before first render — no flash;
+  relative path resolves under the `/<repo>/` subpath thanks to the trailing slash Pages adds).
+- **Wiring / deploy gotcha:** `build.sh`'s `i18n_head()` emits the three inlined `<script>`
+  blocks + the bootstrap call; the shell calls it for `trainer.html`/`play.html`, and for
+  `index.html` the build **splices** it over `src/landing.html`'s external i18n block (awk pass
+  from the `i18n.js` line through `i18nBootstrap()`), so `src/landing.html` keeps external tags
+  (works opened directly) while the deployed page is inlined. Because English is inlined, only
+  the **non-English locale files** need to be *served*: the APK bundles them via `syncWebAssets`,
+  Cloudflare serves the repo root verbatim, and **GitHub Pages** publishes via
+  `.github/workflows/pages.yml` — whose `Assemble site` step copies an *explicit* file list into
+  `_site/`. That list MUST include **`locales/`** (and `i18n.js`), and the `on.push.paths`
+  trigger should list them too. It originally copied only the HTML + `vendor/react*`, so on Pages
+  the non-English switcher 404'd (and, before English was inlined, the whole `.io` mirror showed
+  raw keys). **If you add a new top-level web asset, add it to `pages.yml` or it'll be missing on
+  Pages only.**
 - **Usage:** static HTML uses `data-i18n="key"` (plain text), `data-i18n-html="key"` (rich
   inline markup — the rules), `data-i18n-aria="key"` (aria-label); a small pass on load
   applies all three. JS-generated text calls a `tr()` alias (= `window.t`, key-fallback);

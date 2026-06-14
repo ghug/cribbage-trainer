@@ -596,6 +596,72 @@ function AboutModal({ onClose }) {
   );
 }
 
+// A compact, tappable card face for the deck picker grid.
+function MiniCard({ card, selected, disabled, onClick }) {
+  return (
+    <button onClick={onClick} disabled={disabled} aria-pressed={selected}
+      aria-label={`${rankLabel(card.r)} of ${["spades", "hearts", "diamonds", "clubs"][card.s]}`}
+      style={{
+        width: "100%", borderRadius: 6, padding: 0, background: T.ivory, position: "relative",
+        cursor: disabled ? "default" : "pointer",
+        border: selected ? `2px solid ${T.selBlue}` : "1px solid rgba(0,0,0,0.25)",
+        boxShadow: selected ? "0 4px 12px rgba(0,0,0,0.45)" : "0 2px 5px rgba(0,0,0,0.3)",
+        opacity: disabled ? 0.4 : 1, transition: "opacity 120ms, box-shadow 120ms",
+      }}>
+      <span style={{ display: "block", paddingBottom: "141.18%" }} />
+      <svg viewBox="0 0 68 96" preserveAspectRatio="xMidYMid meet" aria-hidden="true"
+        style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}>
+        <text x="13" y="15" textAnchor="middle" dominantBaseline="central" fontFamily={serif} fontWeight="700" fontSize="17" fill={isRed(card.s) ? T.suitRed : T.ink}>{rankLabel(card.r)}</text>
+        <text x="13" y="30" textAnchor="middle" dominantBaseline="central" fontFamily={serif} fontWeight="700" fontSize="13" fill={isRed(card.s) ? T.suitRed : T.ink}>{SUIT[card.s]}</text>
+        <text x="34" y="49" textAnchor="middle" dominantBaseline="central" fontFamily={serif} fontSize="34" fill={isRed(card.s) ? T.suitRed : T.ink}>{SUIT[card.s]}</text>
+      </svg>
+    </button>
+  );
+}
+
+// Build a specific hand: a four-wide deck grid (all 52, A→K by rank) where you tap to pick
+// exactly `count` cards, then deal them.
+function CardPicker({ count, onPick, onClose }) {
+  const [sel, setSel] = useState([]);                  // selected cardIds, in tap order
+  const deck = deckExcluding([]);
+  const toggle = (c) => {
+    const id = cardId(c);
+    setSel((s) => s.includes(id) ? s.filter((x) => x !== id) : (s.length >= count ? s : [...s, id]));
+  };
+  const ready = sel.length === count;
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 230, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+      onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 360, width: "100%", maxHeight: "92vh", display: "flex", flexDirection: "column", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "16px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 16 }}>Build a hand</div>
+            <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 2 }}>tap to pick {count} cards · {sel.length}/{count}</div>
+          </div>
+          <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>Cancel</button>
+        </div>
+        <div style={{ overflowY: "auto", margin: "0 -4px", padding: "0 4px 4px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
+            {deck.map((c) => {
+              const id = cardId(c);
+              const on = sel.includes(id);
+              return <MiniCard key={id} card={c} selected={on} disabled={!on && sel.length >= count} onClick={() => toggle(c)} />;
+            })}
+          </div>
+        </div>
+        <button onClick={ready ? () => onPick(deck.filter((c) => sel.includes(cardId(c)))) : undefined} disabled={!ready}
+          style={{
+            marginTop: 14, width: "100%", padding: "13px", borderRadius: 10, border: "none",
+            cursor: ready ? "pointer" : "default",
+            background: ready ? `linear-gradient(180deg, ${T.good}, ${T.goodDeep})` : "rgba(0,0,0,0.25)",
+            color: ready ? T.ivory : T.muted, opacity: ready ? 1 : 0.6,
+            fontSize: 16, fontWeight: 700, letterSpacing: 0.3, boxShadow: ready ? "0 4px 12px rgba(0,0,0,0.35)" : "none",
+          }}>Deal these {count}</button>
+      </div>
+    </div>
+  );
+}
+
 // The table size comes from the global "Players" setting chosen on the landing page
 // (shared localStorage key). The trainer practices YOUR discard: 2-handed throws two
 // from six; 3-/4-/5-/6-handed throw one from five. In 5-/6-handed the dealer is dealt
@@ -648,6 +714,7 @@ export default function CribbageTrainer() {
   const [showModel, setShowModel] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);   // the "Deal custom" deck picker
   const [showBoard, setShowBoard] = useState(false);
   const [yourPips, setYourPips] = useState(0);
   const [leaderPips, setLeaderPips] = useState(0);
@@ -668,6 +735,14 @@ export default function CribbageTrainer() {
   }, [roleMode, teams]);
 
   const deal = useCallback(() => dealHand(players), [dealHand, players]);
+
+  const handSize = players === 2 ? 6 : 5;                 // cards dealt (heads-up deals 6)
+  const dealCustom = useCallback((cards) => {
+    const sc = trainerScenario(roleMode, players, teams);
+    setHand(cards.slice().sort((a, b) => a.r - b.r || a.s - b.s)); setScenario(sc);
+    setSelected([]); setChosenId(null); setExpanded(null); setPhase("choose");
+    setPickerOpen(false);
+  }, [roleMode, players, teams]);
 
   const pick = useCallback((idxs) => {
     const id = idxs.slice().sort((a, b) => a - b).join(","); // match analyze's i<j combo ids
@@ -763,6 +838,7 @@ export default function CribbageTrainer() {
       <main style={{ maxWidth: 560, margin: "0 auto", padding: "18px 16px 0" }}>
         {showSettings && <SettingsPanel players={players} teams={teams} roleMode={roleMode} onRoleMode={setRoleMode} autoBest={autoBest} onAutoBest={(v) => { setAutoBest(v); saveAutoBest(v); }} onClose={() => setShowSettings(false)} onAbout={() => { setShowSettings(false); setAboutOpen(true); }} />}
         {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
+        {pickerOpen && <CardPicker count={handSize} onPick={dealCustom} onClose={() => setPickerOpen(false)} />}
         <div style={{
           display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", borderRadius: 10,
           background: cribIsOurs ? "rgba(95,164,124,0.16)" : "rgba(200,65,43,0.14)",
@@ -846,11 +922,15 @@ export default function CribbageTrainer() {
         )}
 
         <div style={{ marginTop: 22, display: "flex", flexDirection: "column", gap: 14 }}>
-          <button onClick={deal} style={{
-            width: "100%", padding: "13px", borderRadius: 10, border: "none", cursor: "pointer",
-            background: `linear-gradient(180deg, ${T.woodL}, ${T.woodM})`, color: "#2A1B0E",
-            fontSize: 16, fontWeight: 700, letterSpacing: 0.3, boxShadow: "0 4px 12px rgba(0,0,0,0.35)",
-          }}>{phase === "choose" ? "Deal a different hand" : "Deal next hand"}</button>
+          <div style={{ display: "flex", gap: 10 }}>
+            {[["Deal custom", () => setPickerOpen(true)], ["Deal random", deal]].map(([label, onClick]) => (
+              <button key={label} onClick={onClick} style={{
+                flex: 1, padding: "13px", borderRadius: 10, border: "none", cursor: "pointer",
+                background: `linear-gradient(180deg, ${T.woodL}, ${T.woodM})`, color: "#2A1B0E",
+                fontSize: 16, fontWeight: 700, letterSpacing: 0.3, boxShadow: "0 4px 12px rgba(0,0,0,0.35)",
+              }}>{label}</button>
+            ))}
+          </div>
 
           <div>
             <button onClick={() => setShowBoard((v) => !v)} style={{

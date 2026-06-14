@@ -33,6 +33,22 @@
   var LANGS = [];          // [{ code, name }]
   var current = "en";
   try { current = localStorage.getItem(LANG_KEY) || "en"; } catch (e) {}
+  // A ?lang=<code> URL parameter pre-selects a language (e.g. share .../?lang=ru). It overrides
+  // the stored choice and persists it (like the picker), then is stripped from the URL so a
+  // later in-app switch isn't forced back to it on reload. Unknown codes fall back to English.
+  try {
+    var m = String(location.search || "").match(/[?&]lang=([A-Za-z-]+)/);
+    if (m) {
+      current = m[1];
+      try { localStorage.setItem(LANG_KEY, current); } catch (e2) {}
+      try {
+        if (history && history.replaceState) {
+          var s = location.search.replace(/([?&])lang=[A-Za-z-]+/, "$1").replace(/\?&/, "?").replace(/[?&]$/, "");
+          history.replaceState(null, "", location.pathname + s + location.hash);
+        }
+      } catch (e3) {}
+    }
+  } catch (e) {}
 
   // A locale file registers its phrases (merged, so a file may be split if ever wanted).
   window.cribbageLocale = function (code, map) {
@@ -1094,7 +1110,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.14-dev.1"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.14"))));
 }
 function MiniCard({ card, selected, disabled, onClick }) {
     return (React.createElement("button", { onClick: onClick, disabled: disabled, "aria-pressed": selected, "aria-label": `${rankLabel(card.r)} of ${["spades", "hearts", "diamonds", "clubs"][card.s]}`, style: {

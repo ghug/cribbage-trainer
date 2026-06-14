@@ -1,0 +1,2 @@
+New in 1.1.14:
+- Web links can now open the app directly in a chosen language with a ?lang= parameter, e.g. .../?lang=ru for Russian (codes: en, es, fr, ru, zh-Hans). The language sticks, and you can still switch from the in-app picker.

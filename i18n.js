@@ -22,6 +22,22 @@
   var LANGS = [];          // [{ code, name }]
   var current = "en";
   try { current = localStorage.getItem(LANG_KEY) || "en"; } catch (e) {}
+  // A ?lang=<code> URL parameter pre-selects a language (e.g. share .../?lang=ru). It overrides
+  // the stored choice and persists it (like the picker), then is stripped from the URL so a
+  // later in-app switch isn't forced back to it on reload. Unknown codes fall back to English.
+  try {
+    var m = String(location.search || "").match(/[?&]lang=([A-Za-z-]+)/);
+    if (m) {
+      current = m[1];
+      try { localStorage.setItem(LANG_KEY, current); } catch (e2) {}
+      try {
+        if (history && history.replaceState) {
+          var s = location.search.replace(/([?&])lang=[A-Za-z-]+/, "$1").replace(/\?&/, "?").replace(/[?&]$/, "");
+          history.replaceState(null, "", location.pathname + s + location.hash);
+        }
+      } catch (e3) {}
+    }
+  } catch (e) {}
 
   // A locale file registers its phrases (merged, so a file may be split if ever wanted).
   window.cribbageLocale = function (code, map) {

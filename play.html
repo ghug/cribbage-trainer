@@ -1217,7 +1217,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
     const ts = seatsAround(P, me);
     const info = showPhase ? computeShow(state) : null;
     const stepLabel = showPhase ? `${state.show.step + 1} of ${state.show.order.length}` : "";
-    const hands = peg ? peg.hands : seats.map((s) => (preDeal ? [] : discardPhase ? s.dealt : (s.kept || [])));
+    const hands = peg ? peg.hands : seats.map((s) => (preDeal ? [] : discardPhase ? (s.kept || s.dealt) : (s.kept || [])));
     const yourHand = hands[me];
     const turn = peg ? peg.turn : -1;
     const tapSelect = settings.tapToSelect;
@@ -1576,7 +1576,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, "Source, bugs & feedback \u2197"),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.9-dev.13"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.9-dev.14"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

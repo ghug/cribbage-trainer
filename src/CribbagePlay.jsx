@@ -1256,12 +1256,12 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
   // The show counts one owner at a time: their (face-up) hand or the crib, plus the cut.
   const info = showPhase ? computeShow(state) : null;
   const stepLabel = showPhase ? `${state.show.step + 1} of ${state.show.order.length}` : "";
-  // What each seat is holding (face down for the others): nothing before a hand is dealt,
-  // What each seat is holding (face down for the others): nothing before a hand is dealt,
-  // the full dealt hand during the discard, the kept four at the cut, the live peg hand
-  // during play — and, through the show, the same finished peg state (everyone's cards
-  // played and face up), so nothing in the table view changes from play to show.
-  const hands = peg ? peg.hands : seats.map((s) => (preDeal ? [] : discardPhase ? s.dealt : (s.kept || [])));
+  // What each seat is holding (face down for the others): nothing before a hand is dealt;
+  // during the discard, its current hand — the kept four once it has thrown, else the full
+  // dealt hand — so a seat drops to four as soon as it discards; the kept four at the cut;
+  // the live peg hand during play and, through the show, the same finished peg state
+  // (everyone's cards played and face up), so nothing in the view changes from play to show.
+  const hands = peg ? peg.hands : seats.map((s) => (preDeal ? [] : discardPhase ? (s.kept || s.dealt) : (s.kept || [])));
   const yourHand = hands[me];
   const turn = peg ? peg.turn : -1;
   const tapSelect = settings.tapToSelect;

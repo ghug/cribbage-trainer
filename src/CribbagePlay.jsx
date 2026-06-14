@@ -946,10 +946,11 @@ export default function CribbagePlay() {
     : (phase === "play" && peg) ? (seatIsHuman(peg.turn, settings) && state.holder !== peg.turn && peg.hands[peg.turn].length > 0)
     : false);
   // Header descriptor: "<P>-handed[, <teams>][, <N> bot(s)]" — teams shown only when
-  // partnered ("teams" for two, "<N> teams" otherwise; individual is left unsaid), and the
-  // bot count only when there are bots.
+  // partnered, and with a count ("2 teams") only at sizes that allow more than one team
+  // split (i.e. 6-handed); where there's a single option (4-handed) just "teams".
   const nB = players - nHumans(players, settings);
-  const teamStr = teams < players ? `, ${teams === 2 ? "teams" : `${teams} teams`}` : "";
+  const teamCounted = teamOptions(players).filter((t) => t < players).length > 1;
+  const teamStr = teams < players ? `, ${teamCounted ? `${teams} teams` : "teams"}` : "";
   const botStr = nB > 0 ? `, ${nB} bot${nB === 1 ? "" : "s"}` : "";
   const headLine = `${players}-handed${teamStr}${botStr}`;
 

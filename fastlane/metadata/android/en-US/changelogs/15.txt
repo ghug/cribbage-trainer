@@ -1,0 +1,5 @@
+New in 1.1.11:
+- Three more languages — the app now also speaks French, Russian, and Simplified Chinese, alongside English and Spanish. Switch from the landing page or in-game settings.
+- More complete translations across the game: the weak-play warnings, the in-game header, the deal summary, and other prompts that had been left in English are now translated too.
+- Compass seat names and scoring-category labels are localized in every language.
+- Polish and fixes throughout.

@@ -74,9 +74,11 @@ check(pegScore([3, 1, 2], 6) === 3, "out-of-order run of 3 = 3");
   check(total === 29, `perfect 29 total (got ${total})`);
 }
 
-// Start a fresh game for a given table size.
+// Start a fresh game for a given table size. autoCut is forced off so these checks drive
+// the explicit CUT action (the auto-cut path — which skips the cut phase — is covered
+// separately by autoCutSkips()).
 function gameFor(P) {
-  return reduce(initGame(), { type: "SET_SETTING", key: "players", value: P });
+  return reduce(reduce(initGame(), { type: "SET_SETTING", key: "autoCut", value: false }), { type: "SET_SETTING", key: "players", value: P });
 }
 
 function playHand(state, P) {
@@ -219,7 +221,7 @@ function teamsCheck(P, teams, expected) {
   // the partnerships are exactly as specified
   check(JSON.stringify(groupsFor(P, teams)) === JSON.stringify(expected), `P=${P}/teams=${teams}: partnerships ${JSON.stringify(expected)}`);
 
-  let state = reduce(reduce(initGame(), { type: "SET_SETTING", key: "players", value: P }), { type: "SET_SETTING", key: "teams", value: teams });
+  let state = reduce(reduce(reduce(initGame(), { type: "SET_SETTING", key: "autoCut", value: false }), { type: "SET_SETTING", key: "players", value: P }), { type: "SET_SETTING", key: "teams", value: teams });
   check(state.settings.teams === teams && state.seats.length === P && state.phase === "cutdeal", `P=${P}/teams=${teams}: game ready`);
   const groups = groupsFor(P, teams);
   let hands = 0, exceptions = 0;
@@ -277,7 +279,7 @@ teamsCheck(6, 2, [[0, 2, 4], [1, 3, 5]]);   // every other seat, three to a team
 function seatHuman(i, roles) { return roles[i] === "human" ? true : roles[i] === "bot" ? false : i === 0; }
 function mixedGame(P, roles, seed) {
   // build a cutdeal state then inject the seat roles before dealing
-  let state = reduce(initGame(), { type: "SET_SETTING", key: "players", value: P });
+  let state = reduce(reduce(initGame(), { type: "SET_SETTING", key: "autoCut", value: false }), { type: "SET_SETTING", key: "players", value: P });
   state = reduce(state, { type: "SET_SETTING", key: "seats", value: roles });
   check(state.settings.seats === roles, `mixed P=${P}: seats stored`);
   let guard = 0, hands = 0;
@@ -312,6 +314,23 @@ mixedGame(6, ["human", "bot", "bot", "human", "bot", "bot"], 2);
 mixedGame(2, ["human", "human"], 3);                 // both human (hot-seat heads-up)
 mixedGame(4, ["bot", "human", "bot", "bot"], 4);     // South is a bot; lone human elsewhere
 mixedGame(4, ["bot", "bot", "bot", "bot"], 5);       // all bots — a spectated game
+
+/* ---- Auto-cut (default on): the cut phase is skipped — after the last discard the state
+   goes straight to play with the starter already turned, no visible "cut" phase. ---- */
+function autoCutSkips(P) {
+  let state = reduce(initGame(), { type: "SET_SETTING", key: "players", value: P });
+  check(state.settings.autoCut === true, `autoCut P=${P}: default is on`);
+  state = reduce(state, { type: "DEAL" });
+  // human (seat 0) throws unless it's a non-thrower seat; either way we should land on play
+  if (state.phase === "discard") {
+    const n = plan(P, state.dealerIdx).throws[0];
+    state = reduce(state, { type: "DISCARD", idxs: n === 2 ? [0, 1] : [0] });
+  }
+  check(state.phase === "play", `autoCut P=${P}: cut phase skipped → straight to play`);
+  check(state.starter && typeof state.starter.r === "number", `autoCut P=${P}: starter turned automatically`);
+  check(state.crib.length === 4, `autoCut P=${P}: crib of 4`);
+}
+for (const P of SUPPORTED) autoCutSkips(P);
 
 console.log(`\nplay.html engine checks: ${ok} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

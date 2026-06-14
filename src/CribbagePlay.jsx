@@ -478,7 +478,31 @@ function commitDiscard(state, idxs) {
   let next = null;
   for (let i = seat + 1; i < P; i++) if (pl.throws[i] > 0 && seatIsHuman(i, state.settings) && seats[i].discard == null) { next = i; break; }
   if (next != null) return { ...state, seats, discardSeat: next, pendingDiscard: null };
-  return { ...state, seats, crib: assembleCrib(seats, state.deck, pl), pendingDiscard: null, phase: "cut", discardSeat: null };
+  return afterCrib({ ...state, seats, crib: assembleCrib(seats, state.deck, pl), pendingDiscard: null, phase: "cut", discardSeat: null });
+}
+
+// Once the crib is built, either show the cut phase (manual cut) or — with auto-cut on —
+// cut the starter right away, so the cut phase is skipped entirely.
+function afterCrib(cutState) {
+  return cutState.settings.autoCut ? applyCut(cutState) : cutState;
+}
+
+// Turn the starter from the deck and advance to play (or to "over" on a his-heels game
+// point). Shared by the manual CUT action and the auto-cut path above.
+function applyCut(state) {
+  const P = clampPlayers(state.settings.players);
+  const teams = clampTeams(P, state.settings.teams);
+  const pl = plan(P, state.dealerIdx);
+  const starter = state.deck[pl.starterIdx];
+  const hisHeels = starter.r === 11;
+  let seats = state.seats, winner = null, message = `Cut: ${tag(starter)}.`;
+  if (hisHeels) {
+    seats = addScore(seats, state.dealerIdx, 2, "his heels", P, teams);
+    message = `His heels — ${sv(state.dealerIdx, "peg", "pegs")} 2 for the Jack (${tag(starter)}).`;
+    if (seats[state.dealerIdx].score >= targetFor(P)) winner = state.dealerIdx;
+  }
+  if (winner !== null) return { ...state, starter, hisHeels, seats, winner, phase: "over", message };
+  return { ...state, starter, hisHeels, seats, peg: initPeg(seats, state.dealerIdx, P), phase: "play", message };
 }
 
 function dealNewHand(state) {
@@ -509,7 +533,7 @@ function dealNewHand(state) {
   if (humanThrowers.length === 0) {
     // No human throws this hand — the crib is already complete, so skip to the cut.
     const msg = d === 0 ? "Your deal — no throw. The crib is yours." : "No throw for you this hand — on to the cut.";
-    return { ...base, crib: assembleCrib(seats, deck, pl), phase: "cut", message: msg, discardSeat: null };
+    return afterCrib({ ...base, crib: assembleCrib(seats, deck, pl), phase: "cut", message: msg, discardSeat: null });
   }
   return base;
 }
@@ -591,19 +615,8 @@ function reduce(state, action) {
     case "CANCEL_DISCARD":
       return { ...state, pendingDiscard: null };
 
-    case "CUT": {
-      const pl = plan(P, state.dealerIdx);
-      const starter = state.deck[pl.starterIdx];
-      const hisHeels = starter.r === 11;
-      let seats = state.seats, winner = null, message = `Cut: ${tag(starter)}.`;
-      if (hisHeels) {
-        seats = addScore(seats, state.dealerIdx, 2, "his heels", P, teams);
-        message = `His heels — ${sv(state.dealerIdx, "peg", "pegs")} 2 for the Jack (${tag(starter)}).`;
-        if (seats[state.dealerIdx].score >= targetFor(P)) winner = state.dealerIdx;
-      }
-      if (winner !== null) return { ...state, starter, hisHeels, seats, winner, phase: "over", message };
-      return { ...state, starter, hisHeels, seats, peg: initPeg(seats, state.dealerIdx, P), phase: "play", message };
-    }
+    case "CUT":
+      return applyCut(state);
 
     case "PLAY_CARD":
       return playCard(state, action.seat, action.card);
@@ -693,7 +706,7 @@ function reduce(state, action) {
   }
 }
 
-const DEFAULT_SETTINGS = { players: 4, teams: 4, counting: "auto", tapToSelect: true, autoCut: false, autoGo: false, warn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
+const DEFAULT_SETTINGS = { players: 4, teams: 4, counting: "auto", tapToSelect: true, autoCut: true, autoGo: false, warn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
 // Settings persist across pages in localStorage under a shared key. try/catch keeps
 // the verification harness (no localStorage) and private-mode browsers happy.
 const SETTINGS_KEY = "cribbage:settings";
@@ -999,10 +1012,14 @@ export default function CribbagePlay() {
     return () => clearTimeout(t);
   }, [phase, settings.autoDiscardBest, autoPaused, ds, needHandoff]);
   useEffect(() => {
-    if (phase !== "cut" || autoPaused || !settings.autoCut) return;
+    if (phase !== "cut" || autoPaused) return;
+    // Auto-cut is on, or the cutter is a bot that can't tap — either way, cut on a timer.
+    // (A human cutter in manual mode taps the button instead.)
+    const cutter = (dealerIdx + players - 1) % players;
+    if (!settings.autoCut && seatIsHuman(cutter, settings)) return;
     const t = setTimeout(() => dispatch({ type: "CUT" }), 650);
     return () => clearTimeout(t);
-  }, [phase, autoPaused, settings.autoCut]);
+  }, [phase, autoPaused, settings.autoCut, dealerIdx, players, settings]);
   useEffect(() => {
     if (phase !== "show" || !show || show.scored) return;
     const info = computeShow(state);
@@ -1456,9 +1473,11 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
               {bigBtn(isDealer ? "Deal" : `Deal (${seatName(dealerIdx)}'s crib)`, () => dispatch({ type: "DEAL" }), "wood")}
             </div>)
       ) : cutPhase ? (
-        settings.autoCut
-          ? <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" }}>{cutter === me ? "You cut" : `${seatName(cutter)} cuts`} the starter…</div>
-          : bigBtn(cutter === me ? "Cut the deck" : `Cut the deck (${seatName(cutter)} turns the starter)`, () => dispatch({ type: "CUT" }), "wood")
+        // Auto-cut skips this phase entirely; when it's off, a human cutter taps to cut,
+        // while a bot cutter just does it (announced here, advanced on a timer).
+        seatIsHuman(cutter, settings)
+          ? bigBtn(`Cut the deck for ${seatName(dealerIdx)}`, () => dispatch({ type: "CUT" }), "wood")
+          : <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" }}>{seatName(cutter)} cuts for the starter…</div>
       ) : needHandoff ? <PassPanel to={discardPhase ? me : peg.turn} dispatch={dispatch} /> : (
       <div>
         {/* Fixed two-line slot so the status text (which can wrap) never nudges the button. */}
@@ -1576,7 +1595,7 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
         desc="Tapping a card lifts it to select (tap again to drop it); a Play or Throw-to-crib button above your hand commits the choice. Off: a tap plays or throws immediately."
         options={[["Off", false], ["On", true]]} />
       <Row title="Cut for the starter" k="autoCut"
-        desc="Manual waits for you to tap to cut the deck and turn the starter; Auto cuts it for you."
+        desc="Auto (default) turns the starter in the background and goes straight to the play; Manual waits for you to tap when you're the one cutting."
         options={[["Manual", false], ["Auto", true]]} />
       <Row title="Go on no playable card" k="autoGo"
         desc={'When you can’t play, Manual waits for you to tap “Go”; Auto passes for you.'}

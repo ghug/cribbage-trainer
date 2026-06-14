@@ -518,7 +518,27 @@ function commitDiscard(state, idxs) {
         }
     if (next != null)
         return { ...state, seats, discardSeat: next, pendingDiscard: null };
-    return { ...state, seats, crib: assembleCrib(seats, state.deck, pl), pendingDiscard: null, phase: "cut", discardSeat: null };
+    return afterCrib({ ...state, seats, crib: assembleCrib(seats, state.deck, pl), pendingDiscard: null, phase: "cut", discardSeat: null });
+}
+function afterCrib(cutState) {
+    return cutState.settings.autoCut ? applyCut(cutState) : cutState;
+}
+function applyCut(state) {
+    const P = clampPlayers(state.settings.players);
+    const teams = clampTeams(P, state.settings.teams);
+    const pl = plan(P, state.dealerIdx);
+    const starter = state.deck[pl.starterIdx];
+    const hisHeels = starter.r === 11;
+    let seats = state.seats, winner = null, message = `Cut: ${tag(starter)}.`;
+    if (hisHeels) {
+        seats = addScore(seats, state.dealerIdx, 2, "his heels", P, teams);
+        message = `His heels — ${sv(state.dealerIdx, "peg", "pegs")} 2 for the Jack (${tag(starter)}).`;
+        if (seats[state.dealerIdx].score >= targetFor(P))
+            winner = state.dealerIdx;
+    }
+    if (winner !== null)
+        return { ...state, starter, hisHeels, seats, winner, phase: "over", message };
+    return { ...state, starter, hisHeels, seats, peg: initPeg(seats, state.dealerIdx, P), phase: "play", message };
 }
 function dealNewHand(state) {
     const P = clampPlayers(state.settings.players);
@@ -555,7 +575,7 @@ function dealNewHand(state) {
     };
     if (humanThrowers.length === 0) {
         const msg = d === 0 ? "Your deal — no throw. The crib is yours." : "No throw for you this hand — on to the cut.";
-        return { ...base, crib: assembleCrib(seats, deck, pl), phase: "cut", message: msg, discardSeat: null };
+        return afterCrib({ ...base, crib: assembleCrib(seats, deck, pl), phase: "cut", message: msg, discardSeat: null });
     }
     return base;
 }
@@ -640,21 +660,8 @@ function reduce(state, action) {
             return commitDiscard(state, state.pendingDiscard.idxs);
         case "CANCEL_DISCARD":
             return { ...state, pendingDiscard: null };
-        case "CUT": {
-            const pl = plan(P, state.dealerIdx);
-            const starter = state.deck[pl.starterIdx];
-            const hisHeels = starter.r === 11;
-            let seats = state.seats, winner = null, message = `Cut: ${tag(starter)}.`;
-            if (hisHeels) {
-                seats = addScore(seats, state.dealerIdx, 2, "his heels", P, teams);
-                message = `His heels — ${sv(state.dealerIdx, "peg", "pegs")} 2 for the Jack (${tag(starter)}).`;
-                if (seats[state.dealerIdx].score >= targetFor(P))
-                    winner = state.dealerIdx;
-            }
-            if (winner !== null)
-                return { ...state, starter, hisHeels, seats, winner, phase: "over", message };
-            return { ...state, starter, hisHeels, seats, peg: initPeg(seats, state.dealerIdx, P), phase: "play", message };
-        }
+        case "CUT":
+            return applyCut(state);
         case "PLAY_CARD":
             return playCard(state, action.seat, action.card);
         case "SELECT_PLAY": {
@@ -745,7 +752,7 @@ function reduce(state, action) {
             return state;
     }
 }
-const DEFAULT_SETTINGS = { players: 4, teams: 4, counting: "auto", tapToSelect: true, autoCut: false, autoGo: false, warn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
+const DEFAULT_SETTINGS = { players: 4, teams: 4, counting: "auto", tapToSelect: true, autoCut: true, autoGo: false, warn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
 const SETTINGS_KEY = "cribbage:settings";
 function loadSettings() {
     try {
@@ -1045,11 +1052,14 @@ function CribbagePlay() {
         return () => clearTimeout(t);
     }, [phase, settings.autoDiscardBest, autoPaused, ds, needHandoff]);
     useEffect(() => {
-        if (phase !== "cut" || autoPaused || !settings.autoCut)
+        if (phase !== "cut" || autoPaused)
+            return;
+        const cutter = (dealerIdx + players - 1) % players;
+        if (!settings.autoCut && seatIsHuman(cutter, settings))
             return;
         const t = setTimeout(() => dispatch({ type: "CUT" }), 650);
         return () => clearTimeout(t);
-    }, [phase, autoPaused, settings.autoCut]);
+    }, [phase, autoPaused, settings.autoCut, dealerIdx, players, settings]);
     useEffect(() => {
         if (phase !== "show" || !show || show.scored)
             return;
@@ -1372,11 +1382,11 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
                     "weak-play warnings ",
                     React.createElement("b", { style: { color: T.cream } }, settings.warn ? "on" : "off"),
                     React.createElement("span", null, " \u2014 tap \u2699 to change"))),
-                bigBtn(isDealer ? "Deal" : `Deal (${seatName(dealerIdx)}'s crib)`, () => dispatch({ type: "DEAL" }), "wood")))) : cutPhase ? (settings.autoCut
-            ? React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" } },
-                cutter === me ? "You cut" : `${seatName(cutter)} cuts`,
-                " the starter\u2026")
-            : bigBtn(cutter === me ? "Cut the deck" : `Cut the deck (${seatName(cutter)} turns the starter)`, () => dispatch({ type: "CUT" }), "wood")) : needHandoff ? React.createElement(PassPanel, { to: discardPhase ? me : peg.turn, dispatch: dispatch }) : (React.createElement("div", null,
+                bigBtn(isDealer ? "Deal" : `Deal (${seatName(dealerIdx)}'s crib)`, () => dispatch({ type: "DEAL" }), "wood")))) : cutPhase ? (seatIsHuman(cutter, settings)
+            ? bigBtn(`Cut the deck for ${seatName(dealerIdx)}`, () => dispatch({ type: "CUT" }), "wood")
+            : React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" } },
+                seatName(cutter),
+                " cuts for the starter\u2026")) : needHandoff ? React.createElement(PassPanel, { to: discardPhase ? me : peg.turn, dispatch: dispatch }) : (React.createElement("div", null,
             React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: (myTurn || stuck) ? T.selBlue : T.muted, marginBottom: 6, lineHeight: 1.45, minHeight: "2.9em", display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center" } }, actionPrompt),
             pending && (discardPhase
                 ? React.createElement("div", { style: { marginBottom: 10 } },
@@ -1467,7 +1477,7 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
             React.createElement("span", { style: { fontWeight: 700, fontSize: 16 } }, "Settings"),
             React.createElement("button", { onClick: onClose, style: { padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 } }, "Done")),
         React.createElement(Row, { title: "Tap to select, then confirm", k: "tapToSelect", desc: "Tapping a card lifts it to select (tap again to drop it); a Play or Throw-to-crib button above your hand commits the choice. Off: a tap plays or throws immediately.", options: [["Off", false], ["On", true]] }),
-        React.createElement(Row, { title: "Cut for the starter", k: "autoCut", desc: "Manual waits for you to tap to cut the deck and turn the starter; Auto cuts it for you.", options: [["Manual", false], ["Auto", true]] }),
+        React.createElement(Row, { title: "Cut for the starter", k: "autoCut", desc: "Auto (default) turns the starter in the background and goes straight to the play; Manual waits for you to tap when you're the one cutting.", options: [["Manual", false], ["Auto", true]] }),
         React.createElement(Row, { title: "Go on no playable card", k: "autoGo", desc: 'When you can’t play, Manual waits for you to tap “Go”; Auto passes for you.', options: [["Manual", false], ["Auto", true]] }),
         React.createElement(Row, { title: "Warn on a weak play", k: "warn", desc: "Pause and explain when your throw to the crib \u2014 or a pegging card that leaves a point on the table \u2014 isn\u2019t the best, with a chance to take it back.", options: [["On", true], ["Off", false]] }),
         React.createElement(Row, { title: "Auto-play a forced card", k: "autoPlayOne", desc: "When only one of your cards is legal to peg, play it for you.", options: [["Off", false], ["On", true]] }),
@@ -1569,7 +1579,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, "Source, bugs & feedback \u2197"),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.9-dev.3"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.9-dev.4"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

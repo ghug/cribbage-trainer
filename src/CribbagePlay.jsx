@@ -1637,6 +1637,7 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
           ? "Auto tallies every hand for you. Muggins: you claim your own hand (and crib when you deal) — miss points and the next opponent takes them."
           : "Auto tallies every hand. Muggins is only available in a solo (one-human) game; hot-seat tables auto-count."}
         options={[["Auto-count", "auto"], ["Muggins", "muggins"]]} />
+      <LanguageRow />
       <div style={{ borderTop: `1px solid ${T.line}`, margin: "2px -16px 0", padding: "12px 16px 0" }}>
         <button onClick={onHistory} style={{ width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12, fontWeight: 700 }}>Game history</button>
       </div>
@@ -1646,6 +1647,23 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
         background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory,
         fontFamily: mono, fontSize: 12.5, fontWeight: 700,
       }}>Continue game</button>
+    </div>
+  );
+}
+
+// Global language chooser (shared via window.i18n / localStorage; reloads to apply). Only
+// shown when more than one language is registered.
+function LanguageRow() {
+  const i = (typeof window !== "undefined") ? window.i18n : null;
+  const langs = i ? i.languages() : [];
+  if (!i || langs.length <= 1) return null;
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ fontWeight: 700, fontSize: 13.5 }}>{window.t ? window.t("common.language") : "Language"}</div>
+      <select defaultValue={i.lang} onChange={(e) => { i.set(e.target.value); window.location.reload(); }}
+        style={{ marginTop: 7, fontFamily: mono, fontSize: 12, color: T.cream, background: "rgba(0,0,0,0.25)", border: `1px solid ${T.line}`, borderRadius: 8, padding: "8px 10px" }}>
+        {langs.map((l) => <option key={l.code} value={l.code}>{l.name}</option>)}
+      </select>
     </div>
   );
 }

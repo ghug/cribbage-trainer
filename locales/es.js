@@ -8,6 +8,7 @@ cribbageLocale("es", {
   "common.off": "No",
   "common.manual": "Manual",
   "common.auto": "Automático",
+  "common.language": "Idioma",
   "role.human": "humano",
   "role.bot": "bot",
   "app.title": "Entrenador de Cribbage",

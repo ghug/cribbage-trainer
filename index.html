@@ -236,7 +236,6 @@
   </main>
   <footer>
     <span data-i18n="landing.footer.note">Open-source cribbage practice.</span> <button id="footerAbout" class="link-btn" type="button" data-i18n="common.about">About</button>
-    <div class="lang-row"><label for="langPick" data-i18n="landing.language">Language</label><select id="langPick"></select></div>
   </footer>
 
   <div class="overlay" id="settingsOverlay" role="dialog" aria-modal="true" aria-label="Settings" data-i18n-aria="settings.title">
@@ -248,6 +247,8 @@
       <p class="set-intro" data-i18n="settings.intro">These apply to the Play game and are saved on this device. (The
         number of players is set above, on the home page.)</p>
       <div id="settingsList"></div>
+      <div class="set-row"><div class="set-title" data-i18n="common.language">Language</div>
+        <div class="lang-row" style="justify-content:flex-start;margin-top:7px"><select id="langPick"></select></div></div>
       <button class="btn btn-ghost" id="openAbout" type="button" style="margin-top:6px" data-i18n="settings.aboutFeedback">About &amp; feedback</button>
       <button class="btn btn-primary" id="settingsContinue" type="button" style="margin:12px 0 10px" data-i18n="settings.continue">Continue game</button>
     </div>
@@ -266,7 +267,7 @@
       <a class="btn btn-primary" href="https://github.com/ghug/cribbage-trainer/"
          target="_blank" rel="noopener noreferrer" data-i18n="about.sourceLink">Source, bugs &amp; feedback ↗</a>
       <div class="repo-url" style="margin-bottom:4px">github.com/ghug/cribbage-trainer</div>
-      <div class="repo-url">v1.1.10-dev.17</div>
+      <div class="repo-url">v1.1.10-dev.18</div>
     </div>
   </div>
 

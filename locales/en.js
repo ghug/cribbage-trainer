@@ -11,6 +11,7 @@ cribbageLocale("en", {
   "common.off": "Off",
   "common.manual": "Manual",
   "common.auto": "Auto",
+  "common.language": "Language",
   "role.human": "human",
   "role.bot": "bot",
   "app.title": "Cribbage Trainer",

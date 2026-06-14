@@ -125,6 +125,7 @@
   .seat.you .seat-name{ color:var(--cream) }
   .seat-hint{ font-family:var(--mono); font-size:10.5px; line-height:1.45; color:var(--muted); text-align:center; margin:-2px auto 10px; max-width:280px }
   .lang-row{ display:flex; align-items:center; justify-content:center; gap:8px; margin-top:10px; font-family:var(--mono); font-size:11px; color:var(--muted) }
+  .lang-row[hidden]{ display:none }  /* author display:flex would otherwise beat the UA [hidden] rule */
   .lang-row select{ font:inherit; color:var(--cream); background:rgba(0,0,0,0.25); border:1px solid var(--line); border-radius:7px; padding:4px 8px }
 </style>
 <script src="i18n.js"></script>
@@ -236,6 +237,7 @@
   </main>
   <footer>
     <span data-i18n="landing.footer.note">Open-source cribbage practice.</span> <button id="footerAbout" class="link-btn" type="button" data-i18n="common.about">About</button>
+    <div class="lang-row" id="footerLangRow" hidden><span data-i18n="common.language">Language</span> <select id="footerLangPick"></select></div>
   </footer>
 
   <div class="overlay" id="settingsOverlay" role="dialog" aria-modal="true" aria-label="Settings" data-i18n-aria="settings.title">
@@ -267,7 +269,7 @@
       <a class="btn btn-primary" href="https://github.com/ghug/cribbage-trainer/"
          target="_blank" rel="noopener noreferrer" data-i18n="about.sourceLink">Source, bugs &amp; feedback ↗</a>
       <div class="repo-url" style="margin-bottom:4px">github.com/ghug/cribbage-trainer</div>
-      <div class="repo-url">v1.1.10-dev.26</div>
+      <div class="repo-url">v1.1.10-dev.27</div>
     </div>
   </div>
 
@@ -286,8 +288,9 @@
         n = document.querySelectorAll('[data-i18n-html]'); for (i = 0; i < n.length; i++) n[i].innerHTML = tr(n[i].getAttribute('data-i18n-html'));
         n = document.querySelectorAll('[data-i18n-aria]'); for (i = 0; i < n.length; i++) n[i].setAttribute('aria-label', tr(n[i].getAttribute('data-i18n-aria')));
       })();
-      var pick = document.getElementById('langPick');
-      if (pick && window.i18n) {
+      // Wire any language <select> (the settings modal + the footer share this helper).
+      function setupLangPick(pick) {
+        if (!pick || !window.i18n) return false;
         var langs = i18n.languages();
         for (var lj = 0; lj < langs.length; lj++) {
           var o = document.createElement('option');
@@ -296,7 +299,11 @@
           pick.appendChild(o);
         }
         pick.addEventListener('change', function () { i18n.set(this.value); location.reload(); });
+        return langs.length > 1;
       }
+      setupLangPick(document.getElementById('langPick'));
+      // The footer chooser only appears when there's an actual choice (>1 language).
+      if (setupLangPick(document.getElementById('footerLangPick'))) document.getElementById('footerLangRow').hidden = false;
 
       // Game settings, shared across every page via localStorage (same key the games
       // read/write), so a toggle here — or in any game — sticks everywhere.

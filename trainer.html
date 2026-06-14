@@ -25,28 +25,36 @@
  *    no INTERNET permission). Only the picked language's file is ever loaded.
  *
  * Usage from app code:  t("some.key")  or  t("some.key", { name: "North" })   ({name} interpolates)
- * Switch language:      i18n.set(code); location.reload();
+ * Switch language:      i18n.choose(code)   (persists + reloads, reflecting it in the URL)
  */
 (function () {
   var LANG_KEY = "cribbage:lang";
   var STRINGS = {};        // code -> { key: phrase }
   var LANGS = [];          // [{ code, name }]
+
+  // The URL for a given language: non-English carries ?lang=<code> so the page is copy/shareable;
+  // English strips it (kept clean). Preserves any other query params and the hash.
+  function langURL(code) {
+    var search = String(location.search || "").replace(/([?&])lang=[A-Za-z-]+/, "$1").replace(/\?&/, "?").replace(/[?&]$/, "");
+    if (code && code !== "en") search = (search ? search + "&" : "?") + "lang=" + code;
+    return location.pathname + search + location.hash;
+  }
+
+  // Resolve the active language: a ?lang=<code> URL param (share link) wins and is persisted,
+  // else the stored choice, else English. Unknown codes fall back to English at lookup time.
   var current = "en";
   try { current = localStorage.getItem(LANG_KEY) || "en"; } catch (e) {}
-  // A ?lang=<code> URL parameter pre-selects a language (e.g. share .../?lang=ru). It overrides
-  // the stored choice and persists it (like the picker), then is stripped from the URL so a
-  // later in-app switch isn't forced back to it on reload. Unknown codes fall back to English.
   try {
     var m = String(location.search || "").match(/[?&]lang=([A-Za-z-]+)/);
-    if (m) {
-      current = m[1];
-      try { localStorage.setItem(LANG_KEY, current); } catch (e2) {}
-      try {
-        if (history && history.replaceState) {
-          var s = location.search.replace(/([?&])lang=[A-Za-z-]+/, "$1").replace(/\?&/, "?").replace(/[?&]$/, "");
-          history.replaceState(null, "", location.pathname + s + location.hash);
-        }
-      } catch (e3) {}
+    if (m) { current = m[1]; try { localStorage.setItem(LANG_KEY, current); } catch (e2) {} }
+  } catch (e) {}
+  // Mirror the active language in the URL bar so a non-English page can be copied/shared (and
+  // English stays clean) — without adding a history entry. Skip on file:// (the APK has no URL
+  // bar and rewriting a file: URL is unsupported; localStorage drives the language there).
+  try {
+    if (location.protocol !== "file:" && history && history.replaceState) {
+      var want = langURL(current), nowU = location.pathname + (location.search || "") + (location.hash || "");
+      if (want !== nowU) history.replaceState(null, "", want);
     }
   } catch (e) {}
 
@@ -81,7 +89,15 @@
   window.i18n = {
     get lang() { return current; },
     languages: function () { return LANGS.slice(); },
-    set: function (code) { try { localStorage.setItem(LANG_KEY, code); } catch (e) {} current = code; }
+    set: function (code) { try { localStorage.setItem(LANG_KEY, code); } catch (e) {} current = code; },
+    // Pick a language: persist it and reload with the URL reflecting it (so a non-English page
+    // is shareable). On file:// (APK) just reload — localStorage carries the choice there.
+    choose: function (code) {
+      try { localStorage.setItem(LANG_KEY, code); } catch (e) {}
+      current = code;
+      if (location.protocol === "file:") location.reload();
+      else location.href = langURL(code);
+    }
   };
 })();
 
@@ -1084,7 +1100,7 @@ function LanguageRow() {
         return null;
     return (React.createElement("div", { style: { marginBottom: 14 } },
         React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 } }, window.t ? window.t("common.language") : "Language"),
-        React.createElement("select", { defaultValue: i.lang, onChange: (e) => { i.set(e.target.value); window.location.reload(); }, style: { fontFamily: mono, fontSize: 12, color: T.cream, background: "rgba(0,0,0,0.2)", border: `1px solid ${T.line}`, borderRadius: 8, padding: "8px 10px" } }, langs.map((l) => React.createElement("option", { key: l.code, value: l.code }, l.name)))));
+        React.createElement("select", { defaultValue: i.lang, onChange: (e) => i.choose(e.target.value), style: { fontFamily: mono, fontSize: 12, color: T.cream, background: "rgba(0,0,0,0.2)", border: `1px solid ${T.line}`, borderRadius: 8, padding: "8px 10px" } }, langs.map((l) => React.createElement("option", { key: l.code, value: l.code }, l.name)))));
 }
 function AboutRow({ onAbout }) {
     return (React.createElement("div", { style: { borderTop: `1px solid ${T.line}`, margin: "2px -16px 0", padding: "12px 16px 4px" } },
@@ -1110,7 +1126,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.15-dev.1"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.15-dev.2"))));
 }
 function MiniCard({ card, selected, disabled, onClick }) {
     return (React.createElement("button", { onClick: onClick, disabled: disabled, "aria-pressed": selected, "aria-label": `${rankLabel(card.r)} of ${["spades", "hearts", "diamonds", "clubs"][card.s]}`, style: {

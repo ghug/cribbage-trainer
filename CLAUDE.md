@@ -323,10 +323,12 @@ network, working identically online and offline in the APK. **Architecture:**
   `{placeholder}` interpolation), `cribbageLocale(code, map)` (a locale file registers its
   phrases), `cribbageLanguages(list)` (the picker catalogue), `i18nBootstrap()`, and
   `i18n` (`.lang`, `.languages()`, `.set(code)`). Active language persists in
-  `localStorage["cribbage:lang"]`. A **`?lang=<code>` URL parameter** (e.g. `…/?lang=ru`)
-  pre-selects a language for share links: it overrides the stored choice, persists it, then
-  strips itself from the URL (via `history.replaceState`, other query params preserved) so a
-  later in-app switch isn't forced back to it on reload. Unknown codes fall back to English.
+  `localStorage["cribbage:lang"]`. The URL **mirrors** the active language so a non-English page
+  is copy/shareable: on load the active lang is resolved (`?lang=<code>` param > stored > en) and
+  `history.replaceState` rewrites the URL to carry `?lang=<code>` for non-English (or strip it for
+  English), preserving other query params + the hash. The pickers call `i18n.choose(code)`, which
+  persists and reloads via that URL (so switching updates the bar; no stale param). Skipped on
+  `file://` (the APK has no URL bar; localStorage drives it there). Unknown codes fall back to en.
 - **`locales/<code>.js`** — one self-registering file per language, each calling
   `cribbageLocale("<code>", { key: "phrase", ... })`. **`locales/en.js` is the source of
   truth and the fallback** for any missing key (so partial translations never blank out).

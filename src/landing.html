@@ -298,7 +298,7 @@
           if (langs[lj].code === i18n.lang) o.selected = true;
           pick.appendChild(o);
         }
-        pick.addEventListener('change', function () { i18n.set(this.value); location.reload(); });
+        pick.addEventListener('change', function () { i18n.choose(this.value); });
         return langs.length > 1;
       }
       setupLangPick(document.getElementById('langPick'));

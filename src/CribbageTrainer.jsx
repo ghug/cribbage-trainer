@@ -561,7 +561,7 @@ function LanguageRow() {
   return (
     <div style={{ marginBottom: 14 }}>
       <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 }}>{window.t ? window.t("common.language") : "Language"}</div>
-      <select defaultValue={i.lang} onChange={(e) => { i.set(e.target.value); window.location.reload(); }}
+      <select defaultValue={i.lang} onChange={(e) => i.choose(e.target.value)}
         style={{ fontFamily: mono, fontSize: 12, color: T.cream, background: "rgba(0,0,0,0.2)", border: `1px solid ${T.line}`, borderRadius: 8, padding: "8px 10px" }}>
         {langs.map((l) => <option key={l.code} value={l.code}>{l.name}</option>)}
       </select>

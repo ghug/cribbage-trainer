@@ -309,7 +309,7 @@
       // Game settings, shared across every page via localStorage (same key the games
       // read/write), so a toggle here — or in any game — sticks everywhere.
       var SETTINGS_KEY = "cribbage:settings";
-      var DEFAULTS = { players: 4, teams: 4, seats: [], counting: "auto", autoGo: false, warn: true, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false, autoContinue: false, autoDeal: false };
+      var DEFAULTS = { players: 2, teams: 2, seats: [], counting: "auto", autoGo: false, warn: true, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false, autoContinue: false, autoDeal: false };
       // "Players" lives on the main page (above Play); the rest are in this popup.
       // title/desc/option labels are i18n keys, translated via tr() at render time.
       var ROWS = [
@@ -417,7 +417,7 @@
         var center = (byTeam ? tr('landing.tableTeams', { p: P, teams: teams }) : tr('landing.tableIndividual', { p: P })) + '<br>' + tr('landing.firstTo', { target: target });
         var html = '<div class="seat-table"><span class="tlabel">' + center + '</span></div>';
         for (var i = 0; i < P; i++) {
-          var avStyle = byTeam ? (' style="border-color:' + palette[i % teams] + '"') : '';
+          var avStyle = byTeam ? (' style="border-color:' + palette[i % teams] + ';border-width:4px"') : '';
           var human = roles[i] === 'human';
           var isYou = human && humans === 1;                 // a lone human is "you"
           var label = (isYou ? tr('landing.youPrefix') : '') + names[i];

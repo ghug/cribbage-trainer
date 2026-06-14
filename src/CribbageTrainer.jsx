@@ -706,7 +706,7 @@ function CardPicker({ count, onPick, onClose }) {
 // feeding the dealer's all-defender crib. try/catch keeps it safe with no storage.
 const teamOptionsT = (p) => (p === 4 ? [4, 2] : p === 6 ? [6, 3, 2] : [p]);
 function loadTrainerSettings() {
-  let players = 4, teams = 4;
+  let players = 2, teams = 2;
   try {
     const raw = localStorage.getItem("cribbage:settings");
     if (raw) {

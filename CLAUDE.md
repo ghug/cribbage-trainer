@@ -19,7 +19,7 @@ for React):
   Play card.
 - **`trainer.html`** — the **Discard Trainer** (analyzes/ranks discards).
 - **`play.html`** — **Play**: one game that adapts to `settings.players` (the global
-  "Players" setting, default **4**). Supports **2 (heads-up)** through **6** (cutthroat) —
+  "Players" setting, default **2**). Supports **2 (heads-up)** through **6** (cutthroat) —
   the reducer is general (deal/crib/show/pegging/layout all computed from the player
   count via `plan(P, dealerIdx)`); `PLAYER_OPTIONS` lists the exposed sizes. Per size:
   3-handed flips a deck card into the crib; at 5–6 the dealer (and at 6 the seat to their

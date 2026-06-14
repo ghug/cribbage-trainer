@@ -796,7 +796,7 @@ cribbageLocale("en", {
       <a class="btn btn-primary" href="https://github.com/ghug/cribbage-trainer/"
          target="_blank" rel="noopener noreferrer" data-i18n="about.sourceLink">Source, bugs &amp; feedback ↗</a>
       <div class="repo-url" style="margin-bottom:4px">github.com/ghug/cribbage-trainer</div>
-      <div class="repo-url">v1.1.15-dev.4</div>
+      <div class="repo-url">v1.1.15-dev.5</div>
     </div>
   </div>
 
@@ -836,7 +836,7 @@ cribbageLocale("en", {
       // Game settings, shared across every page via localStorage (same key the games
       // read/write), so a toggle here — or in any game — sticks everywhere.
       var SETTINGS_KEY = "cribbage:settings";
-      var DEFAULTS = { players: 4, teams: 4, seats: [], counting: "auto", autoGo: false, warn: true, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false, autoContinue: false, autoDeal: false };
+      var DEFAULTS = { players: 2, teams: 2, seats: [], counting: "auto", autoGo: false, warn: true, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false, autoContinue: false, autoDeal: false };
       // "Players" lives on the main page (above Play); the rest are in this popup.
       // title/desc/option labels are i18n keys, translated via tr() at render time.
       var ROWS = [
@@ -944,7 +944,7 @@ cribbageLocale("en", {
         var center = (byTeam ? tr('landing.tableTeams', { p: P, teams: teams }) : tr('landing.tableIndividual', { p: P })) + '<br>' + tr('landing.firstTo', { target: target });
         var html = '<div class="seat-table"><span class="tlabel">' + center + '</span></div>';
         for (var i = 0; i < P; i++) {
-          var avStyle = byTeam ? (' style="border-color:' + palette[i % teams] + '"') : '';
+          var avStyle = byTeam ? (' style="border-color:' + palette[i % teams] + ';border-width:4px"') : '';
           var human = roles[i] === 'human';
           var isYou = human && humans === 1;                 // a lone human is "you"
           var label = (isYou ? tr('landing.youPrefix') : '') + names[i];

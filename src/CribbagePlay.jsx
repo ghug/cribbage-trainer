@@ -866,9 +866,7 @@ function Panel({ children, tone }) {
 function PassPanel({ to, dispatch }) {
   return (
     <div style={{ textAlign: "center", padding: "20px 16px", borderRadius: 12, background: "rgba(0,0,0,0.3)", border: `1px solid ${T.line}` }}>
-      <div style={{ fontSize: 30, marginBottom: 8 }}>🤝</div>
-      <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6 }}>Pass the device to {seatName(to)}</div>
-      <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 14, lineHeight: 1.5 }}>{seatName(to)}’s hand stays hidden until they’re holding it.</div>
+      <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 14 }}>Pass the device to {seatName(to)}</div>
       <ConfirmButton label={`I’m ${seatName(to)} — show my hand`} enabled onClick={() => dispatch({ type: "TAKE_DEVICE" })} />
     </div>
   );

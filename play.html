@@ -897,13 +897,9 @@ function Panel({ children, tone }) {
 }
 function PassPanel({ to, dispatch }) {
     return (React.createElement("div", { style: { textAlign: "center", padding: "20px 16px", borderRadius: 12, background: "rgba(0,0,0,0.3)", border: `1px solid ${T.line}` } },
-        React.createElement("div", { style: { fontSize: 30, marginBottom: 8 } }, "\uD83E\uDD1D"),
-        React.createElement("div", { style: { fontWeight: 700, fontSize: 16, marginBottom: 6 } },
+        React.createElement("div", { style: { fontWeight: 700, fontSize: 16, marginBottom: 14 } },
             "Pass the device to ",
             seatName(to)),
-        React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 14, lineHeight: 1.5 } },
-            seatName(to),
-            "\u2019s hand stays hidden until they\u2019re holding it."),
         React.createElement(ConfirmButton, { label: `I’m ${seatName(to)} — show my hand`, enabled: true, onClick: () => dispatch({ type: "TAKE_DEVICE" }) })));
 }
 function SkunkPanel({ seats, winner, P, teams }) {
@@ -1580,7 +1576,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, "Source, bugs & feedback \u2197"),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.9-dev.11"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.9-dev.12"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

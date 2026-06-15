@@ -1226,14 +1226,20 @@ export default function CribbagePlay() {
 // `--cw` wide, so the overlap is expressed as a fraction of that variable, not pixels.
 const STACK_VISIBLE = 0.3;
 const BACK_VISIBLE = 0.3;
+// The pegging pile shows only the top of each card face (the rank/suit index lives in the
+// top-left corner), so the whole pile reads at a glance while taking far less vertical room.
+const PILE_VISIBLE = 0.37;                       // keep the top 37% of each card; clip the bottom 63%
 const cardItems = (cards, vis = STACK_VISIBLE) => (cards || []).map((c) => ({ key: cardId(c), vis, el: <Card card={c} /> }));
 const backItems = (n) => Array.from({ length: n || 0 }).map((_, k) => ({ key: "b" + k, vis: BACK_VISIBLE, el: <CardBack /> }));
-function Fan({ items }) {
+function Fan({ items, clip }) {
   if (!items.length) return null;
+  // `clip` (a fraction of the full card height) keeps only the top of each card, hiding the
+  // rest behind an overflow clip — so a stack can be that much shorter without rescaling cards.
+  const clipStyle = clip ? { height: `calc(var(--ch) * ${clip})`, overflow: "hidden" } : null;
   return (
     <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
       {items.map((it, i) => (
-        <div key={it.key} style={{ width: "var(--cw)", position: "relative", zIndex: i, marginLeft: i === 0 ? 0 : `calc(var(--cw) * ${-(1 - it.vis)})` }}>
+        <div key={it.key} style={{ width: "var(--cw)", position: "relative", zIndex: i, marginLeft: i === 0 ? 0 : `calc(var(--cw) * ${-(1 - it.vis)})`, ...clipStyle }}>
           {it.el}
         </div>
       ))}
@@ -1262,7 +1268,7 @@ function PileFan({ cards }) {
     : Math.max(0.12, Math.min(STACK_VISIBLE, (w / cw - 1) / (n - 1)));
   return (
     <div ref={ref} style={{ width: "100%", display: "flex", justifyContent: "center" }}>
-      <Fan items={cardItems(cards, vis)} />
+      <Fan items={cardItems(cards, vis)} clip={PILE_VISIBLE} />
     </div>
   );
 }
@@ -1493,7 +1499,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
         </div>
       ) : (
         <div style={{ background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "12px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 14, minHeight: "var(--ch)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14, minHeight: `calc(var(--ch) * ${PILE_VISIBLE})` }}>
             <div style={{ flex: "0 0 auto", display: "flex", flexDirection: "column", alignItems: "center", padding: "4px 12px", borderRadius: 9, background: "rgba(0,0,0,0.3)", border: `1px solid ${T.line}` }}>
               <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>{tr("play.pile.count")}</span>
               <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 28, lineHeight: 1, color: peg.count === 31 ? T.good : T.ivory }}>{peg.count}</span>

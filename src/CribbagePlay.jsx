@@ -1207,9 +1207,14 @@ export default function CribbagePlay() {
         {/* Score banner: the boxes sit in a full-width solid bar; the completed crib lives behind
             it (lower z), tucked up so only its bottom quarter pokes out below the bar, right-aligned. */}
         <div style={{ position: "relative" }}>
-          {(cribGliding || ((phase === "cut" || phase === "play") && state.crib.length > 0)) && (
-            <CribHome count={state.crib.length} bannerRef={cribBannerRef} />
-          )}
+          {(() => {
+            // The crib stays tucked in storage through the cut, the play, AND the show — it only
+            // leaves storage when it's its turn to be counted (revealed face-up in the centre).
+            const cribCounting = phase === "show" && state.show && state.show.order[state.show.step] === "CRIB";
+            return (cribGliding || ((phase === "cut" || phase === "play" || phase === "show") && state.crib.length > 0 && !cribCounting)) && (
+              <CribHome count={state.crib.length} bannerRef={cribBannerRef} />
+            );
+          })()}
           <div style={{ position: "relative", zIndex: 1, background: `radial-gradient(120% 200% at 50% -40%, ${T.baizeHi}, ${T.baize})` }}>
             <ScoreRow seats={seats} dealerIdx={dealerIdx} turn={turnNow} winner={phase === "over" ? winner : null}
               onPick={(i) => setHistorySeat((cur) => (cur === i ? null : i))} P={players} teams={teams} />

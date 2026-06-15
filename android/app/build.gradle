@@ -10,8 +10,8 @@ android {
         applicationId "dev.cribbage.cutthroat"
         minSdk 26          // adaptive icons; covers ~95%+ of devices
         targetSdk 34
-        versionCode 19     // bump by 1 on every release (IzzyOnDroid/F-Droid require this)
-        versionName "1.1.15"
+        versionCode 20     // bump by 1 on every release (IzzyOnDroid/F-Droid require this)
+        versionName "1.1.16"
     }
 
     buildTypes {

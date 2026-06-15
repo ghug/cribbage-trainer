@@ -1,0 +1,2 @@
+New in 1.1.16:
+- The app now opens in your device's language automatically (Chinese, Spanish, French, or Russian — otherwise English). You can still switch any time, and your choice sticks.

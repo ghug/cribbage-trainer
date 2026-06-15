@@ -1259,11 +1259,11 @@ function PileFan({ cards }) {
 // One seat, used everywhere — the ring, the cut-for-deal, and your own bottom seat. A
 // fixed-height label row (so the active chip's padding never nudges the cards) sits above
 // a fixed --ch card slot holding a fan of whatever the seat is showing.
-function Seat({ i, dealerIdx, active, dim, items }) {
+function Seat({ i, dealerIdx, active, dim, items, settings }) {
   return (
     <div style={{ textAlign: "center", minWidth: 0, opacity: dim ? 0.7 : 1 }}>
       <div style={{ height: 18, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 4 }}>
-        <SeatLabel i={i} dealerIdx={dealerIdx} active={active} />
+        <SeatLabel i={i} dealerIdx={dealerIdx} active={active} settings={settings} />
       </div>
       <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" }}>
         <Fan items={items} />
@@ -1274,8 +1274,12 @@ function Seat({ i, dealerIdx, active, dim, items }) {
 
 // One seat's label. The active seat (current pegger / hand being counted / dealer at the
 // cut-for-deal) gets a filled chip so it clearly stands out from the dimmed inactive seats.
-function SeatLabel({ i, dealerIdx, active }) {
-  const text = `${seatShort(i)}${dealerIdx === i ? " 🔘" : ""}`;
+// Every human seat with a custom name reads "You - {name}" (each human is "you" at the device);
+// bots and unnamed seats keep their plain compass short-name.
+function SeatLabel({ i, dealerIdx, active, settings }) {
+  const named = customName(i);
+  const base = (named && seatIsHuman(i, settings)) ? `${tr("seat.youShort")} - ${named}` : seatShort(i);
+  const text = `${base}${dealerIdx === i ? " 🔘" : ""}`;
   return (
     <span style={active
       ? { fontFamily: mono, fontSize: 10, fontWeight: 700, letterSpacing: 0.3, color: T.ivory, background: T.selBlue, padding: "2px 8px", borderRadius: 999, boxShadow: "0 1px 4px rgba(0,0,0,0.45)" }
@@ -1389,7 +1393,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
     if (cutdealPhase) {                                    // cut for deal: each seat's single draw, dealer lit
       const draw = dealDraw ? dealDraw[i] : null;
       return <Seat key={i} i={i} dealerIdx={dealerIdx} active={i === dealerIdx} dim={i !== dealerIdx}
-        items={draw ? cardItems([draw]) : backItems(1)} />;
+        items={draw ? cardItems([draw]) : backItems(1)} settings={settings} />;
     }
     // Every seat (yours included) shows its played pile face up plus any cards still in hand
     // face down. The one exception: your own remaining hand lives in the interactive grid
@@ -1404,7 +1408,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
       : discardPhase ? (i === me && myTurn)
       : turn === i;
     return <Seat key={i} i={i} dealerIdx={dealerIdx} active={active}
-      items={[...backItems(remaining), ...cardItems(played)]} />;
+      items={[...backItems(remaining), ...cardItems(played)]} settings={settings} />;
   };
   return (
     <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 10 }}>

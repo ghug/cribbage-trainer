@@ -1231,15 +1231,17 @@ const BACK_VISIBLE = 0.3;
 const PILE_VISIBLE = 0.38;                       // keep the top 38% of each card; clip the bottom 62%
 const cardItems = (cards, vis = STACK_VISIBLE) => (cards || []).map((c) => ({ key: cardId(c), vis, el: <Card card={c} /> }));
 const backItems = (n) => Array.from({ length: n || 0 }).map((_, k) => ({ key: "b" + k, vis: BACK_VISIBLE, el: <CardBack /> }));
-function Fan({ items, clip }) {
+function Fan({ items, clip, hideFrom }) {
   if (!items.length) return null;
   // `clip` (a fraction of the full card height) keeps only the top of each card, hiding the
   // rest behind an overflow clip — so a stack can be that much shorter without rescaling cards.
+  // `hideFrom` keeps items at/after that index in the layout but invisible (placeholders for
+  // cards currently mid-flight), so the fan width — and the rest of the cards — don't shift.
   const clipStyle = clip ? { height: `calc(var(--ch) * ${clip})`, overflow: "hidden" } : null;
   return (
     <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
       {items.map((it, i) => (
-        <div key={it.key} style={{ width: "var(--cw)", position: "relative", zIndex: i, marginLeft: i === 0 ? 0 : `calc(var(--cw) * ${-(1 - it.vis)})`, ...clipStyle }}>
+        <div key={it.key} style={{ width: "var(--cw)", position: "relative", zIndex: i, marginLeft: i === 0 ? 0 : `calc(var(--cw) * ${-(1 - it.vis)})`, ...clipStyle, ...(hideFrom != null && i >= hideFrom ? { visibility: "hidden" } : null) }}>
           {it.el}
         </div>
       ))}
@@ -1344,6 +1346,7 @@ function StarterDeck({ starter, count = 4 }) {
 const DEAL_STAGGER = 105;
 const DEAL_MOVE = 230;
 const DEAL_THROW_PAUSE = 150;                     // beat between the deal landing and the discards flying to the crib
+const THROW_STAGGER = 70;                         // gap between your two thrown cards flying to the crib
 // A card flying through a path of waypoints (`legs`): it mounts at `from`, then steps to each
 // leg's {x,y} at that leg's absolute `delay`, the CSS transition animating each hop. A deck→seat
 // deal is one leg; a card a bot throws gets a second leg (seat→crib).
@@ -1449,6 +1452,39 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
   }, [dealSig]);
   const shownDeck = dealAnim ? 52 - dealtN : deckCount;       // thin the deck card-by-card during the deal
   const cribSoFar = seats.reduce((a, s) => a + (s.discard ? s.discard.length : 0), 0);   // cards thrown to the crib so far
+
+  // Your throw → crib: capture the selected cards' live grid positions at commit time (before
+  // they leave the hand), then fly backs from there to the crib pile as it grows.
+  const throwFromRef = React.useRef(null);
+  const [throwAnim, setThrowAnim] = React.useState(null);
+  const prevCrib = React.useRef(cribSoFar);
+  const captureThrow = (idxs) => {
+    const root = tableRef.current, handEl = root && root.querySelector('[data-slot="hand"]');
+    if (!handEl) { throwFromRef.current = null; return; }
+    const rootR = root.getBoundingClientRect(), kids = handEl.children;
+    throwFromRef.current = idxs.map((ix) => { const el = kids[ix]; if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left - rootR.left, y: r.top - rootR.top }; }).filter(Boolean);
+  };
+  React.useLayoutEffect(() => {
+    const grew = cribSoFar - prevCrib.current;
+    prevCrib.current = cribSoFar;
+    const froms = throwFromRef.current;
+    if (dealAnim || grew <= 0 || !froms || !froms.length) { if (grew > 0) throwFromRef.current = null; return; }
+    throwFromRef.current = null;
+    const root = tableRef.current; if (!root) return;
+    const cribEl = root.querySelector('[data-slot="crib"]'); if (!cribEl) return;
+    const rootR = root.getBoundingClientRect(), r = cribEl.getBoundingClientRect();
+    const cb = { left: r.left - rootR.left, top: r.top - rootR.top, width: r.width };
+    const cw = Math.min(68, (Math.min(typeof window !== "undefined" ? window.innerWidth : 560, 560) - 62) / 6);
+    const n = cribSoFar, use = froms.slice(0, grew);
+    const sprites = use.map((f, q) => {
+      const m = n - grew + q, x = cb.left + cb.width / 2 - cw * (1 + (n - 1) * BACK_VISIBLE) / 2 + m * BACK_VISIBLE * cw;
+      return { key: q, from: f, legs: [{ x, y: cb.top, delay: q * THROW_STAGGER, dur: DEAL_MOVE }] };
+    });
+    if (!sprites.length) return;
+    setThrowAnim({ sprites, hideN: grew });
+    const t = setTimeout(() => setThrowAnim(null), (use.length - 1) * THROW_STAGGER + DEAL_MOVE + 100);
+    return () => clearTimeout(t);
+  }, [cribSoFar]);
   // The show counts one owner at a time: their (face-up) hand or the crib, plus the cut.
   const info = showPhase ? computeShow(state) : null;
   const stepLabel = showPhase ? tr("play.show.step", { n: state.show.step + 1, m: state.show.order.length }) : "";
@@ -1484,9 +1520,9 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
   const muggins = showPhase && mugginsActive(settings) && seatIsHuman(info.owner, settings);
   const needClaim = muggins && !state.show.claimSubmitted;
 
-  const commit = (idxs) => dispatch(discardPhase
+  const commit = (idxs) => { if (discardPhase) captureThrow(idxs); dispatch(discardPhase
     ? { type: "SELECT_DISCARD", idxs: idxs.slice().sort((a, b) => a - b) }
-    : { type: "SELECT_PLAY", card: yourHand[idxs[0]] });
+    : { type: "SELECT_PLAY", card: yourHand[idxs[0]] }); };
   const tapCard = (i) => {
     if (pending) { dispatch({ type: discardPhase ? "CANCEL_DISCARD" : "CANCEL_PLAY" }); setSel([]); return; }
     if (!myTurn || !isLegal(yourHand[i])) return;
@@ -1529,6 +1565,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
   return (
     <div ref={tableRef} style={{ position: "relative", marginTop: 6, display: "flex", flexDirection: "column", gap: 10 }}>
       {dealAnim && dealAnim.map((s) => <DealFly key={s.key} from={s.from} legs={s.legs} />)}
+      {throwAnim && throwAnim.sprites.map((s) => <DealFly key={"t" + s.key} from={s.from} legs={s.legs} />)}
       {/* Fixed grids: every seat owns an equal column whatever it's holding, so the labels
           (and their hands) always center on the same spot in every phase. */}
       {ts.top.length > 0 && (
@@ -1592,7 +1629,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
         <Panel tone={cribOurs ? "good" : "red"}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
             <div style={{ fontWeight: 700, fontSize: 15, minWidth: 0 }}>{multiHuman ? tr("play.crib.seatPrefix", { seat: seatName(me) }) : ""}{isDealer ? tr("play.crib.greedy") : teammateDeals ? tr("play.crib.teamGreedy", { seat: seatName(dealerIdx) }) : tr("play.crib.defend", { seat: seatName(dealerIdx) })}</div>
-            {cribSoFar > 0 && <div data-slot="crib" style={{ flex: "0 0 auto", visibility: dealAnim ? "hidden" : "visible" }}><Fan items={backItems(cribSoFar)} /></div>}
+            {cribSoFar > 0 && <div data-slot="crib" style={{ flex: "0 0 auto", visibility: dealAnim ? "hidden" : "visible" }}><Fan items={backItems(cribSoFar)} hideFrom={throwAnim ? cribSoFar - throwAnim.hideN : undefined} /></div>}
           </div>
         </Panel>
       ) : cutPhase ? (

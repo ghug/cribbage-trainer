@@ -491,6 +491,7 @@ cribbageLocale("en", {
   "landing.seatHintEdit": "Edit and lock-in player names if you need to adjust any from bot/human",
   "landing.setNames": "Edit player names",
   "landing.saveNames": "Lock-in player names",
+  "landing.resetNames": "Reset names",
   "landing.teams": "Teams",
   "landing.teamsNote": "— how the table splits up",
   "landing.language": "Language",
@@ -767,7 +768,10 @@ cribbageLocale("en", {
         <div class="pp-label"><span data-i18n="landing.teams">Teams</span> <span class="pp-note" data-i18n="landing.teamsNote">— how the table splits up</span></div>
         <div class="pp-segs" id="teamsSegs"></div>
       </div>
-      <button type="button" class="names-btn" id="namesBtn">Set player names</button>
+      <div id="namesRow" style="display:flex; gap:8px; margin-top:9px">
+        <button type="button" class="names-btn" id="resetNamesBtn" data-i18n="landing.resetNames" style="margin-top:0; width:auto; flex:0 0 auto; padding-left:14px; padding-right:14px; display:none">Reset names</button>
+        <button type="button" class="names-btn" id="namesBtn" style="margin-top:0; width:auto; flex:1 1 auto">Set player names</button>
+      </div>
       <a class="option" href="play.html">
         <div class="opt-row">
           <span class="pip play">♥</span>
@@ -831,7 +835,7 @@ cribbageLocale("en", {
       <a class="btn btn-primary" href="https://github.com/ghug/cribbage-trainer/"
          target="_blank" rel="noopener noreferrer" data-i18n="about.sourceLink">Source, bugs &amp; feedback ↗</a>
       <div class="repo-url" style="margin-bottom:4px">github.com/ghug/cribbage-trainer</div>
-      <div class="repo-url">v1.1.19-dev.53</div>
+      <div class="repo-url">v1.1.19-dev.54</div>
     </div>
   </div>
 
@@ -1020,11 +1024,25 @@ cribbageLocale("en", {
       }
       // Toggle between showing the diagram and editing every seat's name. Saving reads each input
       // into settings.names (an empty box reverts that seat to its compass default).
+      // True when at least one seat has a custom (non-empty) name set, i.e. the names aren't the
+      // plain compass defaults — used to show the "Reset names" button only when there's something
+      // to reset.
+      function hasCustomNames() {
+        var c = settings.names || [];
+        for (var i = 0; i < c.length; i++) if (c[i] != null && c[i] !== '') return true;
+        return false;
+      }
       function renderNamesButton() {
         var btn = document.getElementById('namesBtn');
-        if (!btn) return;
-        btn.textContent = tr(editingNames ? 'landing.saveNames' : 'landing.setNames');
-        btn.className = 'names-btn' + (editingNames ? ' on' : '');
+        if (btn) {
+          btn.textContent = tr(editingNames ? 'landing.saveNames' : 'landing.setNames');
+          btn.className = 'names-btn' + (editingNames ? ' on' : '');
+        }
+        var rb = document.getElementById('resetNamesBtn');
+        if (rb) {
+          rb.textContent = tr('landing.resetNames');
+          rb.style.display = hasCustomNames() ? '' : 'none';
+        }
       }
       // The seat hint swaps to the naming instructions while editing names.
       function renderSeatHint() {
@@ -1067,6 +1085,11 @@ cribbageLocale("en", {
       renderPlayers();
       renderTeams();
       document.getElementById('namesBtn').addEventListener('click', toggleNamesEdit);
+      // Reset names: clear every custom name back to the compass defaults (stays in edit mode if open).
+      document.getElementById('resetNamesBtn').addEventListener('click', function () {
+        settings.names = []; saveSettings(settings);
+        renderSeatDiagram(); renderNamesButton();
+      });
       renderNamesButton();
 
       // Live language switch (no reload): re-run the static text pass, re-render the JS-built

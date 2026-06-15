@@ -199,6 +199,7 @@ cribbageLocale("zh-Hans", {
   "landing.seatHintEdit": "如需将某个座位在电脑/真人之间调整，请编辑并锁定玩家名称",
   "landing.setNames": "编辑玩家名称",
   "landing.saveNames": "锁定玩家名称",
+  "landing.resetNames": "重置名称",
   "landing.teams": "队伍",
   "landing.teamsNote": "— 牌桌如何分组",
   "landing.language": "语言",

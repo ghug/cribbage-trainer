@@ -203,6 +203,7 @@ cribbageLocale("en", {
   "landing.seatHintEdit": "Edit and lock-in player names if you need to adjust any from bot/human",
   "landing.setNames": "Edit player names",
   "landing.saveNames": "Lock-in player names",
+  "landing.resetNames": "Reset names",
   "landing.teams": "Teams",
   "landing.teamsNote": "— how the table splits up",
   "landing.language": "Language",

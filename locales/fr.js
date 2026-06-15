@@ -201,6 +201,7 @@ cribbageLocale("fr", {
   "landing.seatHintEdit": "Modifiez et verrouillez les noms des joueurs si vous devez en ajuster un (bot/humain)",
   "landing.setNames": "Modifier les noms des joueurs",
   "landing.saveNames": "Verrouiller les noms des joueurs",
+  "landing.resetNames": "Réinitialiser les noms",
   "landing.teams": "Équipes",
   "landing.teamsNote": "— comment la table se répartit",
   "landing.language": "Langue",

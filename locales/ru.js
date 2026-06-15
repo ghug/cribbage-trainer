@@ -201,6 +201,7 @@ cribbageLocale("ru", {
   "landing.seatHintEdit": "Измените и зафиксируйте имена игроков, если нужно изменить кого-то из бота/человека",
   "landing.setNames": "Изменить имена игроков",
   "landing.saveNames": "Зафиксировать имена игроков",
+  "landing.resetNames": "Сбросить имена",
   "landing.teams": "Команды",
   "landing.teamsNote": "— как делится стол",
   "landing.language": "Язык",

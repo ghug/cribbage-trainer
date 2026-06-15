@@ -71,6 +71,7 @@ cribbageLocale("zh-Hans", {
   "play.cut.yourCrib": "你的副牌",
   "play.cut.seatCrib": "{seat}的副牌",
   "play.pile.count": "牌堆点数",
+  "play.cribCard": "副牌的牌",
   "play.pile.cleared": "已清空——从0重新计数",
   "play.pass.to": "把设备交给{seat}",
   "play.pass.take": "我是{seat}——显示我的牌",

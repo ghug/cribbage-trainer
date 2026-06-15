@@ -759,7 +759,7 @@ function reduce(state, action) {
   }
 }
 
-const DEFAULT_SETTINGS = { players: 2, teams: 2, counting: "auto", tapToSelect: true, autoCut: true, autoGo: false, warn: false, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
+const DEFAULT_SETTINGS = { players: 2, teams: 2, counting: "auto", tapToSelect: true, autoCut: true, autoGo: false, warn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
 // Settings persist across pages in localStorage under a shared key. try/catch keeps
 // the verification harness (no localStorage) and private-mode browsers happy.
 const SETTINGS_KEY = "cribbage:settings";
@@ -1411,8 +1411,9 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 8, padding: "0 6px" }}>
         <div style={{ minWidth: 0 }}>{ts.left != null ? cell(ts.left) : null}</div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: "0 0 auto" }}>
-          {/* no label — empty spacer keeps the deck bottom-aligned with the seat cards */}
-          <div style={{ height: 18, marginBottom: 4 }} />
+          {/* labels the face-up starter once the cut is done (play onward); empty otherwise so the
+              deck stays bottom-aligned with the seat cards' label row. */}
+          <div style={{ height: 18, marginBottom: 4, display: "flex", alignItems: "center", fontFamily: mono, fontSize: 10, color: T.muted }}>{(phase === "play" || showPhase || overPhase) ? tr("play.cribCard") : ""}</div>
           <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" }}>
             <StarterDeck starter={(phase === "play" || showPhase || overPhase) ? starter : null} />
           </div>

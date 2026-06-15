@@ -356,6 +356,7 @@ cribbageLocale("en", {
   "play.cut.yourCrib": "your crib",
   "play.cut.seatCrib": "{seat}’s crib",
   "play.pile.count": "pile count",
+  "play.cribCard": "crib card",
   "play.pile.cleared": "cleared — new count from 0",
   "play.pass.to": "Pass the device to {seat}",
   "play.pass.take": "I’m {seat} — show my hand",
@@ -819,7 +820,7 @@ cribbageLocale("en", {
       <a class="btn btn-primary" href="https://github.com/ghug/cribbage-trainer/"
          target="_blank" rel="noopener noreferrer" data-i18n="about.sourceLink">Source, bugs &amp; feedback ↗</a>
       <div class="repo-url" style="margin-bottom:4px">github.com/ghug/cribbage-trainer</div>
-      <div class="repo-url">v1.1.18-dev.1</div>
+      <div class="repo-url">v1.1.18-dev.2</div>
     </div>
   </div>
 
@@ -859,7 +860,7 @@ cribbageLocale("en", {
       // Game settings, shared across every page via localStorage (same key the games
       // read/write), so a toggle here — or in any game — sticks everywhere.
       var SETTINGS_KEY = "cribbage:settings";
-      var DEFAULTS = { players: 2, teams: 2, seats: [], counting: "auto", autoGo: false, warn: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false, autoContinue: false, autoDeal: false };
+      var DEFAULTS = { players: 2, teams: 2, seats: [], counting: "auto", autoGo: false, warn: true, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false, autoContinue: false, autoDeal: false };
       // "Players" lives on the main page (above Play); the rest are in this popup.
       // title/desc/option labels are i18n keys, translated via tr() at render time.
       var ROWS = [

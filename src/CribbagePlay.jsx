@@ -1385,17 +1385,17 @@ function StarterDeck({ starter, count = 4 }) {
   );
 }
 
-// Hot-seat reveal: a card travelling from a player's seat (face down) down to the hand row,
-// flipping to its face as it goes — it mounts at `from` showing its back, then translates to
-// `to` while rotating to face-up.
-function RevealFly({ from, to, card, delay }) {
+// Hot-seat: a card travelling between a player's seat and the hand row while flipping. It mounts
+// at `from` rotated `r0`, then translates to `to` rotated `r1`. Reveal (seat→hand) flips back→face
+// (r0=-180, r1=0); return (hand→seat) flips face→back (r0=0, r1=180).
+function RevealFly({ from, to, card, delay, r0 = -180, r1 = 0 }) {
   const [shown, setShown] = React.useState(false);
   React.useEffect(() => { const t = setTimeout(() => setShown(true), delay); return () => clearTimeout(t); }, []);
   const p = shown ? to : from;
   return (
     <div style={{
       position: "absolute", left: 0, top: 0, width: "var(--cw)", transformStyle: "preserve-3d", zIndex: 6, pointerEvents: "none",
-      transform: `translate(${p.x}px, ${p.y}px) rotateY(${shown ? 0 : -180}deg)`,
+      transform: `translate(${p.x}px, ${p.y}px) rotateY(${shown ? r1 : r0}deg)`,
       transition: `transform ${DEAL_MOVE}ms cubic-bezier(.2,.7,.3,1)`,
     }}>
       <div style={{ backfaceVisibility: "hidden" }}><Card card={card} /></div>
@@ -1667,32 +1667,39 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
   const multiHuman = nHumans(P, settings) > 1;
   const meHuman = seatIsHuman(me, settings);               // false only in an all-bot (spectated) game
 
-  // Hot-seat reveal: the moment this player's interactive hand appears (they took the device),
-  // fly each card from its spot at their seat (face down) down to the hand row (flipping face-up),
-  // instead of it just popping in. The grid cards are hidden until the flight lands.
+  // Hot-seat reveal/return: when this player's interactive hand appears (they took the device),
+  // fly each card from its seat (face down) down to the hand row (flipping face-up); when their
+  // turn ends, fly the cards they keep back up to their seat (flipping face-down). The hand-row
+  // cards (reveal) or the seat backs (return) are hidden until the flights land.
   const [revealAnim, setRevealAnim] = React.useState(null);
   const handVisible = meHuman && !needHandoff && (discardPhase || (phase === "play" && !!peg));
   const prevHandVis = React.useRef(false);
+  const handPosRef = React.useRef({});                                     // last on-screen spots of the hand-row cards, by card id
   React.useLayoutEffect(() => {
-    const was = prevHandVis.current; prevHandVis.current = handVisible;
-    if (!multiHuman || was || !handVisible || !yourHand.length) return;     // only the false→true reveal, hot-seat
-    const root = tableRef.current; if (!root) return;
-    const rootR = root.getBoundingClientRect();
+    const root = tableRef.current;
     const cw = Math.min(68, (Math.min(typeof window !== "undefined" ? window.innerWidth : 560, 560) - 62) / 6);
-    const handEl = root.querySelector('[data-slot="hand"]'); if (!handEl) return;
-    const kids = handEl.children;
+    const rootR = root && root.getBoundingClientRect();
+    if (root && handVisible) {                                            // keep capturing where each card sits in the hand row
+      const handEl = root.querySelector('[data-slot="hand"]');
+      if (handEl) { const kids = handEl.children, map = {}; for (let i = 0; i < yourHand.length; i++) { const k = kids[i]; if (k) { const r = k.getBoundingClientRect(); map[cardId(yourHand[i])] = { x: r.left - rootR.left, y: r.top - rootR.top }; } } handPosRef.current = map; }
+    }
+    const was = prevHandVis.current; prevHandVis.current = handVisible;
+    if (!multiHuman || !root || was === handVisible || !yourHand.length) return;
     const seatEl = root.querySelector(`[data-slot="seat-${me}"]`); if (!seatEl) return;
     const sr = seatEl.getBoundingClientRect();
-    const total = yourHand.length + (peg ? peg.played[me].length : 0);      // cards the seat fan held while face down
+    const total = yourHand.length + (peg ? peg.played[me].length : 0);     // cards the seat fan holds while face down
+    const seatX = (j) => (sr.left - rootR.left) + sr.width / 2 - cw * (1 + (total - 1) * BACK_VISIBLE) / 2 + j * BACK_VISIBLE * cw;
     const sprites = [];
-    for (let j = 0; j < yourHand.length; j++) {
-      const k = kids[j]; if (!k) continue;
-      const tr2 = k.getBoundingClientRect();
-      const fx = (sr.left - rootR.left) + sr.width / 2 - cw * (1 + (total - 1) * BACK_VISIBLE) / 2 + j * BACK_VISIBLE * cw;
-      sprites.push({ key: cardId(yourHand[j]), card: yourHand[j], from: { x: fx, y: sr.top - rootR.top }, to: { x: tr2.left - rootR.left, y: tr2.top - rootR.top }, delay: j * 55 });
+    if (!was && handVisible) {                                            // REVEAL: seat → hand, flip up
+      const handEl = root.querySelector('[data-slot="hand"]'); if (!handEl) return;
+      const kids = handEl.children;
+      for (let j = 0; j < yourHand.length; j++) { const k = kids[j]; if (!k) continue; const t2 = k.getBoundingClientRect(); sprites.push({ key: cardId(yourHand[j]), card: yourHand[j], from: { x: seatX(j), y: sr.top - rootR.top }, to: { x: t2.left - rootR.left, y: t2.top - rootR.top }, delay: j * 55, r0: -180, r1: 0 }); }
+      if (sprites.length) setRevealAnim({ dir: "up", sprites });
+    } else {                                                              // RETURN: hand → seat, flip down
+      for (let j = 0; j < yourHand.length; j++) { const f = handPosRef.current[cardId(yourHand[j])]; if (!f) continue; sprites.push({ key: cardId(yourHand[j]), card: yourHand[j], from: f, to: { x: seatX(j), y: sr.top - rootR.top }, delay: j * 55, r0: 0, r1: 180 }); }
+      if (sprites.length) setRevealAnim({ dir: "down", sprites });
     }
     if (!sprites.length) return;
-    setRevealAnim(sprites);
     const t = setTimeout(() => setRevealAnim(null), (sprites.length - 1) * 55 + DEAL_MOVE + 100);
     return () => clearTimeout(t);
   }, [handVisible]);
@@ -1749,7 +1756,7 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
     // (your discard / play turn). The active seat — your discard turn, the current pegger,
     // the hand being counted, or the winning team — is chip-highlighted.
     const gridActive = i === me && meHuman && !needHandoff && (discardPhase || (phase === "play" && peg));
-    const remaining = gridActive ? 0 : hands[i].length;
+    const remaining = (gridActive || (revealAnim && revealAnim.dir === "down" && i === me)) ? 0 : hands[i].length;
     const played = peg ? peg.played[i] : [];
     const active = overPhase ? teamOf(i, P, teams) === teamOf(winner, P, teams)
       : showPhase ? i === info.owner
@@ -1765,7 +1772,7 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
       {throwAnim && throwAnim.sprites.map((s) => <DealFly key={"t" + s.key} from={s.from} legs={s.legs} />)}
       {playAnim && <DealFly key={"p" + cardId(playAnim.card)} from={playAnim.from} legs={[{ x: playAnim.to.x, y: playAnim.to.y, delay: 0, dur: DEAL_MOVE }]} card={playAnim.card} />}
       {gatherAnim && gatherAnim.map((s) => <DealFly key={"g" + s.key} from={s.from} legs={s.legs} />)}
-      {revealAnim && revealAnim.map((s) => <RevealFly key={"r" + s.key} from={s.from} to={s.to} card={s.card} delay={s.delay} />)}
+      {revealAnim && revealAnim.sprites.map((s) => <RevealFly key={"r" + s.key} from={s.from} to={s.to} card={s.card} delay={s.delay} r0={s.r0} r1={s.r1} />)}
       {/* Fixed grids: every seat owns an equal column whatever it's holding, so the labels
           (and their hands) always center on the same spot in every phase. */}
       {ts.top.length > 0 && (
@@ -1948,7 +1955,7 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
         {/* The interactive hand is only for a human in this seat; a bot (all-bot spectate)
             keeps its cards face down under its played pile, like every other seat. */}
         {meHuman && (
-          <div data-slot="hand" className={discardPhase ? "dealwrap" : undefined} style={{ display: "flex", gap: 6, justifyContent: "center", flexWrap: "nowrap", visibility: (dealAnim || revealAnim) ? "hidden" : "visible" }}>
+          <div data-slot="hand" className={discardPhase ? "dealwrap" : undefined} style={{ display: "flex", gap: 6, justifyContent: "center", flexWrap: "nowrap", visibility: (dealAnim || (revealAnim && revealAnim.dir === "up")) ? "hidden" : "visible" }}>
             {yourHand.map((card, i) => {
               const legal = isLegal(card);
               const chosen = pending ? pendIdxs.includes(i) : sel.includes(i);

@@ -1282,7 +1282,7 @@ function Seat({ i, dealerIdx, active, dim, items, settings, me }) {
       <div style={{ height: 18, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 4 }}>
         <SeatLabel i={i} dealerIdx={dealerIdx} active={active} settings={settings} me={me} />
       </div>
-      <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" }}>
+      <div data-slot={"seat-" + i} style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" }}>
         <Fan items={items} />
       </div>
     </div>
@@ -1338,6 +1338,31 @@ function StarterDeck({ starter, count = 4 }) {
   );
 }
 
+// Deal animation timing — one tunable knob (snappy by default). DEAL_STAGGER is the gap
+// between successive cards leaving the deck; DEAL_MOVE is one card's deck→seat travel time.
+// Set DEAL_STAGGER to 0 to deal the whole hand at once.
+const DEAL_STAGGER = 55;
+const DEAL_MOVE = 240;
+// One card flying out of the centre deck to a seat: it mounts at `from`, then on the next
+// frame transitions to `to` (after its stagger `delay`), so the CSS transition animates it.
+function DealFly({ from, to, delay }) {
+  const [moved, setMoved] = React.useState(false);
+  React.useEffect(() => {
+    let r2;
+    const r1 = requestAnimationFrame(() => { r2 = requestAnimationFrame(() => setMoved(true)); });
+    return () => { cancelAnimationFrame(r1); if (r2) cancelAnimationFrame(r2); };
+  }, []);
+  const p = moved ? to : from;
+  return (
+    <div style={{
+      position: "absolute", left: 0, top: 0, width: "var(--cw)",
+      transform: `translate(${p.x}px, ${p.y}px)`,
+      transition: `transform ${DEAL_MOVE}ms cubic-bezier(.2,.7,.3,1) ${delay}ms`,
+      zIndex: 6, pointerEvents: "none",
+    }}><CardBack /></div>
+  );
+}
+
 // The single table. Every pre-show phase renders here: the discard, the cut, and the
 // pegging all share one frame (seat ring + starter slot) and one "hand zone" at the
 // bottom — a card grid with tap-to-select and a confirm. Only a small per-phase config
@@ -1359,6 +1384,40 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
   // once hands are out; minus the starter (and the 3-handed deck-card) once the cut is taken.
   const totalDealt = pl.sizes.reduce((a, b) => a + b, 0);
   const deckCount = preDeal ? 52 : 52 - totalDealt - (phase === "discard" ? 0 : 1 + (pl.deckCard ? 1 : 0));
+
+  // Deal animation: when a hand goes from "no cards" (pre-deal) to dealt, fly one card out of
+  // the centre deck to each seat in round-robin order. Pure render layer — measures the live
+  // deck/seat slots ([data-slot]) and floats CardBacks over them; the static hands are hidden
+  // until the flight lands. Reducer/verify_play untouched.
+  const tableRef = React.useRef(null);
+  const [dealAnim, setDealAnim] = React.useState(null);
+  const dealSig = preDeal ? "" : seats.map((s) => (s.dealt || []).map(cardId).join(".")).join("|");
+  const prevSig = React.useRef(null);
+  React.useLayoutEffect(() => {
+    const old = prevSig.current;
+    prevSig.current = dealSig;
+    if (old === null || dealSig === old || !(dealSig && old === "")) return;   // only the pre-deal → dealt transition
+    const root = tableRef.current; if (!root) return;
+    const rootR = root.getBoundingClientRect();
+    const deckEl = root.querySelector('[data-slot="deck"]'); if (!deckEl) return;
+    const dr = deckEl.getBoundingClientRect();
+    const from = { x: dr.left - rootR.left, y: dr.top - rootR.top };
+    const seatRects = {};
+    for (let i = 0; i < P; i++) {
+      const el = root.querySelector(`[data-slot="seat-${i}"]`);
+      if (el) { const r = el.getBoundingClientRect(); seatRects[i] = { x: r.left - rootR.left + r.width / 2 - dr.width / 2, y: r.top - rootR.top }; }
+    }
+    const order = [];
+    const maxSize = Math.max(...pl.sizes);
+    for (let c = 0; c < maxSize; c++) for (let i = 0; i < P; i++) if (c < pl.sizes[i]) order.push(i);
+    const sprites = [];
+    order.forEach((seat, k) => { const to = seatRects[seat]; if (to) sprites.push({ key: k, from, to, delay: k * DEAL_STAGGER }); });
+    if (!sprites.length) return;
+    setDealAnim(sprites);
+    const total = (sprites.length - 1) * DEAL_STAGGER + DEAL_MOVE + 80;
+    const t = setTimeout(() => setDealAnim(null), total);
+    return () => clearTimeout(t);
+  }, [dealSig]);
   // The show counts one owner at a time: their (face-up) hand or the crib, plus the cut.
   const info = showPhase ? computeShow(state) : null;
   const stepLabel = showPhase ? tr("play.show.step", { n: state.show.step + 1, m: state.show.order.length }) : "";
@@ -1434,10 +1493,11 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
       : discardPhase ? (i === me && myTurn)
       : turn === i;
     return <Seat key={i} i={i} dealerIdx={dealerIdx} active={active}
-      items={[...backItems(remaining), ...cardItems(played)]} settings={settings} me={me} />;
+      items={dealAnim ? [] : [...backItems(remaining), ...cardItems(played)]} settings={settings} me={me} />;
   };
   return (
-    <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 10 }}>
+    <div ref={tableRef} style={{ position: "relative", marginTop: 6, display: "flex", flexDirection: "column", gap: 10 }}>
+      {dealAnim && dealAnim.map((s) => <DealFly key={s.key} from={s.from} to={s.to} delay={s.delay} />)}
       {/* Fixed grids: every seat owns an equal column whatever it's holding, so the labels
           (and their hands) always center on the same spot in every phase. */}
       {ts.top.length > 0 && (
@@ -1451,7 +1511,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
           {/* labels the face-up starter once the cut is done (play onward); before then the pile is
               just the undealt deck, so label it "deck". Keeps the row bottom-aligned with the seats. */}
           <div style={{ height: 18, marginBottom: 4, display: "flex", alignItems: "center", fontFamily: mono, fontSize: 10, color: T.muted }}>{(phase === "play" || showPhase || overPhase) ? tr("play.starterCard") : tr("play.deck")}</div>
-          <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" }}>
+          <div data-slot="deck" style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" }}>
             <StarterDeck starter={(phase === "play" || showPhase || overPhase) ? starter : null} count={deckCount} />
           </div>
         </div>
@@ -1619,7 +1679,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
             keeps its cards face down under its played pile, like every other seat. */}
         {meHuman && (
           <div className={discardPhase ? "dealwrap" : undefined} style={{ display: "flex", gap: 6, justifyContent: "center", flexWrap: "nowrap" }}>
-            {yourHand.map((card, i) => {
+            {(dealAnim ? [] : yourHand).map((card, i) => {
               const legal = isLegal(card);
               const chosen = pending ? pendIdxs.includes(i) : sel.includes(i);
               return (

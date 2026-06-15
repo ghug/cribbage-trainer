@@ -5,12 +5,17 @@ name: Deploy to GitHub Pages
 # only the built site: the root HTML pages, the vendored React, and the i18n
 # runtime + locale catalogues (i18n.js + locales/, needed since translations
 # load via <script>). The committed root HTML is the source of truth (same as the
-# Android asset sync), so there is no build step here. Deploys from `main` (the
-# release-snapshot branch); Cloudflare tracks `dev` for the latest work.
+# Android asset sync), so there is no build step here.
+#
+# One Pages site serves BOTH channels: `main` (the release snapshot) at the root,
+# and `dev` (the latest work) under /dev/ — so there's a Pages preview of dev that
+# doesn't depend on the Cloudflare pipeline. A push to either branch rebuilds the
+# whole site (both branches are checked out every run) so neither channel is ever
+# wiped by an update to the other.
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
     paths:
       - "index.html"
       - "trainer.html"
@@ -39,15 +44,30 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out main (release snapshot)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: main-src
 
-      - name: Assemble site
+      - name: Check out dev (latest work)
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+          path: dev-src
+
+      - name: Assemble site (main at root, dev under /dev/)
         run: |
-          mkdir -p _site/vendor
-          cp index.html trainer.html play.html _site/
-          cp vendor/react.production.min.js vendor/react-dom.production.min.js _site/vendor/
-          cp i18n.js _site/                # i18n runtime
-          cp -r locales _site/locales      # language list + per-language catalogues
+          pack() {  # pack <src-dir> <out-dir>
+            local src="$1" out="$2"
+            mkdir -p "$out/vendor"
+            cp "$src/index.html" "$src/trainer.html" "$src/play.html" "$out/"
+            cp "$src/vendor/react.production.min.js" "$src/vendor/react-dom.production.min.js" "$out/vendor/"
+            cp "$src/i18n.js" "$out/"            # i18n runtime
+            cp -r "$src/locales" "$out/locales"  # language list + per-language catalogues
+          }
+          pack main-src _site
+          pack dev-src  _site/dev
           touch _site/.nojekyll   # skip Jekyll; serve files verbatim
 
       - uses: actions/configure-pages@v5

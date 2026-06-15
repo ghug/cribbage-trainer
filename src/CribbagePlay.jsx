@@ -1360,6 +1360,18 @@ function seatsAround(P, me) {
 // is the highest card. As the deck thins it shrinks from the top (the top card lowers toward the
 // base), like dealing off the top; the --cw footprint never changes so the table never shifts.
 const DECK_EDGE = 0.2;                            // px of offset per stacked card
+// The starter being turned at the cut: the top card flips from its back to its face on mount
+// (a 3-D rotateY), so the cut is a real "turn the card" moment rather than a pop-in.
+function StarterCard({ card }) {
+  const [shown, setShown] = React.useState(false);
+  React.useEffect(() => { const id = requestAnimationFrame(() => requestAnimationFrame(() => setShown(true))); return () => cancelAnimationFrame(id); }, []);
+  return (
+    <div style={{ position: "relative", width: "var(--cw)", height: "var(--ch)", transformStyle: "preserve-3d", transition: "transform 460ms cubic-bezier(.2,.7,.3,1)", transform: shown ? "rotateY(0deg)" : "rotateY(-180deg)" }}>
+      <div style={{ position: "absolute", top: 0, left: 0, width: "var(--cw)", backfaceVisibility: "hidden" }}><Card card={card} /></div>
+      <div style={{ position: "absolute", top: 0, left: 0, width: "var(--cw)", backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}><CardBack /></div>
+    </div>
+  );
+}
 function StarterDeck({ starter, count = 4 }) {
   const n = Math.max(1, Math.min(52, count || 1));
   return (
@@ -1367,7 +1379,7 @@ function StarterDeck({ starter, count = 4 }) {
       {Array.from({ length: n }).map((_, k) => {
         const d = k * DECK_EDGE;                    // k=0 = fixed base; k=n-1 = top of the deck, up-right
         const isTop = k === n - 1;
-        return <div key={k} data-decktop={isTop ? "1" : undefined} style={{ position: "absolute", left: d, top: -d }}>{isTop && starter ? <Card card={starter} /> : <CardBack />}</div>;
+        return <div key={k} data-decktop={isTop ? "1" : undefined} style={{ position: "absolute", left: d, top: -d }}>{isTop && starter ? <StarterCard card={starter} /> : <CardBack />}</div>;
       })}
     </div>
   );

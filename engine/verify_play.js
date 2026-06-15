@@ -101,6 +101,7 @@ function playHand(state, P) {
   } else {
     check(state.phase === "discard", `P=${P}: DEAL -> discard`);
     state = reduce(state, { type: "DISCARD", idxs: F.idxs });
+    if (state.phase === "cribbing") state = reduce(state, { type: "CRIB_DONE" });   // the completing throw holds for its animation; advance it
     check(state.phase === "cut", `P=${P}: DISCARD -> cut`);
     check(state.seats[0].kept.length === 4, `P=${P}: human kept 4`);
   }
@@ -175,6 +176,7 @@ for (const P of SUPPORTED) {
   const F = FACTS[P];
   let state = reduce(gameFor(P), { type: "DEAL" });
   if (state.phase === "discard") state = reduce(state, { type: "DISCARD", idxs: F.idxs });
+  if (state.phase === "cribbing") state = reduce(state, { type: "CRIB_DONE" });
   const d = state.dealerIdx;
   const before = state.seats[d].score;
   state = { ...state, deck: state.deck.map((c, i) => (i === F.starterIdx ? { r: 11, s: 0 } : c)) };
@@ -285,6 +287,7 @@ function mixedGame(P, roles, seed) {
   let guard = 0, hands = 0;
   while (state.phase !== "over" && guard++ < 4000) {
     if (state.phase === "cutdeal" || state.phase === "deal") { state = reduce(state, { type: "DEAL" }); }
+    else if (state.phase === "cribbing") { state = reduce(state, { type: "CRIB_DONE" }); }
     else if (state.phase === "discard") {
       const seat = state.discardSeat;
       check(seatHuman(seat, roles), `mixed P=${P}: discardSeat ${seat} is human`);
@@ -326,6 +329,7 @@ function autoCutSkips(P) {
     const n = plan(P, state.dealerIdx).throws[0];
     state = reduce(state, { type: "DISCARD", idxs: n === 2 ? [0, 1] : [0] });
   }
+  if (state.phase === "cribbing") state = reduce(state, { type: "CRIB_DONE" });   // the completing throw holds for its animation; advance it
   check(state.phase === "play", `autoCut P=${P}: cut phase skipped → straight to play`);
   check(state.starter && typeof state.starter.r === "number", `autoCut P=${P}: starter turned automatically`);
   check(state.crib.length === 4, `autoCut P=${P}: crib of 4`);

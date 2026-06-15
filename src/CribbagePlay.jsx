@@ -527,7 +527,10 @@ function commitDiscard(state, idxs) {
   let next = null;
   for (let k = order.indexOf(seat) + 1; k < order.length; k++) if (seats[order[k]].discard == null) { next = order[k]; break; }
   if (next != null) return { ...state, seats, discardSeat: next, pendingDiscard: null };
-  return afterCrib({ ...state, seats, crib: assembleCrib(seats, state.deck, pl), pendingDiscard: null, phase: "cut", discardSeat: null });
+  // Last throw: the crib is now full, but the game HOLDS in "cribbing" while the render animates
+  // the card arriving and the crib gliding to its home. CRIB_DONE (dispatched when the animation
+  // finishes — or immediately, in the render-free verify harness) advances to the cut.
+  return { ...state, seats, crib: assembleCrib(seats, state.deck, pl), pendingDiscard: null, phase: "cribbing", discardSeat: null };
 }
 
 // Once the crib is built, either show the cut phase (manual cut) or — with auto-cut on —
@@ -696,6 +699,9 @@ function reduce(state, action) {
       if (e.delta >= 1) return { ...state, pendingPlay: { card: action.card, ...e } };
       return playCard(state, seat, action.card);
     }
+
+    case "CRIB_DONE":
+      return state.phase === "cribbing" ? afterCrib({ ...state, phase: "cut" }) : state;
 
     case "TAKE_DEVICE":
       return { ...state, holder: state.phase === "discard" ? state.discardSeat : (state.peg ? state.peg.turn : state.holder) };
@@ -1030,10 +1036,19 @@ export default function CribbagePlay() {
   // and its home mounts behind the score bar, it can glide up from that last gathering spot.
   const cribBannerRef = React.useRef(null);
   React.useLayoutEffect(() => {
-    if (phase !== "discard") return;
+    if (phase !== "discard" && phase !== "cribbing") return;
     const el = document.querySelector('[data-slot="crib"]');
     if (el) { const r = el.getBoundingClientRect(); if (r.width) cribBannerRef.current = { x: r.left, y: r.top }; }
   });
+  // The "cribbing" hold: once the crib is full, give your card a beat to reach the crib, then let
+  // the crib glide to its home, and only then advance the game (CRIB_DONE → the cut).
+  const [cribGliding, setCribGliding] = React.useState(false);
+  useEffect(() => {
+    if (phase !== "cribbing") { setCribGliding(false); return; }
+    const t1 = setTimeout(() => setCribGliding(true), CRIB_THROW_TIME);
+    const t2 = setTimeout(() => dispatch({ type: "CRIB_DONE" }), CRIB_THROW_TIME + CRIB_MOVE + 80);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [phase]);
 
   // Record each finished game once (when the board reaches "over" with a winner).
   const recordedRef = React.useRef(false);
@@ -1186,7 +1201,7 @@ export default function CribbagePlay() {
         {/* Score banner: the boxes sit in a full-width solid bar; the completed crib lives behind
             it (lower z), tucked up so only its bottom quarter pokes out below the bar, right-aligned. */}
         <div style={{ position: "relative" }}>
-          {(phase === "cut" || phase === "play") && state.crib.length > 0 && (
+          {(cribGliding || ((phase === "cut" || phase === "play") && state.crib.length > 0)) && (
             <CribHome count={state.crib.length} bannerRef={cribBannerRef} />
           )}
           <div style={{ position: "relative", zIndex: 1, background: `radial-gradient(120% 200% at 50% -40%, ${T.baizeHi}, ${T.baize})` }}>
@@ -1209,8 +1224,8 @@ export default function CribbagePlay() {
         </div>
 
 
-        {(phase === "cutdeal" || phase === "deal" || phase === "discard" || phase === "cut" || (phase === "show" && show) || (phase === "play" && peg) || phase === "over") && (
-          <PlayScreen state={state} dispatch={dispatch} me={phase === "discard" ? ds : (multiHuman && (phase === "cutdeal" || phase === "deal")) ? dealerIdx : playMe} needHandoff={needHandoff} />
+        {(phase === "cutdeal" || phase === "deal" || phase === "discard" || phase === "cribbing" || phase === "cut" || (phase === "show" && show) || (phase === "play" && peg) || phase === "over") && (
+          <PlayScreen state={state} dispatch={dispatch} me={phase === "discard" ? ds : (multiHuman && (phase === "cutdeal" || phase === "deal")) ? dealerIdx : playMe} needHandoff={needHandoff} cribGliding={cribGliding} />
         )}
       </main>
 
@@ -1367,6 +1382,7 @@ const DEAL_MOVE = 230;
 const DEAL_THROW_PAUSE = 150;                     // beat between the deal landing and the discards flying to the crib
 const THROW_STAGGER = 70;                         // gap between your two thrown cards flying to the crib
 const CRIB_PEEK = 0.25;                           // fraction of the crib cards' height that pokes out below the score banner
+const CRIB_THROW_TIME = 440;                      // beat the "cribbing" hold waits for your card to reach the crib before it glides
 const CRIB_MOVE = 420;                            // ms for the full crib to glide from the banner up to its home
 // The completed crib at its home behind the score banner. On mount (the crib just became full)
 // it glides up from wherever it was gathering in the discard banner — `bannerRef` holds that
@@ -1415,9 +1431,10 @@ function DealFly({ from, legs }) {
 // pegging all share one frame (seat ring + starter slot) and one "hand zone" at the
 // bottom — a card grid with tap-to-select and a confirm. Only a small per-phase config
 // (how many cards, what's legal, where the throw goes, the labels) differs.
-function PlayScreen({ state, dispatch, me, needHandoff }) {
+function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
   const { peg, starter, dealerIdx, crib, seats, settings, phase, dealDraw, winner } = state;
   const discardPhase = phase === "discard";
+  const cribbingPhase = phase === "cribbing";            // crib full, holding while it animates to its home
   const cutPhase = phase === "cut";
   const cutdealPhase = phase === "cutdeal";              // the opening cut-for-deal reveal
   const dealPhase = phase === "deal";                    // the between-hands "ready to deal" rest
@@ -1502,14 +1519,6 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
   const throwFromRef = React.useRef(null);
   const [throwAnim, setThrowAnim] = React.useState(null);
   const prevCrib = React.useRef(cribSoFar);
-  // Remember where the banner crib pile last sat, so a throw that completes the crib (which also
-  // flips the phase and unmounts the banner in the same step) can still fly there.
-  const lastCribRef = React.useRef(null);
-  React.useLayoutEffect(() => {
-    const root = tableRef.current; if (!root) return;
-    const el = root.querySelector('[data-slot="crib"]');
-    if (el) { const r = el.getBoundingClientRect(); if (r.width) { const rootR = root.getBoundingClientRect(); lastCribRef.current = { left: r.left - rootR.left, top: r.top - rootR.top, width: r.width }; } }
-  });
   const captureThrow = (idxs) => {
     const root = tableRef.current, handEl = root && root.querySelector('[data-slot="hand"]');
     if (!handEl) { throwFromRef.current = null; return; }
@@ -1524,9 +1533,9 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
     throwFromRef.current = null;
     const root = tableRef.current; if (!root) return;
     const rootR = root.getBoundingClientRect();
-    const cribEl = root.querySelector('[data-slot="crib"]');
-    const cb = cribEl ? (() => { const r = cribEl.getBoundingClientRect(); return { left: r.left - rootR.left, top: r.top - rootR.top, width: r.width }; })() : lastCribRef.current;
-    if (!cb) return;
+    const cribEl = root.querySelector('[data-slot="crib"]'); if (!cribEl) return;
+    const r = cribEl.getBoundingClientRect();
+    const cb = { left: r.left - rootR.left, top: r.top - rootR.top, width: r.width };
     const cw = Math.min(68, (Math.min(typeof window !== "undefined" ? window.innerWidth : 560, 560) - 62) / 6);
     const n = cribSoFar, use = froms.slice(0, grew);
     const sprites = use.map((f, q) => {
@@ -1678,11 +1687,11 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
             <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 3 }}>{tr("play.show.order")}</div>
           </Panel>
         )
-      ) : discardPhase ? (
+      ) : (discardPhase || cribbingPhase) ? (
         <Panel tone={cribOurs ? "good" : "red"}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
             <div style={{ fontWeight: 700, fontSize: 15, minWidth: 0 }}>{multiHuman ? tr("play.crib.seatPrefix", { seat: seatName(me) }) : ""}{isDealer ? tr("play.crib.greedy") : teammateDeals ? tr("play.crib.teamGreedy", { seat: seatName(dealerIdx) }) : tr("play.crib.defend", { seat: seatName(dealerIdx) })}</div>
-            {cribSoFar > 0 && <div data-slot="crib" style={{ flex: "0 0 auto", visibility: dealAnim ? "hidden" : "visible" }}><Fan items={backItems(cribSoFar)} hideFrom={throwAnim ? cribSoFar - throwAnim.hideN : undefined} /></div>}
+            {cribSoFar > 0 && !cribGliding && <div data-slot="crib" style={{ flex: "0 0 auto", visibility: dealAnim ? "hidden" : "visible" }}><Fan items={backItems(cribSoFar)} hideFrom={throwAnim ? cribSoFar - throwAnim.hideN : undefined} /></div>}
           </div>
         </Panel>
       ) : cutPhase ? (
@@ -1764,7 +1773,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
         seatIsHuman(cutter, settings)
           ? bigBtn(tr("play.btn.cutFor", { seat: seatName(dealerIdx) }), () => dispatch({ type: "CUT" }), "wood")
           : <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" }}>{tr("play.cutMsg", { seat: seatName(cutter) })}</div>
-      ) : needHandoff ? <PassPanel to={discardPhase ? me : peg.turn} dispatch={dispatch} /> : (
+      ) : cribbingPhase ? null : needHandoff ? <PassPanel to={discardPhase ? me : peg.turn} dispatch={dispatch} /> : (
       <div>
         {pending && (discardPhase
           ? <div style={{ marginBottom: 10 }}><DiscardWarning pd={pending} cribIsOurs={cribOurs} dispatch={dispatch} onCancel={() => setSel([])} /></div>

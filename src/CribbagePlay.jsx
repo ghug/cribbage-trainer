@@ -1385,6 +1385,19 @@ function StarterDeck({ starter, count = 4 }) {
   );
 }
 
+// Hot-seat reveal: when a player takes the device, each card of their hand drops in from above
+// and flips from its back to its face (staggered), rather than just appearing face-up.
+function RevealCard({ children, delay }) {
+  const [shown, setShown] = React.useState(false);
+  React.useEffect(() => { const t = setTimeout(() => setShown(true), delay); return () => clearTimeout(t); }, []);
+  return (
+    <div style={{ width: "var(--cw)", flex: "0 0 auto", position: "relative", transformStyle: "preserve-3d", transition: "transform 380ms cubic-bezier(.2,.7,.3,1)", transform: shown ? "translateY(0) rotateY(0deg)" : "translateY(-30px) rotateY(-180deg)" }}>
+      <div style={{ backfaceVisibility: "hidden" }}>{children}</div>
+      <div style={{ position: "absolute", top: 0, left: 0, width: "var(--cw)", backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}><CardBack /></div>
+    </div>
+  );
+}
+
 // Deal animation timing — one tunable knob (snappy by default). DEAL_STAGGER is the gap
 // between successive cards leaving the deck; DEAL_MOVE is one card's deck→seat travel time.
 // Set DEAL_STAGGER to 0 to deal the whole hand at once.
@@ -1902,14 +1915,19 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
             {yourHand.map((card, i) => {
               const legal = isLegal(card);
               const chosen = pending ? pendIdxs.includes(i) : sel.includes(i);
-              return (
-                <Card key={cardId(card)} card={card} selLabel={discardPhase ? undefined : tr("play.sel.play")}
+              const el = (
+                <Card card={card} selLabel={discardPhase ? undefined : tr("play.sel.play")}
                   clickable={pending ? true : (myTurn && legal)}
                   selected={!tapSelect && chosen}
                   raised={tapSelect && chosen}
                   dim={!pending && !legal && turn === me}
                   onClick={() => tapCard(i)} />
               );
+              // Hot-seat: the hand flips up as the player takes the device. Single human: it's
+              // always face-up, so no flip.
+              return multiHuman
+                ? <RevealCard key={cardId(card)} delay={i * 55}>{el}</RevealCard>
+                : <React.Fragment key={cardId(card)}>{el}</React.Fragment>;
             })}
             {!discardPhase && yourHand.length === 0 && <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{tr("play.handEmpty")}</span>}
           </div>

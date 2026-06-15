@@ -1227,7 +1227,7 @@ export default function CribbagePlay() {
 
 
         {(phase === "cutdeal" || phase === "deal" || phase === "discard" || phase === "cribbing" || phase === "cut" || (phase === "show" && show) || (phase === "play" && peg) || phase === "over") && (
-          <PlayScreen state={state} dispatch={dispatch} me={phase === "discard" ? ds : (multiHuman && (phase === "cutdeal" || phase === "deal")) ? dealerIdx : playMe} needHandoff={needHandoff} cribGliding={cribGliding} />
+          <PlayScreen state={state} dispatch={dispatch} me={phase === "discard" ? ds : (phase === "play" && peg && needHandoff) ? peg.turn : (multiHuman && (phase === "cutdeal" || phase === "deal")) ? dealerIdx : playMe} needHandoff={needHandoff} cribGliding={cribGliding} />
         )}
       </main>
 
@@ -1597,11 +1597,15 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
   const animUntilRef = React.useRef(0);                  // performance.now() until the current card sweep has settled
   const [me, setMe] = React.useState(meTarget);
   const transitioning = me !== meTarget;
+  // Advance the view toward `meTarget` ONE SEAT AT A TIME (turn order, counter-clockwise): each
+  // step waits for the prior rotation to settle, so when the device passes the whole ring rotates
+  // seat-by-seat until the next player sits at the bottom. (Flip to (m-1+P)%P if it reads CW.)
   React.useEffect(() => {
     if (me === meTarget) return;
+    const step = () => setMe((m) => (m === meTarget ? m : (m + 1) % P));
     const wait = animUntilRef.current - (typeof performance !== "undefined" ? performance.now() : Date.now());
-    if (wait > 30) { const t = setTimeout(() => setMe(meTarget), wait); return () => clearTimeout(t); }
-    const id = requestAnimationFrame(() => setMe(meTarget));
+    if (wait > 30) { const t = setTimeout(step, wait); return () => clearTimeout(t); }
+    const id = requestAnimationFrame(step);
     return () => cancelAnimationFrame(id);
   }, [meTarget, me]);
   const ts = seatsAround(P, me);
@@ -2138,7 +2142,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
         // Manual cut: always a deliberate tap that turns the starter — you cut it yourself, or you
         // tap to turn it on a bot cutter's behalf. (Auto-cut skips straight past this phase.)
         bigBtn(seatIsHuman(cutter, settings) ? tr("play.btn.cutFor", { seat: seatName(dealerIdx) }) : tr("play.cutMsg", { seat: seatName(cutter) }), () => dispatch({ type: "CUT" }), "wood")
-      ) : cribbingPhase ? null : transitioning ? null : needHandoff ? <PassPanel to={discardPhase ? me : peg.turn} dispatch={dispatch} locked={rotating} /> : (
+      ) : cribbingPhase ? null : (transitioning || rotating) ? null : needHandoff ? <PassPanel to={discardPhase ? me : peg.turn} dispatch={dispatch} locked={rotating} /> : (
       <div>
         {pending && (discardPhase
           ? <div style={{ marginBottom: 10 }}><DiscardWarning pd={pending} cribIsOurs={cribOurs} dispatch={dispatch} onCancel={() => setSel([])} /></div>

@@ -1390,6 +1390,7 @@ function StarterDeck({ starter, count = 4 }) {
 // Set DEAL_STAGGER to 0 to deal the whole hand at once.
 const DEAL_STAGGER = 105;
 const DEAL_MOVE = 230;
+const GATHER_STAGGER = 30;                        // gap between cards sweeping back into the deck at hand end
 const DEAL_THROW_PAUSE = 150;                     // beat between the deal landing and the discards flying to the crib
 const THROW_STAGGER = 70;                         // gap between your two thrown cards flying to the crib
 const CRIB_PEEK = 0.25;                           // fraction of the crib cards' height that pokes out below the score banner
@@ -1524,7 +1525,47 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
     timers.push(setTimeout(() => setDealAnim(null), T_throw + DEAL_MOVE + 120));
     return () => timers.forEach(clearTimeout);
   }, [dealSig]);
-  const shownDeck = dealAnim ? 52 - dealtN : deckCount;       // thin the deck card-by-card during the deal
+  // End-of-hand gather: when a hand finishes (show → deal/over), the played cards and the crib
+  // sweep back into the centre deck, which refills toward full before the next hand. Source spots
+  // are captured each render during the show (the cards' last on-table positions).
+  const gatherSrcRef = React.useRef(null);
+  const showDeckRef = React.useRef(52);
+  const [gatherAnim, setGatherAnim] = React.useState(null);
+  const [gatherN, setGatherN] = React.useState(0);
+  React.useLayoutEffect(() => {
+    if (phase !== "show" || !peg) return;
+    const root = tableRef.current; if (!root) return;
+    const rootR = root.getBoundingClientRect();
+    const cw = Math.min(68, (Math.min(typeof window !== "undefined" ? window.innerWidth : 560, 560) - 62) / 6);
+    const src = [];
+    for (let i = 0; i < P; i++) {
+      const el = root.querySelector(`[data-slot="seat-${i}"]`); if (!el) continue;
+      const r = el.getBoundingClientRect(), m = peg.played[i].length;
+      for (let j = 0; j < m; j++) src.push({ x: (r.left - rootR.left) + r.width / 2 - cw * (1 + (m - 1) * BACK_VISIBLE) / 2 + j * BACK_VISIBLE * cw, y: r.top - rootR.top });
+    }
+    const cribEl = document.querySelector('[data-slot="cribhome"]');
+    if (cribEl) { const r = cribEl.getBoundingClientRect(), m = crib.length; for (let j = 0; j < m; j++) src.push({ x: (r.left - rootR.left) + j * BACK_VISIBLE * cw, y: r.top - rootR.top }); }
+    gatherSrcRef.current = src;
+    showDeckRef.current = deckCount;
+  });
+  const prevPhaseRef = React.useRef(phase);
+  React.useLayoutEffect(() => {
+    const prev = prevPhaseRef.current; prevPhaseRef.current = phase;
+    if (!(prev === "show" && (phase === "deal" || phase === "over"))) return;
+    const src = gatherSrcRef.current; gatherSrcRef.current = null;
+    if (!src || !src.length) return;
+    const root = tableRef.current; if (!root) return;
+    const rootR = root.getBoundingClientRect();
+    const topEl = root.querySelector('[data-decktop]') || root.querySelector('[data-slot="deck"]'); if (!topEl) return;
+    const t = topEl.getBoundingClientRect(), to = { x: t.left - rootR.left, y: t.top - rootR.top };
+    const sprites = src.map((f, k) => ({ key: k, from: f, legs: [{ x: to.x, y: to.y, delay: k * GATHER_STAGGER, dur: DEAL_MOVE }] }));
+    setGatherN(0);
+    setGatherAnim(sprites);
+    const timers = sprites.map((s) => setTimeout(() => setGatherN((v) => v + 1), s.legs[0].delay + DEAL_MOVE));   // deck grows as each card lands
+    timers.push(setTimeout(() => setGatherAnim(null), (sprites.length - 1) * GATHER_STAGGER + DEAL_MOVE + 120));
+    return () => timers.forEach(clearTimeout);
+  }, [phase]);
+  const shownDeck = dealAnim ? 52 - dealtN : gatherAnim ? Math.min(52, showDeckRef.current + gatherN) : deckCount;
   const cribSoFar = seats.reduce((a, s) => a + (s.discard ? s.discard.length : 0), 0);   // cards thrown to the crib so far
 
   // Your throw → crib: capture the selected cards' live grid positions at commit time (before
@@ -1674,6 +1715,7 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
       {dealAnim && dealAnim.map((s) => <DealFly key={s.key} from={s.from} legs={s.legs} />)}
       {throwAnim && throwAnim.sprites.map((s) => <DealFly key={"t" + s.key} from={s.from} legs={s.legs} />)}
       {playAnim && <DealFly key={"p" + cardId(playAnim.card)} from={playAnim.from} legs={[{ x: playAnim.to.x, y: playAnim.to.y, delay: 0, dur: DEAL_MOVE }]} card={playAnim.card} />}
+      {gatherAnim && gatherAnim.map((s) => <DealFly key={"g" + s.key} from={s.from} legs={s.legs} />)}
       {/* Fixed grids: every seat owns an equal column whatever it's holding, so the labels
           (and their hands) always center on the same spot in every phase. */}
       {ts.top.length > 0 && (

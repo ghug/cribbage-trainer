@@ -1854,6 +1854,7 @@ function StarterDeck({ starter, count = 4 }) {
 }
 const DEAL_STAGGER = 105;
 const DEAL_MOVE = 230;
+const GATHER_STAGGER = 30;
 const DEAL_THROW_PAUSE = 150;
 const THROW_STAGGER = 70;
 const CRIB_PEEK = 0.25;
@@ -1981,7 +1982,62 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
         timers.push(setTimeout(() => setDealAnim(null), T_throw + DEAL_MOVE + 120));
         return () => timers.forEach(clearTimeout);
     }, [dealSig]);
-    const shownDeck = dealAnim ? 52 - dealtN : deckCount;
+    const gatherSrcRef = React.useRef(null);
+    const showDeckRef = React.useRef(52);
+    const [gatherAnim, setGatherAnim] = React.useState(null);
+    const [gatherN, setGatherN] = React.useState(0);
+    React.useLayoutEffect(() => {
+        if (phase !== "show" || !peg)
+            return;
+        const root = tableRef.current;
+        if (!root)
+            return;
+        const rootR = root.getBoundingClientRect();
+        const cw = Math.min(68, (Math.min(typeof window !== "undefined" ? window.innerWidth : 560, 560) - 62) / 6);
+        const src = [];
+        for (let i = 0; i < P; i++) {
+            const el = root.querySelector(`[data-slot="seat-${i}"]`);
+            if (!el)
+                continue;
+            const r = el.getBoundingClientRect(), m = peg.played[i].length;
+            for (let j = 0; j < m; j++)
+                src.push({ x: (r.left - rootR.left) + r.width / 2 - cw * (1 + (m - 1) * BACK_VISIBLE) / 2 + j * BACK_VISIBLE * cw, y: r.top - rootR.top });
+        }
+        const cribEl = document.querySelector('[data-slot="cribhome"]');
+        if (cribEl) {
+            const r = cribEl.getBoundingClientRect(), m = crib.length;
+            for (let j = 0; j < m; j++)
+                src.push({ x: (r.left - rootR.left) + j * BACK_VISIBLE * cw, y: r.top - rootR.top });
+        }
+        gatherSrcRef.current = src;
+        showDeckRef.current = deckCount;
+    });
+    const prevPhaseRef = React.useRef(phase);
+    React.useLayoutEffect(() => {
+        const prev = prevPhaseRef.current;
+        prevPhaseRef.current = phase;
+        if (!(prev === "show" && (phase === "deal" || phase === "over")))
+            return;
+        const src = gatherSrcRef.current;
+        gatherSrcRef.current = null;
+        if (!src || !src.length)
+            return;
+        const root = tableRef.current;
+        if (!root)
+            return;
+        const rootR = root.getBoundingClientRect();
+        const topEl = root.querySelector('[data-decktop]') || root.querySelector('[data-slot="deck"]');
+        if (!topEl)
+            return;
+        const t = topEl.getBoundingClientRect(), to = { x: t.left - rootR.left, y: t.top - rootR.top };
+        const sprites = src.map((f, k) => ({ key: k, from: f, legs: [{ x: to.x, y: to.y, delay: k * GATHER_STAGGER, dur: DEAL_MOVE }] }));
+        setGatherN(0);
+        setGatherAnim(sprites);
+        const timers = sprites.map((s) => setTimeout(() => setGatherN((v) => v + 1), s.legs[0].delay + DEAL_MOVE));
+        timers.push(setTimeout(() => setGatherAnim(null), (sprites.length - 1) * GATHER_STAGGER + DEAL_MOVE + 120));
+        return () => timers.forEach(clearTimeout);
+    }, [phase]);
+    const shownDeck = dealAnim ? 52 - dealtN : gatherAnim ? Math.min(52, showDeckRef.current + gatherN) : deckCount;
     const cribSoFar = seats.reduce((a, s) => a + (s.discard ? s.discard.length : 0), 0);
     const throwFromRef = React.useRef(null);
     const [throwAnim, setThrowAnim] = React.useState(null);
@@ -2139,6 +2195,7 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
         dealAnim && dealAnim.map((s) => React.createElement(DealFly, { key: s.key, from: s.from, legs: s.legs })),
         throwAnim && throwAnim.sprites.map((s) => React.createElement(DealFly, { key: "t" + s.key, from: s.from, legs: s.legs })),
         playAnim && React.createElement(DealFly, { key: "p" + cardId(playAnim.card), from: playAnim.from, legs: [{ x: playAnim.to.x, y: playAnim.to.y, delay: 0, dur: DEAL_MOVE }], card: playAnim.card }),
+        gatherAnim && gatherAnim.map((s) => React.createElement(DealFly, { key: "g" + s.key, from: s.from, legs: s.legs })),
         ts.top.length > 0 && (React.createElement("div", { style: { display: "grid", gridTemplateColumns: `repeat(${ts.top.length}, 1fr)`, gap: 8 } }, ts.top.map(cell))),
         React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 8, padding: "0 6px" } },
             React.createElement("div", { style: { minWidth: 0 } }, ts.left != null ? cell(ts.left) : null),
@@ -2412,7 +2469,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.32"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.33"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

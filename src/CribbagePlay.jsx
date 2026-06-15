@@ -216,13 +216,13 @@ const setSeatNames = (P, youSeat) => { SEAT_NAMES = seatNamesFor(P, youSeat); };
 const setSeatCustom = (arr) => { SEAT_CUSTOM = Array.isArray(arr) ? arr : []; };
 const customName = (i) => { const c = SEAT_CUSTOM[i]; return (c != null && c !== "") ? c : null; };
 const SEAT_NAME_KEY = { You: "seat.you", South: "seat.south", North: "seat.north", West: "seat.west", East: "seat.east", Northwest: "seat.northwest", Northeast: "seat.northeast", Southwest: "seat.southwest", Southeast: "seat.southeast" };
-const seatName = (i) => customName(i) || tr(SEAT_NAME_KEY[SEAT_NAMES[i]] || SEAT_NAMES[i]);
+const seatName = (i) => { const c = customName(i); return c ? (isYou(i) ? tr("seat.you") + " - " + c : c) : tr(SEAT_NAME_KEY[SEAT_NAMES[i]] || SEAT_NAMES[i]); };
 const isYou = (i) => SEAT_NAMES[i] === "You";
 // Short compass labels for the tight grid spots (score columns, cut-for-deal row, the
 // pegging seat cells) so 5-/6-handed tables don't overflow a narrow phone. Prose (the
 // message line, banners, history) keeps the full names. Translated like seatName.
 const SEAT_SHORT_KEY = { You: "seat.youShort", North: "seat.n", South: "seat.s", West: "seat.w", East: "seat.e", Northwest: "seat.nw", Northeast: "seat.ne", Southwest: "seat.sw", Southeast: "seat.se" };
-const seatShort = (i) => customName(i) || tr(SEAT_SHORT_KEY[SEAT_NAMES[i]] || SEAT_NAMES[i]);
+const seatShort = (i) => { const c = customName(i); return c ? (isYou(i) ? tr("seat.youShort") + " - " + c : c) : tr(SEAT_SHORT_KEY[SEAT_NAMES[i]] || SEAT_NAMES[i]); };
 // "you" is whichever seat setSeatNames marked (the lone human), detected via the name —
 // not a hard-coded seat 0, which is a bot in an all-bot or human-elsewhere game.
 const sameCard = (a, b) => a.r === b.r && a.s === b.s;

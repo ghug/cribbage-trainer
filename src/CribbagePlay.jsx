@@ -1502,6 +1502,14 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
   const throwFromRef = React.useRef(null);
   const [throwAnim, setThrowAnim] = React.useState(null);
   const prevCrib = React.useRef(cribSoFar);
+  // Remember where the banner crib pile last sat, so a throw that completes the crib (which also
+  // flips the phase and unmounts the banner in the same step) can still fly there.
+  const lastCribRef = React.useRef(null);
+  React.useLayoutEffect(() => {
+    const root = tableRef.current; if (!root) return;
+    const el = root.querySelector('[data-slot="crib"]');
+    if (el) { const r = el.getBoundingClientRect(); if (r.width) { const rootR = root.getBoundingClientRect(); lastCribRef.current = { left: r.left - rootR.left, top: r.top - rootR.top, width: r.width }; } }
+  });
   const captureThrow = (idxs) => {
     const root = tableRef.current, handEl = root && root.querySelector('[data-slot="hand"]');
     if (!handEl) { throwFromRef.current = null; return; }
@@ -1515,9 +1523,10 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
     if (dealAnim || grew <= 0 || !froms || !froms.length) { if (grew > 0) throwFromRef.current = null; return; }
     throwFromRef.current = null;
     const root = tableRef.current; if (!root) return;
-    const cribEl = root.querySelector('[data-slot="crib"]'); if (!cribEl) return;
-    const rootR = root.getBoundingClientRect(), r = cribEl.getBoundingClientRect();
-    const cb = { left: r.left - rootR.left, top: r.top - rootR.top, width: r.width };
+    const rootR = root.getBoundingClientRect();
+    const cribEl = root.querySelector('[data-slot="crib"]');
+    const cb = cribEl ? (() => { const r = cribEl.getBoundingClientRect(); return { left: r.left - rootR.left, top: r.top - rootR.top, width: r.width }; })() : lastCribRef.current;
+    if (!cb) return;
     const cw = Math.min(68, (Math.min(typeof window !== "undefined" ? window.innerWidth : 560, 560) - 62) / 6);
     const n = cribSoFar, use = froms.slice(0, grew);
     const sprites = use.map((f, q) => {

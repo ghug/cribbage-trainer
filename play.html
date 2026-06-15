@@ -1965,6 +1965,20 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
     const throwFromRef = React.useRef(null);
     const [throwAnim, setThrowAnim] = React.useState(null);
     const prevCrib = React.useRef(cribSoFar);
+    const lastCribRef = React.useRef(null);
+    React.useLayoutEffect(() => {
+        const root = tableRef.current;
+        if (!root)
+            return;
+        const el = root.querySelector('[data-slot="crib"]');
+        if (el) {
+            const r = el.getBoundingClientRect();
+            if (r.width) {
+                const rootR = root.getBoundingClientRect();
+                lastCribRef.current = { left: r.left - rootR.left, top: r.top - rootR.top, width: r.width };
+            }
+        }
+    });
     const captureThrow = (idxs) => {
         const root = tableRef.current, handEl = root && root.querySelector('[data-slot="hand"]');
         if (!handEl) {
@@ -1988,11 +2002,11 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
         const root = tableRef.current;
         if (!root)
             return;
+        const rootR = root.getBoundingClientRect();
         const cribEl = root.querySelector('[data-slot="crib"]');
-        if (!cribEl)
+        const cb = cribEl ? (() => { const r = cribEl.getBoundingClientRect(); return { left: r.left - rootR.left, top: r.top - rootR.top, width: r.width }; })() : lastCribRef.current;
+        if (!cb)
             return;
-        const rootR = root.getBoundingClientRect(), r = cribEl.getBoundingClientRect();
-        const cb = { left: r.left - rootR.left, top: r.top - rootR.top, width: r.width };
         const cw = Math.min(68, (Math.min(typeof window !== "undefined" ? window.innerWidth : 560, 560) - 62) / 6);
         const n = cribSoFar, use = froms.slice(0, grew);
         const sprites = use.map((f, q) => {
@@ -2355,7 +2369,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.25"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.26"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

@@ -321,8 +321,8 @@ mixedGame(4, ["bot", "bot", "bot", "bot"], 5);       // all bots — a spectated
 /* ---- Auto-cut (default on): the cut phase is skipped — after the last discard the state
    goes straight to play with the starter already turned, no visible "cut" phase. ---- */
 function autoCutSkips(P) {
-  let state = reduce(initGame(), { type: "SET_SETTING", key: "players", value: P });
-  check(state.settings.autoCut === true, `autoCut P=${P}: default is on`);
+  let state = reduce(reduce(initGame(), { type: "SET_SETTING", key: "autoCut", value: true }), { type: "SET_SETTING", key: "players", value: P });
+  check(state.settings.autoCut === true, `autoCut P=${P}: enabled`);
   state = reduce(state, { type: "DEAL" });
   // human (seat 0) throws unless it's a non-thrower seat; either way we should land on play
   if (state.phase === "discard") {

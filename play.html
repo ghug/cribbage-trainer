@@ -2079,6 +2079,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
                     : turn === i;
     const phaseTrackRef = React.useRef(phase);
     const dealJustHappened = phase === "discard" && (phaseTrackRef.current === "deal" || phaseTrackRef.current === "cutdeal");
+    const handEndJustHappened = phase === "deal" && phaseTrackRef.current === "show";
     useEffect(() => { phaseTrackRef.current = phase; });
     const botThrowAtRef = React.useRef(0);
     const nowMs = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
@@ -2196,8 +2197,9 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
             const deckOut = { x: deckTop.x - offX, y: deckTop.y - offY };
             const oldCards = [...prevKnown];
             const dealList = Object.keys(targets);
-            const GATHER_DUR = oldCards.length ? MOVE_DUR + 80 : 0;
-            const dealStart = GATHER_DUR + SWAP_DUR;
+            const swap = oldCards.length > 0;
+            const GATHER_DUR = swap ? MOVE_DUR + 80 : 0;
+            const dealStart = swap ? GATHER_DUR + SWAP_DUR : 0;
             const dealSpan = (dealList.length - 1) * CARD_STAGGER + MOVE_DUR + 80;
             const ordered = dealList.slice().sort((a, b) => dealRank(a) - dealRank(b));
             const dealDelay = {};
@@ -2218,14 +2220,15 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
             dealTimersRef.current.forEach(clearTimeout);
             dealTimersRef.current = [];
             dealTimersRef.current.push(setTimeout(() => setBotTick((x) => x + 1), dealStart + dealSpan + 120 + 1000));
-            dealTimersRef.current.push(setTimeout(() => {
-                setDeckSwap({ offX, offY });
-                const r = { ...homesRef.current };
-                for (const id of oldCards)
-                    r[id] = { x: deckOut.x, y: deckOut.y, up: false, z: 62 };
-                homesRef.current = r;
-                setHomes(r);
-            }, GATHER_DUR));
+            if (swap)
+                dealTimersRef.current.push(setTimeout(() => {
+                    setDeckSwap({ offX, offY });
+                    const r = { ...homesRef.current };
+                    for (const id of oldCards)
+                        r[id] = { x: deckOut.x, y: deckOut.y, up: false, z: 62 };
+                    homesRef.current = r;
+                    setHomes(r);
+                }, GATHER_DUR));
             dealTimersRef.current.push(setTimeout(() => {
                 const r = { ...homesRef.current };
                 oldCards.forEach((id) => { delete r[id]; delete delayRef.current[id]; });
@@ -2252,6 +2255,44 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
                     }));
                 }));
             }, dealStart));
+            return;
+        }
+        if (handEndJustHappened && goneCards.length > 0) {
+            const t0 = (typeof performance !== "undefined" ? performance.now() : Date.now());
+            const offX = Math.max(260, rootR.width), offY = 240;
+            const deckOut = { x: deckTop.x - offX, y: deckTop.y - offY };
+            const oldCards = [...prevKnown];
+            const GATHER_DUR = MOVE_DUR + 80;
+            for (const id in delayRef.current)
+                delayRef.current[id] = 0;
+            const r0 = {};
+            for (const id of oldCards)
+                r0[id] = { x: deckTop.x, y: deckTop.y, up: false, z: 60 };
+            knownRef.current = new Set();
+            prevPlaceRef.current = {};
+            homesRef.current = r0;
+            setHomes(r0);
+            sigRef.current = "#";
+            setDeckShown(52);
+            animUntilRef.current = t0 + GATHER_DUR + SWAP_DUR + 120;
+            dealTimersRef.current.forEach(clearTimeout);
+            dealTimersRef.current = [];
+            dealTimersRef.current.push(setTimeout(() => {
+                setDeckSwap({ offX, offY });
+                const r = { ...homesRef.current };
+                for (const id of oldCards)
+                    r[id] = { x: deckOut.x, y: deckOut.y, up: false, z: 62 };
+                homesRef.current = r;
+                setHomes(r);
+            }, GATHER_DUR));
+            dealTimersRef.current.push(setTimeout(() => {
+                const r = { ...homesRef.current };
+                oldCards.forEach((id) => { delete r[id]; delete delayRef.current[id]; });
+                homesRef.current = r;
+                setHomes(r);
+                setDeckSwap(null);
+                setDeckShown(deckCount);
+            }, GATHER_DUR + SWAP_DUR));
             return;
         }
         for (const id in targets)
@@ -2637,7 +2678,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.47"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.48"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

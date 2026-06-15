@@ -664,6 +664,9 @@ function lockedFour(four) {
     return f + p + ru + fl;
 }
 const cardId = (c) => (c.r - 1) * 4 + c.s;
+const CARD_BY_ID = (() => { const a = []; for (let r = 1; r <= 13; r++)
+    for (let s = 0; s < 4; s++)
+        a[(r - 1) * 4 + s] = { r, s }; return a; })();
 function deckExcluding(cards) {
     const used = new Set(cards.map(cardId));
     const d = [];
@@ -1807,6 +1810,38 @@ function PileFan({ cards, hideFrom }) {
         React.createElement("div", { "data-slot": "pile" },
             React.createElement(Fan, { items: cardItems(cards, vis), clip: PILE_VISIBLE, hideFrom: hideFrom }))));
 }
+function CardFace({ card, edge }) {
+    return (React.createElement("div", { style: {
+            width: "var(--cw)", aspectRatio: "68 / 96", borderRadius: 8, background: T.ivory, position: "relative",
+            border: edge ? `2px solid ${edge}` : "1px solid rgba(0,0,0,0.25)",
+            boxShadow: edge ? "0 8px 18px rgba(0,0,0,0.45)" : "0 4px 10px rgba(0,0,0,0.35)",
+        } },
+        React.createElement("svg", { viewBox: "0 0 68 96", preserveAspectRatio: "xMidYMid meet", "aria-hidden": "true", style: { position: "absolute", top: 0, left: 0, width: "100%", height: "100%", display: "block" } },
+            React.createElement("text", { x: "13", y: "15", textAnchor: "middle", dominantBaseline: "central", fontFamily: serif, fontWeight: "700", fontSize: "17", fill: isRed(card.s) ? T.suitRed : T.ink }, rankLabel(card.r)),
+            React.createElement("text", { x: "13", y: "30", textAnchor: "middle", dominantBaseline: "central", fontFamily: serif, fontWeight: "700", fontSize: "13", fill: isRed(card.s) ? T.suitRed : T.ink }, SUIT[card.s]),
+            React.createElement("text", { x: "34", y: "49", textAnchor: "middle", dominantBaseline: "central", fontFamily: serif, fontSize: "34", fill: isRed(card.s) ? T.suitRed : T.ink }, SUIT[card.s]))));
+}
+function CardSprite({ card, home, dur, delay, clickable, selected, raised, dim, selLabel, onClick, hidden }) {
+    const lift = selected || raised ? 8 : 0;
+    const edge = selected || raised ? T.selBlue : null;
+    return (React.createElement("div", { onClick: clickable ? onClick : undefined, style: {
+            position: "absolute", left: 0, top: 0, width: "var(--cw)", height: "var(--ch)",
+            transformStyle: "preserve-3d", zIndex: home.z,
+            transform: `translate(${home.x}px, ${home.y - lift}px) rotateY(${home.up ? 0 : 180}deg)`,
+            transition: `transform ${dur}ms cubic-bezier(.2,.7,.3,1) ${delay || 0}ms`,
+            cursor: clickable ? "pointer" : "default",
+            pointerEvents: clickable ? "auto" : "none",
+            opacity: hidden ? 0 : (dim ? 0.45 : 1),
+            visibility: hidden ? "hidden" : "visible",
+        } },
+        (selected || raised) && (React.createElement("span", { style: { position: "absolute", bottom: "calc(100% + 2px)", left: 0, right: 0, textAlign: "center", backfaceVisibility: "hidden",
+                fontFamily: mono, fontSize: 9.5, letterSpacing: 0.4, fontWeight: 700, color: T.ivory, pointerEvents: "none" } },
+            React.createElement("span", { style: { background: T.selBlue, padding: "2px 6px", borderRadius: 4, whiteSpace: "nowrap" } }, selLabel || tr("play.sel.throw")))),
+        React.createElement("div", { style: { position: "absolute", inset: 0, backfaceVisibility: "hidden" } },
+            React.createElement(CardFace, { card: card, edge: edge })),
+        React.createElement("div", { style: { position: "absolute", inset: 0, backfaceVisibility: "hidden", transform: "rotateY(180deg)" } },
+            React.createElement(CardBack, null))));
+}
 function Seat({ i, dealerIdx, active, dim, items, settings, me, hideFrom }) {
     return (React.createElement("div", { style: { textAlign: "center", minWidth: 0, opacity: dim ? 0.7 : 1 } },
         React.createElement("div", { style: { height: 18, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 4 } },
@@ -1935,6 +1970,8 @@ function DealFly({ from, legs, card }) {
             zIndex: 6, pointerEvents: "none",
         } }, card ? React.createElement(Card, { card: card }) : React.createElement(CardBack, null)));
 }
+const MOVE_DUR = 460;
+const CARD_STAGGER = 210;
 function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
     const { peg, starter, dealerIdx, crib, seats, settings, phase, dealDraw, winner } = state;
     const discardPhase = phase === "discard";
@@ -1952,213 +1989,7 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
     const totalDealt = pl.sizes.reduce((a, b) => a + b, 0);
     const deckCount = preDeal ? 52 : 52 - totalDealt - (phase === "discard" ? 0 : 1 + (pl.deckCard ? 1 : 0));
     const tableRef = React.useRef(null);
-    const [dealAnim, setDealAnim] = React.useState(null);
-    const [dealtN, setDealtN] = React.useState(0);
-    const dealSig = preDeal ? "" : seats.map((s) => (s.dealt || []).map(cardId).join(".")).join("|");
-    const prevSig = React.useRef(null);
-    React.useLayoutEffect(() => {
-        const old = prevSig.current;
-        prevSig.current = dealSig;
-        if (old === null || dealSig === old || !(dealSig && old === ""))
-            return;
-        const root = tableRef.current;
-        if (!root)
-            return;
-        const rootR = root.getBoundingClientRect();
-        const rel = (el) => { const r = el.getBoundingClientRect(); return { left: r.left - rootR.left, top: r.top - rootR.top, width: r.width }; };
-        const deckEl = root.querySelector('[data-slot="deck"]');
-        if (!deckEl)
-            return;
-        const db = rel(deckEl);
-        const cw = Math.min(68, (Math.min(typeof window !== "undefined" ? window.innerWidth : 560, 560) - 62) / 6);
-        const topEl = root.querySelector('[data-decktop]');
-        const from = topEl ? (() => { const t = rel(topEl); return { x: t.left, y: t.top }; })() : { x: db.left + db.width / 2 - cw / 2, y: db.top };
-        const handToGrid = seatIsHuman(me, settings) && !needHandoff && phase === "discard";
-        const slot = { deck: db };
-        for (let i = 0; i < P; i++) {
-            const e = root.querySelector(`[data-slot="seat-${i}"]`);
-            if (e)
-                slot["seat" + i] = rel(e);
-        }
-        const he = root.querySelector('[data-slot="hand"]');
-        if (he)
-            slot.hand = rel(he);
-        const ce = root.querySelector('[data-slot="crib"]');
-        if (ce)
-            slot.crib = rel(ce);
-        const fanX = (b, n, j, gap) => gap
-            ? b.left + b.width / 2 - (n * cw + (n - 1) * gap) / 2 + j * (cw + gap)
-            : b.left + b.width / 2 - cw * (1 + (n - 1) * BACK_VISIBLE) / 2 + j * BACK_VISIBLE * cw;
-        const list = [];
-        const maxSize = Math.max(...pl.sizes);
-        for (let c = 0; c < maxSize; c++)
-            for (let i = 0; i < P; i++)
-                if (c < pl.sizes[i])
-                    list.push({ i, j: c });
-        const T_throw = (list.length - 1) * DEAL_STAGGER + DEAL_MOVE + DEAL_THROW_PAUSE;
-        const cribN = seats.reduce((a, s, i) => a + ((i === me && handToGrid) ? 0 : (s.discard ? s.discard.length : 0)), 0);
-        const sprites = [];
-        let cribM = 0;
-        list.forEach((cd, k) => {
-            const { i, j } = cd, n = pl.sizes[i];
-            const grid = i === me && handToGrid;
-            const sb = grid ? slot.hand : slot["seat" + i];
-            const dealLeg = { x: sb ? fanX(sb, n, j, grid ? 6 : 0) : from.x, y: sb ? sb.top : from.y, delay: k * DEAL_STAGGER, dur: DEAL_MOVE };
-            const legs = [dealLeg];
-            const discardN = grid ? 0 : (seats[i].discard ? seats[i].discard.length : 0);
-            const keptN = n - discardN;
-            if (discardN > 0 && sb) {
-                if (j < keptN)
-                    legs.push({ x: fanX(sb, keptN, j, 0), y: sb.top, delay: T_throw, dur: DEAL_MOVE });
-                else if (slot.crib)
-                    legs.push({ x: fanX(slot.crib, cribN, cribM++, 0), y: slot.crib.top, delay: T_throw, dur: DEAL_MOVE });
-            }
-            sprites.push({ key: k, from, legs });
-        });
-        if (!sprites.length)
-            return;
-        setDealtN(0);
-        setDealAnim(sprites);
-        const timers = sprites.map((s, idx) => setTimeout(() => setDealtN(idx + 1), s.legs[0].delay));
-        timers.push(setTimeout(() => setDealAnim(null), T_throw + DEAL_MOVE + 120));
-        return () => timers.forEach(clearTimeout);
-    }, [dealSig]);
-    const gatherSrcRef = React.useRef(null);
-    const showDeckRef = React.useRef(52);
-    const [gatherAnim, setGatherAnim] = React.useState(null);
-    const [gatherN, setGatherN] = React.useState(0);
-    React.useLayoutEffect(() => {
-        if (phase !== "show" || !peg)
-            return;
-        const root = tableRef.current;
-        if (!root)
-            return;
-        const rootR = root.getBoundingClientRect();
-        const cw = Math.min(68, (Math.min(typeof window !== "undefined" ? window.innerWidth : 560, 560) - 62) / 6);
-        const src = [];
-        for (let i = 0; i < P; i++) {
-            const el = root.querySelector(`[data-slot="seat-${i}"]`);
-            if (!el)
-                continue;
-            const r = el.getBoundingClientRect(), m = peg.played[i].length;
-            for (let j = 0; j < m; j++)
-                src.push({ x: (r.left - rootR.left) + r.width / 2 - cw * (1 + (m - 1) * BACK_VISIBLE) / 2 + j * BACK_VISIBLE * cw, y: r.top - rootR.top });
-        }
-        const cribEl = document.querySelector('[data-slot="cribhome"]');
-        if (cribEl) {
-            const r = cribEl.getBoundingClientRect(), m = crib.length;
-            for (let j = 0; j < m; j++)
-                src.push({ x: (r.left - rootR.left) + j * BACK_VISIBLE * cw, y: r.top - rootR.top });
-        }
-        gatherSrcRef.current = src;
-        showDeckRef.current = deckCount;
-    });
-    const prevPhaseRef = React.useRef(phase);
-    React.useLayoutEffect(() => {
-        const prev = prevPhaseRef.current;
-        prevPhaseRef.current = phase;
-        if (!(prev === "show" && (phase === "deal" || phase === "over")))
-            return;
-        const src = gatherSrcRef.current;
-        gatherSrcRef.current = null;
-        if (!src || !src.length)
-            return;
-        const root = tableRef.current;
-        if (!root)
-            return;
-        const rootR = root.getBoundingClientRect();
-        const topEl = root.querySelector('[data-decktop]') || root.querySelector('[data-slot="deck"]');
-        if (!topEl)
-            return;
-        const t = topEl.getBoundingClientRect(), to = { x: t.left - rootR.left, y: t.top - rootR.top };
-        const sprites = src.map((f, k) => ({ key: k, from: f, legs: [{ x: to.x, y: to.y, delay: k * GATHER_STAGGER, dur: DEAL_MOVE }] }));
-        setGatherN(0);
-        setGatherAnim(sprites);
-        const timers = sprites.map((s) => setTimeout(() => setGatherN((v) => v + 1), s.legs[0].delay + DEAL_MOVE));
-        timers.push(setTimeout(() => setGatherAnim(null), (sprites.length - 1) * GATHER_STAGGER + DEAL_MOVE + 120));
-        return () => timers.forEach(clearTimeout);
-    }, [phase]);
-    const shownDeck = dealAnim ? 52 - dealtN : gatherAnim ? Math.min(52, showDeckRef.current + gatherN) : deckCount;
-    const cribSoFar = seats.reduce((a, s) => a + (s.discard ? s.discard.length : 0), 0);
-    const throwFromRef = React.useRef(null);
-    const [throwAnim, setThrowAnim] = React.useState(null);
-    const prevCrib = React.useRef(cribSoFar);
-    const captureThrow = (idxs) => {
-        const root = tableRef.current, handEl = root && root.querySelector('[data-slot="hand"]');
-        if (!handEl) {
-            throwFromRef.current = null;
-            return;
-        }
-        const rootR = root.getBoundingClientRect(), kids = handEl.children;
-        throwFromRef.current = idxs.map((ix) => { const el = kids[ix]; if (!el)
-            return null; const r = el.getBoundingClientRect(); return { x: r.left - rootR.left, y: r.top - rootR.top }; }).filter(Boolean);
-    };
-    React.useLayoutEffect(() => {
-        const grew = cribSoFar - prevCrib.current;
-        prevCrib.current = cribSoFar;
-        const froms = throwFromRef.current;
-        if (dealAnim || grew <= 0 || !froms || !froms.length) {
-            if (grew > 0)
-                throwFromRef.current = null;
-            return;
-        }
-        throwFromRef.current = null;
-        const root = tableRef.current;
-        if (!root)
-            return;
-        const rootR = root.getBoundingClientRect();
-        const cribEl = root.querySelector('[data-slot="crib"]');
-        if (!cribEl)
-            return;
-        const r = cribEl.getBoundingClientRect();
-        const cb = { left: r.left - rootR.left, top: r.top - rootR.top, width: r.width };
-        const cw = Math.min(68, (Math.min(typeof window !== "undefined" ? window.innerWidth : 560, 560) - 62) / 6);
-        const n = cribSoFar, use = froms.slice(0, grew);
-        const sprites = use.map((f, q) => {
-            const m = n - grew + q, x = cb.left + cb.width / 2 - cw * (1 + (n - 1) * BACK_VISIBLE) / 2 + m * BACK_VISIBLE * cw;
-            return { key: q, from: f, legs: [{ x, y: cb.top, delay: q * THROW_STAGGER, dur: DEAL_MOVE }] };
-        });
-        if (!sprites.length)
-            return;
-        setThrowAnim({ sprites, hideN: grew });
-        const t = setTimeout(() => setThrowAnim(null), (use.length - 1) * THROW_STAGGER + DEAL_MOVE + 100);
-        return () => clearTimeout(t);
-    }, [cribSoFar]);
-    const [playAnim, setPlayAnim] = React.useState(null);
-    const prevPile = React.useRef(0);
-    const pileLen = peg ? peg.pileSuited.length : 0;
-    React.useLayoutEffect(() => {
-        const grew = pileLen - prevPile.current;
-        prevPile.current = pileLen;
-        const captured = throwFromRef.current;
-        if (!peg || grew !== 1) {
-            if (pileLen > 0)
-                throwFromRef.current = null;
-            return;
-        }
-        throwFromRef.current = null;
-        const card = peg.pileSuited[pileLen - 1], player = peg.lastPlayer;
-        const root = tableRef.current;
-        if (!root)
-            return;
-        const rootR = root.getBoundingClientRect();
-        const cw = Math.min(68, (Math.min(typeof window !== "undefined" ? window.innerWidth : 560, 560) - 62) / 6);
-        const seatEl = root.querySelector(`[data-slot="seat-${player}"]`);
-        if (!seatEl)
-            return;
-        const sr = seatEl.getBoundingClientRect();
-        const grid = player === me && seatIsHuman(me, settings) && !needHandoff;
-        let from;
-        if (player === me && captured && captured[0])
-            from = captured[0];
-        else
-            from = { x: sr.left - rootR.left + sr.width / 2 - cw / 2, y: sr.top - rootR.top };
-        const items = (grid ? 0 : peg.hands[player].length) + peg.played[player].length;
-        const to = { x: (sr.left - rootR.left) + sr.width / 2 - cw * (1 + (items - 1) * BACK_VISIBLE) / 2 + (items - 1) * BACK_VISIBLE * cw, y: sr.top - rootR.top };
-        setPlayAnim({ card, from, to, seat: player });
-        const t = setTimeout(() => setPlayAnim(null), DEAL_MOVE + 90);
-        return () => clearTimeout(t);
-    }, [pileLen]);
+    const CW = Math.min(68, (Math.min(typeof window !== "undefined" ? window.innerWidth : 560, 560) - 62) / 6);
     const info = showPhase ? computeShow(state) : null;
     const stepLabel = showPhase ? tr("play.show.step", { n: state.show.step + 1, m: state.show.order.length }) : "";
     const hands = peg ? peg.hands : seats.map((s) => (preDeal ? [] : discardPhase ? (s.kept || s.dealt) : (s.kept || [])));
@@ -2168,82 +1999,7 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
     const cutter = (dealerIdx + P - 1) % P;
     const multiHuman = nHumans(P, settings) > 1;
     const meHuman = seatIsHuman(me, settings);
-    const [revealAnim, setRevealAnim] = React.useState(null);
-    const handVisible = meHuman && !needHandoff && (discardPhase || (phase === "play" && !!peg));
-    const prevHandVis = React.useRef(false);
-    const handPosRef = React.useRef({});
-    const handActorRef = React.useRef(null);
-    const seatXf = (sr, rootR, cw, total, j) => (sr.left - rootR.left) + sr.width / 2 - cw * (1 + (total - 1) * BACK_VISIBLE) / 2 + j * BACK_VISIBLE * cw;
-    React.useLayoutEffect(() => {
-        const root = tableRef.current;
-        const cw = Math.min(68, (Math.min(typeof window !== "undefined" ? window.innerWidth : 560, 560) - 62) / 6);
-        const rootR = root && root.getBoundingClientRect();
-        if (root && handVisible) {
-            handActorRef.current = me;
-            const handEl = root.querySelector('[data-slot="hand"]');
-            if (handEl) {
-                const kids = handEl.children, map = {};
-                for (let i = 0; i < yourHand.length; i++) {
-                    const k = kids[i];
-                    if (k) {
-                        const r = k.getBoundingClientRect();
-                        map[cardId(yourHand[i])] = { x: r.left - rootR.left, y: r.top - rootR.top };
-                    }
-                }
-                handPosRef.current = map;
-            }
-        }
-        const was = prevHandVis.current;
-        prevHandVis.current = handVisible;
-        if (!multiHuman || !root || was === handVisible)
-            return;
-        const sprites = [];
-        if (!was && handVisible) {
-            if (!yourHand.length)
-                return;
-            const seatEl = root.querySelector(`[data-slot="seat-${me}"]`);
-            if (!seatEl)
-                return;
-            const sr = seatEl.getBoundingClientRect(), total = yourHand.length + (peg ? peg.played[me].length : 0);
-            const handEl = root.querySelector('[data-slot="hand"]');
-            if (!handEl)
-                return;
-            const kids = handEl.children;
-            for (let j = 0; j < yourHand.length; j++) {
-                const k = kids[j];
-                if (!k)
-                    continue;
-                const t2 = k.getBoundingClientRect();
-                sprites.push({ key: cardId(yourHand[j]), card: yourHand[j], from: { x: seatXf(sr, rootR, cw, total, j), y: sr.top - rootR.top }, to: { x: t2.left - rootR.left, y: t2.top - rootR.top }, delay: j * 110, r0: -180, r1: 0 });
-            }
-            if (sprites.length)
-                setRevealAnim({ dir: "up", sprites });
-        }
-        else {
-            const actor = handActorRef.current;
-            if (actor == null)
-                return;
-            const cards = hands[actor] || [];
-            if (!cards.length)
-                return;
-            const seatEl = root.querySelector(`[data-slot="seat-${actor}"]`);
-            if (!seatEl)
-                return;
-            const sr = seatEl.getBoundingClientRect(), total = cards.length + (peg ? peg.played[actor].length : 0);
-            for (let j = 0; j < cards.length; j++) {
-                const f = handPosRef.current[cardId(cards[j])];
-                if (!f)
-                    continue;
-                sprites.push({ key: cardId(cards[j]), card: cards[j], from: f, to: { x: seatXf(sr, rootR, cw, total, j), y: sr.top - rootR.top }, delay: j * 110, r0: 0, r1: 180 });
-            }
-            if (sprites.length)
-                setRevealAnim({ dir: "down", actor, sprites });
-        }
-        if (!sprites.length)
-            return;
-        const t = setTimeout(() => setRevealAnim(null), (sprites.length - 1) * 110 + DEAL_MOVE + 100);
-        return () => clearTimeout(t);
-    }, [handVisible]);
+    const cribSoFar = seats.reduce((a, s) => a + (s.discard ? s.discard.length : 0), 0);
     const [sel, setSel] = React.useState([]);
     const legalSet = peg ? new Set(yourHand.filter((c) => pval(c.r) + peg.count <= 31).map(cardId)) : null;
     const count = discardPhase ? pl.throws[me] : 1;
@@ -2259,12 +2015,9 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
     useEffect(() => { setClaim(0); }, [showPhase ? state.show.step : -1]);
     const muggins = showPhase && mugginsActive(settings) && seatIsHuman(info.owner, settings);
     const needClaim = muggins && !state.show.claimSubmitted;
-    const commit = (idxs) => {
-        captureThrow(idxs);
-        dispatch(discardPhase
-            ? { type: "SELECT_DISCARD", idxs: idxs.slice().sort((a, b) => a - b) }
-            : { type: "SELECT_PLAY", card: yourHand[idxs[0]] });
-    };
+    const commit = (idxs) => dispatch(discardPhase
+        ? { type: "SELECT_DISCARD", idxs: idxs.slice().sort((a, b) => a - b) }
+        : { type: "SELECT_PLAY", card: yourHand[idxs[0]] });
     const tapCard = (i) => {
         if (pending) {
             dispatch({ type: discardPhase ? "CANCEL_DISCARD" : "CANCEL_PLAY" });
@@ -2293,49 +2046,177 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
     const cribOurs = teamOf(dealerIdx, P, teams) === teamOf(me, P, teams);
     const isDealer = me === dealerIdx;
     const teammateDeals = cribOurs && !isDealer;
-    const seatEls = React.useRef({});
-    const seatPos = React.useRef({});
-    const seatBusy = React.useRef({});
-    const [rotating, setRotating] = React.useState(false);
-    const rotTimer = React.useRef(null);
-    const cell = (i) => {
-        let inner;
-        if (cutdealPhase) {
-            const draw = dealDraw ? dealDraw[i] : null;
-            inner = React.createElement(Seat, { i: i, dealerIdx: dealerIdx, active: i === dealerIdx, dim: i !== dealerIdx, items: draw ? cardItems([draw]) : backItems(1), settings: settings, me: me });
+    const activeSeat = (i) => overPhase ? teamOf(i, P, teams) === teamOf(winner, P, teams)
+        : showPhase ? i === info.owner
+            : discardPhase ? (i === me && myTurn)
+                : cutdealPhase ? i === dealerIdx
+                    : turn === i;
+    const place = {};
+    const seatCounts = {};
+    if (cutdealPhase) {
+        for (let i = 0; i < P; i++) {
+            const d = dealDraw ? dealDraw[i] : null;
+            if (d) {
+                place[cardId(d)] = { group: "seat-" + i, idx: 0, up: true };
+                seatCounts[i] = 1;
+            }
+            else
+                seatCounts[i] = 1;
+        }
+    }
+    else if (!dealPhase) {
+        for (let i = 0; i < P; i++) {
+            const unplayed = hands[i] || [], played = peg ? peg.played[i] : [];
+            const gridActive = i === me && meHuman && !needHandoff && (discardPhase || (phase === "play" && peg));
+            if (gridActive) {
+                played.forEach((c, j) => { place[cardId(c)] = { group: "seat-" + i, idx: j, up: true }; });
+                seatCounts[i] = played.length;
+                unplayed.forEach((c, j) => { place[cardId(c)] = { group: "hand", idx: j, up: true }; });
+            }
+            else {
+                unplayed.forEach((c, j) => { place[cardId(c)] = { group: "seat-" + i, idx: j, up: false }; });
+                played.forEach((c, j) => { place[cardId(c)] = { group: "seat-" + i, idx: unplayed.length + j, up: true }; });
+                seatCounts[i] = unplayed.length + played.length;
+            }
+        }
+        if (discardPhase || (cribbingPhase && !cribGliding)) {
+            let k = 0;
+            for (let i = 0; i < P; i++)
+                (seats[i].discard || []).forEach((c) => { place[cardId(c)] = { group: "crib", idx: k++, up: false }; });
+        }
+        if (starter && (phase === "play" || showPhase || overPhase))
+            place[cardId(starter)] = { group: "deck", idx: 0, up: true };
+    }
+    const handLen = (place && Object.values(place).filter((p) => p.group === "hand").length) || 0;
+    const [homes, setHomes] = React.useState({});
+    const homesRef = React.useRef({});
+    const knownRef = React.useRef(new Set());
+    const prevPlaceRef = React.useRef({});
+    const delayRef = React.useRef({});
+    const sigRef = React.useRef("");
+    const [deckShown, setDeckShown] = React.useState(deckCount);
+    const deckTimers = React.useRef([]);
+    const clearDeckTimers = () => { deckTimers.current.forEach(clearTimeout); deckTimers.current = []; };
+    React.useLayoutEffect(() => {
+        const root = tableRef.current;
+        if (!root)
+            return;
+        const rootR = root.getBoundingClientRect();
+        const fanX = (host, j) => { const kid = host.children[j]; if (!kid)
+            return null; const r = kid.getBoundingClientRect(); return { x: r.left - rootR.left, y: r.top - rootR.top }; };
+        const deckEl = root.querySelector("[data-decktop]");
+        const deckR = deckEl ? deckEl.getBoundingClientRect() : null;
+        const deckTop = deckR ? { x: deckR.left - rootR.left, y: deckR.top - rootR.top } : { x: 0, y: 0 };
+        const targets = {};
+        for (const id in place) {
+            const p = place[id];
+            let pos = null;
+            if (p.group === "deck")
+                pos = deckTop;
+            else {
+                const host = root.querySelector(`[data-slot="${p.group}"]`);
+                if (host)
+                    pos = fanX(host, p.idx);
+            }
+            if (!pos)
+                pos = deckTop;
+            targets[id] = { x: pos.x, y: pos.y, up: p.up, z: 10 + p.idx + (p.group === "hand" ? 30 : p.group === "deck" ? 60 : 0) };
+        }
+        const nowKnown = new Set(Object.keys(targets));
+        const prevKnown = knownRef.current;
+        const newCards = Object.keys(targets).filter((id) => !prevKnown.has(id));
+        const goneCards = [...prevKnown].filter((id) => !nowKnown.has(id));
+        const round = (h) => `${Math.round(h.x)},${Math.round(h.y)},${h.up ? 1 : 0},${h.z}`;
+        const sig = Object.keys(targets).sort().map((id) => id + ":" + round(targets[id])).join("|") + "#" + goneCards.sort().join(",");
+        if (sig === sigRef.current && !newCards.length && !goneCards.length)
+            return;
+        sigRef.current = sig;
+        const prevPlace = prevPlaceRef.current;
+        const gatherGone = goneCards.filter((id) => !(prevPlace[id] && prevPlace[id].group === "crib"));
+        const vanishGone = goneCards.filter((id) => prevPlace[id] && prevPlace[id].group === "crib");
+        const dealRank = (id) => { const p = place[id]; if (!p)
+            return 999; const seat = p.group === "hand" ? me : (p.group.indexOf("seat-") === 0 ? parseInt(p.group.slice(5), 10) : 99); return p.idx * 100 + (isNaN(seat) ? 99 : seat); };
+        if (newCards.length > 1) {
+            const ordered = newCards.slice().sort((a, b) => dealRank(a) - dealRank(b));
+            ordered.forEach((id, k) => { delayRef.current[id] = k * CARD_STAGGER; });
+        }
+        else
+            newCards.forEach((id) => { delayRef.current[id] = 0; });
+        if (gatherGone.length > 1)
+            gatherGone.forEach((id, k) => { delayRef.current[id] = k * CARD_STAGGER; });
+        const render = {};
+        for (const id in targets) {
+            if (newCards.includes(id))
+                render[id] = { x: deckTop.x, y: deckTop.y, up: false, z: 60 };
+            else
+                render[id] = targets[id];
+        }
+        for (const id of gatherGone)
+            render[id] = { x: deckTop.x, y: deckTop.y, up: false, z: 60 };
+        knownRef.current = nowKnown;
+        prevPlaceRef.current = { ...place };
+        homesRef.current = render;
+        setHomes(render);
+        clearDeckTimers();
+        if (newCards.length > 1) {
+            setDeckShown((v) => Math.max(deckCount, v));
+            newCards.forEach((id, k) => deckTimers.current.push(setTimeout(() => setDeckShown((v) => Math.max(deckCount, v - 1)), k * CARD_STAGGER + 40)));
+        }
+        else if (gatherGone.length > 1) {
+            gatherGone.forEach((id, k) => deckTimers.current.push(setTimeout(() => setDeckShown((v) => Math.min(52, v + 1)), k * CARD_STAGGER + MOVE_DUR)));
         }
         else {
-            const gridActive = i === me && meHuman && !needHandoff && (discardPhase || (phase === "play" && peg));
-            const remaining = (gridActive || (revealAnim && revealAnim.dir === "down" && i === revealAnim.actor)) ? 0 : hands[i].length;
-            const played = peg ? peg.played[i] : [];
-            const active = overPhase ? teamOf(i, P, teams) === teamOf(winner, P, teams)
-                : showPhase ? i === info.owner
-                    : discardPhase ? (i === me && myTurn)
-                        : turn === i;
-            const seatItems = dealAnim ? [] : [...backItems(remaining), ...cardItems(played)];
-            inner = React.createElement(Seat, { i: i, dealerIdx: dealerIdx, active: active, items: seatItems, hideFrom: playAnim && playAnim.seat === i ? seatItems.length - 1 : undefined, settings: settings, me: me });
+            setDeckShown(deckCount);
         }
-        return React.createElement("div", { key: i, ref: (el) => { seatEls.current[i] = el; }, style: { minWidth: 0 } }, inner);
-    };
+        if (newCards.length) {
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                homesRef.current = { ...homesRef.current, ...targets };
+                setHomes(homesRef.current);
+            }));
+        }
+        if (vanishGone.length) {
+            const next = { ...homesRef.current };
+            vanishGone.forEach((id) => { delete next[id]; delete delayRef.current[id]; });
+            homesRef.current = next;
+            setHomes(next);
+        }
+        if (gatherGone.length) {
+            const drop = gatherGone.slice();
+            setTimeout(() => {
+                const next = { ...homesRef.current };
+                drop.forEach((id) => delete next[id]);
+                homesRef.current = next;
+                setHomes(next);
+                drop.forEach((id) => { delete delayRef.current[id]; });
+            }, (gatherGone.length - 1) * CARD_STAGGER + MOVE_DUR + 80);
+        }
+        if (newCards.length > 1)
+            setTimeout(() => { newCards.forEach((id) => { delayRef.current[id] = 0; }); }, newCards.length * CARD_STAGGER + MOVE_DUR + 80);
+    });
+    const labelEls = React.useRef({});
+    const labelPos = React.useRef({});
+    const labelBusy = React.useRef({});
+    const [rotating, setRotating] = React.useState(false);
+    const rotTimer = React.useRef(null);
     React.useLayoutEffect(() => {
         let moved = false;
-        for (const i in seatEls.current) {
-            const el = seatEls.current[i];
-            if (!el || seatBusy.current[i])
+        for (const i in labelEls.current) {
+            const el = labelEls.current[i];
+            if (!el || labelBusy.current[i])
                 continue;
             const r = el.getBoundingClientRect();
-            const cur = { x: r.left, y: r.top }, old = seatPos.current[i];
-            seatPos.current[i] = cur;
+            const cur = { x: r.left, y: r.top }, old = labelPos.current[i];
+            labelPos.current[i] = cur;
             if (multiHuman && old && (Math.abs(old.x - cur.x) > 1 || Math.abs(old.y - cur.y) > 1)) {
-                seatBusy.current[i] = true;
+                labelBusy.current[i] = true;
                 moved = true;
                 el.style.transition = "none";
                 el.style.transform = `translate(${old.x - cur.x}px, ${old.y - cur.y}px)`;
                 const key = i, node = el;
                 requestAnimationFrame(() => requestAnimationFrame(() => {
-                    node.style.transition = `transform ${SEAT_ROTATE}ms cubic-bezier(.4,0,.2,1)`;
+                    node.style.transition = `transform ${MOVE_DUR}ms cubic-bezier(.4,0,.2,1)`;
                     node.style.transform = "none";
-                    setTimeout(() => { seatBusy.current[key] = false; }, SEAT_ROTATE + 40);
+                    setTimeout(() => { labelBusy.current[key] = false; }, MOVE_DUR + 40);
                 }));
             }
         }
@@ -2343,22 +2224,39 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
             setRotating(true);
             if (rotTimer.current)
                 clearTimeout(rotTimer.current);
-            rotTimer.current = setTimeout(() => setRotating(false), SEAT_ROTATE + 80);
+            rotTimer.current = setTimeout(() => setRotating(false), MOVE_DUR + 80);
         }
     });
+    const cell = (i) => {
+        const n = seatCounts[i] || 0;
+        return (React.createElement("div", { key: i, style: { textAlign: "center", minWidth: 0, opacity: activeSeat(i) || i === me ? 1 : 0.7 } },
+            React.createElement("div", { ref: (el) => { labelEls.current[i] = el; }, style: { height: 18, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 4 } },
+                React.createElement(SeatLabel, { i: i, dealerIdx: dealerIdx, active: activeSeat(i), settings: settings, me: me })),
+            React.createElement("div", { "data-slot": "seat-" + i, style: { display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)", visibility: "hidden" } }, Array.from({ length: Math.max(0, n) }).map((_, k) => (React.createElement("div", { key: k, style: { width: "var(--cw)", aspectRatio: "68 / 96", flex: "0 0 auto", marginLeft: k === 0 ? 0 : `calc(var(--cw) * ${-(1 - BACK_VISIBLE)})` } }))))));
+    };
+    const sprites = Object.keys(homes).map((id) => {
+        const c = CARD_BY_ID[id];
+        if (!c)
+            return null;
+        const h = homes[id];
+        const p = place[id];
+        const inHand = p && p.group === "hand";
+        const handIdx = inHand ? p.idx : -1;
+        const legal = inHand ? isLegal(yourHand[handIdx]) : false;
+        const chosen = inHand && (pending ? (pendIdxs && pendIdxs.includes(handIdx)) : sel.includes(handIdx));
+        const clickable = inHand && (pending ? true : (myTurn && legal));
+        return React.createElement(CardSprite, { key: id, card: c, home: h, dur: MOVE_DUR, delay: delayRef.current[id] || 0, clickable: clickable, selected: inHand && !tapSelect && chosen, raised: inHand && tapSelect && chosen, dim: inHand && !pending && !legal && (discardPhase ? false : turn === me), selLabel: inHand && !discardPhase ? tr("play.sel.play") : undefined, onClick: inHand ? () => tapCard(handIdx) : undefined });
+    });
     return (React.createElement("div", { ref: tableRef, style: { position: "relative", marginTop: 6, display: "flex", flexDirection: "column", gap: 10 } },
-        dealAnim && dealAnim.map((s) => React.createElement(DealFly, { key: s.key, from: s.from, legs: s.legs })),
-        throwAnim && throwAnim.sprites.map((s) => React.createElement(DealFly, { key: "t" + s.key, from: s.from, legs: s.legs })),
-        playAnim && React.createElement(DealFly, { key: "p" + cardId(playAnim.card), from: playAnim.from, legs: [{ x: playAnim.to.x, y: playAnim.to.y, delay: 0, dur: DEAL_MOVE }], card: playAnim.card }),
-        gatherAnim && gatherAnim.map((s) => React.createElement(DealFly, { key: "g" + s.key, from: s.from, legs: s.legs })),
-        revealAnim && revealAnim.sprites.map((s) => React.createElement(RevealFly, { key: "r" + s.key, from: s.from, to: s.to, card: s.card, delay: s.delay, r0: s.r0, r1: s.r1 })),
+        React.createElement("div", { style: { position: "absolute", inset: 0, pointerEvents: "none", zIndex: 5 } },
+            React.createElement("div", { style: { position: "relative", width: "100%", height: "100%", pointerEvents: "none" } }, sprites)),
         ts.top.length > 0 && (React.createElement("div", { style: { display: "grid", gridTemplateColumns: `repeat(${ts.top.length}, 1fr)`, gap: 8 } }, ts.top.map(cell))),
         React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 8, padding: "0 6px" } },
             React.createElement("div", { style: { minWidth: 0 } }, ts.left != null ? cell(ts.left) : null),
             React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", flex: "0 0 auto" } },
                 React.createElement("div", { style: { height: 18, marginBottom: 4, display: "flex", alignItems: "center", fontFamily: mono, fontSize: 10, color: T.muted } }, (phase === "play" || showPhase || overPhase) ? tr("play.starterCard") : tr("play.deck")),
                 React.createElement("div", { "data-slot": "deck", style: { display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" } },
-                    React.createElement(StarterDeck, { starter: (phase === "play" || showPhase || overPhase) ? starter : null, count: shownDeck }))),
+                    React.createElement(StarterDeck, { starter: null, count: Math.max(1, deckShown) }))),
             React.createElement("div", { style: { minWidth: 0 } }, ts.right != null ? cell(ts.right) : null)),
         cell(me),
         overPhase ? (React.createElement(Panel, { tone: "good" },
@@ -2379,8 +2277,7 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
                     React.createElement("div", { style: { fontWeight: 700, fontSize: 15, minWidth: 0 } },
                         multiHuman ? tr("play.crib.seatPrefix", { seat: seatName(me) }) : "",
                         isDealer ? tr("play.crib.greedy") : teammateDeals ? tr("play.crib.teamGreedy", { seat: seatName(dealerIdx) }) : tr("play.crib.defend", { seat: seatName(dealerIdx) })),
-                    cribSoFar > 0 && !cribGliding && React.createElement("div", { "data-slot": "crib", style: { flex: "0 0 auto", visibility: dealAnim ? "hidden" : "visible" } },
-                        React.createElement(Fan, { items: backItems(cribSoFar), hideFrom: throwAnim ? cribSoFar - throwAnim.hideN : undefined }))))) : cutPhase ? (React.createElement("div", { style: { background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "12px", minHeight: 88, display: "flex", alignItems: "center", justifyContent: "center", gap: 14 } },
+                    cribSoFar > 0 && !cribGliding && (React.createElement("div", { "data-slot": "crib", style: { flex: "0 0 auto", display: "flex", alignItems: "flex-end", visibility: "hidden" } }, Array.from({ length: cribSoFar }).map((_, k) => (React.createElement("div", { key: k, style: { width: "var(--cw)", aspectRatio: "68 / 96", flex: "0 0 auto", marginLeft: k === 0 ? 0 : `calc(var(--cw) * ${-(1 - BACK_VISIBLE)})` } })))))))) : cutPhase ? (React.createElement("div", { style: { background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "12px", minHeight: 88, display: "flex", alignItems: "center", justifyContent: "center", gap: 14 } },
             React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: T.muted } }, me === dealerIdx ? tr("play.cut.yourCrib") : tr("play.cut.seatCrib", { seat: seatName(dealerIdx) })))) : (React.createElement("div", { style: { background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "0 12px 0 0" } },
             React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, minHeight: `calc(var(--ch) * ${PILE_VISIBLE})` } },
                 React.createElement("div", { style: { flex: "0 0 auto", display: "flex", flexDirection: "column", alignItems: "center", padding: "4px 12px", borderRadius: 9, background: "rgba(0,0,0,0.3)", border: `1px solid ${T.line}` } },
@@ -2462,13 +2359,9 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
                 }
                 return React.createElement("div", { style: { minHeight: 44, marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center" } }, el);
             })(),
-            meHuman && (React.createElement("div", { "data-slot": "hand", className: discardPhase ? "dealwrap" : undefined, style: { display: "flex", gap: 6, justifyContent: "center", flexWrap: "nowrap", visibility: (dealAnim || (revealAnim && revealAnim.dir === "up")) ? "hidden" : "visible" } },
-                yourHand.map((card, i) => {
-                    const legal = isLegal(card);
-                    const chosen = pending ? pendIdxs.includes(i) : sel.includes(i);
-                    return (React.createElement(Card, { key: cardId(card), card: card, selLabel: discardPhase ? undefined : tr("play.sel.play"), clickable: pending ? true : (myTurn && legal), selected: !tapSelect && chosen, raised: tapSelect && chosen, dim: !pending && !legal && turn === me, onClick: () => tapCard(i) }));
-                }),
-                !discardPhase && yourHand.length === 0 && React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: T.muted } }, tr("play.handEmpty"))))))));
+            meHuman && (React.createElement("div", { "data-slot": "hand", className: discardPhase ? "dealwrap" : undefined, style: { display: "flex", gap: 6, justifyContent: "center", flexWrap: "nowrap", height: "var(--ch)", visibility: "hidden" } }, Array.from({ length: handLen }).map((_, i) => React.createElement("div", { key: i, style: { width: "var(--cw)", flex: "0 0 auto" } })))),
+            meHuman && !discardPhase && yourHand.length === 0 && React.createElement("div", { style: { textAlign: "center", marginTop: -8 } },
+                React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: T.muted } }, tr("play.handEmpty")))))));
 }
 function DiscardWarning({ pd, cribIsOurs, dispatch, onCancel }) {
     const { chosen, best, delta } = pd;
@@ -2625,7 +2518,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.41"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.42"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

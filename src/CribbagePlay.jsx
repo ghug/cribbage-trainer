@@ -66,6 +66,9 @@ function lockedFour(four) {
 }
 
 const cardId = (c) => (c.r - 1) * 4 + c.s;
+// cardId → the card it identifies, so the persistent card layer can render a sprite from a
+// bare id (the homes map is keyed by id). 0..51, the inverse of cardId.
+const CARD_BY_ID = (() => { const a = []; for (let r = 1; r <= 13; r++) for (let s = 0; s < 4; s++) a[(r - 1) * 4 + s] = { r, s }; return a; })();
 function deckExcluding(cards) {
   const used = new Set(cards.map(cardId));
   const d = [];
@@ -1308,6 +1311,64 @@ function PileFan({ cards, hideFrom }) {
   );
 }
 
+// ---- persistent card layer -------------------------------------------------
+// A single absolute element per physical card. From the first deal until the
+// reshuffle it is NEVER created or destroyed — every transition (deal, throw to
+// crib, the crib gliding home, the cut turn, a pegging play, the end-of-hand
+// gather, and the hot-seat reveal/return) is just this element changing its
+// `translate(x,y)` and its `rotateY` face. Because the DOM node persists, the
+// browser tweens each change; nothing can teleport because nothing is replaced.
+
+// The bare face of a card (no column/label/button chrome) — sized exactly --cw × --ch
+// so it lines up back-to-back with CardBack for a clean 3-D flip.
+function CardFace({ card, edge }) {
+  return (
+    <div style={{
+      width: "var(--cw)", aspectRatio: "68 / 96", borderRadius: 8, background: T.ivory, position: "relative",
+      border: edge ? `2px solid ${edge}` : "1px solid rgba(0,0,0,0.25)",
+      boxShadow: edge ? "0 8px 18px rgba(0,0,0,0.45)" : "0 4px 10px rgba(0,0,0,0.35)",
+    }}>
+      <svg viewBox="0 0 68 96" preserveAspectRatio="xMidYMid meet" aria-hidden="true"
+        style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", display: "block" }}>
+        <text x="13" y="15" textAnchor="middle" dominantBaseline="central" fontFamily={serif} fontWeight="700" fontSize="17" fill={isRed(card.s) ? T.suitRed : T.ink}>{rankLabel(card.r)}</text>
+        <text x="13" y="30" textAnchor="middle" dominantBaseline="central" fontFamily={serif} fontWeight="700" fontSize="13" fill={isRed(card.s) ? T.suitRed : T.ink}>{SUIT[card.s]}</text>
+        <text x="34" y="49" textAnchor="middle" dominantBaseline="central" fontFamily={serif} fontSize="34" fill={isRed(card.s) ? T.suitRed : T.ink}>{SUIT[card.s]}</text>
+      </svg>
+    </div>
+  );
+}
+
+// One persistent card. `home` = { x, y, up, z } where it should currently sit (up = face
+// up). `dur`/`delay` time the move to a new home. The element holds both faces (front +
+// back rotated 180°) so a face flip is the same rotateY tween as a move. Interactive props
+// (clickable/selected/raised/dim/onClick) apply only when it is the human's live hand card.
+function CardSprite({ card, home, dur, delay, clickable, selected, raised, dim, selLabel, onClick, hidden }) {
+  const lift = selected || raised ? 8 : 0;                 // selected/raised cards nudge up
+  const edge = selected || raised ? T.selBlue : null;
+  return (
+    <div onClick={clickable ? onClick : undefined}
+      style={{
+        position: "absolute", left: 0, top: 0, width: "var(--cw)", height: "var(--ch)",
+        transformStyle: "preserve-3d", zIndex: home.z,
+        transform: `translate(${home.x}px, ${home.y - lift}px) rotateY(${home.up ? 0 : 180}deg)`,
+        transition: `transform ${dur}ms cubic-bezier(.2,.7,.3,1) ${delay || 0}ms`,
+        cursor: clickable ? "pointer" : "default",
+        pointerEvents: clickable ? "auto" : "none",
+        opacity: hidden ? 0 : (dim ? 0.45 : 1),
+        visibility: hidden ? "hidden" : "visible",
+      }}>
+      {(selected || raised) && (
+        <span style={{ position: "absolute", bottom: "calc(100% + 2px)", left: 0, right: 0, textAlign: "center", backfaceVisibility: "hidden",
+          fontFamily: mono, fontSize: 9.5, letterSpacing: 0.4, fontWeight: 700, color: T.ivory, pointerEvents: "none" }}>
+          <span style={{ background: T.selBlue, padding: "2px 6px", borderRadius: 4, whiteSpace: "nowrap" }}>{selLabel || tr("play.sel.throw")}</span>
+        </span>
+      )}
+      <div style={{ position: "absolute", inset: 0, backfaceVisibility: "hidden" }}><CardFace card={card} edge={edge} /></div>
+      <div style={{ position: "absolute", inset: 0, backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}><CardBack /></div>
+    </div>
+  );
+}
+
 // One seat, used everywhere — the ring, the cut-for-deal, and your own bottom seat. A
 // fixed-height label row (so the active chip's padding never nudges the cards) sits above
 // a fixed --ch card slot holding a fan of whatever the seat is showing.
@@ -1490,6 +1551,10 @@ function DealFly({ from, legs, card }) {
 // pegging all share one frame (seat ring + starter slot) and one "hand zone" at the
 // bottom — a card grid with tap-to-select and a confirm. Only a small per-phase config
 // (how many cards, what's legal, where the throw goes, the labels) differs.
+// The persistent card layer's per-card move/flip timing. One element per card lives from
+// the deal to the reshuffle; every phase just hands it a new home and the browser tweens it.
+const MOVE_DUR = 460;                              // base ms for a card to glide to a new home / flip
+const CARD_STAGGER = 210;                          // gap between successive cards in a multi-card sweep (deal/gather)
 function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
   const { peg, starter, dealerIdx, crib, seats, settings, phase, dealDraw, winner } = state;
   const discardPhase = phase === "discard";
@@ -1504,189 +1569,18 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
   const teams = clampTeams(P, settings.teams);
   const pl = plan(P, dealerIdx);
   const ts = seatsAround(P, me);
-  // Cards still sitting in the centre deck: full (52) before the deal; minus every dealt card
-  // once hands are out; minus the starter (and the 3-handed deck-card) once the cut is taken.
   const totalDealt = pl.sizes.reduce((a, b) => a + b, 0);
   const deckCount = preDeal ? 52 : 52 - totalDealt - (phase === "discard" ? 0 : 1 + (pl.deckCard ? 1 : 0));
-
-  // Deal animation: when a hand goes from "no cards" (pre-deal) to dealt, fly one card out of
-  // the centre deck to each seat in round-robin order. Pure render layer — measures the live
-  // deck/seat slots ([data-slot]) and floats CardBacks over them; the static hands are hidden
-  // until the flight lands. Reducer/verify_play untouched.
   const tableRef = React.useRef(null);
-  const [dealAnim, setDealAnim] = React.useState(null);
-  const [dealtN, setDealtN] = React.useState(0);              // cards launched so far (deck thins by this)
-  const dealSig = preDeal ? "" : seats.map((s) => (s.dealt || []).map(cardId).join(".")).join("|");
-  const prevSig = React.useRef(null);
-  React.useLayoutEffect(() => {
-    const old = prevSig.current;
-    prevSig.current = dealSig;
-    if (old === null || dealSig === old || !(dealSig && old === "")) return;   // only the pre-deal → dealt transition
-    const root = tableRef.current; if (!root) return;
-    const rootR = root.getBoundingClientRect();
-    const rel = (el) => { const r = el.getBoundingClientRect(); return { left: r.left - rootR.left, top: r.top - rootR.top, width: r.width }; };
-    const deckEl = root.querySelector('[data-slot="deck"]'); if (!deckEl) return;
-    const db = rel(deckEl);
-    const cw = Math.min(68, (Math.min(typeof window !== "undefined" ? window.innerWidth : 560, 560) - 62) / 6);
-    // deal off the TOP of the deck (the highest card), not the centre of the slot
-    const topEl = root.querySelector('[data-decktop]');
-    const from = topEl ? (() => { const t = rel(topEl); return { x: t.left, y: t.top }; })() : { x: db.left + db.width / 2 - cw / 2, y: db.top };
-    // Per-card destinations: each seat's n dealt cards land in their actual fan slots — the
-    // human's interactive hand is a spaced row (gap 6), every other seat an overlapping fan —
-    // so a card flies straight to where it will sit and never snaps on reveal. Every seat is
-    // first dealt its WHOLE hand (round-robin), like a real player; then each bot's discards fly
-    // on to the crib pile and its kept cards spread into their final fan — nothing is deleted.
-    const handToGrid = seatIsHuman(me, settings) && !needHandoff && phase === "discard";
-    const slot = { deck: db };
-    for (let i = 0; i < P; i++) { const e = root.querySelector(`[data-slot="seat-${i}"]`); if (e) slot["seat" + i] = rel(e); }
-    const he = root.querySelector('[data-slot="hand"]'); if (he) slot.hand = rel(he);
-    const ce = root.querySelector('[data-slot="crib"]'); if (ce) slot.crib = rel(ce);
-    const fanX = (b, n, j, gap) => gap                                 // x of card j of an n-card row: spaced (grid) or overlapping fan
-      ? b.left + b.width / 2 - (n * cw + (n - 1) * gap) / 2 + j * (cw + gap)
-      : b.left + b.width / 2 - cw * (1 + (n - 1) * BACK_VISIBLE) / 2 + j * BACK_VISIBLE * cw;
-    const list = [];
-    const maxSize = Math.max(...pl.sizes);
-    for (let c = 0; c < maxSize; c++) for (let i = 0; i < P; i++) if (c < pl.sizes[i]) list.push({ i, j: c });   // round-robin, whole hand
-    const T_throw = (list.length - 1) * DEAL_STAGGER + DEAL_MOVE + DEAL_THROW_PAUSE;
-    const cribN = seats.reduce((a, s, i) => a + ((i === me && handToGrid) ? 0 : (s.discard ? s.discard.length : 0)), 0);
-    const sprites = [];
-    let cribM = 0;
-    list.forEach((cd, k) => {
-      const { i, j } = cd, n = pl.sizes[i];
-      const grid = i === me && handToGrid;
-      const sb = grid ? slot.hand : slot["seat" + i];
-      const dealLeg = { x: sb ? fanX(sb, n, j, grid ? 6 : 0) : from.x, y: sb ? sb.top : from.y, delay: k * DEAL_STAGGER, dur: DEAL_MOVE };
-      const legs = [dealLeg];
-      const discardN = grid ? 0 : (seats[i].discard ? seats[i].discard.length : 0);
-      const keptN = n - discardN;
-      if (discardN > 0 && sb) {                                        // a bot's hand splits at the throw
-        if (j < keptN) legs.push({ x: fanX(sb, keptN, j, 0), y: sb.top, delay: T_throw, dur: DEAL_MOVE });           // kept: spread into the kept fan
-        else if (slot.crib) legs.push({ x: fanX(slot.crib, cribN, cribM++, 0), y: slot.crib.top, delay: T_throw, dur: DEAL_MOVE });   // thrown: on to the crib
-      }
-      sprites.push({ key: k, from, legs });
-    });
-    if (!sprites.length) return;
-    setDealtN(0);
-    setDealAnim(sprites);
-    const timers = sprites.map((s, idx) => setTimeout(() => setDealtN(idx + 1), s.legs[0].delay));   // deck loses one as each card leaves it
-    timers.push(setTimeout(() => setDealAnim(null), T_throw + DEAL_MOVE + 120));
-    return () => timers.forEach(clearTimeout);
-  }, [dealSig]);
-  // End-of-hand gather: when a hand finishes (show → deal/over), the played cards and the crib
-  // sweep back into the centre deck, which refills toward full before the next hand. Source spots
-  // are captured each render during the show (the cards' last on-table positions).
-  const gatherSrcRef = React.useRef(null);
-  const showDeckRef = React.useRef(52);
-  const [gatherAnim, setGatherAnim] = React.useState(null);
-  const [gatherN, setGatherN] = React.useState(0);
-  React.useLayoutEffect(() => {
-    if (phase !== "show" || !peg) return;
-    const root = tableRef.current; if (!root) return;
-    const rootR = root.getBoundingClientRect();
-    const cw = Math.min(68, (Math.min(typeof window !== "undefined" ? window.innerWidth : 560, 560) - 62) / 6);
-    const src = [];
-    for (let i = 0; i < P; i++) {
-      const el = root.querySelector(`[data-slot="seat-${i}"]`); if (!el) continue;
-      const r = el.getBoundingClientRect(), m = peg.played[i].length;
-      for (let j = 0; j < m; j++) src.push({ x: (r.left - rootR.left) + r.width / 2 - cw * (1 + (m - 1) * BACK_VISIBLE) / 2 + j * BACK_VISIBLE * cw, y: r.top - rootR.top });
-    }
-    const cribEl = document.querySelector('[data-slot="cribhome"]');
-    if (cribEl) { const r = cribEl.getBoundingClientRect(), m = crib.length; for (let j = 0; j < m; j++) src.push({ x: (r.left - rootR.left) + j * BACK_VISIBLE * cw, y: r.top - rootR.top }); }
-    gatherSrcRef.current = src;
-    showDeckRef.current = deckCount;
-  });
-  const prevPhaseRef = React.useRef(phase);
-  React.useLayoutEffect(() => {
-    const prev = prevPhaseRef.current; prevPhaseRef.current = phase;
-    if (!(prev === "show" && (phase === "deal" || phase === "over"))) return;
-    const src = gatherSrcRef.current; gatherSrcRef.current = null;
-    if (!src || !src.length) return;
-    const root = tableRef.current; if (!root) return;
-    const rootR = root.getBoundingClientRect();
-    const topEl = root.querySelector('[data-decktop]') || root.querySelector('[data-slot="deck"]'); if (!topEl) return;
-    const t = topEl.getBoundingClientRect(), to = { x: t.left - rootR.left, y: t.top - rootR.top };
-    const sprites = src.map((f, k) => ({ key: k, from: f, legs: [{ x: to.x, y: to.y, delay: k * GATHER_STAGGER, dur: DEAL_MOVE }] }));
-    setGatherN(0);
-    setGatherAnim(sprites);
-    const timers = sprites.map((s) => setTimeout(() => setGatherN((v) => v + 1), s.legs[0].delay + DEAL_MOVE));   // deck grows as each card lands
-    timers.push(setTimeout(() => setGatherAnim(null), (sprites.length - 1) * GATHER_STAGGER + DEAL_MOVE + 120));
-    return () => timers.forEach(clearTimeout);
-  }, [phase]);
-  const shownDeck = dealAnim ? 52 - dealtN : gatherAnim ? Math.min(52, showDeckRef.current + gatherN) : deckCount;
-  const cribSoFar = seats.reduce((a, s) => a + (s.discard ? s.discard.length : 0), 0);   // cards thrown to the crib so far
+  const CW = Math.min(68, (Math.min(typeof window !== "undefined" ? window.innerWidth : 560, 560) - 62) / 6);
 
-  // Your throw → crib: capture the selected cards' live grid positions at commit time (before
-  // they leave the hand), then fly backs from there to the crib pile as it grows.
-  const throwFromRef = React.useRef(null);
-  const [throwAnim, setThrowAnim] = React.useState(null);
-  const prevCrib = React.useRef(cribSoFar);
-  const captureThrow = (idxs) => {
-    const root = tableRef.current, handEl = root && root.querySelector('[data-slot="hand"]');
-    if (!handEl) { throwFromRef.current = null; return; }
-    const rootR = root.getBoundingClientRect(), kids = handEl.children;
-    throwFromRef.current = idxs.map((ix) => { const el = kids[ix]; if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left - rootR.left, y: r.top - rootR.top }; }).filter(Boolean);
-  };
-  React.useLayoutEffect(() => {
-    const grew = cribSoFar - prevCrib.current;
-    prevCrib.current = cribSoFar;
-    const froms = throwFromRef.current;
-    if (dealAnim || grew <= 0 || !froms || !froms.length) { if (grew > 0) throwFromRef.current = null; return; }
-    throwFromRef.current = null;
-    const root = tableRef.current; if (!root) return;
-    const rootR = root.getBoundingClientRect();
-    const cribEl = root.querySelector('[data-slot="crib"]'); if (!cribEl) return;
-    const r = cribEl.getBoundingClientRect();
-    const cb = { left: r.left - rootR.left, top: r.top - rootR.top, width: r.width };
-    const cw = Math.min(68, (Math.min(typeof window !== "undefined" ? window.innerWidth : 560, 560) - 62) / 6);
-    const n = cribSoFar, use = froms.slice(0, grew);
-    const sprites = use.map((f, q) => {
-      const m = n - grew + q, x = cb.left + cb.width / 2 - cw * (1 + (n - 1) * BACK_VISIBLE) / 2 + m * BACK_VISIBLE * cw;
-      return { key: q, from: f, legs: [{ x, y: cb.top, delay: q * THROW_STAGGER, dur: DEAL_MOVE }] };
-    });
-    if (!sprites.length) return;
-    setThrowAnim({ sprites, hideN: grew });
-    const t = setTimeout(() => setThrowAnim(null), (use.length - 1) * THROW_STAGGER + DEAL_MOVE + 100);
-    return () => clearTimeout(t);
-  }, [cribSoFar]);
-
-  // Pegging play → pile: when a card lands on the pile, fly it (face up) from where it came —
-  // your hand grid (captured at the tap) or the player's seat — to its slot in the pile. The new
-  // card is held back in the pile and that seat's played row until the flight lands.
-  const [playAnim, setPlayAnim] = React.useState(null);
-  const prevPile = React.useRef(0);
-  const pileLen = peg ? peg.pileSuited.length : 0;
-  React.useLayoutEffect(() => {
-    const grew = pileLen - prevPile.current;
-    prevPile.current = pileLen;
-    const captured = throwFromRef.current;
-    if (!peg || grew !== 1) { if (pileLen > 0) throwFromRef.current = null; return; }   // 1 = a single play (not a 31/go clear)
-    throwFromRef.current = null;
-    const card = peg.pileSuited[pileLen - 1], player = peg.lastPlayer;
-    const root = tableRef.current; if (!root) return;
-    const rootR = root.getBoundingClientRect();
-    const cw = Math.min(68, (Math.min(typeof window !== "undefined" ? window.innerWidth : 560, 560) - 62) / 6);
-    const seatEl = root.querySelector(`[data-slot="seat-${player}"]`); if (!seatEl) return;
-    const sr = seatEl.getBoundingClientRect();
-    const grid = player === me && seatIsHuman(me, settings) && !needHandoff;   // the human's hand is in the grid; its seat shows only played cards
-    let from;
-    if (player === me && captured && captured[0]) from = captured[0];
-    else from = { x: sr.left - rootR.left + sr.width / 2 - cw / 2, y: sr.top - rootR.top };
-    // target: this seat's main-table hand — the slot its newest played card lands in. (The central
-    // pile is only a duplicated tracking view; it updates instantly, no animation.)
-    const items = (grid ? 0 : peg.hands[player].length) + peg.played[player].length;
-    const to = { x: (sr.left - rootR.left) + sr.width / 2 - cw * (1 + (items - 1) * BACK_VISIBLE) / 2 + (items - 1) * BACK_VISIBLE * cw, y: sr.top - rootR.top };
-    setPlayAnim({ card, from, to, seat: player });
-    const t = setTimeout(() => setPlayAnim(null), DEAL_MOVE + 90);
-    return () => clearTimeout(t);
-  }, [pileLen]);
   // The show counts one owner at a time: their (face-up) hand or the crib, plus the cut.
   const info = showPhase ? computeShow(state) : null;
   const stepLabel = showPhase ? tr("play.show.step", { n: state.show.step + 1, m: state.show.order.length }) : "";
   // What each seat is holding (face down for the others): nothing before a hand is dealt;
   // during the discard, its current hand — the kept four once it has thrown, else the full
-  // dealt hand — so a seat drops to four as soon as it discards; the kept four at the cut;
-  // the live peg hand during play and, through the show, the same finished peg state
-  // (everyone's cards played and face up), so nothing in the view changes from play to show.
+  // dealt hand; the kept four at the cut; the live peg hand during play; through the show the
+  // same finished peg state (everyone's cards played and face up).
   const hands = peg ? peg.hands : seats.map((s) => (preDeal ? [] : discardPhase ? (s.kept || s.dealt) : (s.kept || [])));
   const yourHand = hands[me];
   const turn = peg ? peg.turn : -1;
@@ -1694,49 +1588,7 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
   const cutter = (dealerIdx + P - 1) % P;
   const multiHuman = nHumans(P, settings) > 1;
   const meHuman = seatIsHuman(me, settings);               // false only in an all-bot (spectated) game
-
-  // Hot-seat reveal/return: when this player's interactive hand appears (they took the device),
-  // fly each card from its seat (face down) down to the hand row (flipping face-up); when their
-  // turn ends, fly the cards they keep back up to their seat (flipping face-down). The hand-row
-  // cards (reveal) or the seat backs (return) are hidden until the flights land.
-  const [revealAnim, setRevealAnim] = React.useState(null);
-  const handVisible = meHuman && !needHandoff && (discardPhase || (phase === "play" && !!peg));
-  const prevHandVis = React.useRef(false);
-  const handPosRef = React.useRef({});                                     // last on-screen spots of the hand-row cards, by card id
-  const handActorRef = React.useRef(null);                                // whose interactive hand is/was showing (may differ from `me` after a throw)
-  const seatXf = (sr, rootR, cw, total, j) => (sr.left - rootR.left) + sr.width / 2 - cw * (1 + (total - 1) * BACK_VISIBLE) / 2 + j * BACK_VISIBLE * cw;
-  React.useLayoutEffect(() => {
-    const root = tableRef.current;
-    const cw = Math.min(68, (Math.min(typeof window !== "undefined" ? window.innerWidth : 560, 560) - 62) / 6);
-    const rootR = root && root.getBoundingClientRect();
-    if (root && handVisible) {                                            // keep capturing this hand's owner + where each card sits in the row
-      handActorRef.current = me;
-      const handEl = root.querySelector('[data-slot="hand"]');
-      if (handEl) { const kids = handEl.children, map = {}; for (let i = 0; i < yourHand.length; i++) { const k = kids[i]; if (k) { const r = k.getBoundingClientRect(); map[cardId(yourHand[i])] = { x: r.left - rootR.left, y: r.top - rootR.top }; } } handPosRef.current = map; }
-    }
-    const was = prevHandVis.current; prevHandVis.current = handVisible;
-    if (!multiHuman || !root || was === handVisible) return;
-    const sprites = [];
-    if (!was && handVisible) {                                            // REVEAL: seat → hand, flip up
-      if (!yourHand.length) return;
-      const seatEl = root.querySelector(`[data-slot="seat-${me}"]`); if (!seatEl) return;
-      const sr = seatEl.getBoundingClientRect(), total = yourHand.length + (peg ? peg.played[me].length : 0);
-      const handEl = root.querySelector('[data-slot="hand"]'); if (!handEl) return;
-      const kids = handEl.children;
-      for (let j = 0; j < yourHand.length; j++) { const k = kids[j]; if (!k) continue; const t2 = k.getBoundingClientRect(); sprites.push({ key: cardId(yourHand[j]), card: yourHand[j], from: { x: seatXf(sr, rootR, cw, total, j), y: sr.top - rootR.top }, to: { x: t2.left - rootR.left, y: t2.top - rootR.top }, delay: j * 110, r0: -180, r1: 0 }); }
-      if (sprites.length) setRevealAnim({ dir: "up", sprites });
-    } else {                                                              // RETURN: the player who just acted sends their kept cards back to their own seat
-      const actor = handActorRef.current; if (actor == null) return;
-      const cards = hands[actor] || []; if (!cards.length) return;
-      const seatEl = root.querySelector(`[data-slot="seat-${actor}"]`); if (!seatEl) return;
-      const sr = seatEl.getBoundingClientRect(), total = cards.length + (peg ? peg.played[actor].length : 0);
-      for (let j = 0; j < cards.length; j++) { const f = handPosRef.current[cardId(cards[j])]; if (!f) continue; sprites.push({ key: cardId(cards[j]), card: cards[j], from: f, to: { x: seatXf(sr, rootR, cw, total, j), y: sr.top - rootR.top }, delay: j * 110, r0: 0, r1: 180 }); }
-      if (sprites.length) setRevealAnim({ dir: "down", actor, sprites });
-    }
-    if (!sprites.length) return;
-    const t = setTimeout(() => setRevealAnim(null), (sprites.length - 1) * 110 + DEAL_MOVE + 100);
-    return () => clearTimeout(t);
-  }, [handVisible]);
+  const cribSoFar = seats.reduce((a, s) => a + (s.discard ? s.discard.length : 0), 0);   // cards thrown to the crib so far
 
   // ---- shared hand zone: select + confirm the card(s) this phase needs ----
   const [sel, setSel] = React.useState([]);                // working selection (indices into yourHand)
@@ -1757,9 +1609,9 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
   const muggins = showPhase && mugginsActive(settings) && seatIsHuman(info.owner, settings);
   const needClaim = muggins && !state.show.claimSubmitted;
 
-  const commit = (idxs) => { captureThrow(idxs); dispatch(discardPhase   // capture the cards' live grid spots before they leave (throw or play)
+  const commit = (idxs) => dispatch(discardPhase
     ? { type: "SELECT_DISCARD", idxs: idxs.slice().sort((a, b) => a - b) }
-    : { type: "SELECT_PLAY", card: yourHand[idxs[0]] }); };
+    : { type: "SELECT_PLAY", card: yourHand[idxs[0]] });
   const tapCard = (i) => {
     if (pending) { dispatch({ type: discardPhase ? "CANCEL_DISCARD" : "CANCEL_PLAY" }); setSel([]); return; }
     if (!myTurn || !isLegal(yourHand[i])) return;
@@ -1778,66 +1630,222 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
   const isDealer = me === dealerIdx;
   const teammateDeals = cribOurs && !isDealer;
 
-  // Hot-seat ring rotation: each seat glides (FLIP) to its new spot when the active player changes.
-  // The FLIP runs in an effect defined AFTER the deal/reveal/play effects (below), so those still
-  // measure the seats' true, untransformed positions; only then do the seats animate.
-  const seatEls = React.useRef({});
-  const seatPos = React.useRef({});
-  const seatBusy = React.useRef({});
+  // Which seat is the active/lit one, by phase (same rule the labels use).
+  const activeSeat = (i) => overPhase ? teamOf(i, P, teams) === teamOf(winner, P, teams)
+    : showPhase ? i === info.owner
+    : discardPhase ? (i === me && myTurn)
+    : cutdealPhase ? i === dealerIdx
+    : turn === i;
+
+  // ---- the persistent card layer ------------------------------------------------------
+  // For each card currently out of the deck, where it should sit and which way it faces.
+  // place[id] = { group, idx, up }. Groups: "seat-i", "hand", "crib", "deck". The deck and
+  // its top (where cards deal from and the starter turns) are anonymous backs (StarterDeck).
+  const place = {};
+  const seatCounts = {};                                    // how many ghost slots each seat needs
+  if (cutdealPhase) {
+    for (let i = 0; i < P; i++) { const d = dealDraw ? dealDraw[i] : null; if (d) { place[cardId(d)] = { group: "seat-" + i, idx: 0, up: true }; seatCounts[i] = 1; } else seatCounts[i] = 1; }
+  } else if (!dealPhase) {
+    for (let i = 0; i < P; i++) {
+      const unplayed = hands[i] || [], played = peg ? peg.played[i] : [];
+      const gridActive = i === me && meHuman && !needHandoff && (discardPhase || (phase === "play" && peg));
+      if (gridActive) {
+        played.forEach((c, j) => { place[cardId(c)] = { group: "seat-" + i, idx: j, up: true }; });
+        seatCounts[i] = played.length;
+        // me's unplayed live in the interactive hand row (face up)
+        unplayed.forEach((c, j) => { place[cardId(c)] = { group: "hand", idx: j, up: true }; });
+      } else {
+        unplayed.forEach((c, j) => { place[cardId(c)] = { group: "seat-" + i, idx: j, up: false }; });
+        played.forEach((c, j) => { place[cardId(c)] = { group: "seat-" + i, idx: unplayed.length + j, up: true }; });
+        seatCounts[i] = unplayed.length + played.length;
+      }
+    }
+    // cards thrown to the crib so far sit (face down) in the discard banner; they stay there
+    // through the brief "cribbing" hold, then — once the glide starts — are handed to CribHome
+    // (behind the score banner), so the persistent layer only owns the crib up to that point.
+    if (discardPhase || (cribbingPhase && !cribGliding)) {
+      let k = 0;
+      for (let i = 0; i < P; i++) (seats[i].discard || []).forEach((c) => { place[cardId(c)] = { group: "crib", idx: k++, up: false }; });
+    }
+    // the starter, turned at the cut, lives on the top of the deck face up
+    if (starter && (phase === "play" || showPhase || overPhase)) place[cardId(starter)] = { group: "deck", idx: 0, up: true };
+  }
+  const handLen = (place && Object.values(place).filter((p) => p.group === "hand").length) || 0;
+
+  // homes[id] = {x,y,up,z} measured from the (invisible) ghost slots; sprites tween to these.
+  const [homes, setHomes] = React.useState({});
+  const homesRef = React.useRef({});
+  const knownRef = React.useRef(new Set());
+  const prevPlaceRef = React.useRef({});                    // each card's group/idx/up last render (to tell a gather from a crib hand-off)
+  const delayRef = React.useRef({});                        // per-card transition-delay for its NEXT move (stagger)
+  const sigRef = React.useRef("");
+  const [deckShown, setDeckShown] = React.useState(deckCount);
+  const deckTimers = React.useRef([]);
+  const clearDeckTimers = () => { deckTimers.current.forEach(clearTimeout); deckTimers.current = []; };
+
+  React.useLayoutEffect(() => {
+    const root = tableRef.current; if (!root) return;
+    const rootR = root.getBoundingClientRect();
+    const fanX = (host, j) => { const kid = host.children[j]; if (!kid) return null; const r = kid.getBoundingClientRect(); return { x: r.left - rootR.left, y: r.top - rootR.top }; };
+    const deckEl = root.querySelector("[data-decktop]");
+    const deckR = deckEl ? deckEl.getBoundingClientRect() : null;
+    const deckTop = deckR ? { x: deckR.left - rootR.left, y: deckR.top - rootR.top } : { x: 0, y: 0 };
+    // resolve each card's target home from its ghost slot
+    const targets = {};
+    for (const id in place) {
+      const p = place[id];
+      let pos = null;
+      if (p.group === "deck") pos = deckTop;
+      else { const host = root.querySelector(`[data-slot="${p.group}"]`); if (host) pos = fanX(host, p.idx); }
+      if (!pos) pos = deckTop;
+      targets[id] = { x: pos.x, y: pos.y, up: p.up, z: 10 + p.idx + (p.group === "hand" ? 30 : p.group === "deck" ? 60 : 0) };
+    }
+    const nowKnown = new Set(Object.keys(targets));
+    const prevKnown = knownRef.current;
+    const newCards = Object.keys(targets).filter((id) => !prevKnown.has(id));
+    const goneCards = [...prevKnown].filter((id) => !nowKnown.has(id));
+
+    const round = (h) => `${Math.round(h.x)},${Math.round(h.y)},${h.up ? 1 : 0},${h.z}`;
+    const sig = Object.keys(targets).sort().map((id) => id + ":" + round(targets[id])).join("|") + "#" + goneCards.sort().join(",");
+    if (sig === sigRef.current && !newCards.length && !goneCards.length) return;
+    sigRef.current = sig;
+
+    // gone cards split: a finished hand's cards sweep back to the deck (gather); cards that were
+    // in the crib just vanish here — CribHome (behind the score banner) takes the completed crib.
+    const prevPlace = prevPlaceRef.current;
+    const gatherGone = goneCards.filter((id) => !(prevPlace[id] && prevPlace[id].group === "crib"));
+    const vanishGone = goneCards.filter((id) => prevPlace[id] && prevPlace[id].group === "crib");
+
+    // assign stagger to a multi-card sweep. A deal goes round-robin (one card to each seat in
+    // turn, like a real deal) — rank a card by its position-in-hand first, then its seat.
+    const dealRank = (id) => { const p = place[id]; if (!p) return 999; const seat = p.group === "hand" ? me : (p.group.indexOf("seat-") === 0 ? parseInt(p.group.slice(5), 10) : 99); return p.idx * 100 + (isNaN(seat) ? 99 : seat); };
+    if (newCards.length > 1) {
+      const ordered = newCards.slice().sort((a, b) => dealRank(a) - dealRank(b));
+      ordered.forEach((id, k) => { delayRef.current[id] = k * CARD_STAGGER; });
+    } else newCards.forEach((id) => { delayRef.current[id] = 0; });
+    if (gatherGone.length > 1) gatherGone.forEach((id, k) => { delayRef.current[id] = k * CARD_STAGGER; });
+
+    const render = {};
+    for (const id in targets) {
+      if (newCards.includes(id)) render[id] = { x: deckTop.x, y: deckTop.y, up: false, z: 60 };   // enter from the deck
+      else render[id] = targets[id];
+    }
+    for (const id of gatherGone) render[id] = { x: deckTop.x, y: deckTop.y, up: false, z: 60 };    // sweep back to the deck
+    // vanishGone are simply not carried into render
+
+    knownRef.current = nowKnown;
+    prevPlaceRef.current = { ...place };
+    homesRef.current = render;
+    setHomes(render);
+
+    // deck thickness ticks with the sweep so it thins/thickens card-by-card, not all at once
+    clearDeckTimers();
+    if (newCards.length > 1) {                              // a deal: thin the deck card-by-card as each leaves
+      setDeckShown((v) => Math.max(deckCount, v));
+      newCards.forEach((id, k) => deckTimers.current.push(setTimeout(() => setDeckShown((v) => Math.max(deckCount, v - 1)), k * CARD_STAGGER + 40)));
+    } else if (gatherGone.length > 1) {                     // a gather: thicken the deck as each lands back
+      gatherGone.forEach((id, k) => deckTimers.current.push(setTimeout(() => setDeckShown((v) => Math.min(52, v + 1)), k * CARD_STAGGER + MOVE_DUR)));
+    } else {
+      setDeckShown(deckCount);
+    }
+
+    if (newCards.length) {                                  // next frame, send the entering cards out to their homes
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        homesRef.current = { ...homesRef.current, ...targets };
+        setHomes(homesRef.current);
+      }));
+    }
+    if (vanishGone.length) {                                // crib handed to CribHome — drop those sprites at once
+      const next = { ...homesRef.current }; vanishGone.forEach((id) => { delete next[id]; delete delayRef.current[id]; });
+      homesRef.current = next; setHomes(next);
+    }
+    if (gatherGone.length) {                                // drop the gathered cards once they've reached the deck
+      const drop = gatherGone.slice();
+      setTimeout(() => {
+        const next = { ...homesRef.current }; drop.forEach((id) => delete next[id]);
+        homesRef.current = next; setHomes(next);
+        drop.forEach((id) => { delete delayRef.current[id]; });
+      }, (gatherGone.length - 1) * CARD_STAGGER + MOVE_DUR + 80);
+    }
+    // clear the deal stagger once it has played, so each card's next move is prompt
+    if (newCards.length > 1) setTimeout(() => { newCards.forEach((id) => { delayRef.current[id] = 0; }); }, newCards.length * CARD_STAGGER + MOVE_DUR + 80);
+  });
+
+  // Hot-seat ring rotation: when the active player changes, each seat's LABEL glides to its new
+  // grid spot (FLIP). Only the label moves — the card ghosts stay put so sprite measurement is
+  // never corrupted; the cards themselves glide because their seat ghost moved to a new cell.
+  const labelEls = React.useRef({});
+  const labelPos = React.useRef({});
+  const labelBusy = React.useRef({});
   const [rotating, setRotating] = React.useState(false);
   const rotTimer = React.useRef(null);
-  const cell = (i) => {
-    let inner;
-    if (cutdealPhase) {                                    // cut for deal: each seat's single draw, dealer lit
-      const draw = dealDraw ? dealDraw[i] : null;
-      inner = <Seat i={i} dealerIdx={dealerIdx} active={i === dealerIdx} dim={i !== dealerIdx}
-        items={draw ? cardItems([draw]) : backItems(1)} settings={settings} me={me} />;
-    } else {
-      // Every seat (yours included) shows its played pile face up plus any cards still in hand
-      // face down. The one exception: your own remaining hand lives in the interactive grid below
-      // (so those backs are suppressed while the grid is active). The active seat is chip-highlighted.
-      const gridActive = i === me && meHuman && !needHandoff && (discardPhase || (phase === "play" && peg));
-      const remaining = (gridActive || (revealAnim && revealAnim.dir === "down" && i === revealAnim.actor)) ? 0 : hands[i].length;
-      const played = peg ? peg.played[i] : [];
-      const active = overPhase ? teamOf(i, P, teams) === teamOf(winner, P, teams)
-        : showPhase ? i === info.owner
-        : discardPhase ? (i === me && myTurn)
-        : turn === i;
-      const seatItems = dealAnim ? [] : [...backItems(remaining), ...cardItems(played)];
-      inner = <Seat i={i} dealerIdx={dealerIdx} active={active}
-        items={seatItems} hideFrom={playAnim && playAnim.seat === i ? seatItems.length - 1 : undefined} settings={settings} me={me} />;
-    }
-    return <div key={i} ref={(el) => { seatEls.current[i] = el; }} style={{ minWidth: 0 }}>{inner}</div>;
-  };
-  // The FLIP itself — defined last so it runs after every position-measuring effect above.
   React.useLayoutEffect(() => {
     let moved = false;
-    for (const i in seatEls.current) {
-      const el = seatEls.current[i]; if (!el || seatBusy.current[i]) continue;
+    for (const i in labelEls.current) {
+      const el = labelEls.current[i]; if (!el || labelBusy.current[i]) continue;
       const r = el.getBoundingClientRect();
-      const cur = { x: r.left, y: r.top }, old = seatPos.current[i];
-      seatPos.current[i] = cur;
+      const cur = { x: r.left, y: r.top }, old = labelPos.current[i];
+      labelPos.current[i] = cur;
       if (multiHuman && old && (Math.abs(old.x - cur.x) > 1 || Math.abs(old.y - cur.y) > 1)) {
-        seatBusy.current[i] = true; moved = true;
+        labelBusy.current[i] = true; moved = true;
         el.style.transition = "none";
-        el.style.transform = `translate(${old.x - cur.x}px, ${old.y - cur.y}px)`;   // jump back to where it was
+        el.style.transform = `translate(${old.x - cur.x}px, ${old.y - cur.y}px)`;
         const key = i, node = el;
         requestAnimationFrame(() => requestAnimationFrame(() => {
-          node.style.transition = `transform ${SEAT_ROTATE}ms cubic-bezier(.4,0,.2,1)`;
-          node.style.transform = "none";                                            // glide to the new spot
-          setTimeout(() => { seatBusy.current[key] = false; }, SEAT_ROTATE + 40);
+          node.style.transition = `transform ${MOVE_DUR}ms cubic-bezier(.4,0,.2,1)`;
+          node.style.transform = "none";
+          setTimeout(() => { labelBusy.current[key] = false; }, MOVE_DUR + 40);
         }));
       }
     }
-    if (moved) { setRotating(true); if (rotTimer.current) clearTimeout(rotTimer.current); rotTimer.current = setTimeout(() => setRotating(false), SEAT_ROTATE + 80); }
+    if (moved) { setRotating(true); if (rotTimer.current) clearTimeout(rotTimer.current); rotTimer.current = setTimeout(() => setRotating(false), MOVE_DUR + 80); }
   });
+
+  // One seat: the label (glides on rotation) over a hidden ghost fan that just reserves space
+  // and positions the persistent sprites. The cards themselves are drawn in the sprite layer.
+  const cell = (i) => {
+    const n = seatCounts[i] || 0;
+    return (
+      <div key={i} style={{ textAlign: "center", minWidth: 0, opacity: activeSeat(i) || i === me ? 1 : 0.7 }}>
+        <div ref={(el) => { labelEls.current[i] = el; }} style={{ height: 18, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 4 }}>
+          <SeatLabel i={i} dealerIdx={dealerIdx} active={activeSeat(i)} settings={settings} me={me} />
+        </div>
+        <div data-slot={"seat-" + i} style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)", visibility: "hidden" }}>
+          {Array.from({ length: Math.max(0, n) }).map((_, k) => (
+            <div key={k} style={{ width: "var(--cw)", aspectRatio: "68 / 96", flex: "0 0 auto", marginLeft: k === 0 ? 0 : `calc(var(--cw) * ${-(1 - BACK_VISIBLE)})` }} />
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  // the persistent sprites: one per card on the table, positioned/faced by `homes`
+  const sprites = Object.keys(homes).map((id) => {
+    const c = CARD_BY_ID[id]; if (!c) return null;
+    const h = homes[id];
+    const p = place[id];
+    const inHand = p && p.group === "hand";
+    const handIdx = inHand ? p.idx : -1;
+    const legal = inHand ? isLegal(yourHand[handIdx]) : false;
+    const chosen = inHand && (pending ? (pendIdxs && pendIdxs.includes(handIdx)) : sel.includes(handIdx));
+    const clickable = inHand && (pending ? true : (myTurn && legal));
+    return <CardSprite key={id} card={c} home={h} dur={MOVE_DUR} delay={delayRef.current[id] || 0}
+      clickable={clickable}
+      selected={inHand && !tapSelect && chosen}
+      raised={inHand && tapSelect && chosen}
+      dim={inHand && !pending && !legal && (discardPhase ? false : turn === me)}
+      selLabel={inHand && !discardPhase ? tr("play.sel.play") : undefined}
+      onClick={inHand ? () => tapCard(handIdx) : undefined} />;
+  });
+
   return (
     <div ref={tableRef} style={{ position: "relative", marginTop: 6, display: "flex", flexDirection: "column", gap: 10 }}>
-      {dealAnim && dealAnim.map((s) => <DealFly key={s.key} from={s.from} legs={s.legs} />)}
-      {throwAnim && throwAnim.sprites.map((s) => <DealFly key={"t" + s.key} from={s.from} legs={s.legs} />)}
-      {playAnim && <DealFly key={"p" + cardId(playAnim.card)} from={playAnim.from} legs={[{ x: playAnim.to.x, y: playAnim.to.y, delay: 0, dur: DEAL_MOVE }]} card={playAnim.card} />}
-      {gatherAnim && gatherAnim.map((s) => <DealFly key={"g" + s.key} from={s.from} legs={s.legs} />)}
-      {revealAnim && revealAnim.sprites.map((s) => <RevealFly key={"r" + s.key} from={s.from} to={s.to} card={s.card} delay={s.delay} r0={s.r0} r1={s.r1} />)}
+      {/* the persistent card layer floats above the (invisible) ghost slots */}
+      <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 5 }}>
+        <div style={{ position: "relative", width: "100%", height: "100%", pointerEvents: "none" }}>
+          {sprites}
+        </div>
+      </div>
       {/* Fixed grids: every seat owns an equal column whatever it's holding, so the labels
           (and their hands) always center on the same spot in every phase. */}
       {ts.top.length > 0 && (
@@ -1848,18 +1856,15 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 8, padding: "0 6px" }}>
         <div style={{ minWidth: 0 }}>{ts.left != null ? cell(ts.left) : null}</div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: "0 0 auto" }}>
-          {/* labels the face-up starter once the cut is done (play onward); before then the pile is
-              just the undealt deck, so label it "deck". Keeps the row bottom-aligned with the seats. */}
           <div style={{ height: 18, marginBottom: 4, display: "flex", alignItems: "center", fontFamily: mono, fontSize: 10, color: T.muted }}>{(phase === "play" || showPhase || overPhase) ? tr("play.starterCard") : tr("play.deck")}</div>
           <div data-slot="deck" style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" }}>
-            <StarterDeck starter={(phase === "play" || showPhase || overPhase) ? starter : null} count={shownDeck} />
+            <StarterDeck starter={null} count={Math.max(1, deckShown)} />
           </div>
         </div>
         <div style={{ minWidth: 0 }}>{ts.right != null ? cell(ts.right) : null}</div>
       </div>
 
-      {/* your own seat at the bottom — rendered through the very same cell() as the others,
-          so there's no separate "South" path; its slot is just pinned below the grid. */}
+      {/* your own seat at the bottom — rendered through the very same cell() as the others. */}
       {cell(me)}
 
       {/* middle zone: the crib (face down) before play, the live pile during it. The
@@ -1903,7 +1908,13 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
         <Panel tone={cribOurs ? "good" : "red"}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
             <div style={{ fontWeight: 700, fontSize: 15, minWidth: 0 }}>{multiHuman ? tr("play.crib.seatPrefix", { seat: seatName(me) }) : ""}{isDealer ? tr("play.crib.greedy") : teammateDeals ? tr("play.crib.teamGreedy", { seat: seatName(dealerIdx) }) : tr("play.crib.defend", { seat: seatName(dealerIdx) })}</div>
-            {cribSoFar > 0 && !cribGliding && <div data-slot="crib" style={{ flex: "0 0 auto", visibility: dealAnim ? "hidden" : "visible" }}><Fan items={backItems(cribSoFar)} hideFrom={throwAnim ? cribSoFar - throwAnim.hideN : undefined} /></div>}
+            {cribSoFar > 0 && !cribGliding && (
+              <div data-slot="crib" style={{ flex: "0 0 auto", display: "flex", alignItems: "flex-end", visibility: "hidden" }}>
+                {Array.from({ length: cribSoFar }).map((_, k) => (
+                  <div key={k} style={{ width: "var(--cw)", aspectRatio: "68 / 96", flex: "0 0 auto", marginLeft: k === 0 ? 0 : `calc(var(--cw) * ${-(1 - BACK_VISIBLE)})` }} />
+                ))}
+              </div>
+            )}
           </div>
         </Panel>
       ) : cutPhase ? (
@@ -1999,7 +2010,7 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
               fontSize: 15, fontWeight: 700, letterSpacing: 0.3, boxShadow: "0 4px 12px rgba(0,0,0,0.35)",
             }}>{tr("play.go")}</button>;
           } else if (myTurn && meHuman && tapSelect) {
-            // The confirm button doubles as the prompt: disabled "Tap a card…" until a full
+            // The confirm button doubles as the prompt: disabled "Select a card…" until a full
             // selection is made, then it enables and reads "Throw to crib" / "Play".
             const ready = sel.length === count && sel.every((i) => isLegal(yourHand[i]));
             const label = discardPhase
@@ -2017,25 +2028,14 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
           }
           return <div style={{ minHeight: 44, marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>{el}</div>;
         })()}
-        {/* The interactive hand is only for a human in this seat; a bot (all-bot spectate)
-            keeps its cards face down under its played pile, like every other seat. */}
+        {/* The interactive hand: a hidden ghost row reserving the slots; the actual face-up,
+            tappable cards are the persistent sprites positioned over it. */}
         {meHuman && (
-          <div data-slot="hand" className={discardPhase ? "dealwrap" : undefined} style={{ display: "flex", gap: 6, justifyContent: "center", flexWrap: "nowrap", visibility: (dealAnim || (revealAnim && revealAnim.dir === "up")) ? "hidden" : "visible" }}>
-            {yourHand.map((card, i) => {
-              const legal = isLegal(card);
-              const chosen = pending ? pendIdxs.includes(i) : sel.includes(i);
-              return (
-                <Card key={cardId(card)} card={card} selLabel={discardPhase ? undefined : tr("play.sel.play")}
-                  clickable={pending ? true : (myTurn && legal)}
-                  selected={!tapSelect && chosen}
-                  raised={tapSelect && chosen}
-                  dim={!pending && !legal && turn === me}
-                  onClick={() => tapCard(i)} />
-              );
-            })}
-            {!discardPhase && yourHand.length === 0 && <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{tr("play.handEmpty")}</span>}
+          <div data-slot="hand" className={discardPhase ? "dealwrap" : undefined} style={{ display: "flex", gap: 6, justifyContent: "center", flexWrap: "nowrap", height: "var(--ch)", visibility: "hidden" }}>
+            {Array.from({ length: handLen }).map((_, i) => <div key={i} style={{ width: "var(--cw)", flex: "0 0 auto" }} />)}
           </div>
         )}
+        {meHuman && !discardPhase && yourHand.length === 0 && <div style={{ textAlign: "center", marginTop: -8 }}><span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{tr("play.handEmpty")}</span></div>}
       </div>
       )}
     </div>

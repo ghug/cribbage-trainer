@@ -1770,16 +1770,16 @@ function PileFan({ cards }) {
     return (React.createElement("div", { ref: ref, style: { width: "100%", display: "flex", justifyContent: "center" } },
         React.createElement(Fan, { items: cardItems(cards, vis) })));
 }
-function Seat({ i, dealerIdx, active, dim, items, settings }) {
+function Seat({ i, dealerIdx, active, dim, items, settings, me }) {
     return (React.createElement("div", { style: { textAlign: "center", minWidth: 0, opacity: dim ? 0.7 : 1 } },
         React.createElement("div", { style: { height: 18, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 4 } },
-            React.createElement(SeatLabel, { i: i, dealerIdx: dealerIdx, active: active, settings: settings })),
+            React.createElement(SeatLabel, { i: i, dealerIdx: dealerIdx, active: active, settings: settings, me: me })),
         React.createElement("div", { style: { display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" } },
             React.createElement(Fan, { items: items }))));
 }
-function SeatLabel({ i, dealerIdx, active, settings }) {
+function SeatLabel({ i, dealerIdx, active, settings, me }) {
     const named = customName(i);
-    const base = (named && seatIsHuman(i, settings)) ? `${tr("seat.youShort")} - ${named}` : seatShort(i);
+    const base = (i === me && named && seatIsHuman(i, settings)) ? `${tr("seat.youShort")} - ${named}` : seatShort(i);
     const text = `${base}${dealerIdx === i ? " 🔘" : ""}`;
     return (React.createElement("span", { style: active
             ? { fontFamily: mono, fontSize: 10, fontWeight: 700, letterSpacing: 0.3, color: T.ivory, background: T.selBlue, padding: "2px 8px", borderRadius: 999, boxShadow: "0 1px 4px rgba(0,0,0,0.45)" }
@@ -1878,7 +1878,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
     const cell = (i) => {
         if (cutdealPhase) {
             const draw = dealDraw ? dealDraw[i] : null;
-            return React.createElement(Seat, { key: i, i: i, dealerIdx: dealerIdx, active: i === dealerIdx, dim: i !== dealerIdx, items: draw ? cardItems([draw]) : backItems(1), settings: settings });
+            return React.createElement(Seat, { key: i, i: i, dealerIdx: dealerIdx, active: i === dealerIdx, dim: i !== dealerIdx, items: draw ? cardItems([draw]) : backItems(1), settings: settings, me: me });
         }
         const gridActive = i === me && meHuman && !needHandoff && (discardPhase || (phase === "play" && peg));
         const remaining = gridActive ? 0 : hands[i].length;
@@ -1887,7 +1887,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
             : showPhase ? i === info.owner
                 : discardPhase ? (i === me && myTurn)
                     : turn === i;
-        return React.createElement(Seat, { key: i, i: i, dealerIdx: dealerIdx, active: active, items: [...backItems(remaining), ...cardItems(played)], settings: settings });
+        return React.createElement(Seat, { key: i, i: i, dealerIdx: dealerIdx, active: active, items: [...backItems(remaining), ...cardItems(played)], settings: settings, me: me });
     };
     return (React.createElement("div", { style: { marginTop: 6, display: "flex", flexDirection: "column", gap: 10 } },
         ts.top.length > 0 && (React.createElement("div", { style: { display: "grid", gridTemplateColumns: `repeat(${ts.top.length}, 1fr)`, gap: 8 } }, ts.top.map(cell))),
@@ -2162,7 +2162,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.5"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.6"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

@@ -1319,15 +1319,20 @@ function seatsAround(P, me) {
   return { top: ts.top.map(at), left: ts.left != null ? at(ts.left) : null, right: ts.right != null ? at(ts.right) : null };
 }
 
-// The deck in the centre of the table: a face-down stack, with the starter laid face up on
-// top once it's been cut. Same --cw footprint in every phase (the stacked backs are
-// absolutely positioned and don't widen the box), so the table never shifts.
-function StarterDeck({ starter }) {
+// The deck in the centre of the table: a face-down stack whose thickness tracks how many
+// cards are still undealt, with the starter laid face up on top once it's been cut. The
+// stacked backs are absolutely positioned (they rise up-left behind the top card) so the
+// --cw footprint never changes and the table never shifts. `count` is the cards remaining
+// in the deck; the stack starts full at the deal and thins as cards leave it.
+const DECK_EDGE = 0.3;                            // px of offset per stacked card edge
+function StarterDeck({ starter, count = 4 }) {
+  const edges = Math.max(0, Math.min(51, (count || 1) - 1));   // one edge per undealt card behind the top
   return (
     <div style={{ position: "relative", width: "var(--cw)", height: "var(--ch)", margin: "0 auto" }}>
-      <div style={{ position: "absolute", left: 3, top: -6 }}><CardBack /></div>
-      <div style={{ position: "absolute", left: 2, top: -4 }}><CardBack /></div>
-      <div style={{ position: "absolute", left: 1, top: -2 }}><CardBack /></div>
+      {Array.from({ length: edges }).map((_, k) => {
+        const d = (edges - k) * DECK_EDGE;         // bottom-most edge is offset furthest up-left
+        return <div key={k} style={{ position: "absolute", left: d, top: -d }}><CardBack /></div>;
+      })}
       <div style={{ position: "absolute", left: 0, top: 0 }}>{starter ? <Card card={starter} /> : <CardBack />}</div>
     </div>
   );
@@ -1350,6 +1355,10 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
   const teams = clampTeams(P, settings.teams);
   const pl = plan(P, dealerIdx);
   const ts = seatsAround(P, me);
+  // Cards still sitting in the centre deck: full (52) before the deal; minus every dealt card
+  // once hands are out; minus the starter (and the 3-handed deck-card) once the cut is taken.
+  const totalDealt = pl.sizes.reduce((a, b) => a + b, 0);
+  const deckCount = preDeal ? 52 : 52 - totalDealt - (phase === "discard" ? 0 : 1 + (pl.deckCard ? 1 : 0));
   // The show counts one owner at a time: their (face-up) hand or the crib, plus the cut.
   const info = showPhase ? computeShow(state) : null;
   const stepLabel = showPhase ? tr("play.show.step", { n: state.show.step + 1, m: state.show.order.length }) : "";
@@ -1443,7 +1452,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
               just the undealt deck, so label it "deck". Keeps the row bottom-aligned with the seats. */}
           <div style={{ height: 18, marginBottom: 4, display: "flex", alignItems: "center", fontFamily: mono, fontSize: 10, color: T.muted }}>{(phase === "play" || showPhase || overPhase) ? tr("play.starterCard") : tr("play.deck")}</div>
           <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" }}>
-            <StarterDeck starter={(phase === "play" || showPhase || overPhase) ? starter : null} />
+            <StarterDeck starter={(phase === "play" || showPhase || overPhase) ? starter : null} count={deckCount} />
           </div>
         </div>
         <div style={{ minWidth: 0 }}>{ts.right != null ? cell(ts.right) : null}</div>

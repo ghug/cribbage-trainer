@@ -1887,14 +1887,14 @@ function StarterDeck({ starter, count = 4 }) {
         return React.createElement("div", { key: k, "data-decktop": isTop ? "1" : undefined, style: { position: "absolute", left: d, top: -d } }, isTop && starter ? React.createElement(StarterCard, { card: starter }) : React.createElement(CardBack, null));
     })));
 }
-function DeckSwapView({ offX, offY, count = 52 }) {
+function DeckSwapView({ phase, offX, offY, count = 52 }) {
     const [go, setGo] = React.useState(false);
     React.useEffect(() => { const id = requestAnimationFrame(() => requestAnimationFrame(() => setGo(true))); return () => cancelAnimationFrame(id); }, []);
     const TR = `transform ${SWAP_DUR}ms cubic-bezier(.4,0,.2,1)`;
+    const from = phase === "out" ? "none" : `translate(${offX}px, ${-offY}px)`;
+    const to = phase === "out" ? `translate(${-offX}px, ${-offY}px)` : "none";
     return (React.createElement("div", { style: { position: "relative", width: "var(--cw)", height: "var(--ch)", margin: "0 auto" } },
-        React.createElement("div", { style: { position: "absolute", inset: 0, transition: TR, transform: go ? `translate(${-offX}px, ${-offY}px)` : "none" } },
-            React.createElement(StarterDeck, { starter: null, count: count })),
-        React.createElement("div", { style: { position: "absolute", inset: 0, transition: TR, transform: go ? "none" : `translate(${offX}px, ${-offY}px)` } },
+        React.createElement("div", { style: { position: "absolute", inset: 0, transition: TR, transform: go ? to : from } },
             React.createElement(StarterDeck, { starter: null, count: count }))));
 }
 function RevealFly({ from, to, card, delay, r0 = -180, r1 = 0 }) {
@@ -1983,6 +1983,7 @@ function DealFly({ from, legs, card }) {
 const MOVE_DUR = 460;
 const CARD_STAGGER = 210;
 const SWAP_DUR = 520;
+const EMPTY_DUR = 240;
 function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding }) {
     const { peg, starter, dealerIdx, crib, seats, settings, phase, dealDraw, winner } = state;
     const discardPhase = phase === "discard";
@@ -2150,6 +2151,28 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
         const deckEl = root.querySelector("[data-decktop]");
         const deckR = deckEl ? deckEl.getBoundingClientRect() : null;
         const deckTop = deckR ? { x: deckR.left - rootR.left, y: deckR.top - rootR.top } : { x: 0, y: 0 };
+        const swapOffX = rootR.width, swapOffY = deckTop.y + 120;
+        const swapDeckOut = { x: deckTop.x - swapOffX, y: deckTop.y - swapOffY };
+        const scheduleDeckSwap = (oldCards, startAt) => {
+            dealTimersRef.current.push(setTimeout(() => {
+                setDeckSwap({ phase: "out", offX: swapOffX, offY: swapOffY });
+                const r = { ...homesRef.current };
+                for (const id of oldCards)
+                    r[id] = { x: swapDeckOut.x, y: swapDeckOut.y, up: false, z: 62 };
+                homesRef.current = r;
+                setHomes(r);
+            }, startAt));
+            dealTimersRef.current.push(setTimeout(() => {
+                const r = { ...homesRef.current };
+                oldCards.forEach((id) => { delete r[id]; delete delayRef.current[id]; });
+                homesRef.current = r;
+                setHomes(r);
+                setDeckSwap({ phase: "empty", offX: swapOffX, offY: swapOffY });
+            }, startAt + SWAP_DUR));
+            dealTimersRef.current.push(setTimeout(() => setDeckSwap({ phase: "in", offX: swapOffX, offY: swapOffY }), startAt + SWAP_DUR + EMPTY_DUR));
+            dealTimersRef.current.push(setTimeout(() => setDeckSwap(null), startAt + 2 * SWAP_DUR + EMPTY_DUR));
+            return startAt + 2 * SWAP_DUR + EMPTY_DUR;
+        };
         const targets = {};
         for (const id in place) {
             const p = place[id];
@@ -2193,13 +2216,10 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
         const isDeal = (phaseAtLast === "deal" || phaseAtLast === "cutdeal") && phase === "discard" && newCards.length > 1;
         if (isDeal) {
             const t0 = (typeof performance !== "undefined" ? performance.now() : Date.now());
-            const offX = Math.max(260, rootR.width), offY = 240;
-            const deckOut = { x: deckTop.x - offX, y: deckTop.y - offY };
             const oldCards = [...prevKnown];
             const dealList = Object.keys(targets);
             const swap = oldCards.length > 0;
             const GATHER_DUR = swap ? MOVE_DUR + 80 : 0;
-            const dealStart = swap ? GATHER_DUR + SWAP_DUR : 0;
             const dealSpan = (dealList.length - 1) * CARD_STAGGER + MOVE_DUR + 80;
             const ordered = dealList.slice().sort((a, b) => dealRank(a) - dealRank(b));
             const dealDelay = {};
@@ -2215,26 +2235,13 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
             setHomes(r0);
             sigRef.current = Object.keys(targets).sort().map((id) => id + ":" + round(targets[id])).join("|") + "#";
             setDeckShown(52);
-            animUntilRef.current = t0 + dealStart + dealSpan + 120;
-            botThrowAtRef.current = animUntilRef.current + 1000;
             dealTimersRef.current.forEach(clearTimeout);
             dealTimersRef.current = [];
+            const dealStart = swap ? scheduleDeckSwap(oldCards, GATHER_DUR) : 0;
+            animUntilRef.current = t0 + dealStart + dealSpan + 120;
+            botThrowAtRef.current = animUntilRef.current + 1000;
             dealTimersRef.current.push(setTimeout(() => setBotTick((x) => x + 1), dealStart + dealSpan + 120 + 1000));
-            if (swap)
-                dealTimersRef.current.push(setTimeout(() => {
-                    setDeckSwap({ offX, offY });
-                    const r = { ...homesRef.current };
-                    for (const id of oldCards)
-                        r[id] = { x: deckOut.x, y: deckOut.y, up: false, z: 62 };
-                    homesRef.current = r;
-                    setHomes(r);
-                }, GATHER_DUR));
             dealTimersRef.current.push(setTimeout(() => {
-                const r = { ...homesRef.current };
-                oldCards.forEach((id) => { delete r[id]; delete delayRef.current[id]; });
-                homesRef.current = r;
-                setHomes(r);
-                setDeckSwap(null);
                 requestAnimationFrame(() => requestAnimationFrame(() => {
                     const r2 = { ...homesRef.current };
                     for (const id of dealList) {
@@ -2258,9 +2265,6 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
             return;
         }
         if (handEndJustHappened && goneCards.length > 0) {
-            const t0 = (typeof performance !== "undefined" ? performance.now() : Date.now());
-            const offX = Math.max(260, rootR.width), offY = 240;
-            const deckOut = { x: deckTop.x - offX, y: deckTop.y - offY };
             const oldCards = [...prevKnown];
             const GATHER_DUR = MOVE_DUR + 80;
             for (const id in delayRef.current)
@@ -2274,25 +2278,11 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
             setHomes(r0);
             sigRef.current = "#";
             setDeckShown(52);
-            animUntilRef.current = t0 + GATHER_DUR + SWAP_DUR + 120;
             dealTimersRef.current.forEach(clearTimeout);
             dealTimersRef.current = [];
-            dealTimersRef.current.push(setTimeout(() => {
-                setDeckSwap({ offX, offY });
-                const r = { ...homesRef.current };
-                for (const id of oldCards)
-                    r[id] = { x: deckOut.x, y: deckOut.y, up: false, z: 62 };
-                homesRef.current = r;
-                setHomes(r);
-            }, GATHER_DUR));
-            dealTimersRef.current.push(setTimeout(() => {
-                const r = { ...homesRef.current };
-                oldCards.forEach((id) => { delete r[id]; delete delayRef.current[id]; });
-                homesRef.current = r;
-                setHomes(r);
-                setDeckSwap(null);
-                setDeckShown(deckCount);
-            }, GATHER_DUR + SWAP_DUR));
+            const settleAt = scheduleDeckSwap(oldCards, GATHER_DUR);
+            dealTimersRef.current.push(setTimeout(() => setDeckShown(deckCount), settleAt));
+            animUntilRef.current = (typeof performance !== "undefined" ? performance.now() : Date.now()) + settleAt + 120;
             return;
         }
         for (const id in targets)
@@ -2415,7 +2405,8 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
             React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", flex: "0 0 auto" } },
                 React.createElement("div", { style: { height: 18, marginBottom: 4, display: "flex", alignItems: "center", fontFamily: mono, fontSize: 10, color: T.muted } }, (phase === "play" || showPhase || overPhase) ? tr("play.starterCard") : tr("play.deck")),
                 React.createElement("div", { "data-slot": "deck", style: { display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" } }, deckSwap
-                    ? React.createElement(DeckSwapView, { offX: deckSwap.offX, offY: deckSwap.offY, count: Math.max(1, deckShown) })
+                    ? (deckSwap.phase === "empty" ? null
+                        : React.createElement(DeckSwapView, { key: deckSwap.phase, phase: deckSwap.phase, offX: deckSwap.offX, offY: deckSwap.offY, count: Math.max(1, deckShown) }))
                     : React.createElement(StarterDeck, { starter: null, count: Math.max(1, deckShown) }))),
             React.createElement("div", { style: { minWidth: 0 } }, ts.right != null ? cell(ts.right) : null)),
         cell(me),
@@ -2678,7 +2669,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.48"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.49"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

@@ -1324,7 +1324,7 @@ function seatsAround(P, me) {
 // stacked backs are absolutely positioned (they rise up-left behind the top card) so the
 // --cw footprint never changes and the table never shifts. `count` is the cards remaining
 // in the deck; the stack starts full at the deal and thins as cards leave it.
-const DECK_EDGE = 0.3;                            // px of offset per stacked card edge
+const DECK_EDGE = 0.2;                            // px of offset per stacked card edge
 function StarterDeck({ starter, count = 4 }) {
   const edges = Math.max(0, Math.min(51, (count || 1) - 1));   // one edge per undealt card behind the top
   return (

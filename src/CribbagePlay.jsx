@@ -1026,6 +1026,15 @@ export default function CribbagePlay() {
   const botStr = nB > 0 ? tr(nB === 1 ? "play.hdr.bot" : "play.hdr.bots", { n: nB }) : "";
   const headLine = tr("play.hdr.handed", { p: players }) + teamStr + botStr;
 
+  // Track where the crib pile sits in the discard banner each render, so when the crib completes
+  // and its home mounts behind the score bar, it can glide up from that last gathering spot.
+  const cribBannerRef = React.useRef(null);
+  React.useLayoutEffect(() => {
+    if (phase !== "discard") return;
+    const el = document.querySelector('[data-slot="crib"]');
+    if (el) { const r = el.getBoundingClientRect(); if (r.width) cribBannerRef.current = { x: r.left, y: r.top }; }
+  });
+
   // Record each finished game once (when the board reaches "over" with a winner).
   const recordedRef = React.useRef(false);
   useEffect(() => {
@@ -1178,9 +1187,7 @@ export default function CribbagePlay() {
             it (lower z), tucked up so only its bottom quarter pokes out below the bar, right-aligned. */}
         <div style={{ position: "relative" }}>
           {(phase === "cut" || phase === "play") && state.crib.length > 0 && (
-            <div data-slot="cribhome" style={{ position: "absolute", right: 0, bottom: `calc(var(--ch) * ${-CRIB_PEEK})`, zIndex: 0, display: "flex", pointerEvents: "none" }}>
-              <Fan items={backItems(state.crib.length)} />
-            </div>
+            <CribHome count={state.crib.length} bannerRef={cribBannerRef} />
           )}
           <div style={{ position: "relative", zIndex: 1, background: `radial-gradient(120% 200% at 50% -40%, ${T.baizeHi}, ${T.baize})` }}>
             <ScoreRow seats={seats} dealerIdx={dealerIdx} turn={turnNow} winner={phase === "over" ? winner : null}
@@ -1360,6 +1367,30 @@ const DEAL_MOVE = 230;
 const DEAL_THROW_PAUSE = 150;                     // beat between the deal landing and the discards flying to the crib
 const THROW_STAGGER = 70;                         // gap between your two thrown cards flying to the crib
 const CRIB_PEEK = 0.25;                           // fraction of the crib cards' height that pokes out below the score banner
+const CRIB_MOVE = 420;                            // ms for the full crib to glide from the banner up to its home
+// The completed crib at its home behind the score banner. On mount (the crib just became full)
+// it glides up from wherever it was gathering in the discard banner — `bannerRef` holds that
+// last screen position — to here, as one group.
+function CribHome({ count, bannerRef }) {
+  const ref = React.useRef(null);
+  const [pos, setPos] = React.useState(null);    // {x,y} offset from home; null once settled
+  const [glide, setGlide] = React.useState(false);
+  React.useLayoutEffect(() => {
+    const el = ref.current, b = bannerRef.current;
+    if (!el || !b) return;
+    const r = el.getBoundingClientRect();
+    setPos({ x: b.x - r.left, y: b.y - r.top });   // jump to where it was gathering (before paint)
+    const id = requestAnimationFrame(() => requestAnimationFrame(() => { setGlide(true); setPos({ x: 0, y: 0 }); }));
+    return () => cancelAnimationFrame(id);
+  }, []);
+  return (
+    <div ref={ref} data-slot="cribhome" style={{
+      position: "absolute", right: 0, bottom: `calc(var(--ch) * ${-CRIB_PEEK})`, zIndex: 0, display: "flex", pointerEvents: "none",
+      transform: pos ? `translate(${pos.x}px, ${pos.y}px)` : "none",
+      transition: glide ? `transform ${CRIB_MOVE}ms cubic-bezier(.2,.7,.3,1)` : "none",
+    }}><Fan items={backItems(count)} /></div>
+  );
+}
 // A card flying through a path of waypoints (`legs`): it mounts at `from`, then steps to each
 // leg's {x,y} at that leg's absolute `delay`, the CSS transition animating each hop. A deck→seat
 // deal is one leg; a card a bot throws gets a second leg (seat→crib).

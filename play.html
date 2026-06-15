@@ -1573,6 +1573,17 @@ function CribbagePlay() {
     const teamStr = teams < players ? (teamCounted ? tr("play.hdr.teamsN", { teams }) : tr("play.hdr.teams")) : "";
     const botStr = nB > 0 ? tr(nB === 1 ? "play.hdr.bot" : "play.hdr.bots", { n: nB }) : "";
     const headLine = tr("play.hdr.handed", { p: players }) + teamStr + botStr;
+    const cribBannerRef = React.useRef(null);
+    React.useLayoutEffect(() => {
+        if (phase !== "discard")
+            return;
+        const el = document.querySelector('[data-slot="crib"]');
+        if (el) {
+            const r = el.getBoundingClientRect();
+            if (r.width)
+                cribBannerRef.current = { x: r.left, y: r.top };
+        }
+    });
     const recordedRef = React.useRef(false);
     useEffect(() => {
         if (phase === "over" && winner !== null) {
@@ -1730,8 +1741,7 @@ function CribbagePlay() {
             } },
             settingsOpen && React.createElement(SettingsPanel, { settings: settings, dispatch: dispatch, onClose: () => setSettingsOpen(false), onAbout: () => { setSettingsOpen(false); setAboutOpen(true); }, onHistory: () => { setSettingsOpen(false); setHistoryOpen(true); } }),
             React.createElement("div", { style: { position: "relative" } },
-                (phase === "cut" || phase === "play") && state.crib.length > 0 && (React.createElement("div", { "data-slot": "cribhome", style: { position: "absolute", right: 0, bottom: `calc(var(--ch) * ${-CRIB_PEEK})`, zIndex: 0, display: "flex", pointerEvents: "none" } },
-                    React.createElement(Fan, { items: backItems(state.crib.length) }))),
+                (phase === "cut" || phase === "play") && state.crib.length > 0 && (React.createElement(CribHome, { count: state.crib.length, bannerRef: cribBannerRef })),
                 React.createElement("div", { style: { position: "relative", zIndex: 1, background: `radial-gradient(120% 200% at 50% -40%, ${T.baizeHi}, ${T.baize})` } },
                     React.createElement(ScoreRow, { seats: seats, dealerIdx: dealerIdx, turn: turnNow, winner: phase === "over" ? winner : null, onPick: (i) => setHistorySeat((cur) => (cur === i ? null : i)), P: players, teams: teams }))),
             historySeat !== null && React.createElement(HistoryPanel, { seatIdx: historySeat, seats: seats, onClose: () => setHistorySeat(null), P: players, teams: teams }),
@@ -1828,6 +1838,27 @@ const DEAL_MOVE = 230;
 const DEAL_THROW_PAUSE = 150;
 const THROW_STAGGER = 70;
 const CRIB_PEEK = 0.25;
+const CRIB_MOVE = 420;
+function CribHome({ count, bannerRef }) {
+    const ref = React.useRef(null);
+    const [pos, setPos] = React.useState(null);
+    const [glide, setGlide] = React.useState(false);
+    React.useLayoutEffect(() => {
+        const el = ref.current, b = bannerRef.current;
+        if (!el || !b)
+            return;
+        const r = el.getBoundingClientRect();
+        setPos({ x: b.x - r.left, y: b.y - r.top });
+        const id = requestAnimationFrame(() => requestAnimationFrame(() => { setGlide(true); setPos({ x: 0, y: 0 }); }));
+        return () => cancelAnimationFrame(id);
+    }, []);
+    return (React.createElement("div", { ref: ref, "data-slot": "cribhome", style: {
+            position: "absolute", right: 0, bottom: `calc(var(--ch) * ${-CRIB_PEEK})`, zIndex: 0, display: "flex", pointerEvents: "none",
+            transform: pos ? `translate(${pos.x}px, ${pos.y}px)` : "none",
+            transition: glide ? `transform ${CRIB_MOVE}ms cubic-bezier(.2,.7,.3,1)` : "none",
+        } },
+        React.createElement(Fan, { items: backItems(count) })));
+}
 function DealFly({ from, legs }) {
     const [idx, setIdx] = React.useState(-1);
     React.useEffect(() => {
@@ -2324,7 +2355,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.24"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.25"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

@@ -72,6 +72,7 @@ cribbageLocale("fr", {
   "play.cut.seatCrib": "le crib de {seat}",
   "play.pile.count": "total de la pile",
   "play.starterCard": "la retourne",
+  "play.deck": "paquet",
   "play.pile.cleared": "vidée — nouveau total à partir de 0",
   "play.pass.to": "Passez l'appareil à {seat}",
   "play.pass.take": "Je suis {seat} — montrer ma main",

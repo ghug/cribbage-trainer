@@ -68,6 +68,7 @@ cribbageLocale("es", {
   "play.cut.seatCrib": "la cuna de {seat}",
   "play.pile.count": "cuenta del montón",
   "play.starterCard": "carta de inicio",
+  "play.deck": "mazo",
   "play.pile.cleared": "despejado — nueva cuenta desde 0",
   "play.pass.to": "Pasa el dispositivo a {seat}",
   "play.pass.take": "Soy {seat} — mostrar mi mano",

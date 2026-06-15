@@ -1411,9 +1411,9 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 8, padding: "0 6px" }}>
         <div style={{ minWidth: 0 }}>{ts.left != null ? cell(ts.left) : null}</div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: "0 0 auto" }}>
-          {/* labels the face-up starter once the cut is done (play onward); empty otherwise so the
-              deck stays bottom-aligned with the seat cards' label row. */}
-          <div style={{ height: 18, marginBottom: 4, display: "flex", alignItems: "center", fontFamily: mono, fontSize: 10, color: T.muted }}>{(phase === "play" || showPhase || overPhase) ? tr("play.starterCard") : ""}</div>
+          {/* labels the face-up starter once the cut is done (play onward); before then the pile is
+              just the undealt deck, so label it "deck". Keeps the row bottom-aligned with the seats. */}
+          <div style={{ height: 18, marginBottom: 4, display: "flex", alignItems: "center", fontFamily: mono, fontSize: 10, color: T.muted }}>{(phase === "play" || showPhase || overPhase) ? tr("play.starterCard") : tr("play.deck")}</div>
           <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" }}>
             <StarterDeck starter={(phase === "play" || showPhase || overPhase) ? starter : null} />
           </div>

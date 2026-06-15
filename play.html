@@ -1497,10 +1497,10 @@ function Panel({ children, tone }) {
     const bd = tone === "good" ? "rgba(95,164,124,0.5)" : tone === "red" ? "rgba(200,65,43,0.45)" : T.line;
     return React.createElement("div", { style: { padding: "11px 14px", borderRadius: 10, background: bg, border: `1px solid ${bd}` } }, children);
 }
-function PassPanel({ to, dispatch }) {
+function PassPanel({ to, dispatch, locked }) {
     return (React.createElement("div", { style: { textAlign: "center", padding: "20px 16px", borderRadius: 12, background: "rgba(0,0,0,0.3)", border: `1px solid ${T.line}` } },
         React.createElement("div", { style: { fontWeight: 700, fontSize: 16, marginBottom: 14 } }, tr("play.pass.to", { seat: seatName(to) })),
-        React.createElement(ConfirmButton, { label: tr("play.pass.take", { seat: seatName(to) }), enabled: true, onClick: () => dispatch({ type: "TAKE_DEVICE" }) })));
+        React.createElement(ConfirmButton, { label: tr("play.pass.take", { seat: seatName(to) }), enabled: !locked, onClick: () => dispatch({ type: "TAKE_DEVICE" }) })));
 }
 function SkunkPanel({ seats, winner, P, teams }) {
     const groups = teamsList(P, teams);
@@ -1869,6 +1869,33 @@ function RevealFly({ from, to, card, delay, r0 = -180, r1 = 0 }) {
 const DEAL_STAGGER = 105;
 const DEAL_MOVE = 230;
 const GATHER_STAGGER = 30;
+const SEAT_ROTATE = 460;
+function SeatFlip({ idx, posRef, onMove, children }) {
+    const ref = React.useRef(null);
+    const busy = React.useRef(false);
+    React.useLayoutEffect(() => {
+        const el = ref.current;
+        if (!el || busy.current)
+            return;
+        const r = el.getBoundingClientRect();
+        const cur = { x: r.left, y: r.top };
+        const old = posRef.current[idx];
+        posRef.current[idx] = cur;
+        if (old && (Math.abs(old.x - cur.x) > 1 || Math.abs(old.y - cur.y) > 1)) {
+            busy.current = true;
+            el.style.transition = "none";
+            el.style.transform = `translate(${old.x - cur.x}px, ${old.y - cur.y}px)`;
+            if (onMove)
+                onMove();
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                el.style.transition = `transform ${SEAT_ROTATE}ms cubic-bezier(.4,0,.2,1)`;
+                el.style.transform = "none";
+                setTimeout(() => { busy.current = false; }, SEAT_ROTATE + 40);
+            }));
+        }
+    });
+    return React.createElement("div", { ref: ref }, children);
+}
 const DEAL_THROW_PAUSE = 150;
 const THROW_STAGGER = 70;
 const CRIB_PEEK = 0.25;
@@ -2266,7 +2293,13 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
     const cribOurs = teamOf(dealerIdx, P, teams) === teamOf(me, P, teams);
     const isDealer = me === dealerIdx;
     const teammateDeals = cribOurs && !isDealer;
-    const cell = (i) => {
+    const seatPosRef = React.useRef({});
+    const [rotating, setRotating] = React.useState(false);
+    const rotTimer = React.useRef(null);
+    const onSeatMove = () => { setRotating(true); if (rotTimer.current)
+        clearTimeout(rotTimer.current); rotTimer.current = setTimeout(() => setRotating(false), SEAT_ROTATE + 60); };
+    const cell = (i) => (React.createElement(SeatFlip, { key: i, idx: i, posRef: seatPosRef, onMove: multiHuman ? onSeatMove : undefined }, cellInner(i)));
+    const cellInner = (i) => {
         if (cutdealPhase) {
             const draw = dealDraw ? dealDraw[i] : null;
             return React.createElement(Seat, { key: i, i: i, dealerIdx: dealerIdx, active: i === dealerIdx, dim: i !== dealerIdx, items: draw ? cardItems([draw]) : backItems(1), settings: settings, me: me });
@@ -2364,7 +2397,7 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
                     React.createElement("span", null,
                         " ",
                         tr("play.cfg.tapChange")))),
-                bigBtn(multiHuman ? tr("play.dealAs", { seat: seatName(dealerIdx) }) : isDealer ? tr("play.deal") : tr("play.dealCrib", { seat: seatName(dealerIdx) }), () => dispatch({ type: "DEAL" }), "wood")))) : cutPhase ? (bigBtn(seatIsHuman(cutter, settings) ? tr("play.btn.cutFor", { seat: seatName(dealerIdx) }) : tr("play.cutMsg", { seat: seatName(cutter) }), () => dispatch({ type: "CUT" }), "wood")) : cribbingPhase ? null : needHandoff ? React.createElement(PassPanel, { to: discardPhase ? me : peg.turn, dispatch: dispatch }) : (React.createElement("div", null,
+                bigBtn(multiHuman ? tr("play.dealAs", { seat: seatName(dealerIdx) }) : isDealer ? tr("play.deal") : tr("play.dealCrib", { seat: seatName(dealerIdx) }), () => dispatch({ type: "DEAL" }), "wood")))) : cutPhase ? (bigBtn(seatIsHuman(cutter, settings) ? tr("play.btn.cutFor", { seat: seatName(dealerIdx) }) : tr("play.cutMsg", { seat: seatName(cutter) }), () => dispatch({ type: "CUT" }), "wood")) : cribbingPhase ? null : needHandoff ? React.createElement(PassPanel, { to: discardPhase ? me : peg.turn, dispatch: dispatch, locked: rotating }) : (React.createElement("div", null,
             pending && (discardPhase
                 ? React.createElement("div", { style: { marginBottom: 10 } },
                     React.createElement(DiscardWarning, { pd: pending, cribIsOurs: cribOurs, dispatch: dispatch, onCancel: () => setSel([]) }))
@@ -2560,7 +2593,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.37"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.38"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

@@ -934,11 +934,11 @@ function Panel({ children, tone }) {
 // The "pass the device" privacy block for hot-seat games with 2+ humans. It replaces the
 // active human's hand area (the rest of the table stays visible) so the previous player's
 // hand is withheld until the named player taps to take over.
-function PassPanel({ to, dispatch }) {
+function PassPanel({ to, dispatch, locked }) {
   return (
     <div style={{ textAlign: "center", padding: "20px 16px", borderRadius: 12, background: "rgba(0,0,0,0.3)", border: `1px solid ${T.line}` }}>
       <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 14 }}>{tr("play.pass.to", { seat: seatName(to) })}</div>
-      <ConfirmButton label={tr("play.pass.take", { seat: seatName(to) })} enabled onClick={() => dispatch({ type: "TAKE_DEVICE" })} />
+      <ConfirmButton label={tr("play.pass.take", { seat: seatName(to) })} enabled={!locked} onClick={() => dispatch({ type: "TAKE_DEVICE" })} />
     </div>
   );
 }
@@ -1410,6 +1410,34 @@ function RevealFly({ from, to, card, delay, r0 = -180, r1 = 0 }) {
 const DEAL_STAGGER = 105;
 const DEAL_MOVE = 230;
 const GATHER_STAGGER = 30;                        // gap between cards sweeping back into the deck at hand end
+const SEAT_ROTATE = 460;                          // ms for a seat to glide to its new spot as the ring rotates (hot-seat)
+// FLIP: keeps a seat (its label + cards) visually continuous across a re-layout by animating from
+// where it was to where it lands — so when the hot-seat ring rotates, each seat glides round the
+// circle instead of teleporting. Imperative (touches el.style directly) and guarded against
+// re-measuring mid-glide. `posRef[idx]` carries each seat's last true (untransformed) position.
+function SeatFlip({ idx, posRef, onMove, children }) {
+  const ref = React.useRef(null);
+  const busy = React.useRef(false);
+  React.useLayoutEffect(() => {
+    const el = ref.current; if (!el || busy.current) return;
+    const r = el.getBoundingClientRect();
+    const cur = { x: r.left, y: r.top };
+    const old = posRef.current[idx];
+    posRef.current[idx] = cur;
+    if (old && (Math.abs(old.x - cur.x) > 1 || Math.abs(old.y - cur.y) > 1)) {
+      busy.current = true;
+      el.style.transition = "none";
+      el.style.transform = `translate(${old.x - cur.x}px, ${old.y - cur.y}px)`;   // jump back to where it was
+      if (onMove) onMove();
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        el.style.transition = `transform ${SEAT_ROTATE}ms cubic-bezier(.4,0,.2,1)`;
+        el.style.transform = "none";                                              // glide to the new spot
+        setTimeout(() => { busy.current = false; }, SEAT_ROTATE + 40);
+      }));
+    }
+  });
+  return <div ref={ref}>{children}</div>;
+}
 const DEAL_THROW_PAUSE = 150;                     // beat between the deal landing and the discards flying to the crib
 const THROW_STAGGER = 70;                         // gap between your two thrown cards flying to the crib
 const CRIB_PEEK = 0.25;                           // fraction of the crib cards' height that pokes out below the score banner
@@ -1750,7 +1778,16 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
   const isDealer = me === dealerIdx;
   const teammateDeals = cribOurs && !isDealer;
 
-  const cell = (i) => {
+  // Hot-seat ring rotation: each seat FLIPs to its new spot when the active player changes, and
+  // the pass prompt is locked while any seat is still gliding.
+  const seatPosRef = React.useRef({});
+  const [rotating, setRotating] = React.useState(false);
+  const rotTimer = React.useRef(null);
+  const onSeatMove = () => { setRotating(true); if (rotTimer.current) clearTimeout(rotTimer.current); rotTimer.current = setTimeout(() => setRotating(false), SEAT_ROTATE + 60); };
+  const cell = (i) => (
+    <SeatFlip key={i} idx={i} posRef={seatPosRef} onMove={multiHuman ? onSeatMove : undefined}>{cellInner(i)}</SeatFlip>
+  );
+  const cellInner = (i) => {
     if (cutdealPhase) {                                    // cut for deal: each seat's single draw, dealer lit
       const draw = dealDraw ? dealDraw[i] : null;
       return <Seat key={i} i={i} dealerIdx={dealerIdx} active={i === dealerIdx} dim={i !== dealerIdx}
@@ -1924,7 +1961,7 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
         // Manual cut: always a deliberate tap that turns the starter — you cut it yourself, or you
         // tap to turn it on a bot cutter's behalf. (Auto-cut skips straight past this phase.)
         bigBtn(seatIsHuman(cutter, settings) ? tr("play.btn.cutFor", { seat: seatName(dealerIdx) }) : tr("play.cutMsg", { seat: seatName(cutter) }), () => dispatch({ type: "CUT" }), "wood")
-      ) : cribbingPhase ? null : needHandoff ? <PassPanel to={discardPhase ? me : peg.turn} dispatch={dispatch} /> : (
+      ) : cribbingPhase ? null : needHandoff ? <PassPanel to={discardPhase ? me : peg.turn} dispatch={dispatch} locked={rotating} /> : (
       <div>
         {pending && (discardPhase
           ? <div style={{ marginBottom: 10 }}><DiscardWarning pd={pending} cribIsOurs={cribOurs} dispatch={dispatch} onCancel={() => setSel([])} /></div>

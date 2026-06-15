@@ -567,7 +567,7 @@ function dealNewHand(state) {
   const base = {
     ...state, seats, deck, starter: null, crib: [], hisHeels: false,
     peg: null, show: null, winner: null, phase: "discard", message: "", pendingDiscard: null, pendingPlay: null,
-    holder: firstHuman(P, state.settings), discardSeat: humanThrowers.length ? humanThrowers[0] : null,
+    holder: state.holder != null ? state.holder : firstHuman(P, state.settings), discardSeat: humanThrowers.length ? humanThrowers[0] : null,
   };
   if (humanThrowers.length === 0) {
     // No human throws this hand — the crib is already complete, so skip to the cut. Frame
@@ -686,8 +686,15 @@ function reduce(state, action) {
       return playCard(state, seat, action.card);
     }
 
-    case "TAKE_DEVICE":
-      return { ...state, holder: state.phase === "discard" ? state.discardSeat : (state.peg ? state.peg.turn : state.holder) };
+    case "TAKE_DEVICE": {
+      // Whoever just took the device becomes the holder: the dealer before the deal, the active
+      // discarder during the throw, the pegger in play.
+      const h = (state.phase === "cutdeal" || state.phase === "deal") ? state.dealerIdx
+        : state.phase === "discard" ? state.discardSeat
+        : state.peg ? state.peg.turn
+        : state.holder;
+      return { ...state, holder: h };
+    }
 
     case "CONFIRM_PLAY":
       return playCard({ ...state, pendingPlay: null }, state.peg.turn, state.pendingPlay.card);
@@ -1003,7 +1010,8 @@ export default function CribbagePlay() {
   const ds = state.discardSeat != null ? state.discardSeat : 0; // active discarder
   const playMe = state.holder == null ? firstHuman(players, settings) : state.holder; // device-holder perspective in play
   const needHandoff = multiHuman && (
-    phase === "discard" ? (state.discardSeat != null && state.holder !== state.discardSeat)
+    (phase === "cutdeal" || phase === "deal") ? (seatIsHuman(dealerIdx, settings) && state.holder !== dealerIdx)
+    : phase === "discard" ? (state.discardSeat != null && state.holder !== state.discardSeat)
     : (phase === "play" && peg) ? (seatIsHuman(peg.turn, settings) && state.holder !== peg.turn && peg.hands[peg.turn].length > 0)
     : false);
   // Header descriptor: "<P>-handed[, <teams>][, <N> bot(s)]" — teams shown only when
@@ -1064,10 +1072,10 @@ export default function CribbagePlay() {
   }, [phase, peg, settings, state.pendingPlay, autoPaused, needHandoff]);
 
   useEffect(() => {
-    if (autoPaused || !settings.autoDeal) return;
+    if (autoPaused || !settings.autoDeal || needHandoff) return;   // in hot-seat, wait for the dealer to take the device
     if (phase === "cutdeal") { const t = setTimeout(() => dispatch({ type: "DEAL" }), 1600); return () => clearTimeout(t); }
     if (phase === "deal") { const t = setTimeout(() => dispatch({ type: "DEAL" }), 650); return () => clearTimeout(t); }
-  }, [phase, settings.autoDeal, autoPaused]);
+  }, [phase, settings.autoDeal, autoPaused, needHandoff]);
   // Auto-discard the best throw for the active human discarder, when enabled (and once
   // they've taken the device in a hot-seat game).
   useEffect(() => {
@@ -1410,6 +1418,15 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
     return <Seat key={i} i={i} dealerIdx={dealerIdx} active={active}
       items={[...backItems(remaining), ...cardItems(played)]} settings={settings} me={me} />;
   };
+  // Hot-seat privacy: while a pass is pending, show only the pass screen — no table, no
+  // "You - {name}" perspective, no crib-intent banner — so the person handing over the device
+  // never sees the incoming player's identity or hand context. (The public score row, rendered
+  // by the App above this, stays.) The target is the dealer before the deal, the active
+  // discarder during the throw, the pegger in play.
+  if (needHandoff) {
+    const handoffTo = preDeal ? dealerIdx : discardPhase ? me : (peg ? peg.turn : me);
+    return <div style={{ marginTop: 6 }}><PassPanel to={handoffTo} dispatch={dispatch} /></div>;
+  }
   return (
     <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 10 }}>
       {/* Fixed grids: every seat owns an equal column whatever it's holding, so the labels
@@ -1555,7 +1572,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
         seatIsHuman(cutter, settings)
           ? bigBtn(tr("play.btn.cutFor", { seat: seatName(dealerIdx) }), () => dispatch({ type: "CUT" }), "wood")
           : <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" }}>{tr("play.cutMsg", { seat: seatName(cutter) })}</div>
-      ) : needHandoff ? <PassPanel to={discardPhase ? me : peg.turn} dispatch={dispatch} /> : (
+      ) : (
       <div>
         {pending && (discardPhase
           ? <div style={{ marginBottom: 10 }}><DiscardWarning pd={pending} cribIsOurs={cribOurs} dispatch={dispatch} onCancel={() => setSel([])} /></div>

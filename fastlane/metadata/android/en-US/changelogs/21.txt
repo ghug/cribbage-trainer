@@ -1,0 +1,5 @@
+New in 1.1.17:
+- New "Reset game settings to defaults" button in every settings menu.
+- Home-page table diagram: each seat now has its own color-blind-safe color in cutthroat, the dealer is marked with a 🔘 button (instead of "D") so it reads in any language, and the seat hint and labels are clearer.
+- The Teams control now appears only at 4 or 6 players.
+- Weak-play warnings now start off by default.

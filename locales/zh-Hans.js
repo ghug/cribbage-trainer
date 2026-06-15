@@ -37,6 +37,7 @@ cribbageLocale("zh-Hans", {
 
   // play game — buttons, prompts, banners
   "play.deal": "发牌",
+  "play.dealAs": "我是{seat}——发牌",
   "play.dealCrib": "发牌（{seat}的副牌）",
   "play.btn.dealing": "发牌中…",
   "play.btn.cutFor": "为{seat}切牌",
@@ -75,7 +76,7 @@ cribbageLocale("zh-Hans", {
   "play.deck": "牌堆",
   "play.pile.cleared": "已清空——从0重新计数",
   "play.pass.to": "把设备交给{seat}",
-  "play.pass.take": "我是{seat}——显示我的牌",
+  "play.pass.take": "我是{seat}——显示我的手牌",
   // the show / counting + skunk
   "play.show.yourCrib": "你的副牌",
   "play.show.yourHand": "你的手牌",

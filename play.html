@@ -202,6 +202,7 @@ cribbageLocale("en", {
 
   // play game — buttons, prompts, banners (the PlayScreen)
   "play.deal": "Deal",
+  "play.dealAs": "I’m {seat} — Deal the cards",
   "play.dealCrib": "Deal ({seat}'s crib)",
   "play.btn.dealing": "Dealing…",
   "play.btn.cutFor": "Cut the deck for {seat}",
@@ -240,7 +241,7 @@ cribbageLocale("en", {
   "play.deck": "deck",
   "play.pile.cleared": "cleared — new count from 0",
   "play.pass.to": "Pass the device to {seat}",
-  "play.pass.take": "I’m {seat} — show my hand",
+  "play.pass.take": "I’m {seat} — Show my cards",
   // the show / counting body + the skunk panel
   "play.show.yourCrib": "Your crib",
   "play.show.yourHand": "Your hand",
@@ -1150,7 +1151,7 @@ function dealNewHand(state) {
     const base = {
         ...state, seats, deck, starter: null, crib: [], hisHeels: false,
         peg: null, show: null, winner: null, phase: "discard", message: "", pendingDiscard: null, pendingPlay: null,
-        holder: state.holder != null ? state.holder : firstHuman(P, state.settings), discardSeat: humanThrowers.length ? humanThrowers[0] : null,
+        holder: nHumans(P, state.settings) > 1 ? d : firstHuman(P, state.settings), discardSeat: humanThrowers.length ? humanThrowers[0] : null,
     };
     if (humanThrowers.length === 0) {
         const you = soleHuman(P, state.settings);
@@ -1267,13 +1268,8 @@ function reduce(state, action) {
                 return { ...state, pendingPlay: { card: action.card, ...e } };
             return playCard(state, seat, action.card);
         }
-        case "TAKE_DEVICE": {
-            const h = (state.phase === "cutdeal" || state.phase === "deal") ? state.dealerIdx
-                : state.phase === "discard" ? state.discardSeat
-                    : state.peg ? state.peg.turn
-                        : state.holder;
-            return { ...state, holder: h };
-        }
+        case "TAKE_DEVICE":
+            return { ...state, holder: state.phase === "discard" ? state.discardSeat : (state.peg ? state.peg.turn : state.holder) };
         case "CONFIRM_PLAY":
             return playCard({ ...state, pendingPlay: null }, state.peg.turn, state.pendingPlay.card);
         case "CANCEL_PLAY":
@@ -1561,10 +1557,9 @@ function CribbagePlay() {
     setSeatCustom(settings.names);
     const ds = state.discardSeat != null ? state.discardSeat : 0;
     const playMe = state.holder == null ? firstHuman(players, settings) : state.holder;
-    const needHandoff = multiHuman && ((phase === "cutdeal" || phase === "deal") ? (seatIsHuman(dealerIdx, settings) && state.holder !== dealerIdx)
-        : phase === "discard" ? (state.discardSeat != null && state.holder !== state.discardSeat)
-            : (phase === "play" && peg) ? (seatIsHuman(peg.turn, settings) && state.holder !== peg.turn && peg.hands[peg.turn].length > 0)
-                : false);
+    const needHandoff = multiHuman && (phase === "discard" ? (state.discardSeat != null && state.holder !== state.discardSeat)
+        : (phase === "play" && peg) ? (seatIsHuman(peg.turn, settings) && state.holder !== peg.turn && peg.hands[peg.turn].length > 0)
+            : false);
     const nB = players - nHumans(players, settings);
     const teamCounted = teamOptions(players).filter((t) => t < players).length > 1;
     const teamStr = teams < players ? (teamCounted ? tr("play.hdr.teamsN", { teams }) : tr("play.hdr.teams")) : "";
@@ -1628,7 +1623,7 @@ function CribbagePlay() {
         return () => clearTimeout(t);
     }, [phase, peg, settings, state.pendingPlay, autoPaused, needHandoff]);
     useEffect(() => {
-        if (autoPaused || !settings.autoDeal || needHandoff)
+        if (autoPaused || !settings.autoDeal)
             return;
         if (phase === "cutdeal") {
             const t = setTimeout(() => dispatch({ type: "DEAL" }), 1600);
@@ -1638,7 +1633,7 @@ function CribbagePlay() {
             const t = setTimeout(() => dispatch({ type: "DEAL" }), 650);
             return () => clearTimeout(t);
         }
-    }, [phase, settings.autoDeal, autoPaused, needHandoff]);
+    }, [phase, settings.autoDeal, autoPaused]);
     useEffect(() => {
         if (phase !== "discard" || autoPaused || !settings.autoDiscardBest || state.pendingDiscard || needHandoff)
             return;
@@ -1730,7 +1725,7 @@ function CribbagePlay() {
             historySeat !== null && React.createElement(HistoryPanel, { seatIdx: historySeat, seats: seats, onClose: () => setHistorySeat(null), P: players, teams: teams }),
             paused && (React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.pegRed, textAlign: "center", marginTop: 8 } }, "\u23F8 Paused \u2014 automatic play is stopped. Tap \u25B6 to resume.")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.cream, margin: "5px 2px 3px", minHeight: 16, lineHeight: 1.45 } }, message),
-            (phase === "cutdeal" || phase === "deal" || phase === "discard" || phase === "cut" || (phase === "show" && show) || (phase === "play" && peg) || phase === "over") && (React.createElement(PlayScreen, { state: state, dispatch: dispatch, me: phase === "discard" ? ds : playMe, needHandoff: needHandoff }))),
+            (phase === "cutdeal" || phase === "deal" || phase === "discard" || phase === "cut" || (phase === "show" && show) || (phase === "play" && peg) || phase === "over") && (React.createElement(PlayScreen, { state: state, dispatch: dispatch, me: phase === "discard" ? ds : (multiHuman && (phase === "cutdeal" || phase === "deal")) ? dealerIdx : playMe, needHandoff: needHandoff }))),
         aboutOpen && React.createElement(AboutModal, { onClose: () => setAboutOpen(false) }),
         historyOpen && React.createElement(HistoryModal, { onClose: () => setHistoryOpen(false) }),
         confirmHome && (React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }, onClick: () => setConfirmHome(false) },
@@ -1895,11 +1890,6 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
                     : turn === i;
         return React.createElement(Seat, { key: i, i: i, dealerIdx: dealerIdx, active: active, items: [...backItems(remaining), ...cardItems(played)], settings: settings, me: me });
     };
-    if (needHandoff) {
-        const handoffTo = preDeal ? dealerIdx : discardPhase ? me : (peg ? peg.turn : me);
-        return React.createElement("div", { style: { marginTop: 6 } },
-            React.createElement(PassPanel, { to: handoffTo, dispatch: dispatch }));
-    }
     return (React.createElement("div", { style: { marginTop: 6, display: "flex", flexDirection: "column", gap: 10 } },
         ts.top.length > 0 && (React.createElement("div", { style: { display: "grid", gridTemplateColumns: `repeat(${ts.top.length}, 1fr)`, gap: 8 } }, ts.top.map(cell))),
         React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 8, padding: "0 6px" } },
@@ -1975,9 +1965,9 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
                     React.createElement("span", null,
                         " ",
                         tr("play.cfg.tapChange")))),
-                bigBtn(isDealer ? tr("play.deal") : tr("play.dealCrib", { seat: seatName(dealerIdx) }), () => dispatch({ type: "DEAL" }), "wood")))) : cutPhase ? (seatIsHuman(cutter, settings)
+                bigBtn(multiHuman ? tr("play.dealAs", { seat: seatName(dealerIdx) }) : isDealer ? tr("play.deal") : tr("play.dealCrib", { seat: seatName(dealerIdx) }), () => dispatch({ type: "DEAL" }), "wood")))) : cutPhase ? (seatIsHuman(cutter, settings)
             ? bigBtn(tr("play.btn.cutFor", { seat: seatName(dealerIdx) }), () => dispatch({ type: "CUT" }), "wood")
-            : React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" } }, tr("play.cutMsg", { seat: seatName(cutter) }))) : (React.createElement("div", null,
+            : React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" } }, tr("play.cutMsg", { seat: seatName(cutter) }))) : needHandoff ? React.createElement(PassPanel, { to: discardPhase ? me : peg.turn, dispatch: dispatch }) : (React.createElement("div", null,
             pending && (discardPhase
                 ? React.createElement("div", { style: { marginBottom: 10 } },
                     React.createElement(DiscardWarning, { pd: pending, cribIsOurs: cribOurs, dispatch: dispatch, onCancel: () => setSel([]) }))
@@ -2173,7 +2163,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.7"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.8"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

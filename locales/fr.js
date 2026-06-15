@@ -37,6 +37,7 @@ cribbageLocale("fr", {
 
   // play game — buttons, prompts, banners
   "play.deal": "Distribuer",
+  "play.dealAs": "Je suis {seat} — Distribuer les cartes",
   "play.dealCrib": "Distribuer (crib de {seat})",
   "play.btn.dealing": "Distribution…",
   "play.btn.cutFor": "Coupez le paquet pour {seat}",
@@ -75,7 +76,7 @@ cribbageLocale("fr", {
   "play.deck": "paquet",
   "play.pile.cleared": "vidée — nouveau total à partir de 0",
   "play.pass.to": "Passez l'appareil à {seat}",
-  "play.pass.take": "Je suis {seat} — montrer ma main",
+  "play.pass.take": "Je suis {seat} — Montrer mes cartes",
   // the show / counting + skunk
   "play.show.yourCrib": "Votre crib",
   "play.show.yourHand": "Votre main",

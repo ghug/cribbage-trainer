@@ -39,6 +39,7 @@ cribbageLocale("en", {
 
   // play game — buttons, prompts, banners (the PlayScreen)
   "play.deal": "Deal",
+  "play.dealAs": "I’m {seat} — Deal the cards",
   "play.dealCrib": "Deal ({seat}'s crib)",
   "play.btn.dealing": "Dealing…",
   "play.btn.cutFor": "Cut the deck for {seat}",
@@ -77,7 +78,7 @@ cribbageLocale("en", {
   "play.deck": "deck",
   "play.pile.cleared": "cleared — new count from 0",
   "play.pass.to": "Pass the device to {seat}",
-  "play.pass.take": "I’m {seat} — show my hand",
+  "play.pass.take": "I’m {seat} — Show my cards",
   // the show / counting body + the skunk panel
   "play.show.yourCrib": "Your crib",
   "play.show.yourHand": "Your hand",

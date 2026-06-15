@@ -33,6 +33,7 @@ cribbageLocale("es", {
   "seat.se": "SE",
 
   "play.deal": "Repartir",
+  "play.dealAs": "Soy {seat} — Repartir las cartas",
   "play.dealCrib": "Repartir (cuna de {seat})",
   "play.btn.dealing": "Repartiendo…",
   "play.btn.cutFor": "Corta la baraja para {seat}",
@@ -71,7 +72,7 @@ cribbageLocale("es", {
   "play.deck": "mazo",
   "play.pile.cleared": "despejado — nueva cuenta desde 0",
   "play.pass.to": "Pasa el dispositivo a {seat}",
-  "play.pass.take": "Soy {seat} — mostrar mi mano",
+  "play.pass.take": "Soy {seat} — Mostrar mis cartas",
   "play.show.yourCrib": "Tu cuna",
   "play.show.yourHand": "Tu mano",
   "play.show.seatCrib": "La cuna de {seat}",

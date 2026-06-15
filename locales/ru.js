@@ -37,6 +37,7 @@ cribbageLocale("ru", {
 
   // play game — buttons, prompts, banners
   "play.deal": "Раздать",
+  "play.dealAs": "Я {seat} — Раздать карты",
   "play.dealCrib": "Раздать (прикуп: {seat})",
   "play.btn.dealing": "Раздача…",
   "play.btn.cutFor": "Снимите колоду для {seat}",
@@ -75,7 +76,7 @@ cribbageLocale("ru", {
   "play.deck": "колода",
   "play.pile.cleared": "очищено — новый счёт с 0",
   "play.pass.to": "Передайте устройство {seat}",
-  "play.pass.take": "Я {seat} — показать мои карты",
+  "play.pass.take": "Я {seat} — Показать мои карты",
   // the show / counting + skunk
   "play.show.yourCrib": "Ваш прикуп",
   "play.show.yourHand": "Ваша рука",

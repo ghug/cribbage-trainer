@@ -2293,13 +2293,8 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
     const cribOurs = teamOf(dealerIdx, P, teams) === teamOf(me, P, teams);
     const isDealer = me === dealerIdx;
     const teammateDeals = cribOurs && !isDealer;
-    const seatPosRef = React.useRef({});
-    const [rotating, setRotating] = React.useState(false);
-    const rotTimer = React.useRef(null);
-    const onSeatMove = () => { setRotating(true); if (rotTimer.current)
-        clearTimeout(rotTimer.current); rotTimer.current = setTimeout(() => setRotating(false), SEAT_ROTATE + 60); };
-    const cell = (i) => (React.createElement(SeatFlip, { key: i, idx: i, posRef: seatPosRef, onMove: multiHuman ? onSeatMove : undefined }, cellInner(i)));
-    const cellInner = (i) => {
+    const rotating = false;
+    const cell = (i) => {
         if (cutdealPhase) {
             const draw = dealDraw ? dealDraw[i] : null;
             return React.createElement(Seat, { key: i, i: i, dealerIdx: dealerIdx, active: i === dealerIdx, dim: i !== dealerIdx, items: draw ? cardItems([draw]) : backItems(1), settings: settings, me: me });
@@ -2593,7 +2588,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.38"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.39"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

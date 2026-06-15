@@ -1778,16 +1778,8 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
   const isDealer = me === dealerIdx;
   const teammateDeals = cribOurs && !isDealer;
 
-  // Hot-seat ring rotation: each seat FLIPs to its new spot when the active player changes, and
-  // the pass prompt is locked while any seat is still gliding.
-  const seatPosRef = React.useRef({});
-  const [rotating, setRotating] = React.useState(false);
-  const rotTimer = React.useRef(null);
-  const onSeatMove = () => { setRotating(true); if (rotTimer.current) clearTimeout(rotTimer.current); rotTimer.current = setTimeout(() => setRotating(false), SEAT_ROTATE + 60); };
-  const cell = (i) => (
-    <SeatFlip key={i} idx={i} posRef={seatPosRef} onMove={multiHuman ? onSeatMove : undefined}>{cellInner(i)}</SeatFlip>
-  );
-  const cellInner = (i) => {
+  const rotating = false;
+  const cell = (i) => {
     if (cutdealPhase) {                                    // cut for deal: each seat's single draw, dealer lit
       const draw = dealDraw ? dealDraw[i] : null;
       return <Seat key={i} i={i} dealerIdx={dealerIdx} active={i === dealerIdx} dim={i !== dealerIdx}

@@ -2046,22 +2046,18 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
             return;
         const rootR = root.getBoundingClientRect();
         const cw = Math.min(68, (Math.min(typeof window !== "undefined" ? window.innerWidth : 560, 560) - 62) / 6);
+        const seatEl = root.querySelector(`[data-slot="seat-${player}"]`);
+        if (!seatEl)
+            return;
+        const sr = seatEl.getBoundingClientRect();
+        const grid = player === me && seatIsHuman(me, settings) && !needHandoff;
         let from;
         if (player === me && captured && captured[0])
             from = captured[0];
-        else {
-            const el = root.querySelector(`[data-slot="seat-${player}"]`);
-            if (el) {
-                const r = el.getBoundingClientRect();
-                from = { x: r.left - rootR.left + r.width / 2 - cw / 2, y: r.top - rootR.top };
-            }
-        }
-        const pileEl = root.querySelector('[data-slot="pile"]');
-        if (!from || !pileEl)
-            return;
-        const pr = pileEl.getBoundingClientRect(), n = pileLen, w = pr.width;
-        const vis = (n <= 1 || w === 0) ? STACK_VISIBLE : Math.max(0.12, Math.min(STACK_VISIBLE, (w / cw - 1) / (n - 1)));
-        const to = { x: (pr.left - rootR.left) + pr.width / 2 - cw * (1 + (n - 1) * vis) / 2 + (n - 1) * vis * cw, y: pr.top - rootR.top };
+        else
+            from = { x: sr.left - rootR.left + sr.width / 2 - cw / 2, y: sr.top - rootR.top };
+        const items = (grid ? 0 : peg.hands[player].length) + peg.played[player].length;
+        const to = { x: (sr.left - rootR.left) + sr.width / 2 - cw * (1 + (items - 1) * BACK_VISIBLE) / 2 + (items - 1) * BACK_VISIBLE * cw, y: sr.top - rootR.top };
         setPlayAnim({ card, from, to, seat: player });
         const t = setTimeout(() => setPlayAnim(null), DEAL_MOVE + 90);
         return () => clearTimeout(t);
@@ -2178,7 +2174,7 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
                     React.createElement("span", { style: { fontFamily: mono, fontSize: 10, color: T.muted } }, tr("play.pile.count")),
                     React.createElement("span", { style: { fontFamily: serif, fontWeight: 700, fontSize: 28, lineHeight: 1, color: peg.count === 31 ? T.good : T.ivory } }, peg.count)),
                 React.createElement("div", { style: { flex: "1 1 auto", minWidth: 0, overflow: "hidden", display: "flex", justifyContent: "center" } }, peg.pileSuited.length
-                    ? React.createElement(PileFan, { cards: peg.pileSuited, hideFrom: playAnim ? peg.pileSuited.length - 1 : undefined })
+                    ? React.createElement(PileFan, { cards: peg.pileSuited })
                     : React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: T.muted } }, tr("play.pile.cleared")))))),
         overPhase ? (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 16 } },
             React.createElement(SkunkPanel, { seats: seats, winner: winner, P: P, teams: teams }),
@@ -2416,7 +2412,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.31"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.32"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

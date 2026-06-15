@@ -1577,13 +1577,16 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
     const root = tableRef.current; if (!root) return;
     const rootR = root.getBoundingClientRect();
     const cw = Math.min(68, (Math.min(typeof window !== "undefined" ? window.innerWidth : 560, 560) - 62) / 6);
+    const seatEl = root.querySelector(`[data-slot="seat-${player}"]`); if (!seatEl) return;
+    const sr = seatEl.getBoundingClientRect();
+    const grid = player === me && seatIsHuman(me, settings) && !needHandoff;   // the human's hand is in the grid; its seat shows only played cards
     let from;
     if (player === me && captured && captured[0]) from = captured[0];
-    else { const el = root.querySelector(`[data-slot="seat-${player}"]`); if (el) { const r = el.getBoundingClientRect(); from = { x: r.left - rootR.left + r.width / 2 - cw / 2, y: r.top - rootR.top }; } }
-    const pileEl = root.querySelector('[data-slot="pile"]'); if (!from || !pileEl) return;
-    const pr = pileEl.getBoundingClientRect(), n = pileLen, w = pr.width;
-    const vis = (n <= 1 || w === 0) ? STACK_VISIBLE : Math.max(0.12, Math.min(STACK_VISIBLE, (w / cw - 1) / (n - 1)));
-    const to = { x: (pr.left - rootR.left) + pr.width / 2 - cw * (1 + (n - 1) * vis) / 2 + (n - 1) * vis * cw, y: pr.top - rootR.top };
+    else from = { x: sr.left - rootR.left + sr.width / 2 - cw / 2, y: sr.top - rootR.top };
+    // target: this seat's main-table hand — the slot its newest played card lands in. (The central
+    // pile is only a duplicated tracking view; it updates instantly, no animation.)
+    const items = (grid ? 0 : peg.hands[player].length) + peg.played[player].length;
+    const to = { x: (sr.left - rootR.left) + sr.width / 2 - cw * (1 + (items - 1) * BACK_VISIBLE) / 2 + (items - 1) * BACK_VISIBLE * cw, y: sr.top - rootR.top };
     setPlayAnim({ card, from, to, seat: player });
     const t = setTimeout(() => setPlayAnim(null), DEAL_MOVE + 90);
     return () => clearTimeout(t);
@@ -1752,7 +1755,7 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
             </div>
             <div style={{ flex: "1 1 auto", minWidth: 0, overflow: "hidden", display: "flex", justifyContent: "center" }}>
               {peg.pileSuited.length
-                ? <PileFan cards={peg.pileSuited} hideFrom={playAnim ? peg.pileSuited.length - 1 : undefined} />
+                ? <PileFan cards={peg.pileSuited} />
                 : <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{tr("play.pile.cleared")}</span>}
             </div>
           </div>

@@ -1341,8 +1341,8 @@ function StarterDeck({ starter, count = 4 }) {
 // Deal animation timing — one tunable knob (snappy by default). DEAL_STAGGER is the gap
 // between successive cards leaving the deck; DEAL_MOVE is one card's deck→seat travel time.
 // Set DEAL_STAGGER to 0 to deal the whole hand at once.
-const DEAL_STAGGER = 55;
-const DEAL_MOVE = 240;
+const DEAL_STAGGER = 105;
+const DEAL_MOVE = 230;
 // One card flying out of the centre deck to a seat: it mounts at `from`, then on the next
 // frame transitions to `to` (after its stagger `delay`), so the CSS transition animates it.
 function DealFly({ from, to, delay }) {
@@ -1391,6 +1391,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
   // until the flight lands. Reducer/verify_play untouched.
   const tableRef = React.useRef(null);
   const [dealAnim, setDealAnim] = React.useState(null);
+  const [dealtN, setDealtN] = React.useState(0);              // cards launched so far (deck thins by this)
   const dealSig = preDeal ? "" : seats.map((s) => (s.dealt || []).map(cardId).join(".")).join("|");
   const prevSig = React.useRef(null);
   React.useLayoutEffect(() => {
@@ -1399,25 +1400,45 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
     if (old === null || dealSig === old || !(dealSig && old === "")) return;   // only the pre-deal → dealt transition
     const root = tableRef.current; if (!root) return;
     const rootR = root.getBoundingClientRect();
+    const rel = (el) => { const r = el.getBoundingClientRect(); return { left: r.left - rootR.left, top: r.top - rootR.top, width: r.width }; };
     const deckEl = root.querySelector('[data-slot="deck"]'); if (!deckEl) return;
-    const dr = deckEl.getBoundingClientRect();
-    const from = { x: dr.left - rootR.left, y: dr.top - rootR.top };
-    const seatRects = {};
+    const db = rel(deckEl);
+    const cw = Math.min(68, (Math.min(typeof window !== "undefined" ? window.innerWidth : 560, 560) - 62) / 6);
+    const from = { x: db.left + db.width / 2 - cw / 2, y: db.top };
+    // Per-card destinations: each seat's n dealt cards land in their actual fan slots — the
+    // human's interactive hand is a spaced row (gap 6), every other seat an overlapping fan —
+    // so a card flies straight to where it will sit and never snaps on reveal.
+    const handToGrid = seatIsHuman(me, settings) && !needHandoff && phase === "discard";
+    const targets = {};
     for (let i = 0; i < P; i++) {
-      const el = root.querySelector(`[data-slot="seat-${i}"]`);
-      if (el) { const r = el.getBoundingClientRect(); seatRects[i] = { x: r.left - rootR.left + r.width / 2 - dr.width / 2, y: r.top - rootR.top }; }
+      const n = pl.sizes[i];
+      if (i === me && handToGrid) {
+        const el = root.querySelector('[data-slot="hand"]'); if (!el) { targets[i] = []; continue; }
+        const b = rel(el), totalW = n * cw + (n - 1) * 6;
+        targets[i] = Array.from({ length: n }, (_, j) => ({ x: b.left + b.width / 2 - totalW / 2 + j * (cw + 6), y: b.top }));
+      } else {
+        const el = root.querySelector(`[data-slot="seat-${i}"]`); if (!el) { targets[i] = []; continue; }
+        const b = rel(el), fanW = cw * (1 + (n - 1) * BACK_VISIBLE);
+        targets[i] = Array.from({ length: n }, (_, j) => ({ x: b.left + b.width / 2 - fanW / 2 + j * BACK_VISIBLE * cw, y: b.top }));
+      }
     }
-    const order = [];
-    const maxSize = Math.max(...pl.sizes);
-    for (let c = 0; c < maxSize; c++) for (let i = 0; i < P; i++) if (c < pl.sizes[i]) order.push(i);
     const sprites = [];
-    order.forEach((seat, k) => { const to = seatRects[seat]; if (to) sprites.push({ key: k, from, to, delay: k * DEAL_STAGGER }); });
+    const maxSize = Math.max(...pl.sizes);
+    let k = 0;
+    for (let c = 0; c < maxSize; c++) for (let i = 0; i < P; i++) {   // round-robin: one card to each seat per pass
+      if (c >= pl.sizes[i] || !targets[i] || !targets[i][c]) continue;
+      sprites.push({ key: k, from, to: targets[i][c], delay: k * DEAL_STAGGER });
+      k++;
+    }
     if (!sprites.length) return;
+    setDealtN(0);
     setDealAnim(sprites);
-    const total = (sprites.length - 1) * DEAL_STAGGER + DEAL_MOVE + 80;
-    const t = setTimeout(() => setDealAnim(null), total);
-    return () => clearTimeout(t);
+    const timers = sprites.map((s, idx) => setTimeout(() => setDealtN(idx + 1), s.delay));   // deck loses one as each card leaves
+    const total = (sprites.length - 1) * DEAL_STAGGER + DEAL_MOVE + 100;
+    timers.push(setTimeout(() => setDealAnim(null), total));
+    return () => timers.forEach(clearTimeout);
   }, [dealSig]);
+  const shownDeck = dealAnim ? 52 - dealtN : deckCount;       // thin the deck card-by-card during the deal
   // The show counts one owner at a time: their (face-up) hand or the crib, plus the cut.
   const info = showPhase ? computeShow(state) : null;
   const stepLabel = showPhase ? tr("play.show.step", { n: state.show.step + 1, m: state.show.order.length }) : "";
@@ -1512,7 +1533,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
               just the undealt deck, so label it "deck". Keeps the row bottom-aligned with the seats. */}
           <div style={{ height: 18, marginBottom: 4, display: "flex", alignItems: "center", fontFamily: mono, fontSize: 10, color: T.muted }}>{(phase === "play" || showPhase || overPhase) ? tr("play.starterCard") : tr("play.deck")}</div>
           <div data-slot="deck" style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" }}>
-            <StarterDeck starter={(phase === "play" || showPhase || overPhase) ? starter : null} count={deckCount} />
+            <StarterDeck starter={(phase === "play" || showPhase || overPhase) ? starter : null} count={shownDeck} />
           </div>
         </div>
         <div style={{ minWidth: 0 }}>{ts.right != null ? cell(ts.right) : null}</div>
@@ -1678,8 +1699,8 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
         {/* The interactive hand is only for a human in this seat; a bot (all-bot spectate)
             keeps its cards face down under its played pile, like every other seat. */}
         {meHuman && (
-          <div className={discardPhase ? "dealwrap" : undefined} style={{ display: "flex", gap: 6, justifyContent: "center", flexWrap: "nowrap" }}>
-            {(dealAnim ? [] : yourHand).map((card, i) => {
+          <div data-slot="hand" className={discardPhase ? "dealwrap" : undefined} style={{ display: "flex", gap: 6, justifyContent: "center", flexWrap: "nowrap", visibility: dealAnim ? "hidden" : "visible" }}>
+            {yourHand.map((card, i) => {
               const legal = isLegal(card);
               const chosen = pending ? pendIdxs.includes(i) : sel.includes(i);
               return (

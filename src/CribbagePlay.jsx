@@ -1772,58 +1772,65 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
 
     // ============ THE DEAL: one explicit sequence — consolidate → deck swap → deal → rotate ============
     // A real deal is the preDeal → discard transition (NOT the 1–2-card cut). When it happens we OWN
-    // the new/consolidated card homes here on a small timeline, and skip the default flow below.
+    // the card homes here on a small timeline and skip the default flow below. The old (cut-for-deal)
+    // deck and the new shuffled deck are treated as SEPARATE: every card on the table consolidates
+    // and rides out, and the new hand is mounted fresh on the new deck only after the old cards are
+    // gone — so a rank+suit that happens to appear in both decks can't short-circuit the animation.
     const isDeal = (phaseAtLast === "deal" || phaseAtLast === "cutdeal") && phase === "discard" && newCards.length > 1;
     if (isDeal) {
       const t0 = (typeof performance !== "undefined" ? performance.now() : Date.now());
       const offX = Math.max(260, rootR.width), offY = 240;
       const deckOut = { x: deckTop.x - offX, y: deckTop.y - offY };   // old deck exits upper-left
-      const deckIn = { x: deckTop.x + offX, y: deckTop.y - offY };    // new deck enters from upper-right
-      const GATHER_DUR = gatherGone.length ? MOVE_DUR + 80 : 0;       // step 1 (consolidate) only when there are cut-for-deal cards
+      const oldCards = [...prevKnown];                                // every card on the table (the cut-for-deal draws; empty on inter-hand deals)
+      const dealList = Object.keys(targets);                          // the new hand
+      const GATHER_DUR = oldCards.length ? MOVE_DUR + 80 : 0;         // step 1 (consolidate) only when there are cut-for-deal cards
       const dealStart = GATHER_DUR + SWAP_DUR;
-      const dealSpan = (newCards.length - 1) * CARD_STAGGER + MOVE_DUR + 80;
-      const ordered = newCards.slice().sort((a, b) => dealRank(a) - dealRank(b));   // pone-first, round-robin
+      const dealSpan = (dealList.length - 1) * CARD_STAGGER + MOVE_DUR + 80;
+      const ordered = dealList.slice().sort((a, b) => dealRank(a) - dealRank(b));   // pone-first, round-robin
       const dealDelay = {}; ordered.forEach((id, k) => { dealDelay[id] = k * CARD_STAGGER; });
 
-      // STEP 1 (now): the cut-for-deal cards slide into the centre deck together; the new hand is
-      // parked inside the incoming deck off to the upper-right.
-      for (const id in targets) delayRef.current[id] = 0;
-      for (const id of goneCards) delayRef.current[id] = 0;
+      // STEP 1 (now): every cut-for-deal card slides into the centre deck together (from its seat).
+      // The new hand is NOT shown yet — it stays "in" the deck until it's dealt.
+      for (const id in delayRef.current) delayRef.current[id] = 0;
       const r0 = {};
-      for (const id in targets) r0[id] = newCards.includes(id) ? { x: deckIn.x, y: deckIn.y, up: false, z: 62 } : targets[id];
-      for (const id of gatherGone) r0[id] = { x: deckTop.x, y: deckTop.y, up: false, z: 60 };
-
+      for (const id of oldCards) r0[id] = { x: deckTop.x, y: deckTop.y, up: false, z: 60 };
       knownRef.current = nowKnown;
       prevPlaceRef.current = { ...place };
       homesRef.current = r0; setHomes(r0);
       // freeze the stable post-deal signature so the timeline's setHomes re-renders early-return
       sigRef.current = Object.keys(targets).sort().map((id) => id + ":" + round(targets[id])).join("|") + "#";
       setDeckShown(52);
-      animUntilRef.current = t0 + dealStart + dealSpan;   // the ring rotation waits for the WHOLE sequence
+      animUntilRef.current = t0 + dealStart + dealSpan + 120;   // the ring rotation waits for the WHOLE sequence
 
       dealTimersRef.current.forEach(clearTimeout); dealTimersRef.current = [];
-      // STEP 2 (t=GATHER_DUR): swap decks — old slides out (consolidated cards ride with it), new slides in.
+      // STEP 2 (t=GATHER_DUR): swap decks — the old deck (and its consolidated cards) slides off to
+      // the upper-left while a fresh deck slides in from the upper-right (DeckSwapView).
       dealTimersRef.current.push(setTimeout(() => {
         setDeckSwap({ offX, offY });
         const r = { ...homesRef.current };
-        for (const id of gatherGone) r[id] = { x: deckOut.x, y: deckOut.y, up: false, z: 62 };
-        for (const id of newCards) r[id] = { x: deckTop.x, y: deckTop.y, up: false, z: 60 };
+        for (const id of oldCards) r[id] = { x: deckOut.x, y: deckOut.y, up: false, z: 62 };
         homesRef.current = r; setHomes(r);
       }, GATHER_DUR));
-      // delete the consolidated old cards once they've ridden off-screen
+      // STEP 3 (t=dealStart): the old cards are gone — drop them, end the swap, then mount the new
+      // hand on the new deck (a frame later, so a shared id can't reuse a ridden-out element) and
+      // deal it out one card at a time, pone-first.
       dealTimersRef.current.push(setTimeout(() => {
-        const r = { ...homesRef.current }; gatherGone.forEach((id) => { delete r[id]; delete delayRef.current[id]; });
-        homesRef.current = r; setHomes(r);
-      }, dealStart));
-      // STEP 3 (t=dealStart): deal out from the new deck, one card at a time, pone-first.
-      dealTimersRef.current.push(setTimeout(() => {
-        ordered.forEach((id) => { delayRef.current[id] = dealDelay[id]; });
-        const r = { ...homesRef.current };
-        for (const id of newCards) r[id] = targets[id];
+        const r = { ...homesRef.current }; oldCards.forEach((id) => { delete r[id]; delete delayRef.current[id]; });
         homesRef.current = r; setHomes(r);
         setDeckSwap(null);
-        clearDeckTimers();
-        ordered.forEach((id) => deckTimers.current.push(setTimeout(() => setDeckShown((v) => Math.max(deckCount, v - 1)), dealDelay[id] + 40)));
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          const r2 = { ...homesRef.current };
+          for (const id of dealList) { r2[id] = { x: deckTop.x, y: deckTop.y, up: false, z: 60 }; delayRef.current[id] = 0; }
+          homesRef.current = r2; setHomes(r2);
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            ordered.forEach((id) => { delayRef.current[id] = dealDelay[id]; });
+            const r3 = { ...homesRef.current };
+            for (const id of dealList) r3[id] = targets[id];
+            homesRef.current = r3; setHomes(r3);
+            clearDeckTimers();
+            ordered.forEach((id) => deckTimers.current.push(setTimeout(() => setDeckShown((v) => Math.max(deckCount, v - 1)), dealDelay[id] + 40)));
+          }));
+        }));
       }, dealStart));
       return;   // STEP 4 (rotate) is handled by the me-lag reading animUntilRef above
     }

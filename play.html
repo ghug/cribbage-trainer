@@ -2180,21 +2180,18 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
             const t0 = (typeof performance !== "undefined" ? performance.now() : Date.now());
             const offX = Math.max(260, rootR.width), offY = 240;
             const deckOut = { x: deckTop.x - offX, y: deckTop.y - offY };
-            const deckIn = { x: deckTop.x + offX, y: deckTop.y - offY };
-            const GATHER_DUR = gatherGone.length ? MOVE_DUR + 80 : 0;
+            const oldCards = [...prevKnown];
+            const dealList = Object.keys(targets);
+            const GATHER_DUR = oldCards.length ? MOVE_DUR + 80 : 0;
             const dealStart = GATHER_DUR + SWAP_DUR;
-            const dealSpan = (newCards.length - 1) * CARD_STAGGER + MOVE_DUR + 80;
-            const ordered = newCards.slice().sort((a, b) => dealRank(a) - dealRank(b));
+            const dealSpan = (dealList.length - 1) * CARD_STAGGER + MOVE_DUR + 80;
+            const ordered = dealList.slice().sort((a, b) => dealRank(a) - dealRank(b));
             const dealDelay = {};
             ordered.forEach((id, k) => { dealDelay[id] = k * CARD_STAGGER; });
-            for (const id in targets)
-                delayRef.current[id] = 0;
-            for (const id of goneCards)
+            for (const id in delayRef.current)
                 delayRef.current[id] = 0;
             const r0 = {};
-            for (const id in targets)
-                r0[id] = newCards.includes(id) ? { x: deckIn.x, y: deckIn.y, up: false, z: 62 } : targets[id];
-            for (const id of gatherGone)
+            for (const id of oldCards)
                 r0[id] = { x: deckTop.x, y: deckTop.y, up: false, z: 60 };
             knownRef.current = nowKnown;
             prevPlaceRef.current = { ...place };
@@ -2202,35 +2199,42 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
             setHomes(r0);
             sigRef.current = Object.keys(targets).sort().map((id) => id + ":" + round(targets[id])).join("|") + "#";
             setDeckShown(52);
-            animUntilRef.current = t0 + dealStart + dealSpan;
+            animUntilRef.current = t0 + dealStart + dealSpan + 120;
             dealTimersRef.current.forEach(clearTimeout);
             dealTimersRef.current = [];
             dealTimersRef.current.push(setTimeout(() => {
                 setDeckSwap({ offX, offY });
                 const r = { ...homesRef.current };
-                for (const id of gatherGone)
+                for (const id of oldCards)
                     r[id] = { x: deckOut.x, y: deckOut.y, up: false, z: 62 };
-                for (const id of newCards)
-                    r[id] = { x: deckTop.x, y: deckTop.y, up: false, z: 60 };
                 homesRef.current = r;
                 setHomes(r);
             }, GATHER_DUR));
             dealTimersRef.current.push(setTimeout(() => {
                 const r = { ...homesRef.current };
-                gatherGone.forEach((id) => { delete r[id]; delete delayRef.current[id]; });
-                homesRef.current = r;
-                setHomes(r);
-            }, dealStart));
-            dealTimersRef.current.push(setTimeout(() => {
-                ordered.forEach((id) => { delayRef.current[id] = dealDelay[id]; });
-                const r = { ...homesRef.current };
-                for (const id of newCards)
-                    r[id] = targets[id];
+                oldCards.forEach((id) => { delete r[id]; delete delayRef.current[id]; });
                 homesRef.current = r;
                 setHomes(r);
                 setDeckSwap(null);
-                clearDeckTimers();
-                ordered.forEach((id) => deckTimers.current.push(setTimeout(() => setDeckShown((v) => Math.max(deckCount, v - 1)), dealDelay[id] + 40)));
+                requestAnimationFrame(() => requestAnimationFrame(() => {
+                    const r2 = { ...homesRef.current };
+                    for (const id of dealList) {
+                        r2[id] = { x: deckTop.x, y: deckTop.y, up: false, z: 60 };
+                        delayRef.current[id] = 0;
+                    }
+                    homesRef.current = r2;
+                    setHomes(r2);
+                    requestAnimationFrame(() => requestAnimationFrame(() => {
+                        ordered.forEach((id) => { delayRef.current[id] = dealDelay[id]; });
+                        const r3 = { ...homesRef.current };
+                        for (const id of dealList)
+                            r3[id] = targets[id];
+                        homesRef.current = r3;
+                        setHomes(r3);
+                        clearDeckTimers();
+                        ordered.forEach((id) => deckTimers.current.push(setTimeout(() => setDeckShown((v) => Math.max(deckCount, v - 1)), dealDelay[id] + 40)));
+                    }));
+                }));
             }, dealStart));
             return;
         }
@@ -2617,7 +2621,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.44"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.45"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

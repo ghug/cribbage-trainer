@@ -1366,7 +1366,7 @@ function StarterCard({ card }) {
   const [shown, setShown] = React.useState(false);
   React.useEffect(() => { const id = requestAnimationFrame(() => requestAnimationFrame(() => setShown(true))); return () => cancelAnimationFrame(id); }, []);
   return (
-    <div style={{ position: "relative", width: "var(--cw)", height: "var(--ch)", transformStyle: "preserve-3d", transition: "transform 460ms cubic-bezier(.2,.7,.3,1)", transform: shown ? "rotateY(0deg)" : "rotateY(-180deg)" }}>
+    <div style={{ position: "relative", width: "var(--cw)", height: "var(--ch)", transformStyle: "preserve-3d", transition: "transform 920ms cubic-bezier(.2,.7,.3,1)", transform: shown ? "rotateY(0deg)" : "rotateY(-180deg)" }}>
       <div style={{ position: "absolute", top: 0, left: 0, width: "var(--cw)", backfaceVisibility: "hidden" }}><Card card={card} /></div>
       <div style={{ position: "absolute", top: 0, left: 0, width: "var(--cw)", backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}><CardBack /></div>
     </div>
@@ -1407,10 +1407,10 @@ function RevealFly({ from, to, card, delay, r0 = -180, r1 = 0 }) {
 // Deal animation timing — one tunable knob (snappy by default). DEAL_STAGGER is the gap
 // between successive cards leaving the deck; DEAL_MOVE is one card's deck→seat travel time.
 // Set DEAL_STAGGER to 0 to deal the whole hand at once.
-const DEAL_STAGGER = 105;
-const DEAL_MOVE = 230;
-const GATHER_STAGGER = 30;                        // gap between cards sweeping back into the deck at hand end
-const SEAT_ROTATE = 460;                          // ms for a seat to glide to its new spot as the ring rotates (hot-seat)
+const DEAL_STAGGER = 210;
+const DEAL_MOVE = 460;
+const GATHER_STAGGER = 60;                        // gap between cards sweeping back into the deck at hand end
+const SEAT_ROTATE = 920;                          // ms for a seat to glide to its new spot as the ring rotates (hot-seat)
 // FLIP: keeps a seat (its label + cards) visually continuous across a re-layout by animating from
 // where it was to where it lands — so when the hot-seat ring rotates, each seat glides round the
 // circle instead of teleporting. Imperative (touches el.style directly) and guarded against
@@ -1438,11 +1438,11 @@ function SeatFlip({ idx, posRef, onMove, children }) {
   });
   return <div ref={ref}>{children}</div>;
 }
-const DEAL_THROW_PAUSE = 150;                     // beat between the deal landing and the discards flying to the crib
-const THROW_STAGGER = 70;                         // gap between your two thrown cards flying to the crib
+const DEAL_THROW_PAUSE = 300;                     // beat between the deal landing and the discards flying to the crib
+const THROW_STAGGER = 140;                         // gap between your two thrown cards flying to the crib
 const CRIB_PEEK = 0.25;                           // fraction of the crib cards' height that pokes out below the score banner
-const CRIB_THROW_TIME = 440;                      // beat the "cribbing" hold waits for your card to reach the crib before it glides
-const CRIB_MOVE = 420;                            // ms for the full crib to glide from the banner up to its home
+const CRIB_THROW_TIME = 880;                      // beat the "cribbing" hold waits for your card to reach the crib before it glides
+const CRIB_MOVE = 840;                            // ms for the full crib to glide from the banner up to its home
 // The completed crib at its home behind the score banner. On mount (the crib just became full)
 // it glides up from wherever it was gathering in the discard banner — `bannerRef` holds that
 // last screen position — to here, as one group.
@@ -1723,18 +1723,18 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
       const sr = seatEl.getBoundingClientRect(), total = yourHand.length + (peg ? peg.played[me].length : 0);
       const handEl = root.querySelector('[data-slot="hand"]'); if (!handEl) return;
       const kids = handEl.children;
-      for (let j = 0; j < yourHand.length; j++) { const k = kids[j]; if (!k) continue; const t2 = k.getBoundingClientRect(); sprites.push({ key: cardId(yourHand[j]), card: yourHand[j], from: { x: seatXf(sr, rootR, cw, total, j), y: sr.top - rootR.top }, to: { x: t2.left - rootR.left, y: t2.top - rootR.top }, delay: j * 55, r0: -180, r1: 0 }); }
+      for (let j = 0; j < yourHand.length; j++) { const k = kids[j]; if (!k) continue; const t2 = k.getBoundingClientRect(); sprites.push({ key: cardId(yourHand[j]), card: yourHand[j], from: { x: seatXf(sr, rootR, cw, total, j), y: sr.top - rootR.top }, to: { x: t2.left - rootR.left, y: t2.top - rootR.top }, delay: j * 110, r0: -180, r1: 0 }); }
       if (sprites.length) setRevealAnim({ dir: "up", sprites });
     } else {                                                              // RETURN: the player who just acted sends their kept cards back to their own seat
       const actor = handActorRef.current; if (actor == null) return;
       const cards = hands[actor] || []; if (!cards.length) return;
       const seatEl = root.querySelector(`[data-slot="seat-${actor}"]`); if (!seatEl) return;
       const sr = seatEl.getBoundingClientRect(), total = cards.length + (peg ? peg.played[actor].length : 0);
-      for (let j = 0; j < cards.length; j++) { const f = handPosRef.current[cardId(cards[j])]; if (!f) continue; sprites.push({ key: cardId(cards[j]), card: cards[j], from: f, to: { x: seatXf(sr, rootR, cw, total, j), y: sr.top - rootR.top }, delay: j * 55, r0: 0, r1: 180 }); }
+      for (let j = 0; j < cards.length; j++) { const f = handPosRef.current[cardId(cards[j])]; if (!f) continue; sprites.push({ key: cardId(cards[j]), card: cards[j], from: f, to: { x: seatXf(sr, rootR, cw, total, j), y: sr.top - rootR.top }, delay: j * 110, r0: 0, r1: 180 }); }
       if (sprites.length) setRevealAnim({ dir: "down", actor, sprites });
     }
     if (!sprites.length) return;
-    const t = setTimeout(() => setRevealAnim(null), (sprites.length - 1) * 55 + DEAL_MOVE + 100);
+    const t = setTimeout(() => setRevealAnim(null), (sprites.length - 1) * 110 + DEAL_MOVE + 100);
     return () => clearTimeout(t);
   }, [handVisible]);
 

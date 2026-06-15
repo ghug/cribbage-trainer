@@ -1284,7 +1284,7 @@ function Fan({ items, clip, hideFrom, clipBottom }) {
 // The central play pile. Cards sit at the normal 0.3 spacing whenever they fit, and tighten
 // only as much as the *measured* available width requires — so a long run no longer crams
 // itself into a fixed guess of the width and leaves the rest of the row empty.
-function PileFan({ cards }) {
+function PileFan({ cards, hideFrom }) {
   const ref = React.useRef(null);
   const [w, setW] = React.useState(0);
   useEffect(() => {
@@ -1303,7 +1303,7 @@ function PileFan({ cards }) {
     : Math.max(0.12, Math.min(STACK_VISIBLE, (w / cw - 1) / (n - 1)));
   return (
     <div ref={ref} style={{ width: "100%", display: "flex", justifyContent: "center" }}>
-      <Fan items={cardItems(cards, vis)} clip={PILE_VISIBLE} />
+      <div data-slot="pile"><Fan items={cardItems(cards, vis)} clip={PILE_VISIBLE} hideFrom={hideFrom} /></div>
     </div>
   );
 }
@@ -1311,14 +1311,14 @@ function PileFan({ cards }) {
 // One seat, used everywhere — the ring, the cut-for-deal, and your own bottom seat. A
 // fixed-height label row (so the active chip's padding never nudges the cards) sits above
 // a fixed --ch card slot holding a fan of whatever the seat is showing.
-function Seat({ i, dealerIdx, active, dim, items, settings, me }) {
+function Seat({ i, dealerIdx, active, dim, items, settings, me, hideFrom }) {
   return (
     <div style={{ textAlign: "center", minWidth: 0, opacity: dim ? 0.7 : 1 }}>
       <div style={{ height: 18, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 4 }}>
         <SeatLabel i={i} dealerIdx={dealerIdx} active={active} settings={settings} me={me} />
       </div>
       <div data-slot={"seat-" + i} style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" }}>
-        <Fan items={items} />
+        <Fan items={items} hideFrom={hideFrom} />
       </div>
     </div>
   );
@@ -1421,7 +1421,7 @@ function CribHome({ count, bannerRef }) {
 // A card flying through a path of waypoints (`legs`): it mounts at `from`, then steps to each
 // leg's {x,y} at that leg's absolute `delay`, the CSS transition animating each hop. A deck→seat
 // deal is one leg; a card a bot throws gets a second leg (seat→crib).
-function DealFly({ from, legs }) {
+function DealFly({ from, legs, card }) {
   const [idx, setIdx] = React.useState(-1);
   React.useEffect(() => {
     const timers = legs.map((lg, i) => setTimeout(() => setIdx(i), lg.delay));
@@ -1434,7 +1434,7 @@ function DealFly({ from, legs }) {
       transform: `translate(${p.x}px, ${p.y}px)`,
       transition: `transform ${idx < 0 ? 0 : legs[idx].dur}ms cubic-bezier(.2,.7,.3,1)`,
       zIndex: 6, pointerEvents: "none",
-    }}><CardBack /></div>
+    }}>{card ? <Card card={card} /> : <CardBack />}</div>
   );
 }
 
@@ -1560,6 +1560,34 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
     const t = setTimeout(() => setThrowAnim(null), (use.length - 1) * THROW_STAGGER + DEAL_MOVE + 100);
     return () => clearTimeout(t);
   }, [cribSoFar]);
+
+  // Pegging play → pile: when a card lands on the pile, fly it (face up) from where it came —
+  // your hand grid (captured at the tap) or the player's seat — to its slot in the pile. The new
+  // card is held back in the pile and that seat's played row until the flight lands.
+  const [playAnim, setPlayAnim] = React.useState(null);
+  const prevPile = React.useRef(0);
+  const pileLen = peg ? peg.pileSuited.length : 0;
+  React.useLayoutEffect(() => {
+    const grew = pileLen - prevPile.current;
+    prevPile.current = pileLen;
+    const captured = throwFromRef.current;
+    if (!peg || grew !== 1) { if (pileLen > 0) throwFromRef.current = null; return; }   // 1 = a single play (not a 31/go clear)
+    throwFromRef.current = null;
+    const card = peg.pileSuited[pileLen - 1], player = peg.lastPlayer;
+    const root = tableRef.current; if (!root) return;
+    const rootR = root.getBoundingClientRect();
+    const cw = Math.min(68, (Math.min(typeof window !== "undefined" ? window.innerWidth : 560, 560) - 62) / 6);
+    let from;
+    if (player === me && captured && captured[0]) from = captured[0];
+    else { const el = root.querySelector(`[data-slot="seat-${player}"]`); if (el) { const r = el.getBoundingClientRect(); from = { x: r.left - rootR.left + r.width / 2 - cw / 2, y: r.top - rootR.top }; } }
+    const pileEl = root.querySelector('[data-slot="pile"]'); if (!from || !pileEl) return;
+    const pr = pileEl.getBoundingClientRect(), n = pileLen, w = pr.width;
+    const vis = (n <= 1 || w === 0) ? STACK_VISIBLE : Math.max(0.12, Math.min(STACK_VISIBLE, (w / cw - 1) / (n - 1)));
+    const to = { x: (pr.left - rootR.left) + pr.width / 2 - cw * (1 + (n - 1) * vis) / 2 + (n - 1) * vis * cw, y: pr.top - rootR.top };
+    setPlayAnim({ card, from, to, seat: player });
+    const t = setTimeout(() => setPlayAnim(null), DEAL_MOVE + 90);
+    return () => clearTimeout(t);
+  }, [pileLen]);
   // The show counts one owner at a time: their (face-up) hand or the crib, plus the cut.
   const info = showPhase ? computeShow(state) : null;
   const stepLabel = showPhase ? tr("play.show.step", { n: state.show.step + 1, m: state.show.order.length }) : "";
@@ -1595,7 +1623,7 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
   const muggins = showPhase && mugginsActive(settings) && seatIsHuman(info.owner, settings);
   const needClaim = muggins && !state.show.claimSubmitted;
 
-  const commit = (idxs) => { if (discardPhase) captureThrow(idxs); dispatch(discardPhase
+  const commit = (idxs) => { captureThrow(idxs); dispatch(discardPhase   // capture the cards' live grid spots before they leave (throw or play)
     ? { type: "SELECT_DISCARD", idxs: idxs.slice().sort((a, b) => a - b) }
     : { type: "SELECT_PLAY", card: yourHand[idxs[0]] }); };
   const tapCard = (i) => {
@@ -1634,13 +1662,15 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
       : showPhase ? i === info.owner
       : discardPhase ? (i === me && myTurn)
       : turn === i;
+    const seatItems = dealAnim ? [] : [...backItems(remaining), ...cardItems(played)];
     return <Seat key={i} i={i} dealerIdx={dealerIdx} active={active}
-      items={dealAnim ? [] : [...backItems(remaining), ...cardItems(played)]} settings={settings} me={me} />;
+      items={seatItems} hideFrom={playAnim && playAnim.seat === i ? seatItems.length - 1 : undefined} settings={settings} me={me} />;
   };
   return (
     <div ref={tableRef} style={{ position: "relative", marginTop: 6, display: "flex", flexDirection: "column", gap: 10 }}>
       {dealAnim && dealAnim.map((s) => <DealFly key={s.key} from={s.from} legs={s.legs} />)}
       {throwAnim && throwAnim.sprites.map((s) => <DealFly key={"t" + s.key} from={s.from} legs={s.legs} />)}
+      {playAnim && <DealFly key={"p" + cardId(playAnim.card)} from={playAnim.from} legs={[{ x: playAnim.to.x, y: playAnim.to.y, delay: 0, dur: DEAL_MOVE }]} card={playAnim.card} />}
       {/* Fixed grids: every seat owns an equal column whatever it's holding, so the labels
           (and their hands) always center on the same spot in every phase. */}
       {ts.top.length > 0 && (
@@ -1701,6 +1731,8 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
           </Panel>
         )
       ) : (discardPhase || cribbingPhase) ? (
+        // Once the full crib starts gliding to its tucked home, hide the whole banner.
+        (cribbingPhase && cribGliding) ? null :
         <Panel tone={cribOurs ? "good" : "red"}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
             <div style={{ fontWeight: 700, fontSize: 15, minWidth: 0 }}>{multiHuman ? tr("play.crib.seatPrefix", { seat: seatName(me) }) : ""}{isDealer ? tr("play.crib.greedy") : teammateDeals ? tr("play.crib.teamGreedy", { seat: seatName(dealerIdx) }) : tr("play.crib.defend", { seat: seatName(dealerIdx) })}</div>
@@ -1720,7 +1752,7 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
             </div>
             <div style={{ flex: "1 1 auto", minWidth: 0, overflow: "hidden", display: "flex", justifyContent: "center" }}>
               {peg.pileSuited.length
-                ? <PileFan cards={peg.pileSuited} />
+                ? <PileFan cards={peg.pileSuited} hideFrom={playAnim ? peg.pileSuited.length - 1 : undefined} />
                 : <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{tr("play.pile.cleared")}</span>}
             </div>
           </div>

@@ -1852,11 +1852,17 @@ function StarterDeck({ starter, count = 4 }) {
         return React.createElement("div", { key: k, "data-decktop": isTop ? "1" : undefined, style: { position: "absolute", left: d, top: -d } }, isTop && starter ? React.createElement(StarterCard, { card: starter }) : React.createElement(CardBack, null));
     })));
 }
-function RevealCard({ children, delay }) {
+function RevealFly({ from, to, card, delay }) {
     const [shown, setShown] = React.useState(false);
     React.useEffect(() => { const t = setTimeout(() => setShown(true), delay); return () => clearTimeout(t); }, []);
-    return (React.createElement("div", { style: { width: "var(--cw)", flex: "0 0 auto", position: "relative", transformStyle: "preserve-3d", transition: "transform 380ms cubic-bezier(.2,.7,.3,1)", transform: shown ? "translateY(0) rotateY(0deg)" : "translateY(-30px) rotateY(-180deg)" } },
-        React.createElement("div", { style: { backfaceVisibility: "hidden" } }, children),
+    const p = shown ? to : from;
+    return (React.createElement("div", { style: {
+            position: "absolute", left: 0, top: 0, width: "var(--cw)", transformStyle: "preserve-3d", zIndex: 6, pointerEvents: "none",
+            transform: `translate(${p.x}px, ${p.y}px) rotateY(${shown ? 0 : -180}deg)`,
+            transition: `transform ${DEAL_MOVE}ms cubic-bezier(.2,.7,.3,1)`,
+        } },
+        React.createElement("div", { style: { backfaceVisibility: "hidden" } },
+            React.createElement(Card, { card: card })),
         React.createElement("div", { style: { position: "absolute", top: 0, left: 0, width: "var(--cw)", backfaceVisibility: "hidden", transform: "rotateY(180deg)" } },
             React.createElement(CardBack, null))));
 }
@@ -2135,6 +2141,43 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
     const cutter = (dealerIdx + P - 1) % P;
     const multiHuman = nHumans(P, settings) > 1;
     const meHuman = seatIsHuman(me, settings);
+    const [revealAnim, setRevealAnim] = React.useState(null);
+    const handVisible = meHuman && !needHandoff && (discardPhase || (phase === "play" && !!peg));
+    const prevHandVis = React.useRef(false);
+    React.useLayoutEffect(() => {
+        const was = prevHandVis.current;
+        prevHandVis.current = handVisible;
+        if (!multiHuman || was || !handVisible || !yourHand.length)
+            return;
+        const root = tableRef.current;
+        if (!root)
+            return;
+        const rootR = root.getBoundingClientRect();
+        const cw = Math.min(68, (Math.min(typeof window !== "undefined" ? window.innerWidth : 560, 560) - 62) / 6);
+        const handEl = root.querySelector('[data-slot="hand"]');
+        if (!handEl)
+            return;
+        const kids = handEl.children;
+        const seatEl = root.querySelector(`[data-slot="seat-${me}"]`);
+        if (!seatEl)
+            return;
+        const sr = seatEl.getBoundingClientRect();
+        const total = yourHand.length + (peg ? peg.played[me].length : 0);
+        const sprites = [];
+        for (let j = 0; j < yourHand.length; j++) {
+            const k = kids[j];
+            if (!k)
+                continue;
+            const tr2 = k.getBoundingClientRect();
+            const fx = (sr.left - rootR.left) + sr.width / 2 - cw * (1 + (total - 1) * BACK_VISIBLE) / 2 + j * BACK_VISIBLE * cw;
+            sprites.push({ key: cardId(yourHand[j]), card: yourHand[j], from: { x: fx, y: sr.top - rootR.top }, to: { x: tr2.left - rootR.left, y: tr2.top - rootR.top }, delay: j * 55 });
+        }
+        if (!sprites.length)
+            return;
+        setRevealAnim(sprites);
+        const t = setTimeout(() => setRevealAnim(null), (sprites.length - 1) * 55 + DEAL_MOVE + 100);
+        return () => clearTimeout(t);
+    }, [handVisible]);
     const [sel, setSel] = React.useState([]);
     const legalSet = peg ? new Set(yourHand.filter((c) => pval(c.r) + peg.count <= 31).map(cardId)) : null;
     const count = discardPhase ? pl.throws[me] : 1;
@@ -2204,6 +2247,7 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
         throwAnim && throwAnim.sprites.map((s) => React.createElement(DealFly, { key: "t" + s.key, from: s.from, legs: s.legs })),
         playAnim && React.createElement(DealFly, { key: "p" + cardId(playAnim.card), from: playAnim.from, legs: [{ x: playAnim.to.x, y: playAnim.to.y, delay: 0, dur: DEAL_MOVE }], card: playAnim.card }),
         gatherAnim && gatherAnim.map((s) => React.createElement(DealFly, { key: "g" + s.key, from: s.from, legs: s.legs })),
+        revealAnim && revealAnim.map((s) => React.createElement(RevealFly, { key: "r" + s.key, from: s.from, to: s.to, card: s.card, delay: s.delay })),
         ts.top.length > 0 && (React.createElement("div", { style: { display: "grid", gridTemplateColumns: `repeat(${ts.top.length}, 1fr)`, gap: 8 } }, ts.top.map(cell))),
         React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 8, padding: "0 6px" } },
             React.createElement("div", { style: { minWidth: 0 } }, ts.left != null ? cell(ts.left) : null),
@@ -2314,14 +2358,11 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
                 }
                 return React.createElement("div", { style: { minHeight: 44, marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center" } }, el);
             })(),
-            meHuman && (React.createElement("div", { "data-slot": "hand", className: discardPhase ? "dealwrap" : undefined, style: { display: "flex", gap: 6, justifyContent: "center", flexWrap: "nowrap", visibility: dealAnim ? "hidden" : "visible" } },
+            meHuman && (React.createElement("div", { "data-slot": "hand", className: discardPhase ? "dealwrap" : undefined, style: { display: "flex", gap: 6, justifyContent: "center", flexWrap: "nowrap", visibility: (dealAnim || revealAnim) ? "hidden" : "visible" } },
                 yourHand.map((card, i) => {
                     const legal = isLegal(card);
                     const chosen = pending ? pendIdxs.includes(i) : sel.includes(i);
-                    const el = (React.createElement(Card, { card: card, selLabel: discardPhase ? undefined : tr("play.sel.play"), clickable: pending ? true : (myTurn && legal), selected: !tapSelect && chosen, raised: tapSelect && chosen, dim: !pending && !legal && turn === me, onClick: () => tapCard(i) }));
-                    return multiHuman
-                        ? React.createElement(RevealCard, { key: cardId(card), delay: i * 55 }, el)
-                        : React.createElement(React.Fragment, { key: cardId(card) }, el);
+                    return (React.createElement(Card, { key: cardId(card), card: card, selLabel: discardPhase ? undefined : tr("play.sel.play"), clickable: pending ? true : (myTurn && legal), selected: !tapSelect && chosen, raised: tapSelect && chosen, dim: !pending && !legal && turn === me, onClick: () => tapCard(i) }));
                 }),
                 !discardPhase && yourHand.length === 0 && React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: T.muted } }, tr("play.handEmpty"))))))));
 }
@@ -2480,7 +2521,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.34"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.35"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

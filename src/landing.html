@@ -453,6 +453,15 @@
         for (var j = 0; j < btns.length; j++) {
           btns[j].addEventListener('click', function () { toggleSeatRole(+this.getAttribute('data-seat')); });
         }
+        // Naming mode: persist each name live as it's typed (no need to lock-in first).
+        var inputs = host.querySelectorAll('.seat-name-input');
+        for (var m = 0; m < inputs.length; m++) {
+          inputs[m].addEventListener('input', function () {
+            var names = (settings.names || []).slice();
+            names[+this.getAttribute('data-seat')] = this.value.trim();
+            settings.names = names; saveSettings(settings);
+          });
+        }
       }
       // Toggle between showing the diagram and editing every seat's name. Saving reads each input
       // into settings.names (an empty box reverts that seat to its compass default).

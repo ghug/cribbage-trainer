@@ -209,15 +209,20 @@ function seatNamesFor(P, youSeat) {
 // checks use it directly (isYou); display goes through seatName/seatShort, which translate
 // the canonical name to the active language via these key maps.
 let SEAT_NAMES = seatNamesFor(2, 0);
+// Per-seat custom names set on the landing diagram (settings.names, by seat index). They are
+// DISPLAY-only — identity (isYou and every "you"-vs-other check) still keys off SEAT_NAMES.
+let SEAT_CUSTOM = [];
 const setSeatNames = (P, youSeat) => { SEAT_NAMES = seatNamesFor(P, youSeat); };
+const setSeatCustom = (arr) => { SEAT_CUSTOM = Array.isArray(arr) ? arr : []; };
+const customName = (i) => { const c = SEAT_CUSTOM[i]; return (c != null && c !== "") ? c : null; };
 const SEAT_NAME_KEY = { You: "seat.you", South: "seat.south", North: "seat.north", West: "seat.west", East: "seat.east", Northwest: "seat.northwest", Northeast: "seat.northeast", Southwest: "seat.southwest", Southeast: "seat.southeast" };
-const seatName = (i) => tr(SEAT_NAME_KEY[SEAT_NAMES[i]] || SEAT_NAMES[i]);
+const seatName = (i) => customName(i) || tr(SEAT_NAME_KEY[SEAT_NAMES[i]] || SEAT_NAMES[i]);
 const isYou = (i) => SEAT_NAMES[i] === "You";
 // Short compass labels for the tight grid spots (score columns, cut-for-deal row, the
 // pegging seat cells) so 5-/6-handed tables don't overflow a narrow phone. Prose (the
 // message line, banners, history) keeps the full names. Translated like seatName.
 const SEAT_SHORT_KEY = { You: "seat.youShort", North: "seat.n", South: "seat.s", West: "seat.w", East: "seat.e", Northwest: "seat.nw", Northeast: "seat.ne", Southwest: "seat.sw", Southeast: "seat.se" };
-const seatShort = (i) => tr(SEAT_SHORT_KEY[SEAT_NAMES[i]] || SEAT_NAMES[i]);
+const seatShort = (i) => customName(i) || tr(SEAT_SHORT_KEY[SEAT_NAMES[i]] || SEAT_NAMES[i]);
 // "you" is whichever seat setSeatNames marked (the lone human), detected via the name —
 // not a hard-coded seat 0, which is a bot in an all-bot or human-elsewhere game.
 const sameCard = (a, b) => a.r === b.r && a.s === b.s;
@@ -642,7 +647,7 @@ function reduce(state, action) {
       // Reset the gameplay preference toggles to defaults; keep the table setup
       // (players/teams/seats, set on the landing) so the current game isn't disturbed.
       const settings = { ...state.settings };
-      for (const k in DEFAULT_SETTINGS) if (k !== "players" && k !== "teams" && k !== "seats") settings[k] = DEFAULT_SETTINGS[k];
+      for (const k in DEFAULT_SETTINGS) if (k !== "players" && k !== "teams" && k !== "seats" && k !== "names") settings[k] = DEFAULT_SETTINGS[k];
       saveSettings(settings);
       return { ...state, settings };
     }
@@ -759,7 +764,7 @@ function reduce(state, action) {
   }
 }
 
-const DEFAULT_SETTINGS = { players: 2, teams: 2, counting: "auto", tapToSelect: true, autoCut: true, autoGo: false, warn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
+const DEFAULT_SETTINGS = { players: 2, teams: 2, names: [], counting: "auto", tapToSelect: true, autoCut: true, autoGo: false, warn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
 // Settings persist across pages in localStorage under a shared key. try/catch keeps
 // the verification harness (no localStorage) and private-mode browsers happy.
 const SETTINGS_KEY = "cribbage:settings";
@@ -815,6 +820,7 @@ function newGameState(prev) {
   const P = clampPlayers(base.players);
   const settings = { ...base, players: P, teams: clampTeams(P, base.teams) };
   setSeatNames(P, soleHuman(P, settings));
+  setSeatCustom(settings.names);
   const { dealerIdx, draw } = drawForDealer(P);
   return {
     seats: Array.from({ length: P }, (_, i) => ({ score: 0, isAI: !seatIsHuman(i, settings), dealt: [], kept: null, discard: null, history: [] })),
@@ -993,6 +999,7 @@ export default function CribbagePlay() {
   const teams = clampTeams(players, settings.teams);
   const multiHuman = nHumans(players, settings) > 1;            // 2+ humans → hot-seat hand-off
   setSeatNames(players, soleHuman(players, settings));
+  setSeatCustom(settings.names);
   const ds = state.discardSeat != null ? state.discardSeat : 0; // active discarder
   const playMe = state.holder == null ? firstHuman(players, settings) : state.holder; // device-holder perspective in play
   const needHandoff = multiHuman && (

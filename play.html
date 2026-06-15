@@ -362,8 +362,8 @@ cribbageLocale("en", {
   "landing.tagline": "play vs bots or friends and sharpen your discards",
   "landing.playersAtTable": "Players at the table",
   "landing.seatHint": "Tap any seat to set it as a 🧑 human or 🤖 bot.",
-  "landing.setNames": "Set player names",
-  "landing.saveNames": "Save player names",
+  "landing.setNames": "Edit player names",
+  "landing.saveNames": "Lock-in player names",
   "landing.teams": "Teams",
   "landing.teamsNote": "— how the table splits up",
   "landing.language": "Language",
@@ -819,12 +819,15 @@ function seatNamesFor(P, youSeat) {
     return names;
 }
 let SEAT_NAMES = seatNamesFor(2, 0);
+let SEAT_CUSTOM = [];
 const setSeatNames = (P, youSeat) => { SEAT_NAMES = seatNamesFor(P, youSeat); };
+const setSeatCustom = (arr) => { SEAT_CUSTOM = Array.isArray(arr) ? arr : []; };
+const customName = (i) => { const c = SEAT_CUSTOM[i]; return (c != null && c !== "") ? c : null; };
 const SEAT_NAME_KEY = { You: "seat.you", South: "seat.south", North: "seat.north", West: "seat.west", East: "seat.east", Northwest: "seat.northwest", Northeast: "seat.northeast", Southwest: "seat.southwest", Southeast: "seat.southeast" };
-const seatName = (i) => tr(SEAT_NAME_KEY[SEAT_NAMES[i]] || SEAT_NAMES[i]);
+const seatName = (i) => customName(i) || tr(SEAT_NAME_KEY[SEAT_NAMES[i]] || SEAT_NAMES[i]);
 const isYou = (i) => SEAT_NAMES[i] === "You";
 const SEAT_SHORT_KEY = { You: "seat.youShort", North: "seat.n", South: "seat.s", West: "seat.w", East: "seat.e", Northwest: "seat.nw", Northeast: "seat.ne", Southwest: "seat.sw", Southeast: "seat.se" };
-const seatShort = (i) => tr(SEAT_SHORT_KEY[SEAT_NAMES[i]] || SEAT_NAMES[i]);
+const seatShort = (i) => customName(i) || tr(SEAT_SHORT_KEY[SEAT_NAMES[i]] || SEAT_NAMES[i]);
 const sameCard = (a, b) => a.r === b.r && a.s === b.s;
 const sameSet = (a, b) => a.length === b.length && a.every((x) => b.includes(x));
 function freshDeck() {
@@ -1227,7 +1230,7 @@ function reduce(state, action) {
         case "RESET_SETTINGS": {
             const settings = { ...state.settings };
             for (const k in DEFAULT_SETTINGS)
-                if (k !== "players" && k !== "teams" && k !== "seats")
+                if (k !== "players" && k !== "teams" && k !== "seats" && k !== "names")
                     settings[k] = DEFAULT_SETTINGS[k];
             saveSettings(settings);
             return { ...state, settings };
@@ -1343,7 +1346,7 @@ function reduce(state, action) {
             return state;
     }
 }
-const DEFAULT_SETTINGS = { players: 2, teams: 2, counting: "auto", tapToSelect: true, autoCut: true, autoGo: false, warn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
+const DEFAULT_SETTINGS = { players: 2, teams: 2, names: [], counting: "auto", tapToSelect: true, autoCut: true, autoGo: false, warn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
 const SETTINGS_KEY = "cribbage:settings";
 function loadSettings() {
     try {
@@ -1413,6 +1416,7 @@ function newGameState(prev) {
     const P = clampPlayers(base.players);
     const settings = { ...base, players: P, teams: clampTeams(P, base.teams) };
     setSeatNames(P, soleHuman(P, settings));
+    setSeatCustom(settings.names);
     const { dealerIdx, draw } = drawForDealer(P);
     return {
         seats: Array.from({ length: P }, (_, i) => ({ score: 0, isAI: !seatIsHuman(i, settings), dealt: [], kept: null, discard: null, history: [] })),
@@ -1548,6 +1552,7 @@ function CribbagePlay() {
     const teams = clampTeams(players, settings.teams);
     const multiHuman = nHumans(players, settings) > 1;
     setSeatNames(players, soleHuman(players, settings));
+    setSeatCustom(settings.names);
     const ds = state.discardSeat != null ? state.discardSeat : 0;
     const playMe = state.holder == null ? firstHuman(players, settings) : state.holder;
     const needHandoff = multiHuman && (phase === "discard" ? (state.discardSeat != null && state.holder !== state.discardSeat)
@@ -2154,7 +2159,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.1"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.2"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

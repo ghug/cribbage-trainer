@@ -487,8 +487,8 @@ cribbageLocale("en", {
   "landing.tagline": "play vs bots or friends and sharpen your discards",
   "landing.playersAtTable": "Players at the table",
   "landing.seatHint": "Tap any seat to set it as a 🧑 human or 🤖 bot.",
-  "landing.setNames": "Set player names",
-  "landing.saveNames": "Save player names",
+  "landing.setNames": "Edit player names",
+  "landing.saveNames": "Lock-in player names",
   "landing.teams": "Teams",
   "landing.teamsNote": "— how the table splits up",
   "landing.language": "Language",
@@ -829,7 +829,7 @@ cribbageLocale("en", {
       <a class="btn btn-primary" href="https://github.com/ghug/cribbage-trainer/"
          target="_blank" rel="noopener noreferrer" data-i18n="about.sourceLink">Source, bugs &amp; feedback ↗</a>
       <div class="repo-url" style="margin-bottom:4px">github.com/ghug/cribbage-trainer</div>
-      <div class="repo-url">v1.1.19-dev.1</div>
+      <div class="repo-url">v1.1.19-dev.2</div>
     </div>
   </div>
 
@@ -1005,6 +1005,15 @@ cribbageLocale("en", {
         var btns = host.querySelectorAll('.seat-btn');
         for (var j = 0; j < btns.length; j++) {
           btns[j].addEventListener('click', function () { toggleSeatRole(+this.getAttribute('data-seat')); });
+        }
+        // Naming mode: persist each name live as it's typed (no need to lock-in first).
+        var inputs = host.querySelectorAll('.seat-name-input');
+        for (var m = 0; m < inputs.length; m++) {
+          inputs[m].addEventListener('input', function () {
+            var names = (settings.names || []).slice();
+            names[+this.getAttribute('data-seat')] = this.value.trim();
+            settings.names = names; saveSettings(settings);
+          });
         }
       }
       // Toggle between showing the diagram and editing every seat's name. Saving reads each input

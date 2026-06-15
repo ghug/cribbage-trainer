@@ -761,7 +761,7 @@ const T = {
     woodD: "#5E3F26", woodM: "#8A5E37", woodL: "#B9824B",
     pegRed: "#C8412B", pegIvory: "#ECDCB4",
     ivory: "#F6EFDE", ink: "#241D14", suitRed: "#A8362A",
-    cream: "#ECE0C6", muted: "#A99873", line: "rgba(236,224,182,0.16)",
+    cream: "#ECE0C6", muted: "#C9BC9A", line: "rgba(236,224,182,0.16)",
     good: "#5FA47C", goodDeep: "#3F7E5E", selBlue: "#5B95C2",
 };
 const tr = (k, v) => (typeof window !== "undefined" && window.t) ? window.t(k, v) : k;
@@ -2119,7 +2119,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.15-dev.8"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.15"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

@@ -1,0 +1,5 @@
+New in 1.1.15:
+- Switching languages is now instant — no page reload, and a game in progress is kept.
+- The web address shows your language (e.g. ?lang=ru), so a non-English page can be copied and shared; you can still switch any time.
+- New games default to 2 players (heads-up) — pick any size on the home page.
+- Easier to read: brighter secondary text throughout the app, plus thicker, clearer rings on the home-page table diagram.

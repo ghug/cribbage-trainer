@@ -166,7 +166,7 @@ const T = {
   woodD: "#5E3F26", woodM: "#8A5E37", woodL: "#B9824B",
   pegRed: "#C8412B", pegIvory: "#ECDCB4",
   ivory: "#F6EFDE", ink: "#241D14", suitRed: "#A8362A",
-  cream: "#ECE0C6", muted: "#A99873", line: "rgba(236,224,182,0.16)",
+  cream: "#ECE0C6", muted: "#C9BC9A", line: "rgba(236,224,182,0.16)",
   good: "#5FA47C", goodDeep: "#3F7E5E", selBlue: "#5B95C2",
 };
 // Render-only i18n: window.t (from i18n.js) with a key fallback. Used in the JSX (never in

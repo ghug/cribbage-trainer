@@ -1413,7 +1413,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: "0 0 auto" }}>
           {/* labels the face-up starter once the cut is done (play onward); empty otherwise so the
               deck stays bottom-aligned with the seat cards' label row. */}
-          <div style={{ height: 18, marginBottom: 4, display: "flex", alignItems: "center", fontFamily: mono, fontSize: 10, color: T.muted }}>{(phase === "play" || showPhase || overPhase) ? tr("play.cribCard") : ""}</div>
+          <div style={{ height: 18, marginBottom: 4, display: "flex", alignItems: "center", fontFamily: mono, fontSize: 10, color: T.muted }}>{(phase === "play" || showPhase || overPhase) ? tr("play.starterCard") : ""}</div>
           <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" }}>
             <StarterDeck starter={(phase === "play" || showPhase || overPhase) ? starter : null} />
           </div>

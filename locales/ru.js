@@ -71,7 +71,7 @@ cribbageLocale("ru", {
   "play.cut.yourCrib": "ваш прикуп",
   "play.cut.seatCrib": "прикуп {seat}",
   "play.pile.count": "счёт стопки",
-  "play.cribCard": "карта прикупа",
+  "play.starterCard": "стартовая карта",
   "play.pile.cleared": "очищено — новый счёт с 0",
   "play.pass.to": "Передайте устройство {seat}",
   "play.pass.take": "Я {seat} — показать мои карты",

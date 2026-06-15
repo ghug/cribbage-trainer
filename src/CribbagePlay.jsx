@@ -1228,7 +1228,7 @@ const STACK_VISIBLE = 0.3;
 const BACK_VISIBLE = 0.3;
 // The pegging pile shows only the top of each card face (the rank/suit index lives in the
 // top-left corner), so the whole pile reads at a glance while taking far less vertical room.
-const PILE_VISIBLE = 0.37;                       // keep the top 37% of each card; clip the bottom 63%
+const PILE_VISIBLE = 0.40;                       // keep the top 40% of each card; clip the bottom 60%
 const cardItems = (cards, vis = STACK_VISIBLE) => (cards || []).map((c) => ({ key: cardId(c), vis, el: <Card card={c} /> }));
 const backItems = (n) => Array.from({ length: n || 0 }).map((_, k) => ({ key: "b" + k, vis: BACK_VISIBLE, el: <CardBack /> }));
 function Fan({ items, clip }) {

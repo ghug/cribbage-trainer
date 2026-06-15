@@ -2087,12 +2087,25 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
           </Panel>
         )
       ) : (discardPhase || cribbingPhase) ? (
-        // Once the full crib starts gliding to its tucked home, hide the whole banner.
+        // Once the full crib starts gliding to its tucked home, hide everything.
         (cribbingPhase && cribGliding) ? null :
+        // CRIBBING (crib is full): drop the instructional banner entirely — just keep the crib
+        // cards in the same spot (an identically-padded, invisible box) as they settle, then glide.
+        cribbingPhase ? (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", padding: "11px 14px", border: "1px solid transparent" }}>
+            {cribSoFar > 0 && (
+              <div data-slot="crib" style={{ flex: "0 0 auto", display: "flex", alignItems: "flex-end", visibility: "hidden" }}>
+                {Array.from({ length: cribSoFar }).map((_, k) => (
+                  <div key={k} style={{ width: "var(--cw)", aspectRatio: "68 / 96", flex: "0 0 auto", marginLeft: k === 0 ? 0 : `calc(var(--cw) * ${-(1 - BACK_VISIBLE)})` }} />
+                ))}
+              </div>
+            )}
+          </div>
+        ) :
         <Panel tone={cribOurs ? "good" : "red"}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
             <div style={{ fontWeight: 700, fontSize: 15, minWidth: 0 }}>{multiHuman ? tr("play.crib.seatPrefix", { seat: seatName(me) }) : ""}{isDealer ? tr("play.crib.greedy") : teammateDeals ? tr("play.crib.teamGreedy", { seat: seatName(dealerIdx) }) : tr("play.crib.defend", { seat: seatName(dealerIdx) })}</div>
-            {cribSoFar > 0 && !cribGliding && (
+            {cribSoFar > 0 && (
               <div data-slot="crib" style={{ flex: "0 0 auto", display: "flex", alignItems: "flex-end", visibility: "hidden" }}>
                 {Array.from({ length: cribSoFar }).map((_, k) => (
                   <div key={k} style={{ width: "var(--cw)", aspectRatio: "68 / 96", flex: "0 0 auto", marginLeft: k === 0 ? 0 : `calc(var(--cw) * ${-(1 - BACK_VISIBLE)})` }} />

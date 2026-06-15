@@ -197,6 +197,7 @@ cribbageLocale("fr", {
   "landing.tagline": "jouez contre des bots ou des amis et affûtez vos écarts",
   "landing.playersAtTable": "Joueurs à la table",
   "landing.seatHint": "Touchez un siège pour le définir comme 🧑 humain ou 🤖 bot.",
+  "landing.seatHintEdit": "Modifiez et verrouillez les noms des joueurs si vous devez en ajuster un (bot/humain)",
   "landing.setNames": "Modifier les noms des joueurs",
   "landing.saveNames": "Verrouiller les noms des joueurs",
   "landing.teams": "Équipes",

@@ -367,7 +367,7 @@
           var b = document.createElement('button'); b.type = 'button'; b.textContent = String(p);
           b.className = 'seg' + (settings.players === p ? ' on' : '');
           // Switching players resets teams to the cutthroat default (one per player).
-          b.addEventListener('click', function () { settings.players = p; settings.teams = p; saveSettings(settings); editingNames = false; renderPlayers(); renderTeams(); renderNamesButton(); });
+          b.addEventListener('click', function () { settings.players = p; settings.teams = p; saveSettings(settings); editingNames = false; renderPlayers(); renderTeams(); renderNamesButton(); renderSeatHint(); });
           host.appendChild(b);
         });
         renderSeatDiagram();
@@ -471,6 +471,11 @@
         btn.textContent = tr(editingNames ? 'landing.saveNames' : 'landing.setNames');
         btn.className = 'names-btn' + (editingNames ? ' on' : '');
       }
+      // The seat hint swaps to the naming instructions while editing names.
+      function renderSeatHint() {
+        var el = document.querySelector('.seat-hint');
+        if (el) el.textContent = tr(editingNames ? 'landing.seatHintEdit' : 'landing.seatHint');
+      }
       function toggleNamesEdit() {
         if (editingNames) {
           var inputs = document.querySelectorAll('#seatDiagram .seat-name-input');
@@ -479,7 +484,7 @@
           settings.names = names; saveSettings(settings);
           editingNames = false;
         } else { editingNames = true; }
-        renderSeatDiagram(); renderNamesButton();
+        renderSeatDiagram(); renderNamesButton(); renderSeatHint();
       }
       // [teams-value, label] choices, in display order. teams === players is "individual".
       function teamChoices(P) {
@@ -500,7 +505,7 @@
         choices.forEach(function (c) {
           var b = document.createElement('button'); b.type = 'button'; b.textContent = tr(c[1]);
           b.className = 'seg' + (settings.teams === c[0] ? ' on' : '');
-          b.addEventListener('click', function () { settings.teams = c[0]; saveSettings(settings); editingNames = false; renderTeams(); renderSeatDiagram(); renderNamesButton(); });
+          b.addEventListener('click', function () { settings.teams = c[0]; saveSettings(settings); editingNames = false; renderTeams(); renderSeatDiagram(); renderNamesButton(); renderSeatHint(); });
           host.appendChild(b);
         });
       }
@@ -513,7 +518,7 @@
       // controls (settings rows, players, teams + seat diagram) in the new language, and sync
       // both <select>s (a switch from one shouldn't leave the other showing the old value).
       if (window.i18n && i18n.onChange) i18n.onChange(function () {
-        applyI18n(); renderSettings(); renderPlayers(); renderTeams(); renderNamesButton();
+        applyI18n(); renderSettings(); renderPlayers(); renderTeams(); renderNamesButton(); renderSeatHint();
         ['langPick', 'footerLangPick'].forEach(function (id) { var el = document.getElementById(id); if (el) el.value = i18n.lang; });
       });
 

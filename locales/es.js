@@ -187,6 +187,7 @@ cribbageLocale("es", {
   "landing.tagline": "juega contra bots o amigos y mejora tus descartes",
   "landing.playersAtTable": "Jugadores en la mesa",
   "landing.seatHint": "Toca cualquier asiento para ponerlo como 🧑 humano o 🤖 bot.",
+  "landing.seatHintEdit": "Edita y fija los nombres de los jugadores si necesitas cambiar alguno de bot/humano",
   "landing.setNames": "Editar nombres de jugadores",
   "landing.saveNames": "Fijar nombres de jugadores",
   "landing.teams": "Equipos",

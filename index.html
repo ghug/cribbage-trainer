@@ -487,6 +487,7 @@ cribbageLocale("en", {
   "landing.tagline": "play vs bots or friends and sharpen your discards",
   "landing.playersAtTable": "Players at the table",
   "landing.seatHint": "Tap any seat to set it as a 🧑 human or 🤖 bot.",
+  "landing.seatHintEdit": "Edit and lock-in player names if you need to adjust any from bot/human",
   "landing.setNames": "Edit player names",
   "landing.saveNames": "Lock-in player names",
   "landing.teams": "Teams",
@@ -829,7 +830,7 @@ cribbageLocale("en", {
       <a class="btn btn-primary" href="https://github.com/ghug/cribbage-trainer/"
          target="_blank" rel="noopener noreferrer" data-i18n="about.sourceLink">Source, bugs &amp; feedback ↗</a>
       <div class="repo-url" style="margin-bottom:4px">github.com/ghug/cribbage-trainer</div>
-      <div class="repo-url">v1.1.19-dev.2</div>
+      <div class="repo-url">v1.1.19-dev.3</div>
     </div>
   </div>
 
@@ -920,7 +921,7 @@ cribbageLocale("en", {
           var b = document.createElement('button'); b.type = 'button'; b.textContent = String(p);
           b.className = 'seg' + (settings.players === p ? ' on' : '');
           // Switching players resets teams to the cutthroat default (one per player).
-          b.addEventListener('click', function () { settings.players = p; settings.teams = p; saveSettings(settings); editingNames = false; renderPlayers(); renderTeams(); renderNamesButton(); });
+          b.addEventListener('click', function () { settings.players = p; settings.teams = p; saveSettings(settings); editingNames = false; renderPlayers(); renderTeams(); renderNamesButton(); renderSeatHint(); });
           host.appendChild(b);
         });
         renderSeatDiagram();
@@ -1024,6 +1025,11 @@ cribbageLocale("en", {
         btn.textContent = tr(editingNames ? 'landing.saveNames' : 'landing.setNames');
         btn.className = 'names-btn' + (editingNames ? ' on' : '');
       }
+      // The seat hint swaps to the naming instructions while editing names.
+      function renderSeatHint() {
+        var el = document.querySelector('.seat-hint');
+        if (el) el.textContent = tr(editingNames ? 'landing.seatHintEdit' : 'landing.seatHint');
+      }
       function toggleNamesEdit() {
         if (editingNames) {
           var inputs = document.querySelectorAll('#seatDiagram .seat-name-input');
@@ -1032,7 +1038,7 @@ cribbageLocale("en", {
           settings.names = names; saveSettings(settings);
           editingNames = false;
         } else { editingNames = true; }
-        renderSeatDiagram(); renderNamesButton();
+        renderSeatDiagram(); renderNamesButton(); renderSeatHint();
       }
       // [teams-value, label] choices, in display order. teams === players is "individual".
       function teamChoices(P) {
@@ -1053,7 +1059,7 @@ cribbageLocale("en", {
         choices.forEach(function (c) {
           var b = document.createElement('button'); b.type = 'button'; b.textContent = tr(c[1]);
           b.className = 'seg' + (settings.teams === c[0] ? ' on' : '');
-          b.addEventListener('click', function () { settings.teams = c[0]; saveSettings(settings); editingNames = false; renderTeams(); renderSeatDiagram(); renderNamesButton(); });
+          b.addEventListener('click', function () { settings.teams = c[0]; saveSettings(settings); editingNames = false; renderTeams(); renderSeatDiagram(); renderNamesButton(); renderSeatHint(); });
           host.appendChild(b);
         });
       }
@@ -1066,7 +1072,7 @@ cribbageLocale("en", {
       // controls (settings rows, players, teams + seat diagram) in the new language, and sync
       // both <select>s (a switch from one shouldn't leave the other showing the old value).
       if (window.i18n && i18n.onChange) i18n.onChange(function () {
-        applyI18n(); renderSettings(); renderPlayers(); renderTeams(); renderNamesButton();
+        applyI18n(); renderSettings(); renderPlayers(); renderTeams(); renderNamesButton(); renderSeatHint();
         ['langPick', 'footerLangPick'].forEach(function (id) { var el = document.getElementById(id); if (el) el.value = i18n.lang; });
       });
 

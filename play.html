@@ -800,6 +800,8 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
+const APP_VERSION = "1.1.19-dev.52";
+const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
 const mono = "ui-monospace, 'SF Mono', Menlo, Consolas, monospace";
@@ -1731,7 +1733,8 @@ function CribbagePlay() {
                     React.createElement("span", { style: { fontFamily: mono, fontSize: 12, color: "rgba(42,27,14,0.8)", lineHeight: 1.3 } },
                         headLine,
                         React.createElement("br", null),
-                        tr("play.hdr.playTo", { target: targetFor(players) }))),
+                        tr("play.hdr.playTo", { target: targetFor(players) }),
+                        IS_DEV_VERSION ? ` · v${APP_VERSION}` : "")),
                 React.createElement("div", { style: { display: "flex", gap: 8, flex: "0 0 auto" } },
                     React.createElement("button", { onClick: goHome, "aria-label": "Home", style: {
                             width: 40, height: 40, borderRadius: 10, cursor: "pointer",
@@ -2667,7 +2670,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.51"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.52"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

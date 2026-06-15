@@ -182,6 +182,10 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
+// Build-time version (build.sh swaps __APP_VERSION__ for the VERSION file's value). On a dev
+// build it's like "1.1.19-dev.51"; shown in the play header so a dev build is identifiable.
+const APP_VERSION = "__APP_VERSION__";
+const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
 const mono = "ui-monospace, 'SF Mono', Menlo, Consolas, monospace";
@@ -1168,7 +1172,7 @@ export default function CribbagePlay() {
               display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, lineHeight: 1,
               boxShadow: "inset 0 1px 2px rgba(255,255,255,0.12), 0 2px 5px rgba(0,0,0,0.35)",
             }}>♣</button>
-            <span style={{ fontFamily: mono, fontSize: 12, color: "rgba(42,27,14,0.8)", lineHeight: 1.3 }}>{headLine}<br />{tr("play.hdr.playTo", { target: targetFor(players) })}</span>
+            <span style={{ fontFamily: mono, fontSize: 12, color: "rgba(42,27,14,0.8)", lineHeight: 1.3 }}>{headLine}<br />{tr("play.hdr.playTo", { target: targetFor(players) })}{IS_DEV_VERSION ? ` · v${APP_VERSION}` : ""}</span>
           </div>
           <div style={{ display: "flex", gap: 8, flex: "0 0 auto" }}>
             <button onClick={goHome} aria-label="Home" style={{

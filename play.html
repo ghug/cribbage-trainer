@@ -1821,19 +1821,18 @@ function StarterDeck({ starter, count = 4 }) {
 }
 const DEAL_STAGGER = 105;
 const DEAL_MOVE = 230;
-function DealFly({ from, to, delay }) {
-    const [moved, setMoved] = React.useState(false);
+const DEAL_THROW_PAUSE = 150;
+function DealFly({ from, legs }) {
+    const [idx, setIdx] = React.useState(-1);
     React.useEffect(() => {
-        let r2;
-        const r1 = requestAnimationFrame(() => { r2 = requestAnimationFrame(() => setMoved(true)); });
-        return () => { cancelAnimationFrame(r1); if (r2)
-            cancelAnimationFrame(r2); };
+        const timers = legs.map((lg, i) => setTimeout(() => setIdx(i), lg.delay));
+        return () => timers.forEach(clearTimeout);
     }, []);
-    const p = moved ? to : from;
+    const p = idx < 0 ? from : legs[idx];
     return (React.createElement("div", { style: {
             position: "absolute", left: 0, top: 0, width: "var(--cw)",
             transform: `translate(${p.x}px, ${p.y}px)`,
-            transition: `transform ${DEAL_MOVE}ms cubic-bezier(.2,.7,.3,1) ${delay}ms`,
+            transition: `transform ${idx < 0 ? 0 : legs[idx].dur}ms cubic-bezier(.2,.7,.3,1)`,
             zIndex: 6, pointerEvents: "none",
         } },
         React.createElement(CardBack, null)));
@@ -1875,48 +1874,57 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
         const cw = Math.min(68, (Math.min(typeof window !== "undefined" ? window.innerWidth : 560, 560) - 62) / 6);
         const from = { x: db.left + db.width / 2 - cw / 2, y: db.top };
         const handToGrid = seatIsHuman(me, settings) && !needHandoff && phase === "discard";
-        const targets = {};
+        const slot = { deck: db };
         for (let i = 0; i < P; i++) {
-            const n = pl.sizes[i];
-            if (i === me && handToGrid) {
-                const el = root.querySelector('[data-slot="hand"]');
-                if (!el) {
-                    targets[i] = [];
-                    continue;
-                }
-                const b = rel(el), totalW = n * cw + (n - 1) * 6;
-                targets[i] = Array.from({ length: n }, (_, j) => ({ x: b.left + b.width / 2 - totalW / 2 + j * (cw + 6), y: b.top }));
-            }
-            else {
-                const el = root.querySelector(`[data-slot="seat-${i}"]`);
-                if (!el) {
-                    targets[i] = [];
-                    continue;
-                }
-                const b = rel(el), fanW = cw * (1 + (n - 1) * BACK_VISIBLE);
-                targets[i] = Array.from({ length: n }, (_, j) => ({ x: b.left + b.width / 2 - fanW / 2 + j * BACK_VISIBLE * cw, y: b.top }));
-            }
+            const e = root.querySelector(`[data-slot="seat-${i}"]`);
+            if (e)
+                slot["seat" + i] = rel(e);
         }
-        const sprites = [];
+        const he = root.querySelector('[data-slot="hand"]');
+        if (he)
+            slot.hand = rel(he);
+        const ce = root.querySelector('[data-slot="crib"]');
+        if (ce)
+            slot.crib = rel(ce);
+        const fanX = (b, n, j, gap) => gap
+            ? b.left + b.width / 2 - (n * cw + (n - 1) * gap) / 2 + j * (cw + gap)
+            : b.left + b.width / 2 - cw * (1 + (n - 1) * BACK_VISIBLE) / 2 + j * BACK_VISIBLE * cw;
+        const list = [];
         const maxSize = Math.max(...pl.sizes);
-        let k = 0;
         for (let c = 0; c < maxSize; c++)
-            for (let i = 0; i < P; i++) {
-                if (c >= pl.sizes[i] || !targets[i] || !targets[i][c])
-                    continue;
-                sprites.push({ key: k, from, to: targets[i][c], delay: k * DEAL_STAGGER });
-                k++;
+            for (let i = 0; i < P; i++)
+                if (c < pl.sizes[i])
+                    list.push({ i, j: c });
+        const T_throw = (list.length - 1) * DEAL_STAGGER + DEAL_MOVE + DEAL_THROW_PAUSE;
+        const cribN = seats.reduce((a, s, i) => a + ((i === me && handToGrid) ? 0 : (s.discard ? s.discard.length : 0)), 0);
+        const sprites = [];
+        let cribM = 0;
+        list.forEach((cd, k) => {
+            const { i, j } = cd, n = pl.sizes[i];
+            const grid = i === me && handToGrid;
+            const sb = grid ? slot.hand : slot["seat" + i];
+            const dealLeg = { x: sb ? fanX(sb, n, j, grid ? 6 : 0) : from.x, y: sb ? sb.top : from.y, delay: k * DEAL_STAGGER, dur: DEAL_MOVE };
+            const legs = [dealLeg];
+            const discardN = grid ? 0 : (seats[i].discard ? seats[i].discard.length : 0);
+            const keptN = n - discardN;
+            if (discardN > 0 && sb) {
+                if (j < keptN)
+                    legs.push({ x: fanX(sb, keptN, j, 0), y: sb.top, delay: T_throw, dur: DEAL_MOVE });
+                else if (slot.crib)
+                    legs.push({ x: fanX(slot.crib, cribN, cribM++, 0), y: slot.crib.top, delay: T_throw, dur: DEAL_MOVE });
             }
+            sprites.push({ key: k, from, legs });
+        });
         if (!sprites.length)
             return;
         setDealtN(0);
         setDealAnim(sprites);
-        const timers = sprites.map((s, idx) => setTimeout(() => setDealtN(idx + 1), s.delay));
-        const total = (sprites.length - 1) * DEAL_STAGGER + DEAL_MOVE + 100;
-        timers.push(setTimeout(() => setDealAnim(null), total));
+        const timers = sprites.map((s, idx) => setTimeout(() => setDealtN(idx + 1), s.legs[0].delay));
+        timers.push(setTimeout(() => setDealAnim(null), T_throw + DEAL_MOVE + 120));
         return () => timers.forEach(clearTimeout);
     }, [dealSig]);
     const shownDeck = dealAnim ? 52 - dealtN : deckCount;
+    const cribSoFar = seats.reduce((a, s) => a + (s.discard ? s.discard.length : 0), 0);
     const info = showPhase ? computeShow(state) : null;
     const stepLabel = showPhase ? tr("play.show.step", { n: state.show.step + 1, m: state.show.order.length }) : "";
     const hands = peg ? peg.hands : seats.map((s) => (preDeal ? [] : discardPhase ? (s.kept || s.dealt) : (s.kept || [])));
@@ -1987,7 +1995,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
         return React.createElement(Seat, { key: i, i: i, dealerIdx: dealerIdx, active: active, items: dealAnim ? [] : [...backItems(remaining), ...cardItems(played)], settings: settings, me: me });
     };
     return (React.createElement("div", { ref: tableRef, style: { position: "relative", marginTop: 6, display: "flex", flexDirection: "column", gap: 10 } },
-        dealAnim && dealAnim.map((s) => React.createElement(DealFly, { key: s.key, from: s.from, to: s.to, delay: s.delay })),
+        dealAnim && dealAnim.map((s) => React.createElement(DealFly, { key: s.key, from: s.from, legs: s.legs })),
         ts.top.length > 0 && (React.createElement("div", { style: { display: "grid", gridTemplateColumns: `repeat(${ts.top.length}, 1fr)`, gap: 8 } }, ts.top.map(cell))),
         React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 8, padding: "0 6px" } },
             React.createElement("div", { style: { minWidth: 0 } }, ts.left != null ? cell(ts.left) : null),
@@ -2010,9 +2018,12 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
                 React.createElement("div", { style: { fontWeight: 700, fontSize: 15 } }, tr("play.show.title", { ent: entText(info) })),
                 React.createElement("span", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted } }, tr("play.show.counting", { step: stepLabel }))),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 3 } }, tr("play.show.order"))))) : discardPhase ? (React.createElement(Panel, { tone: cribOurs ? "good" : "red" },
-            React.createElement("div", { style: { fontWeight: 700, fontSize: 15 } },
-                multiHuman ? tr("play.crib.seatPrefix", { seat: seatName(me) }) : "",
-                isDealer ? tr("play.crib.greedy") : teammateDeals ? tr("play.crib.teamGreedy", { seat: seatName(dealerIdx) }) : tr("play.crib.defend", { seat: seatName(dealerIdx) })))) : cutPhase ? (React.createElement("div", { style: { background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "12px", minHeight: 88, display: "flex", alignItems: "center", justifyContent: "center", gap: 14 } },
+            React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 } },
+                React.createElement("div", { style: { fontWeight: 700, fontSize: 15, minWidth: 0 } },
+                    multiHuman ? tr("play.crib.seatPrefix", { seat: seatName(me) }) : "",
+                    isDealer ? tr("play.crib.greedy") : teammateDeals ? tr("play.crib.teamGreedy", { seat: seatName(dealerIdx) }) : tr("play.crib.defend", { seat: seatName(dealerIdx) })),
+                cribSoFar > 0 && React.createElement("div", { "data-slot": "crib", style: { flex: "0 0 auto", visibility: dealAnim ? "hidden" : "visible" } },
+                    React.createElement(Fan, { items: backItems(cribSoFar) }))))) : cutPhase ? (React.createElement("div", { style: { background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "12px", minHeight: 88, display: "flex", alignItems: "center", justifyContent: "center", gap: 14 } },
             React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: T.muted } }, me === dealerIdx ? tr("play.cut.yourCrib") : tr("play.cut.seatCrib", { seat: seatName(dealerIdx) })),
             React.createElement(Fan, { items: backItems(crib.length) }))) : (React.createElement("div", { style: { background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "0 12px 0 0" } },
             React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, minHeight: `calc(var(--ch) * ${PILE_VISIBLE})` } },
@@ -2260,7 +2271,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.20"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.21"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

@@ -1343,21 +1343,22 @@ function StarterDeck({ starter, count = 4 }) {
 // Set DEAL_STAGGER to 0 to deal the whole hand at once.
 const DEAL_STAGGER = 105;
 const DEAL_MOVE = 230;
-// One card flying out of the centre deck to a seat: it mounts at `from`, then on the next
-// frame transitions to `to` (after its stagger `delay`), so the CSS transition animates it.
-function DealFly({ from, to, delay }) {
-  const [moved, setMoved] = React.useState(false);
+const DEAL_THROW_PAUSE = 150;                     // beat between the deal landing and the discards flying to the crib
+// A card flying through a path of waypoints (`legs`): it mounts at `from`, then steps to each
+// leg's {x,y} at that leg's absolute `delay`, the CSS transition animating each hop. A deck→seat
+// deal is one leg; a card a bot throws gets a second leg (seat→crib).
+function DealFly({ from, legs }) {
+  const [idx, setIdx] = React.useState(-1);
   React.useEffect(() => {
-    let r2;
-    const r1 = requestAnimationFrame(() => { r2 = requestAnimationFrame(() => setMoved(true)); });
-    return () => { cancelAnimationFrame(r1); if (r2) cancelAnimationFrame(r2); };
+    const timers = legs.map((lg, i) => setTimeout(() => setIdx(i), lg.delay));
+    return () => timers.forEach(clearTimeout);
   }, []);
-  const p = moved ? to : from;
+  const p = idx < 0 ? from : legs[idx];
   return (
     <div style={{
       position: "absolute", left: 0, top: 0, width: "var(--cw)",
       transform: `translate(${p.x}px, ${p.y}px)`,
-      transition: `transform ${DEAL_MOVE}ms cubic-bezier(.2,.7,.3,1) ${delay}ms`,
+      transition: `transform ${idx < 0 ? 0 : legs[idx].dur}ms cubic-bezier(.2,.7,.3,1)`,
       zIndex: 6, pointerEvents: "none",
     }}><CardBack /></div>
   );
@@ -1407,38 +1408,47 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
     const from = { x: db.left + db.width / 2 - cw / 2, y: db.top };
     // Per-card destinations: each seat's n dealt cards land in their actual fan slots — the
     // human's interactive hand is a spaced row (gap 6), every other seat an overlapping fan —
-    // so a card flies straight to where it will sit and never snaps on reveal.
+    // so a card flies straight to where it will sit and never snaps on reveal. Every seat is
+    // first dealt its WHOLE hand (round-robin), like a real player; then each bot's discards fly
+    // on to the crib pile and its kept cards spread into their final fan — nothing is deleted.
     const handToGrid = seatIsHuman(me, settings) && !needHandoff && phase === "discard";
-    const targets = {};
-    for (let i = 0; i < P; i++) {
-      const n = pl.sizes[i];
-      if (i === me && handToGrid) {
-        const el = root.querySelector('[data-slot="hand"]'); if (!el) { targets[i] = []; continue; }
-        const b = rel(el), totalW = n * cw + (n - 1) * 6;
-        targets[i] = Array.from({ length: n }, (_, j) => ({ x: b.left + b.width / 2 - totalW / 2 + j * (cw + 6), y: b.top }));
-      } else {
-        const el = root.querySelector(`[data-slot="seat-${i}"]`); if (!el) { targets[i] = []; continue; }
-        const b = rel(el), fanW = cw * (1 + (n - 1) * BACK_VISIBLE);
-        targets[i] = Array.from({ length: n }, (_, j) => ({ x: b.left + b.width / 2 - fanW / 2 + j * BACK_VISIBLE * cw, y: b.top }));
-      }
-    }
-    const sprites = [];
+    const slot = { deck: db };
+    for (let i = 0; i < P; i++) { const e = root.querySelector(`[data-slot="seat-${i}"]`); if (e) slot["seat" + i] = rel(e); }
+    const he = root.querySelector('[data-slot="hand"]'); if (he) slot.hand = rel(he);
+    const ce = root.querySelector('[data-slot="crib"]'); if (ce) slot.crib = rel(ce);
+    const fanX = (b, n, j, gap) => gap                                 // x of card j of an n-card row: spaced (grid) or overlapping fan
+      ? b.left + b.width / 2 - (n * cw + (n - 1) * gap) / 2 + j * (cw + gap)
+      : b.left + b.width / 2 - cw * (1 + (n - 1) * BACK_VISIBLE) / 2 + j * BACK_VISIBLE * cw;
+    const list = [];
     const maxSize = Math.max(...pl.sizes);
-    let k = 0;
-    for (let c = 0; c < maxSize; c++) for (let i = 0; i < P; i++) {   // round-robin: one card to each seat per pass
-      if (c >= pl.sizes[i] || !targets[i] || !targets[i][c]) continue;
-      sprites.push({ key: k, from, to: targets[i][c], delay: k * DEAL_STAGGER });
-      k++;
-    }
+    for (let c = 0; c < maxSize; c++) for (let i = 0; i < P; i++) if (c < pl.sizes[i]) list.push({ i, j: c });   // round-robin, whole hand
+    const T_throw = (list.length - 1) * DEAL_STAGGER + DEAL_MOVE + DEAL_THROW_PAUSE;
+    const cribN = seats.reduce((a, s, i) => a + ((i === me && handToGrid) ? 0 : (s.discard ? s.discard.length : 0)), 0);
+    const sprites = [];
+    let cribM = 0;
+    list.forEach((cd, k) => {
+      const { i, j } = cd, n = pl.sizes[i];
+      const grid = i === me && handToGrid;
+      const sb = grid ? slot.hand : slot["seat" + i];
+      const dealLeg = { x: sb ? fanX(sb, n, j, grid ? 6 : 0) : from.x, y: sb ? sb.top : from.y, delay: k * DEAL_STAGGER, dur: DEAL_MOVE };
+      const legs = [dealLeg];
+      const discardN = grid ? 0 : (seats[i].discard ? seats[i].discard.length : 0);
+      const keptN = n - discardN;
+      if (discardN > 0 && sb) {                                        // a bot's hand splits at the throw
+        if (j < keptN) legs.push({ x: fanX(sb, keptN, j, 0), y: sb.top, delay: T_throw, dur: DEAL_MOVE });           // kept: spread into the kept fan
+        else if (slot.crib) legs.push({ x: fanX(slot.crib, cribN, cribM++, 0), y: slot.crib.top, delay: T_throw, dur: DEAL_MOVE });   // thrown: on to the crib
+      }
+      sprites.push({ key: k, from, legs });
+    });
     if (!sprites.length) return;
     setDealtN(0);
     setDealAnim(sprites);
-    const timers = sprites.map((s, idx) => setTimeout(() => setDealtN(idx + 1), s.delay));   // deck loses one as each card leaves
-    const total = (sprites.length - 1) * DEAL_STAGGER + DEAL_MOVE + 100;
-    timers.push(setTimeout(() => setDealAnim(null), total));
+    const timers = sprites.map((s, idx) => setTimeout(() => setDealtN(idx + 1), s.legs[0].delay));   // deck loses one as each card leaves it
+    timers.push(setTimeout(() => setDealAnim(null), T_throw + DEAL_MOVE + 120));
     return () => timers.forEach(clearTimeout);
   }, [dealSig]);
   const shownDeck = dealAnim ? 52 - dealtN : deckCount;       // thin the deck card-by-card during the deal
+  const cribSoFar = seats.reduce((a, s) => a + (s.discard ? s.discard.length : 0), 0);   // cards thrown to the crib so far
   // The show counts one owner at a time: their (face-up) hand or the crib, plus the cut.
   const info = showPhase ? computeShow(state) : null;
   const stepLabel = showPhase ? tr("play.show.step", { n: state.show.step + 1, m: state.show.order.length }) : "";
@@ -1518,7 +1528,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
   };
   return (
     <div ref={tableRef} style={{ position: "relative", marginTop: 6, display: "flex", flexDirection: "column", gap: 10 }}>
-      {dealAnim && dealAnim.map((s) => <DealFly key={s.key} from={s.from} to={s.to} delay={s.delay} />)}
+      {dealAnim && dealAnim.map((s) => <DealFly key={s.key} from={s.from} legs={s.legs} />)}
       {/* Fixed grids: every seat owns an equal column whatever it's holding, so the labels
           (and their hands) always center on the same spot in every phase. */}
       {ts.top.length > 0 && (
@@ -1580,7 +1590,10 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
         )
       ) : discardPhase ? (
         <Panel tone={cribOurs ? "good" : "red"}>
-          <div style={{ fontWeight: 700, fontSize: 15 }}>{multiHuman ? tr("play.crib.seatPrefix", { seat: seatName(me) }) : ""}{isDealer ? tr("play.crib.greedy") : teammateDeals ? tr("play.crib.teamGreedy", { seat: seatName(dealerIdx) }) : tr("play.crib.defend", { seat: seatName(dealerIdx) })}</div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+            <div style={{ fontWeight: 700, fontSize: 15, minWidth: 0 }}>{multiHuman ? tr("play.crib.seatPrefix", { seat: seatName(me) }) : ""}{isDealer ? tr("play.crib.greedy") : teammateDeals ? tr("play.crib.teamGreedy", { seat: seatName(dealerIdx) }) : tr("play.crib.defend", { seat: seatName(dealerIdx) })}</div>
+            {cribSoFar > 0 && <div data-slot="crib" style={{ flex: "0 0 auto", visibility: dealAnim ? "hidden" : "visible" }}><Fan items={backItems(cribSoFar)} /></div>}
+          </div>
         </Panel>
       ) : cutPhase ? (
         <div style={{ background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "12px", minHeight: 88, display: "flex", alignItems: "center", justifyContent: "center", gap: 14 }}>

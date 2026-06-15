@@ -1778,29 +1778,59 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
   const isDealer = me === dealerIdx;
   const teammateDeals = cribOurs && !isDealer;
 
-  const rotating = false;
+  // Hot-seat ring rotation: each seat glides (FLIP) to its new spot when the active player changes.
+  // The FLIP runs in an effect defined AFTER the deal/reveal/play effects (below), so those still
+  // measure the seats' true, untransformed positions; only then do the seats animate.
+  const seatEls = React.useRef({});
+  const seatPos = React.useRef({});
+  const seatBusy = React.useRef({});
+  const [rotating, setRotating] = React.useState(false);
+  const rotTimer = React.useRef(null);
   const cell = (i) => {
+    let inner;
     if (cutdealPhase) {                                    // cut for deal: each seat's single draw, dealer lit
       const draw = dealDraw ? dealDraw[i] : null;
-      return <Seat key={i} i={i} dealerIdx={dealerIdx} active={i === dealerIdx} dim={i !== dealerIdx}
+      inner = <Seat i={i} dealerIdx={dealerIdx} active={i === dealerIdx} dim={i !== dealerIdx}
         items={draw ? cardItems([draw]) : backItems(1)} settings={settings} me={me} />;
+    } else {
+      // Every seat (yours included) shows its played pile face up plus any cards still in hand
+      // face down. The one exception: your own remaining hand lives in the interactive grid below
+      // (so those backs are suppressed while the grid is active). The active seat is chip-highlighted.
+      const gridActive = i === me && meHuman && !needHandoff && (discardPhase || (phase === "play" && peg));
+      const remaining = (gridActive || (revealAnim && revealAnim.dir === "down" && i === revealAnim.actor)) ? 0 : hands[i].length;
+      const played = peg ? peg.played[i] : [];
+      const active = overPhase ? teamOf(i, P, teams) === teamOf(winner, P, teams)
+        : showPhase ? i === info.owner
+        : discardPhase ? (i === me && myTurn)
+        : turn === i;
+      const seatItems = dealAnim ? [] : [...backItems(remaining), ...cardItems(played)];
+      inner = <Seat i={i} dealerIdx={dealerIdx} active={active}
+        items={seatItems} hideFrom={playAnim && playAnim.seat === i ? seatItems.length - 1 : undefined} settings={settings} me={me} />;
     }
-    // Every seat (yours included) shows its played pile face up plus any cards still in hand
-    // face down. The one exception: your own remaining hand lives in the interactive grid
-    // below, not face down at your seat — so suppress those backs while the grid is active
-    // (your discard / play turn). The active seat — your discard turn, the current pegger,
-    // the hand being counted, or the winning team — is chip-highlighted.
-    const gridActive = i === me && meHuman && !needHandoff && (discardPhase || (phase === "play" && peg));
-    const remaining = (gridActive || (revealAnim && revealAnim.dir === "down" && i === revealAnim.actor)) ? 0 : hands[i].length;
-    const played = peg ? peg.played[i] : [];
-    const active = overPhase ? teamOf(i, P, teams) === teamOf(winner, P, teams)
-      : showPhase ? i === info.owner
-      : discardPhase ? (i === me && myTurn)
-      : turn === i;
-    const seatItems = dealAnim ? [] : [...backItems(remaining), ...cardItems(played)];
-    return <Seat key={i} i={i} dealerIdx={dealerIdx} active={active}
-      items={seatItems} hideFrom={playAnim && playAnim.seat === i ? seatItems.length - 1 : undefined} settings={settings} me={me} />;
+    return <div key={i} ref={(el) => { seatEls.current[i] = el; }} style={{ minWidth: 0 }}>{inner}</div>;
   };
+  // The FLIP itself — defined last so it runs after every position-measuring effect above.
+  React.useLayoutEffect(() => {
+    let moved = false;
+    for (const i in seatEls.current) {
+      const el = seatEls.current[i]; if (!el || seatBusy.current[i]) continue;
+      const r = el.getBoundingClientRect();
+      const cur = { x: r.left, y: r.top }, old = seatPos.current[i];
+      seatPos.current[i] = cur;
+      if (multiHuman && old && (Math.abs(old.x - cur.x) > 1 || Math.abs(old.y - cur.y) > 1)) {
+        seatBusy.current[i] = true; moved = true;
+        el.style.transition = "none";
+        el.style.transform = `translate(${old.x - cur.x}px, ${old.y - cur.y}px)`;   // jump back to where it was
+        const key = i, node = el;
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          node.style.transition = `transform ${SEAT_ROTATE}ms cubic-bezier(.4,0,.2,1)`;
+          node.style.transform = "none";                                            // glide to the new spot
+          setTimeout(() => { seatBusy.current[key] = false; }, SEAT_ROTATE + 40);
+        }));
+      }
+    }
+    if (moved) { setRotating(true); if (rotTimer.current) clearTimeout(rotTimer.current); rotTimer.current = setTimeout(() => setRotating(false), SEAT_ROTATE + 80); }
+  });
   return (
     <div ref={tableRef} style={{ position: "relative", marginTop: 6, display: "flex", flexDirection: "column", gap: 10 }}>
       {dealAnim && dealAnim.map((s) => <DealFly key={s.key} from={s.from} legs={s.legs} />)}

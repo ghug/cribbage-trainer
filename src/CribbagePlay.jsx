@@ -1231,13 +1231,14 @@ const BACK_VISIBLE = 0.3;
 const PILE_VISIBLE = 0.38;                       // keep the top 38% of each card; clip the bottom 62%
 const cardItems = (cards, vis = STACK_VISIBLE) => (cards || []).map((c) => ({ key: cardId(c), vis, el: <Card card={c} /> }));
 const backItems = (n) => Array.from({ length: n || 0 }).map((_, k) => ({ key: "b" + k, vis: BACK_VISIBLE, el: <CardBack /> }));
-function Fan({ items, clip, hideFrom }) {
+function Fan({ items, clip, hideFrom, clipBottom }) {
   if (!items.length) return null;
-  // `clip` (a fraction of the full card height) keeps only the top of each card, hiding the
-  // rest behind an overflow clip — so a stack can be that much shorter without rescaling cards.
-  // `hideFrom` keeps items at/after that index in the layout but invisible (placeholders for
-  // cards currently mid-flight), so the fan width — and the rest of the cards — don't shift.
-  const clipStyle = clip ? { height: `calc(var(--ch) * ${clip})`, overflow: "hidden" } : null;
+  // `clip` (a fraction of the full card height) keeps only part of each card, hiding the rest
+  // behind an overflow clip — so a stack can be that much shorter without rescaling cards. By
+  // default it keeps the TOP; `clipBottom` keeps the bottom instead (cards tucked up, only their
+  // lower edge showing). `hideFrom` keeps items at/after that index in the layout but invisible
+  // (placeholders for cards mid-flight), so the fan width — and the other cards — don't shift.
+  const clipStyle = clip ? { height: `calc(var(--ch) * ${clip})`, overflow: "hidden", ...(clipBottom ? { display: "flex", alignItems: "flex-end" } : null) } : null;
   return (
     <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
       {items.map((it, i) => (
@@ -1347,6 +1348,8 @@ const DEAL_STAGGER = 105;
 const DEAL_MOVE = 230;
 const DEAL_THROW_PAUSE = 150;                     // beat between the deal landing and the discards flying to the crib
 const THROW_STAGGER = 70;                         // gap between your two thrown cards flying to the crib
+const CRIB_PEEK = 0.25;                           // at its home the crib shows only its bottom quarter (tucked under the score row)
+const CRIB_HOME_LIFT = 0.72;                      // how far (× --ch) the crib home is pulled up under the score region — tune to taste
 // A card flying through a path of waypoints (`legs`): it mounts at `from`, then steps to each
 // leg's {x,y} at that leg's absolute `delay`, the CSS transition animating each hop. A deck→seat
 // deal is one leg; a card a bot throws gets a second leg (seat→crib).
@@ -1566,6 +1569,12 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
     <div ref={tableRef} style={{ position: "relative", marginTop: 6, display: "flex", flexDirection: "column", gap: 10 }}>
       {dealAnim && dealAnim.map((s) => <DealFly key={s.key} from={s.from} legs={s.legs} />)}
       {throwAnim && throwAnim.sprites.map((s) => <DealFly key={"t" + s.key} from={s.from} legs={s.legs} />)}
+      {/* the completed crib lives tucked up under the score row, only its bottom edge showing */}
+      {(cutPhase || phase === "play") && crib.length > 0 && (
+        <div data-slot="cribhome" style={{ position: "absolute", top: `calc(var(--ch) * ${-CRIB_HOME_LIFT})`, left: 0, right: 0, display: "flex", justifyContent: "center", zIndex: 0, pointerEvents: "none" }}>
+          <Fan items={backItems(crib.length)} clip={CRIB_PEEK} clipBottom />
+        </div>
+      )}
       {/* Fixed grids: every seat owns an equal column whatever it's holding, so the labels
           (and their hands) always center on the same spot in every phase. */}
       {ts.top.length > 0 && (
@@ -1635,7 +1644,6 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
       ) : cutPhase ? (
         <div style={{ background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "12px", minHeight: 88, display: "flex", alignItems: "center", justifyContent: "center", gap: 14 }}>
           <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{me === dealerIdx ? tr("play.cut.yourCrib") : tr("play.cut.seatCrib", { seat: seatName(dealerIdx) })}</span>
-          <Fan items={backItems(crib.length)} />
         </div>
       ) : (
         <div style={{ background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "0 12px 0 0" }}>

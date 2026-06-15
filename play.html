@@ -1755,10 +1755,10 @@ const BACK_VISIBLE = 0.3;
 const PILE_VISIBLE = 0.38;
 const cardItems = (cards, vis = STACK_VISIBLE) => (cards || []).map((c) => ({ key: cardId(c), vis, el: React.createElement(Card, { card: c }) }));
 const backItems = (n) => Array.from({ length: n || 0 }).map((_, k) => ({ key: "b" + k, vis: BACK_VISIBLE, el: React.createElement(CardBack, null) }));
-function Fan({ items, clip, hideFrom }) {
+function Fan({ items, clip, hideFrom, clipBottom }) {
     if (!items.length)
         return null;
-    const clipStyle = clip ? { height: `calc(var(--ch) * ${clip})`, overflow: "hidden" } : null;
+    const clipStyle = clip ? { height: `calc(var(--ch) * ${clip})`, overflow: "hidden", ...(clipBottom ? { display: "flex", alignItems: "flex-end" } : null) } : null;
     return (React.createElement("div", { style: { display: "flex", alignItems: "flex-end", justifyContent: "center" } }, items.map((it, i) => (React.createElement("div", { key: it.key, style: { width: "var(--cw)", position: "relative", zIndex: i, marginLeft: i === 0 ? 0 : `calc(var(--cw) * ${-(1 - it.vis)})`, ...clipStyle, ...(hideFrom != null && i >= hideFrom ? { visibility: "hidden" } : null) } }, it.el)))));
 }
 function PileFan({ cards }) {
@@ -1823,6 +1823,8 @@ const DEAL_STAGGER = 105;
 const DEAL_MOVE = 230;
 const DEAL_THROW_PAUSE = 150;
 const THROW_STAGGER = 70;
+const CRIB_PEEK = 0.25;
+const CRIB_HOME_LIFT = 0.72;
 function DealFly({ from, legs }) {
     const [idx, setIdx] = React.useState(-1);
     React.useEffect(() => {
@@ -2045,6 +2047,8 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
     return (React.createElement("div", { ref: tableRef, style: { position: "relative", marginTop: 6, display: "flex", flexDirection: "column", gap: 10 } },
         dealAnim && dealAnim.map((s) => React.createElement(DealFly, { key: s.key, from: s.from, legs: s.legs })),
         throwAnim && throwAnim.sprites.map((s) => React.createElement(DealFly, { key: "t" + s.key, from: s.from, legs: s.legs })),
+        (cutPhase || phase === "play") && crib.length > 0 && (React.createElement("div", { "data-slot": "cribhome", style: { position: "absolute", top: `calc(var(--ch) * ${-CRIB_HOME_LIFT})`, left: 0, right: 0, display: "flex", justifyContent: "center", zIndex: 0, pointerEvents: "none" } },
+            React.createElement(Fan, { items: backItems(crib.length), clip: CRIB_PEEK, clipBottom: true }))),
         ts.top.length > 0 && (React.createElement("div", { style: { display: "grid", gridTemplateColumns: `repeat(${ts.top.length}, 1fr)`, gap: 8 } }, ts.top.map(cell))),
         React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 8, padding: "0 6px" } },
             React.createElement("div", { style: { minWidth: 0 } }, ts.left != null ? cell(ts.left) : null),
@@ -2073,8 +2077,7 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
                     isDealer ? tr("play.crib.greedy") : teammateDeals ? tr("play.crib.teamGreedy", { seat: seatName(dealerIdx) }) : tr("play.crib.defend", { seat: seatName(dealerIdx) })),
                 cribSoFar > 0 && React.createElement("div", { "data-slot": "crib", style: { flex: "0 0 auto", visibility: dealAnim ? "hidden" : "visible" } },
                     React.createElement(Fan, { items: backItems(cribSoFar), hideFrom: throwAnim ? cribSoFar - throwAnim.hideN : undefined }))))) : cutPhase ? (React.createElement("div", { style: { background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "12px", minHeight: 88, display: "flex", alignItems: "center", justifyContent: "center", gap: 14 } },
-            React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: T.muted } }, me === dealerIdx ? tr("play.cut.yourCrib") : tr("play.cut.seatCrib", { seat: seatName(dealerIdx) })),
-            React.createElement(Fan, { items: backItems(crib.length) }))) : (React.createElement("div", { style: { background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "0 12px 0 0" } },
+            React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: T.muted } }, me === dealerIdx ? tr("play.cut.yourCrib") : tr("play.cut.seatCrib", { seat: seatName(dealerIdx) })))) : (React.createElement("div", { style: { background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "0 12px 0 0" } },
             React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, minHeight: `calc(var(--ch) * ${PILE_VISIBLE})` } },
                 React.createElement("div", { style: { flex: "0 0 auto", display: "flex", flexDirection: "column", alignItems: "center", padding: "4px 12px", borderRadius: 9, background: "rgba(0,0,0,0.3)", border: `1px solid ${T.line}` } },
                     React.createElement("span", { style: { fontFamily: mono, fontSize: 10, color: T.muted } }, tr("play.pile.count")),
@@ -2320,7 +2323,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.22"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.23"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

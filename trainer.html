@@ -42,19 +42,39 @@
     return location.pathname + search + location.hash;
   }
 
-  // Resolve the active language: a ?lang=<code> URL param (share link) wins and is persisted,
-  // else the stored choice, else English. Unknown codes fall back to English at lookup time.
-  var current = "en";
-  try { current = localStorage.getItem(LANG_KEY) || "en"; } catch (e) {}
+  // Map the browser/device language to a supported code (English fallback). Hardcoded because the
+  // registered language list (index.js) isn't loaded this early. ADD A LINE HERE for a new language.
+  function detectLang() {
+    try {
+      var ls = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || "en"];
+      for (var i = 0; i < ls.length; i++) {
+        var l = String(ls[i] || "").toLowerCase();
+        if (l.indexOf("zh") === 0) return "zh-Hans";   // any Chinese variant → Simplified (the only one)
+        if (l.indexOf("es") === 0) return "es";
+        if (l.indexOf("fr") === 0) return "fr";
+        if (l.indexOf("ru") === 0) return "ru";
+        if (l.indexOf("en") === 0) return "en";
+      }
+    } catch (e) {}
+    return "en";
+  }
+
+  // Resolve the active language. Precedence: a ?lang=<code> URL param (share link) > the stored
+  // choice > the browser/device language > English. The first two are EXPLICIT — persisted, and
+  // mirrored into the URL bar so the page is copy/shareable. Auto-detect is NOT: it just follows
+  // the browser, leaving the URL clean and unpersisted, until the user explicitly picks one.
+  var current = "en", explicit = false;
+  try { var stored = localStorage.getItem(LANG_KEY); if (stored) { current = stored; explicit = true; } } catch (e) {}
   try {
     var m = String(location.search || "").match(/[?&]lang=([A-Za-z-]+)/);
-    if (m) { current = m[1]; try { localStorage.setItem(LANG_KEY, current); } catch (e2) {} }
+    if (m) { current = m[1]; explicit = true; try { localStorage.setItem(LANG_KEY, current); } catch (e2) {} }
   } catch (e) {}
-  // Mirror the active language in the URL bar so a non-English page can be copied/shared (and
-  // English stays clean) — without adding a history entry. Skip on file:// (the APK has no URL
-  // bar and rewriting a file: URL is unsupported; localStorage drives the language there).
+  if (!explicit) current = detectLang();
+  // Mirror an EXPLICIT language in the URL bar (non-English carries ?lang=, English strips it) so
+  // it's copy/shareable — without a history entry. Skip on file:// (no URL bar in the APK) and for
+  // auto-detect (a browser-default visitor keeps a clean URL).
   try {
-    if (location.protocol !== "file:" && history && history.replaceState) {
+    if (explicit && location.protocol !== "file:" && history && history.replaceState) {
       var want = langURL(current), nowU = location.pathname + (location.search || "") + (location.hash || "");
       if (want !== nowU) history.replaceState(null, "", want);
     }
@@ -1147,7 +1167,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.16-dev.1"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.16-dev.2"))));
 }
 function MiniCard({ card, selected, disabled, onClick }) {
     return (React.createElement("button", { onClick: onClick, disabled: disabled, "aria-pressed": selected, "aria-label": `${rankLabel(card.r)} of ${["spades", "hearts", "diamonds", "clubs"][card.s]}`, style: {

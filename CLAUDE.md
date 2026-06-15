@@ -323,10 +323,16 @@ network, working identically online and offline in the APK. **Architecture:**
   `{placeholder}` interpolation), `cribbageLocale(code, map)` (a locale file registers its
   phrases), `cribbageLanguages(list)` (the picker catalogue), `i18nBootstrap()`, and
   `i18n` (`.lang`, `.languages()`, `.set(code)`, `.choose(code)`, `.onChange(fn)`). Active language
-  persists in `localStorage["cribbage:lang"]`. The URL **mirrors** the active language so a
-  non-English page is copy/shareable: on load the active lang is resolved (`?lang=<code>` param >
-  stored > en) and `history.replaceState` rewrites the URL to carry `?lang=<code>` for non-English
-  (or strip it for English), preserving other query params + the hash. **`i18n.choose(code)`
+  is resolved by precedence: a **`?lang=<code>` param** (share link) > the **stored choice**
+  (`localStorage["cribbage:lang"]`) > the **browser/device language** (auto-detected via
+  `navigator.languages` → `detectLang()`, so a zh/es/fr/ru device defaults to that language
+  everywhere — web *and* the APK's WebView; flash-free since the active locale loads synchronously
+  before first paint) > English. The first two are **explicit** (persisted, and **mirrored** into
+  the URL bar so a non-English page is copy/shareable — `history.replaceState` carries `?lang=<code>`
+  for non-English / strips it for English, other query params + hash preserved); auto-detect is not
+  (it follows the browser, leaving the URL clean and unpersisted until you explicitly pick one).
+  **`detectLang()` hardcodes the language prefixes** (the registered list isn't loaded that early) —
+  **add a line there when adding a language** if you want it auto-detected. **`i18n.choose(code)`
   switches LIVE — no page reload:** it persists, `replaceState`s the URL, lazily loads the locale
   via an appended `<script>` (`loadLocale`; en is inlined, already-loaded locales are instant),
   flips `current` only **after** the file is in (no half-translated flash), then fires the

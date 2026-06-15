@@ -2087,25 +2087,13 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
           </Panel>
         )
       ) : (discardPhase || cribbingPhase) ? (
-        // Once the full crib starts gliding to its tucked home, hide everything.
-        (cribbingPhase && cribGliding) ? null :
-        // CRIBBING (crib is full): drop the instructional banner entirely — just keep the crib
-        // cards in the same spot (an identically-padded, invisible box) as they settle, then glide.
-        cribbingPhase ? (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", padding: "11px 14px", border: "1px solid transparent" }}>
-            {cribSoFar > 0 && (
-              <div data-slot="crib" style={{ flex: "0 0 auto", display: "flex", alignItems: "flex-end", visibility: "hidden" }}>
-                {Array.from({ length: cribSoFar }).map((_, k) => (
-                  <div key={k} style={{ width: "var(--cw)", aspectRatio: "68 / 96", flex: "0 0 auto", marginLeft: k === 0 ? 0 : `calc(var(--cw) * ${-(1 - BACK_VISIBLE)})` }} />
-                ))}
-              </div>
-            )}
-          </div>
-        ) :
+        // The crib banner stays up through the whole cribbing phase, INCLUDING the glide to its
+        // tucked home — it clears only once the crib is actually stored (the cut phase). The crib
+        // cards leave the banner (to CribHome) once gliding, so the ghost shows only before then.
         <Panel tone={cribOurs ? "good" : "red"}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
             <div style={{ fontWeight: 700, fontSize: 15, minWidth: 0 }}>{multiHuman ? tr("play.crib.seatPrefix", { seat: seatName(me) }) : ""}{isDealer ? tr("play.crib.greedy") : teammateDeals ? tr("play.crib.teamGreedy", { seat: seatName(dealerIdx) }) : tr("play.crib.defend", { seat: seatName(dealerIdx) })}</div>
-            {cribSoFar > 0 && (
+            {cribSoFar > 0 && !cribGliding && (
               <div data-slot="crib" style={{ flex: "0 0 auto", display: "flex", alignItems: "flex-end", visibility: "hidden" }}>
                 {Array.from({ length: cribSoFar }).map((_, k) => (
                   <div key={k} style={{ width: "var(--cw)", aspectRatio: "68 / 96", flex: "0 0 auto", marginLeft: k === 0 ? 0 : `calc(var(--cw) * ${-(1 - BACK_VISIBLE)})` }} />
@@ -2114,11 +2102,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
             )}
           </div>
         </Panel>
-      ) : cutPhase ? (
-        <div style={{ background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "12px", minHeight: 88, display: "flex", alignItems: "center", justifyContent: "center", gap: 14 }}>
-          <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{me === dealerIdx ? tr("play.cut.yourCrib") : tr("play.cut.seatCrib", { seat: seatName(dealerIdx) })}</span>
-        </div>
-      ) : (
+      ) : cutPhase ? null : (
         <div style={{ background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "0 12px 0 0" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14, minHeight: `calc(var(--ch) * ${PILE_VISIBLE})` }}>
             <div style={{ flex: "0 0 auto", display: "flex", flexDirection: "column", alignItems: "center", padding: "4px 12px", borderRadius: 9, background: "rgba(0,0,0,0.3)", border: `1px solid ${T.line}` }}>

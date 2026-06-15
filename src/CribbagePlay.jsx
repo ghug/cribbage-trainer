@@ -1446,6 +1446,26 @@ function StarterDeck({ starter, count = 4 }) {
   );
 }
 
+// The deck swap shown between consolidating the old (cut-for-deal) deck and dealing the new one:
+// the OLD deck slides off to the upper-left (then unmounts), and a fresh deck slides IN from the
+// upper-right to the centre — visible proof the deck was swapped. `offX`/`offY` are how far
+// off-centre each deck parks (px); both glide over SWAP_DUR on mount.
+function DeckSwapView({ offX, offY, count = 52 }) {
+  const [go, setGo] = React.useState(false);
+  React.useEffect(() => { const id = requestAnimationFrame(() => requestAnimationFrame(() => setGo(true))); return () => cancelAnimationFrame(id); }, []);
+  const TR = `transform ${SWAP_DUR}ms cubic-bezier(.4,0,.2,1)`;
+  return (
+    <div style={{ position: "relative", width: "var(--cw)", height: "var(--ch)", margin: "0 auto" }}>
+      <div style={{ position: "absolute", inset: 0, transition: TR, transform: go ? `translate(${-offX}px, ${-offY}px)` : "none" }}>
+        <StarterDeck starter={null} count={count} />
+      </div>
+      <div style={{ position: "absolute", inset: 0, transition: TR, transform: go ? "none" : `translate(${offX}px, ${-offY}px)` }}>
+        <StarterDeck starter={null} count={count} />
+      </div>
+    </div>
+  );
+}
+
 // Hot-seat: a card travelling between a player's seat and the hand row while flipping. It mounts
 // at `from` rotated `r0`, then translates to `to` rotated `r1`. Reveal (seat→hand) flips back→face
 // (r0=-180, r1=0); return (hand→seat) flips face→back (r0=0, r1=180).
@@ -1555,6 +1575,7 @@ function DealFly({ from, legs, card }) {
 // the deal to the reshuffle; every phase just hands it a new home and the browser tweens it.
 const MOVE_DUR = 460;                              // base ms for a card to glide to a new home / flip
 const CARD_STAGGER = 210;                          // gap between successive cards in a multi-card sweep (deal/gather)
+const SWAP_DUR = 520;                              // ms for the old deck to slide out / the new deck to slide in
 function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding }) {
   const { peg, starter, dealerIdx, crib, seats, settings, phase, dealDraw, winner } = state;
   const discardPhase = phase === "discard";
@@ -1697,6 +1718,9 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
   const [deckShown, setDeckShown] = React.useState(deckCount);
   const deckTimers = React.useRef([]);
   const clearDeckTimers = () => { deckTimers.current.forEach(clearTimeout); deckTimers.current = []; };
+  const [deckSwap, setDeckSwap] = React.useState(null);   // {offX,offY} while the old deck slides out / new slides in
+  const dealPhaseRef = React.useRef(phase);               // previous phase, to spot the deal (preDeal → discard)
+  const dealTimersRef = React.useRef([]);                 // the deal-timeline setTimeouts (cleared on re-trigger)
 
   React.useLayoutEffect(() => {
     const root = tableRef.current; if (!root) return;
@@ -1728,12 +1752,81 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
     // for it to finish before it starts — a deal/gather staggers, a single move/flip does not.
     const sweep = Math.max(newCards.length, goneCards.length, 1);
     animUntilRef.current = (typeof performance !== "undefined" ? performance.now() : Date.now()) + (sweep - 1) * CARD_STAGGER + MOVE_DUR + 80;
+    const phaseAtLast = dealPhaseRef.current;              // previous (meaningful) phase, for the deal sequence below
+    dealPhaseRef.current = phase;
 
     // gone cards split: a finished hand's cards sweep back to the deck (gather); cards that were
     // in the crib just vanish here — CribHome (behind the score banner) takes the completed crib.
     const prevPlace = prevPlaceRef.current;
     const gatherGone = goneCards.filter((id) => !(prevPlace[id] && prevPlace[id].group === "crib"));
     const vanishGone = goneCards.filter((id) => prevPlace[id] && prevPlace[id].group === "crib");
+
+    // deal order: cards rank by hand-position then seat, starting at the pone (left of the dealer).
+    const pone = (dealerIdx + 1) % P;
+    const dealRank = (id) => {
+      const p = place[id]; if (!p) return 9999;
+      const seat = p.group === "hand" ? me : (p.group.indexOf("seat-") === 0 ? parseInt(p.group.slice(5), 10) : 99);
+      const rel = isNaN(seat) || seat > 90 ? 99 : (seat - pone + P) % P;   // 0 = pone, then clockwise
+      return p.idx * 100 + rel;
+    };
+
+    // ============ THE DEAL: one explicit sequence — consolidate → deck swap → deal → rotate ============
+    // A real deal is the preDeal → discard transition (NOT the 1–2-card cut). When it happens we OWN
+    // the new/consolidated card homes here on a small timeline, and skip the default flow below.
+    const isDeal = (phaseAtLast === "deal" || phaseAtLast === "cutdeal") && phase === "discard" && newCards.length > 1;
+    if (isDeal) {
+      const t0 = (typeof performance !== "undefined" ? performance.now() : Date.now());
+      const offX = Math.max(260, rootR.width), offY = 240;
+      const deckOut = { x: deckTop.x - offX, y: deckTop.y - offY };   // old deck exits upper-left
+      const deckIn = { x: deckTop.x + offX, y: deckTop.y - offY };    // new deck enters from upper-right
+      const GATHER_DUR = gatherGone.length ? MOVE_DUR + 80 : 0;       // step 1 (consolidate) only when there are cut-for-deal cards
+      const dealStart = GATHER_DUR + SWAP_DUR;
+      const dealSpan = (newCards.length - 1) * CARD_STAGGER + MOVE_DUR + 80;
+      const ordered = newCards.slice().sort((a, b) => dealRank(a) - dealRank(b));   // pone-first, round-robin
+      const dealDelay = {}; ordered.forEach((id, k) => { dealDelay[id] = k * CARD_STAGGER; });
+
+      // STEP 1 (now): the cut-for-deal cards slide into the centre deck together; the new hand is
+      // parked inside the incoming deck off to the upper-right.
+      for (const id in targets) delayRef.current[id] = 0;
+      for (const id of goneCards) delayRef.current[id] = 0;
+      const r0 = {};
+      for (const id in targets) r0[id] = newCards.includes(id) ? { x: deckIn.x, y: deckIn.y, up: false, z: 62 } : targets[id];
+      for (const id of gatherGone) r0[id] = { x: deckTop.x, y: deckTop.y, up: false, z: 60 };
+
+      knownRef.current = nowKnown;
+      prevPlaceRef.current = { ...place };
+      homesRef.current = r0; setHomes(r0);
+      // freeze the stable post-deal signature so the timeline's setHomes re-renders early-return
+      sigRef.current = Object.keys(targets).sort().map((id) => id + ":" + round(targets[id])).join("|") + "#";
+      setDeckShown(52);
+      animUntilRef.current = t0 + dealStart + dealSpan;   // the ring rotation waits for the WHOLE sequence
+
+      dealTimersRef.current.forEach(clearTimeout); dealTimersRef.current = [];
+      // STEP 2 (t=GATHER_DUR): swap decks — old slides out (consolidated cards ride with it), new slides in.
+      dealTimersRef.current.push(setTimeout(() => {
+        setDeckSwap({ offX, offY });
+        const r = { ...homesRef.current };
+        for (const id of gatherGone) r[id] = { x: deckOut.x, y: deckOut.y, up: false, z: 62 };
+        for (const id of newCards) r[id] = { x: deckTop.x, y: deckTop.y, up: false, z: 60 };
+        homesRef.current = r; setHomes(r);
+      }, GATHER_DUR));
+      // delete the consolidated old cards once they've ridden off-screen
+      dealTimersRef.current.push(setTimeout(() => {
+        const r = { ...homesRef.current }; gatherGone.forEach((id) => { delete r[id]; delete delayRef.current[id]; });
+        homesRef.current = r; setHomes(r);
+      }, dealStart));
+      // STEP 3 (t=dealStart): deal out from the new deck, one card at a time, pone-first.
+      dealTimersRef.current.push(setTimeout(() => {
+        ordered.forEach((id) => { delayRef.current[id] = dealDelay[id]; });
+        const r = { ...homesRef.current };
+        for (const id of newCards) r[id] = targets[id];
+        homesRef.current = r; setHomes(r);
+        setDeckSwap(null);
+        clearDeckTimers();
+        ordered.forEach((id) => deckTimers.current.push(setTimeout(() => setDeckShown((v) => Math.max(deckCount, v - 1)), dealDelay[id] + 40)));
+      }, dealStart));
+      return;   // STEP 4 (rotate) is handled by the me-lag reading animUntilRef above
+    }
 
     // DELAY = how long after the sweep begins each card starts to move. The DEFAULT is 0 for
     // every card, so a rotation / handoff / throw / play moves each whole hand as ONE unit (all
@@ -1743,13 +1836,6 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
     //  - the end-of-hand GATHER: cards sweep back into the deck one after another.
     for (const id in targets) delayRef.current[id] = 0;
     for (const id of goneCards) delayRef.current[id] = 0;
-    const pone = (dealerIdx + 1) % P;                       // first player dealt to: left of the dealer
-    const dealRank = (id) => {
-      const p = place[id]; if (!p) return 9999;
-      const seat = p.group === "hand" ? me : (p.group.indexOf("seat-") === 0 ? parseInt(p.group.slice(5), 10) : 99);
-      const rel = isNaN(seat) || seat > 90 ? 99 : (seat - pone + P) % P;   // 0 = pone, then clockwise
-      return p.idx * 100 + rel;
-    };
     if (newCards.length > 1) {
       const ordered = newCards.slice().sort((a, b) => dealRank(a) - dealRank(b));
       ordered.forEach((id, k) => { delayRef.current[id] = k * CARD_STAGGER; });
@@ -1887,7 +1973,9 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: "0 0 auto" }}>
           <div style={{ height: 18, marginBottom: 4, display: "flex", alignItems: "center", fontFamily: mono, fontSize: 10, color: T.muted }}>{(phase === "play" || showPhase || overPhase) ? tr("play.starterCard") : tr("play.deck")}</div>
           <div data-slot="deck" style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" }}>
-            <StarterDeck starter={null} count={Math.max(1, deckShown)} />
+            {deckSwap
+              ? <DeckSwapView offX={deckSwap.offX} offY={deckSwap.offY} count={Math.max(1, deckShown)} />
+              : <StarterDeck starter={null} count={Math.max(1, deckShown)} />}
           </div>
         </div>
         <div style={{ minWidth: 0 }}>{ts.right != null ? cell(ts.right) : null}</div>

@@ -1114,10 +1114,9 @@ export default function CribbagePlay() {
   }, [phase, settings.autoDiscardBest, autoPaused, ds, needHandoff]);
   useEffect(() => {
     if (phase !== "cut" || autoPaused) return;
-    // Auto-cut is on, or the cutter is a bot that can't tap — either way, cut on a timer.
-    // (A human cutter in manual mode taps the button instead.)
-    const cutter = (dealerIdx + players - 1) % players;
-    if (!settings.autoCut && seatIsHuman(cutter, settings)) return;
+    // Only auto-cut turns the starter on a timer. In MANUAL mode the cut is always a deliberate,
+    // visible step — a tap — even when a bot is the one cutting (you're not skipped past it).
+    if (!settings.autoCut) return;
     const t = setTimeout(() => dispatch({ type: "CUT" }), 650);
     return () => clearTimeout(t);
   }, [phase, autoPaused, settings.autoCut, dealerIdx, players, settings]);
@@ -1355,21 +1354,21 @@ function seatsAround(P, me) {
   return { top: ts.top.map(at), left: ts.left != null ? at(ts.left) : null, right: ts.right != null ? at(ts.right) : null };
 }
 
-// The deck in the centre of the table: a face-down stack whose thickness tracks how many
-// cards are still undealt, with the starter laid face up on top once it's been cut. The
-// stacked backs are absolutely positioned (they rise up-left behind the top card) so the
-// --cw footprint never changes and the table never shifts. `count` is the cards remaining
-// in the deck; the stack starts full at the deal and thins as cards leave it.
-const DECK_EDGE = 0.2;                            // px of offset per stacked card edge
+// The deck in the centre of the table: a face-down stack whose thickness tracks how many cards
+// are still undealt. The BASE card sits fixed at the slot; the rest stack up-and-right, so the
+// TOP of the deck — where cards are dealt from, and where the starter is turned after the cut —
+// is the highest card. As the deck thins it shrinks from the top (the top card lowers toward the
+// base), like dealing off the top; the --cw footprint never changes so the table never shifts.
+const DECK_EDGE = 0.2;                            // px of offset per stacked card
 function StarterDeck({ starter, count = 4 }) {
-  const edges = Math.max(0, Math.min(51, (count || 1) - 1));   // one edge per undealt card behind the top
+  const n = Math.max(1, Math.min(52, count || 1));
   return (
     <div style={{ position: "relative", width: "var(--cw)", height: "var(--ch)", margin: "0 auto" }}>
-      {Array.from({ length: edges }).map((_, k) => {
-        const d = (edges - k) * DECK_EDGE;         // bottom-most edge is offset furthest up-left
-        return <div key={k} style={{ position: "absolute", left: d, top: -d }}><CardBack /></div>;
+      {Array.from({ length: n }).map((_, k) => {
+        const d = k * DECK_EDGE;                    // k=0 = fixed base; k=n-1 = top of the deck, up-right
+        const isTop = k === n - 1;
+        return <div key={k} data-decktop={isTop ? "1" : undefined} style={{ position: "absolute", left: d, top: -d }}>{isTop && starter ? <Card card={starter} /> : <CardBack />}</div>;
       })}
-      <div style={{ position: "absolute", left: 0, top: 0 }}>{starter ? <Card card={starter} /> : <CardBack />}</div>
     </div>
   );
 }
@@ -1469,7 +1468,9 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
     const deckEl = root.querySelector('[data-slot="deck"]'); if (!deckEl) return;
     const db = rel(deckEl);
     const cw = Math.min(68, (Math.min(typeof window !== "undefined" ? window.innerWidth : 560, 560) - 62) / 6);
-    const from = { x: db.left + db.width / 2 - cw / 2, y: db.top };
+    // deal off the TOP of the deck (the highest card), not the centre of the slot
+    const topEl = root.querySelector('[data-decktop]');
+    const from = topEl ? (() => { const t = rel(topEl); return { x: t.left, y: t.top }; })() : { x: db.left + db.width / 2 - cw / 2, y: db.top };
     // Per-card destinations: each seat's n dealt cards land in their actual fan slots — the
     // human's interactive hand is a spaced row (gap 6), every other seat an overlapping fan —
     // so a card flies straight to where it will sit and never snaps on reveal. Every seat is
@@ -1768,11 +1769,9 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
               {bigBtn(multiHuman ? tr("play.dealAs", { seat: seatName(dealerIdx) }) : isDealer ? tr("play.deal") : tr("play.dealCrib", { seat: seatName(dealerIdx) }), () => dispatch({ type: "DEAL" }), "wood")}
             </div>)
       ) : cutPhase ? (
-        // Auto-cut skips this phase entirely; when it's off, a human cutter taps to cut,
-        // while a bot cutter just does it (announced here, advanced on a timer).
-        seatIsHuman(cutter, settings)
-          ? bigBtn(tr("play.btn.cutFor", { seat: seatName(dealerIdx) }), () => dispatch({ type: "CUT" }), "wood")
-          : <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" }}>{tr("play.cutMsg", { seat: seatName(cutter) })}</div>
+        // Manual cut: always a deliberate tap that turns the starter — you cut it yourself, or you
+        // tap to turn it on a bot cutter's behalf. (Auto-cut skips straight past this phase.)
+        bigBtn(seatIsHuman(cutter, settings) ? tr("play.btn.cutFor", { seat: seatName(dealerIdx) }) : tr("play.cutMsg", { seat: seatName(cutter) }), () => dispatch({ type: "CUT" }), "wood")
       ) : cribbingPhase ? null : needHandoff ? <PassPanel to={discardPhase ? me : peg.turn} dispatch={dispatch} /> : (
       <div>
         {pending && (discardPhase

@@ -502,8 +502,19 @@ function firstHuman(P, settings) { for (let i = 0; i < P; i++) if (seatIsHuman(i
 // 2+ humans always auto-counts.
 const mugginsActive = (settings) => settings.counting === "muggins" && nHumans(clampPlayers(settings.players), settings) === 1;
 
+// The throw/play turn order: the pone (the seat to the dealer's left) acts first, then
+// clockwise around the table, the dealer last — standard cribbage order, matching pegging.
+// Returns just the human-thrower seats in that order (bots throw automatically at the deal,
+// so only humans cycle the device through the discard phase).
+function throwOrder(P, dealerIdx, settings) {
+  const pl = plan(P, dealerIdx);
+  const order = [];
+  for (let k = 1; k <= P; k++) { const i = (dealerIdx + k) % P; if (pl.throws[i] > 0 && seatIsHuman(i, settings)) order.push(i); }
+  return order;
+}
+
 // Commit the active discarder's throw (idxs into seats[discardSeat].dealt). With several
-// human throwers, advance to the next; once they're all in, build the crib and cut.
+// human throwers, advance to the next in turn order; once they're all in, build the crib and cut.
 function commitDiscard(state, idxs) {
   const P = clampPlayers(state.settings.players);
   const pl = plan(P, state.dealerIdx);
@@ -512,8 +523,9 @@ function commitDiscard(state, idxs) {
   const discard = idxs.map((i) => dealt[i]);
   const kept = sortHand(dealt.filter((_, j) => !idxs.includes(j)));
   const seats = state.seats.map((s, i) => (i === seat ? { ...s, discard, kept } : s));
+  const order = throwOrder(P, state.dealerIdx, state.settings);
   let next = null;
-  for (let i = seat + 1; i < P; i++) if (pl.throws[i] > 0 && seatIsHuman(i, state.settings) && seats[i].discard == null) { next = i; break; }
+  for (let k = order.indexOf(seat) + 1; k < order.length; k++) if (seats[order[k]].discard == null) { next = order[k]; break; }
   if (next != null) return { ...state, seats, discardSeat: next, pendingDiscard: null };
   return afterCrib({ ...state, seats, crib: assembleCrib(seats, state.deck, pl), pendingDiscard: null, phase: "cut", discardSeat: null });
 }
@@ -562,8 +574,7 @@ function dealNewHand(state) {
     if (pl.throws[i] === 0) { seats[i].kept = sortHand(seats[i].dealt); seats[i].discard = []; }
     else if (!seatIsHuman(i, state.settings)) { const r = aiDiscardN(seats[i].dealt, i, d, pl.throws[i], P, teams); seats[i].discard = r.discard; seats[i].kept = sortHand(r.kept); }
   }
-  const humanThrowers = [];
-  for (let i = 0; i < P; i++) if (pl.throws[i] > 0 && seatIsHuman(i, state.settings)) humanThrowers.push(i);
+  const humanThrowers = throwOrder(P, d, state.settings);   // pone first, clockwise, dealer last
   const base = {
     ...state, seats, deck, starter: null, crib: [], hisHeels: false,
     peg: null, show: null, winner: null, phase: "discard", message: "", pendingDiscard: null, pendingPlay: null,

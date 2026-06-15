@@ -1080,6 +1080,16 @@ function firstHuman(P, settings) { for (let i = 0; i < P; i++)
     if (seatIsHuman(i, settings))
         return i; return 0; }
 const mugginsActive = (settings) => settings.counting === "muggins" && nHumans(clampPlayers(settings.players), settings) === 1;
+function throwOrder(P, dealerIdx, settings) {
+    const pl = plan(P, dealerIdx);
+    const order = [];
+    for (let k = 1; k <= P; k++) {
+        const i = (dealerIdx + k) % P;
+        if (pl.throws[i] > 0 && seatIsHuman(i, settings))
+            order.push(i);
+    }
+    return order;
+}
 function commitDiscard(state, idxs) {
     const P = clampPlayers(state.settings.players);
     const pl = plan(P, state.dealerIdx);
@@ -1088,10 +1098,11 @@ function commitDiscard(state, idxs) {
     const discard = idxs.map((i) => dealt[i]);
     const kept = sortHand(dealt.filter((_, j) => !idxs.includes(j)));
     const seats = state.seats.map((s, i) => (i === seat ? { ...s, discard, kept } : s));
+    const order = throwOrder(P, state.dealerIdx, state.settings);
     let next = null;
-    for (let i = seat + 1; i < P; i++)
-        if (pl.throws[i] > 0 && seatIsHuman(i, state.settings) && seats[i].discard == null) {
-            next = i;
+    for (let k = order.indexOf(seat) + 1; k < order.length; k++)
+        if (seats[order[k]].discard == null) {
+            next = order[k];
             break;
         }
     if (next != null)
@@ -1144,10 +1155,7 @@ function dealNewHand(state) {
             seats[i].kept = sortHand(r.kept);
         }
     }
-    const humanThrowers = [];
-    for (let i = 0; i < P; i++)
-        if (pl.throws[i] > 0 && seatIsHuman(i, state.settings))
-            humanThrowers.push(i);
+    const humanThrowers = throwOrder(P, d, state.settings);
     const base = {
         ...state, seats, deck, starter: null, crib: [], hisHeels: false,
         peg: null, show: null, winner: null, phase: "discard", message: "", pendingDiscard: null, pendingPlay: null,
@@ -2163,7 +2171,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.8"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.9"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

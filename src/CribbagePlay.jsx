@@ -1735,13 +1735,25 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
     const gatherGone = goneCards.filter((id) => !(prevPlace[id] && prevPlace[id].group === "crib"));
     const vanishGone = goneCards.filter((id) => prevPlace[id] && prevPlace[id].group === "crib");
 
-    // assign stagger to a multi-card sweep. A deal goes round-robin (one card to each seat in
-    // turn, like a real deal) — rank a card by its position-in-hand first, then its seat.
-    const dealRank = (id) => { const p = place[id]; if (!p) return 999; const seat = p.group === "hand" ? me : (p.group.indexOf("seat-") === 0 ? parseInt(p.group.slice(5), 10) : 99); return p.idx * 100 + (isNaN(seat) ? 99 : seat); };
+    // DELAY = how long after the sweep begins each card starts to move. The DEFAULT is 0 for
+    // every card, so a rotation / handoff / throw / play moves each whole hand as ONE unit (all
+    // its cards travel together, never strung out into a diagonal). Only two sweeps stagger:
+    //  - the DEAL: one card at a time, dealt round-robin starting at the player left of the
+    //    dealer (the pone), exactly like a real deal.
+    //  - the end-of-hand GATHER: cards sweep back into the deck one after another.
+    for (const id in targets) delayRef.current[id] = 0;
+    for (const id of goneCards) delayRef.current[id] = 0;
+    const pone = (dealerIdx + 1) % P;                       // first player dealt to: left of the dealer
+    const dealRank = (id) => {
+      const p = place[id]; if (!p) return 9999;
+      const seat = p.group === "hand" ? me : (p.group.indexOf("seat-") === 0 ? parseInt(p.group.slice(5), 10) : 99);
+      const rel = isNaN(seat) || seat > 90 ? 99 : (seat - pone + P) % P;   // 0 = pone, then clockwise
+      return p.idx * 100 + rel;
+    };
     if (newCards.length > 1) {
       const ordered = newCards.slice().sort((a, b) => dealRank(a) - dealRank(b));
       ordered.forEach((id, k) => { delayRef.current[id] = k * CARD_STAGGER; });
-    } else newCards.forEach((id) => { delayRef.current[id] = 0; });
+    }
     if (gatherGone.length > 1) gatherGone.forEach((id, k) => { delayRef.current[id] = k * CARD_STAGGER; });
 
     const render = {};
@@ -1786,8 +1798,6 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
         drop.forEach((id) => { delete delayRef.current[id]; });
       }, (gatherGone.length - 1) * CARD_STAGGER + MOVE_DUR + 80);
     }
-    // clear the deal stagger once it has played, so each card's next move is prompt
-    if (newCards.length > 1) setTimeout(() => { newCards.forEach((id) => { delayRef.current[id] = 0; }); }, newCards.length * CARD_STAGGER + MOVE_DUR + 80);
   });
 
   // Hot-seat ring rotation: when the active player changes, each seat's LABEL glides to its new

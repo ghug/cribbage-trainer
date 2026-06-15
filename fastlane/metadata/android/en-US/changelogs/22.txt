@@ -1,0 +1,3 @@
+New in 1.1.18:
+- Weak-play warnings are now on by default.
+- The centre pile is labeled "deck" before the cut and "cut card" once the starter is turned (other languages keep their own starter term).

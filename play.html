@@ -1972,7 +1972,7 @@ function DealFly({ from, legs, card }) {
 }
 const MOVE_DUR = 460;
 const CARD_STAGGER = 210;
-function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
+function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding }) {
     const { peg, starter, dealerIdx, crib, seats, settings, phase, dealDraw, winner } = state;
     const discardPhase = phase === "discard";
     const cribbingPhase = phase === "cribbing";
@@ -1985,6 +1985,20 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
     const P = peg ? peg.hands.length : seats.length;
     const teams = clampTeams(P, settings.teams);
     const pl = plan(P, dealerIdx);
+    const animUntilRef = React.useRef(0);
+    const [me, setMe] = React.useState(meTarget);
+    const transitioning = me !== meTarget;
+    React.useEffect(() => {
+        if (me === meTarget)
+            return;
+        const wait = animUntilRef.current - (typeof performance !== "undefined" ? performance.now() : Date.now());
+        if (wait > 30) {
+            const t = setTimeout(() => setMe(meTarget), wait);
+            return () => clearTimeout(t);
+        }
+        const id = requestAnimationFrame(() => setMe(meTarget));
+        return () => cancelAnimationFrame(id);
+    }, [meTarget, me]);
     const ts = seatsAround(P, me);
     const totalDealt = pl.sizes.reduce((a, b) => a + b, 0);
     const deckCount = preDeal ? 52 : 52 - totalDealt - (phase === "discard" ? 0 : 1 + (pl.deckCard ? 1 : 0));
@@ -2131,6 +2145,8 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
         if (sig === sigRef.current && !newCards.length && !goneCards.length)
             return;
         sigRef.current = sig;
+        const sweep = Math.max(newCards.length, goneCards.length, 1);
+        animUntilRef.current = (typeof performance !== "undefined" ? performance.now() : Date.now()) + (sweep - 1) * CARD_STAGGER + MOVE_DUR + 80;
         const prevPlace = prevPlaceRef.current;
         const gatherGone = goneCards.filter((id) => !(prevPlace[id] && prevPlace[id].group === "crib"));
         const vanishGone = goneCards.filter((id) => prevPlace[id] && prevPlace[id].group === "crib");
@@ -2326,7 +2342,7 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
                     React.createElement("span", null,
                         " ",
                         tr("play.cfg.tapChange")))),
-                bigBtn(multiHuman ? tr("play.dealAs", { seat: seatName(dealerIdx) }) : isDealer ? tr("play.deal") : tr("play.dealCrib", { seat: seatName(dealerIdx) }), () => dispatch({ type: "DEAL" }), "wood")))) : cutPhase ? (bigBtn(seatIsHuman(cutter, settings) ? tr("play.btn.cutFor", { seat: seatName(dealerIdx) }) : tr("play.cutMsg", { seat: seatName(cutter) }), () => dispatch({ type: "CUT" }), "wood")) : cribbingPhase ? null : needHandoff ? React.createElement(PassPanel, { to: discardPhase ? me : peg.turn, dispatch: dispatch, locked: rotating }) : (React.createElement("div", null,
+                bigBtn(multiHuman ? tr("play.dealAs", { seat: seatName(dealerIdx) }) : isDealer ? tr("play.deal") : tr("play.dealCrib", { seat: seatName(dealerIdx) }), () => dispatch({ type: "DEAL" }), "wood")))) : cutPhase ? (bigBtn(seatIsHuman(cutter, settings) ? tr("play.btn.cutFor", { seat: seatName(dealerIdx) }) : tr("play.cutMsg", { seat: seatName(cutter) }), () => dispatch({ type: "CUT" }), "wood")) : cribbingPhase ? null : transitioning ? null : needHandoff ? React.createElement(PassPanel, { to: discardPhase ? me : peg.turn, dispatch: dispatch, locked: rotating }) : (React.createElement("div", null,
             pending && (discardPhase
                 ? React.createElement("div", { style: { marginBottom: 10 } },
                     React.createElement(DiscardWarning, { pd: pending, cribIsOurs: cribOurs, dispatch: dispatch, onCancel: () => setSel([]) }))

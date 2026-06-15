@@ -1555,7 +1555,7 @@ function DealFly({ from, legs, card }) {
 // the deal to the reshuffle; every phase just hands it a new home and the browser tweens it.
 const MOVE_DUR = 460;                              // base ms for a card to glide to a new home / flip
 const CARD_STAGGER = 210;                          // gap between successive cards in a multi-card sweep (deal/gather)
-function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
+function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding }) {
   const { peg, starter, dealerIdx, crib, seats, settings, phase, dealDraw, winner } = state;
   const discardPhase = phase === "discard";
   const cribbingPhase = phase === "cribbing";            // crib full, holding while it animates to its home
@@ -1568,6 +1568,21 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
   const P = peg ? peg.hands.length : seats.length;
   const teams = clampTeams(P, settings.teams);
   const pl = plan(P, dealerIdx);
+  // The VIEW's active seat lags the reducer's: when the reducer hands the turn on (e.g. the
+  // deal advances the active seat to the first thrower), the table stays in the current
+  // orientation until the in-flight card animation settles, and only THEN rotates. So two
+  // things never animate at once — the deal completes, then the ring turns, then the next
+  // player reveals. `meTarget` is the reducer's seat; `me` is what the table currently shows.
+  const animUntilRef = React.useRef(0);                  // performance.now() until the current card sweep has settled
+  const [me, setMe] = React.useState(meTarget);
+  const transitioning = me !== meTarget;
+  React.useEffect(() => {
+    if (me === meTarget) return;
+    const wait = animUntilRef.current - (typeof performance !== "undefined" ? performance.now() : Date.now());
+    if (wait > 30) { const t = setTimeout(() => setMe(meTarget), wait); return () => clearTimeout(t); }
+    const id = requestAnimationFrame(() => setMe(meTarget));
+    return () => cancelAnimationFrame(id);
+  }, [meTarget, me]);
   const ts = seatsAround(P, me);
   const totalDealt = pl.sizes.reduce((a, b) => a + b, 0);
   const deckCount = preDeal ? 52 : 52 - totalDealt - (phase === "discard" ? 0 : 1 + (pl.deckCard ? 1 : 0));
@@ -1709,6 +1724,10 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
     const sig = Object.keys(targets).sort().map((id) => id + ":" + round(targets[id])).join("|") + "#" + goneCards.sort().join(",");
     if (sig === sigRef.current && !newCards.length && !goneCards.length) return;
     sigRef.current = sig;
+    // mark how long this sweep will take, so the ring rotation (the view's seat change) can wait
+    // for it to finish before it starts — a deal/gather staggers, a single move/flip does not.
+    const sweep = Math.max(newCards.length, goneCards.length, 1);
+    animUntilRef.current = (typeof performance !== "undefined" ? performance.now() : Date.now()) + (sweep - 1) * CARD_STAGGER + MOVE_DUR + 80;
 
     // gone cards split: a finished hand's cards sweep back to the deck (gather); cards that were
     // in the crib just vanish here — CribHome (behind the score banner) takes the completed crib.
@@ -1994,7 +2013,7 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
         // Manual cut: always a deliberate tap that turns the starter — you cut it yourself, or you
         // tap to turn it on a bot cutter's behalf. (Auto-cut skips straight past this phase.)
         bigBtn(seatIsHuman(cutter, settings) ? tr("play.btn.cutFor", { seat: seatName(dealerIdx) }) : tr("play.cutMsg", { seat: seatName(cutter) }), () => dispatch({ type: "CUT" }), "wood")
-      ) : cribbingPhase ? null : needHandoff ? <PassPanel to={discardPhase ? me : peg.turn} dispatch={dispatch} locked={rotating} /> : (
+      ) : cribbingPhase ? null : transitioning ? null : needHandoff ? <PassPanel to={discardPhase ? me : peg.turn} dispatch={dispatch} locked={rotating} /> : (
       <div>
         {pending && (discardPhase
           ? <div style={{ marginBottom: 10 }}><DiscardWarning pd={pending} cribIsOurs={cribOurs} dispatch={dispatch} onCancel={() => setSel([])} /></div>

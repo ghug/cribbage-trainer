@@ -195,6 +195,8 @@ cribbageLocale("zh-Hans", {
   "landing.tagline": "与电脑或朋友对战，磨练你的弃牌",
   "landing.playersAtTable": "牌桌人数",
   "landing.seatHint": "点击任意座位，将其设为 🧑 真人 或 🤖 电脑。",
+  "landing.setNames": "设置玩家名称",
+  "landing.saveNames": "保存玩家名称",
   "landing.teams": "队伍",
   "landing.teamsNote": "— 牌桌如何分组",
   "landing.language": "语言",

@@ -197,6 +197,8 @@ cribbageLocale("ru", {
   "landing.tagline": "играйте против ботов или друзей и оттачивайте свои сбросы",
   "landing.playersAtTable": "Игроки за столом",
   "landing.seatHint": "Коснитесь любого места, чтобы сделать его 🧑 человеком или 🤖 ботом.",
+  "landing.setNames": "Задать имена игроков",
+  "landing.saveNames": "Сохранить имена игроков",
   "landing.teams": "Команды",
   "landing.teamsNote": "— как делится стол",
   "landing.language": "Язык",

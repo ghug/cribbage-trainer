@@ -123,6 +123,11 @@
   .seat.you .avatar{ border-color:#ECDCB4; border-width:4px; color:var(--ivory); box-shadow:0 0 0 3px rgba(236,220,180,0.18) }
   .seat .seat-name{ font-family:var(--mono); font-size:11px; color:var(--cream); white-space:nowrap }
   .seat.you .seat-name{ color:var(--ivory); font-weight:700 }
+  .seat .seat-name-input{ font-family:var(--mono); font-size:11px; color:var(--ivory); width:58px; text-align:center;
+    background:rgba(0,0,0,0.4); border:1px solid var(--line); border-radius:6px; padding:2px 3px }
+  .names-btn{ width:100%; margin-top:9px; padding:9px 6px; border-radius:8px; cursor:pointer; font-family:var(--mono);
+    font-size:11.5px; background:rgba(0,0,0,0.2); color:var(--cream); border:1px solid var(--line) }
+  .names-btn.on{ background:#ECDCB4; color:#2A1B0E; border-color:#ECDCB4; font-weight:700 }
   .seat-hint{ font-family:var(--mono); font-size:11.5px; line-height:1.45; color:var(--cream); text-align:center; margin:-2px auto 10px; max-width:280px }
   .lang-row{ display:flex; align-items:center; justify-content:center; gap:8px; margin-top:10px; font-family:var(--mono); font-size:11px; color:var(--muted) }
   .lang-row[hidden]{ display:none }  /* author display:flex would otherwise beat the UA [hidden] rule */
@@ -207,6 +212,7 @@
         <div class="pp-label"><span data-i18n="landing.teams">Teams</span> <span class="pp-note" data-i18n="landing.teamsNote">— how the table splits up</span></div>
         <div class="pp-segs" id="teamsSegs"></div>
       </div>
+      <button type="button" class="names-btn" id="namesBtn">Set player names</button>
       <a class="option" href="play.html">
         <div class="opt-row">
           <span class="pip play">♥</span>
@@ -310,7 +316,7 @@
       // Game settings, shared across every page via localStorage (same key the games
       // read/write), so a toggle here — or in any game — sticks everywhere.
       var SETTINGS_KEY = "cribbage:settings";
-      var DEFAULTS = { players: 2, teams: 2, seats: [], counting: "auto", autoGo: false, warn: true, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false, autoContinue: false, autoDeal: false };
+      var DEFAULTS = { players: 2, teams: 2, seats: [], names: [], counting: "auto", autoGo: false, warn: true, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false, autoContinue: false, autoDeal: false };
       // "Players" lives on the main page (above Play); the rest are in this popup.
       // title/desc/option labels are i18n keys, translated via tr() at render time.
       var ROWS = [
@@ -361,7 +367,7 @@
           var b = document.createElement('button'); b.type = 'button'; b.textContent = String(p);
           b.className = 'seg' + (settings.players === p ? ' on' : '');
           // Switching players resets teams to the cutthroat default (one per player).
-          b.addEventListener('click', function () { settings.players = p; settings.teams = p; saveSettings(settings); renderPlayers(); renderTeams(); });
+          b.addEventListener('click', function () { settings.players = p; settings.teams = p; saveSettings(settings); editingNames = false; renderPlayers(); renderTeams(); renderNamesButton(); });
           host.appendChild(b);
         });
         renderSeatDiagram();
@@ -406,6 +412,10 @@
         roles[i] = roles[i] === 'human' ? 'bot' : 'human';
         settings.seats = roles; saveSettings(settings); renderSeatDiagram();
       }
+      // Per-seat custom name (settings.names[i]) overrides the compass label when set/non-empty.
+      var editingNames = false;
+      function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+      function baseSeatName(i, compass) { var c = settings.names || []; return (c[i] != null && c[i] !== '') ? c[i] : compass[i]; }
       function renderSeatDiagram() {
         var host = document.getElementById('seatDiagram');
         var P = settings.players, teams = settings.teams;
@@ -423,11 +433,19 @@
           var avStyle = ' style="border-color:' + palette[i % teams] + ';border-width:4px"';   // by team, or per seat in cutthroat (teams === P)
           var human = roles[i] === 'human';
           var isYou = human && humans === 1;                 // a lone human is "you"
-          var label = (isYou ? tr('landing.youPrefix') : '') + names[i];
+          var base = baseSeatName(i, names);
+          var label = (isYou ? tr('landing.youPrefix') : '') + esc(base);
           var ps = 'left:' + pos[i][0] + '%;top:' + pos[i][1] + '%';
+          if (editingNames) {
+            // Naming mode: each seat shows an input pre-filled with its current name; no role toggle.
+            html += '<div class="seat ' + roles[i] + (isYou ? ' you' : '') + '" style="' + ps + '">'
+              + '<span class="avatar"' + avStyle + '>' + (human ? '🧑' : '🤖') + '</span>'
+              + '<input type="text" class="seat-name-input" data-seat="' + i + '" value="' + esc(base) + '" aria-label="' + esc(names[i]) + '"></div>';
+            continue;
+          }
           var cls = 'seat seat-btn ' + roles[i] + (isYou ? ' you' : '');
-          var aria = tr('landing.seatAria', { name: names[i], role: tr(human ? 'role.human' : 'role.bot') });
-          html += '<button type="button" class="' + cls + '" data-seat="' + i + '" style="' + ps + '" aria-label="' + aria + '">'
+          var aria = tr('landing.seatAria', { name: base, role: tr(human ? 'role.human' : 'role.bot') });
+          html += '<button type="button" class="' + cls + '" data-seat="' + i + '" style="' + ps + '" aria-label="' + esc(aria) + '">'
             + '<span class="avatar"' + avStyle + '>' + (human ? '🧑' : '🤖') + '</span><span class="seat-name">' + label + '</span></button>';
         }
         host.innerHTML = html;
@@ -435,6 +453,24 @@
         for (var j = 0; j < btns.length; j++) {
           btns[j].addEventListener('click', function () { toggleSeatRole(+this.getAttribute('data-seat')); });
         }
+      }
+      // Toggle between showing the diagram and editing every seat's name. Saving reads each input
+      // into settings.names (an empty box reverts that seat to its compass default).
+      function renderNamesButton() {
+        var btn = document.getElementById('namesBtn');
+        if (!btn) return;
+        btn.textContent = tr(editingNames ? 'landing.saveNames' : 'landing.setNames');
+        btn.className = 'names-btn' + (editingNames ? ' on' : '');
+      }
+      function toggleNamesEdit() {
+        if (editingNames) {
+          var inputs = document.querySelectorAll('#seatDiagram .seat-name-input');
+          var names = (settings.names || []).slice();
+          for (var k = 0; k < inputs.length; k++) names[+inputs[k].getAttribute('data-seat')] = inputs[k].value.trim();
+          settings.names = names; saveSettings(settings);
+          editingNames = false;
+        } else { editingNames = true; }
+        renderSeatDiagram(); renderNamesButton();
       }
       // [teams-value, label] choices, in display order. teams === players is "individual".
       function teamChoices(P) {
@@ -455,18 +491,20 @@
         choices.forEach(function (c) {
           var b = document.createElement('button'); b.type = 'button'; b.textContent = tr(c[1]);
           b.className = 'seg' + (settings.teams === c[0] ? ' on' : '');
-          b.addEventListener('click', function () { settings.teams = c[0]; saveSettings(settings); renderTeams(); renderSeatDiagram(); });
+          b.addEventListener('click', function () { settings.teams = c[0]; saveSettings(settings); editingNames = false; renderTeams(); renderSeatDiagram(); renderNamesButton(); });
           host.appendChild(b);
         });
       }
       renderPlayers();
       renderTeams();
+      document.getElementById('namesBtn').addEventListener('click', toggleNamesEdit);
+      renderNamesButton();
 
       // Live language switch (no reload): re-run the static text pass, re-render the JS-built
       // controls (settings rows, players, teams + seat diagram) in the new language, and sync
       // both <select>s (a switch from one shouldn't leave the other showing the old value).
       if (window.i18n && i18n.onChange) i18n.onChange(function () {
-        applyI18n(); renderSettings(); renderPlayers(); renderTeams();
+        applyI18n(); renderSettings(); renderPlayers(); renderTeams(); renderNamesButton();
         ['langPick', 'footerLangPick'].forEach(function (id) { var el = document.getElementById(id); if (el) el.value = i18n.lang; });
       });
 
@@ -476,7 +514,7 @@
       document.getElementById('openAbout').addEventListener('click', function () { close(s); open(a); });
       // Reset the gameplay preference toggles to defaults; keep the table setup (players/teams/seats).
       document.getElementById('resetSettings').addEventListener('click', function () {
-        for (var rk in DEFAULTS) { if (rk !== 'players' && rk !== 'teams' && rk !== 'seats') settings[rk] = DEFAULTS[rk]; }
+        for (var rk in DEFAULTS) { if (rk !== 'players' && rk !== 'teams' && rk !== 'seats' && rk !== 'names') settings[rk] = DEFAULTS[rk]; }
         saveSettings(settings); renderSettings();
       });
       document.getElementById('footerAbout').addEventListener('click', function () { open(a); });

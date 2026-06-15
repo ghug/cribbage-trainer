@@ -219,6 +219,7 @@ cribbageLocale("fr", {
   "settings.title": "Réglages",
   "settings.intro": "Ceux-ci s'appliquent à la partie et sont enregistrés sur cet appareil. (Le nombre de joueurs se règle ci-dessus, sur la page d'accueil.)",
   "settings.aboutFeedback": "À propos et commentaires",
+  "settings.resetDefaults": "Réinitialiser les réglages du jeu",
   "settings.continue": "Continuer la partie",
   "settings.tapToSelect.title": "Toucher pour sélectionner, puis confirmer",
   "settings.tapToSelect.desc": "Toucher une carte la soulève pour la sélectionner (touchez de nouveau pour la reposer) ; un bouton Jouer ou Jeter-au-crib au-dessus de votre main valide le choix. Désactivé : un toucher joue ou jette aussitôt.",

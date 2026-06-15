@@ -208,6 +208,7 @@ cribbageLocale("es", {
   "settings.title": "Ajustes",
   "settings.intro": "Estos se aplican a la partida y se guardan en este dispositivo. (El número de jugadores se ajusta arriba, en la página de inicio.)",
   "settings.aboutFeedback": "Acerca de y comentarios",
+  "settings.resetDefaults": "Restablecer ajustes del juego",
   "settings.continue": "Continuar partida",
   "settings.tapToSelect.title": "Tocar para seleccionar y confirmar",
   "settings.tapToSelect.desc": "Tocar una carta la levanta para seleccionarla (toca de nuevo para soltarla); un botón Jugar o Tirar a la cuna sobre tu mano confirma la elección. No: un toque juega o tira al instante.",

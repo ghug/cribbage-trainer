@@ -251,6 +251,7 @@
       <div id="settingsList"></div>
       <div class="set-row"><div class="set-title" data-i18n="common.language">Language</div>
         <div class="lang-row" style="justify-content:flex-start;margin-top:7px"><select id="langPick"></select></div></div>
+      <button class="btn btn-ghost" id="resetSettings" type="button" style="margin-top:6px" data-i18n="settings.resetDefaults">Reset game settings to defaults</button>
       <button class="btn btn-ghost" id="openAbout" type="button" style="margin-top:6px" data-i18n="settings.aboutFeedback">About &amp; feedback</button>
       <button class="btn btn-primary" id="settingsContinue" type="button" style="margin:12px 0 10px" data-i18n="settings.continue">Continue game</button>
     </div>
@@ -473,6 +474,11 @@
       document.getElementById('settingsDone').addEventListener('click', function () { close(s); });
       document.getElementById('settingsContinue').addEventListener('click', function () { close(s); });
       document.getElementById('openAbout').addEventListener('click', function () { close(s); open(a); });
+      // Reset the gameplay preference toggles to defaults; keep the table setup (players/teams/seats).
+      document.getElementById('resetSettings').addEventListener('click', function () {
+        for (var rk in DEFAULTS) { if (rk !== 'players' && rk !== 'teams' && rk !== 'seats') settings[rk] = DEFAULTS[rk]; }
+        saveSettings(settings); renderSettings();
+      });
       document.getElementById('footerAbout').addEventListener('click', function () { open(a); });
       document.getElementById('aboutDone').addEventListener('click', function () { close(a); });
       [s, a].forEach(function (el) {

@@ -638,6 +638,15 @@ function reduce(state, action) {
       return { ...state, settings };
     }
 
+    case "RESET_SETTINGS": {
+      // Reset the gameplay preference toggles to defaults; keep the table setup
+      // (players/teams/seats, set on the landing) so the current game isn't disturbed.
+      const settings = { ...state.settings };
+      for (const k in DEFAULT_SETTINGS) if (k !== "players" && k !== "teams" && k !== "seats") settings[k] = DEFAULT_SETTINGS[k];
+      saveSettings(settings);
+      return { ...state, settings };
+    }
+
     case "DISCARD": // commit straight away (programmatic / tests); action.idxs = [..]
       return commitDiscard(state, action.idxs);
 
@@ -1687,6 +1696,7 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
       <div style={{ borderTop: `1px solid ${T.line}`, margin: "2px -16px 0", padding: "12px 16px 0" }}>
         <button onClick={onHistory} style={{ width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12, fontWeight: 700 }}>{tr("settings.history")}</button>
       </div>
+      <button onClick={() => dispatch({ type: "RESET_SETTINGS" })} style={{ width: "100%", margin: "10px 0 0", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12, fontWeight: 700 }}>{tr("settings.resetDefaults")}</button>
       <AboutRow onAbout={onAbout} />
       <button onClick={onClose} style={{
         width: "100%", margin: "12px 0 10px", padding: "12px", borderRadius: 9, border: "none", cursor: "pointer",

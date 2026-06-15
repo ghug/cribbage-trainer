@@ -217,6 +217,7 @@ cribbageLocale("zh-Hans", {
   "settings.title": "设置",
   "settings.intro": "这些设置应用于对局，并保存在本设备。（人数在上方的主页设置。）",
   "settings.aboutFeedback": "关于与反馈",
+  "settings.resetDefaults": "重置游戏设置",
   "settings.continue": "继续对局",
   "settings.tapToSelect.title": "点击选择，再确认",
   "settings.tapToSelect.desc": "点击一张牌将其抬起选中（再次点击放下）；手牌上方的“出牌”或“弃入副牌”按钮确认选择。关闭：点击即立刻出牌或弃牌。",

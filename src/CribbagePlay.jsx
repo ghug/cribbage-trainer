@@ -1174,8 +1174,19 @@ export default function CribbagePlay() {
         "--ch": "calc(var(--cw) * 1.41176)",
       }}>
         {settingsOpen && <SettingsPanel settings={settings} dispatch={dispatch} onClose={() => setSettingsOpen(false)} onAbout={() => { setSettingsOpen(false); setAboutOpen(true); }} onHistory={() => { setSettingsOpen(false); setHistoryOpen(true); }} />}
-        <ScoreRow seats={seats} dealerIdx={dealerIdx} turn={turnNow} winner={phase === "over" ? winner : null}
-          onPick={(i) => setHistorySeat((cur) => (cur === i ? null : i))} P={players} teams={teams} />
+        {/* Score banner: the boxes sit in a full-width solid bar; the completed crib lives behind
+            it (lower z), tucked up so only its bottom quarter pokes out below the bar, right-aligned. */}
+        <div style={{ position: "relative" }}>
+          {(phase === "cut" || phase === "play") && state.crib.length > 0 && (
+            <div data-slot="cribhome" style={{ position: "absolute", right: 0, bottom: `calc(var(--ch) * ${-CRIB_PEEK})`, zIndex: 0, display: "flex", pointerEvents: "none" }}>
+              <Fan items={backItems(state.crib.length)} />
+            </div>
+          )}
+          <div style={{ position: "relative", zIndex: 1, background: `radial-gradient(120% 200% at 50% -40%, ${T.baizeHi}, ${T.baize})` }}>
+            <ScoreRow seats={seats} dealerIdx={dealerIdx} turn={turnNow} winner={phase === "over" ? winner : null}
+              onPick={(i) => setHistorySeat((cur) => (cur === i ? null : i))} P={players} teams={teams} />
+          </div>
+        </div>
         {historySeat !== null && <HistoryPanel seatIdx={historySeat} seats={seats} onClose={() => setHistorySeat(null)} P={players} teams={teams} />}
 
         {paused && (
@@ -1348,8 +1359,7 @@ const DEAL_STAGGER = 105;
 const DEAL_MOVE = 230;
 const DEAL_THROW_PAUSE = 150;                     // beat between the deal landing and the discards flying to the crib
 const THROW_STAGGER = 70;                         // gap between your two thrown cards flying to the crib
-const CRIB_PEEK = 0.25;                           // at its home the crib shows only its bottom quarter (tucked under the score row)
-const CRIB_HOME_LIFT = 0.72;                      // how far (× --ch) the crib home is pulled up under the score region — tune to taste
+const CRIB_PEEK = 0.25;                           // fraction of the crib cards' height that pokes out below the score banner
 // A card flying through a path of waypoints (`legs`): it mounts at `from`, then steps to each
 // leg's {x,y} at that leg's absolute `delay`, the CSS transition animating each hop. A deck→seat
 // deal is one leg; a card a bot throws gets a second leg (seat→crib).
@@ -1569,12 +1579,6 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
     <div ref={tableRef} style={{ position: "relative", marginTop: 6, display: "flex", flexDirection: "column", gap: 10 }}>
       {dealAnim && dealAnim.map((s) => <DealFly key={s.key} from={s.from} legs={s.legs} />)}
       {throwAnim && throwAnim.sprites.map((s) => <DealFly key={"t" + s.key} from={s.from} legs={s.legs} />)}
-      {/* the completed crib lives tucked up under the score row, only its bottom edge showing */}
-      {(cutPhase || phase === "play") && crib.length > 0 && (
-        <div data-slot="cribhome" style={{ position: "absolute", top: `calc(var(--ch) * ${-CRIB_HOME_LIFT})`, left: 0, right: 0, display: "flex", justifyContent: "center", zIndex: 0, pointerEvents: "none" }}>
-          <Fan items={backItems(crib.length)} clip={CRIB_PEEK} clipBottom />
-        </div>
-      )}
       {/* Fixed grids: every seat owns an equal column whatever it's holding, so the labels
           (and their hands) always center on the same spot in every phase. */}
       {ts.top.length > 0 && (

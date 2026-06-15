@@ -1729,7 +1729,11 @@ function CribbagePlay() {
                 "--ch": "calc(var(--cw) * 1.41176)",
             } },
             settingsOpen && React.createElement(SettingsPanel, { settings: settings, dispatch: dispatch, onClose: () => setSettingsOpen(false), onAbout: () => { setSettingsOpen(false); setAboutOpen(true); }, onHistory: () => { setSettingsOpen(false); setHistoryOpen(true); } }),
-            React.createElement(ScoreRow, { seats: seats, dealerIdx: dealerIdx, turn: turnNow, winner: phase === "over" ? winner : null, onPick: (i) => setHistorySeat((cur) => (cur === i ? null : i)), P: players, teams: teams }),
+            React.createElement("div", { style: { position: "relative" } },
+                (phase === "cut" || phase === "play") && state.crib.length > 0 && (React.createElement("div", { "data-slot": "cribhome", style: { position: "absolute", right: 0, bottom: `calc(var(--ch) * ${-CRIB_PEEK})`, zIndex: 0, display: "flex", pointerEvents: "none" } },
+                    React.createElement(Fan, { items: backItems(state.crib.length) }))),
+                React.createElement("div", { style: { position: "relative", zIndex: 1, background: `radial-gradient(120% 200% at 50% -40%, ${T.baizeHi}, ${T.baize})` } },
+                    React.createElement(ScoreRow, { seats: seats, dealerIdx: dealerIdx, turn: turnNow, winner: phase === "over" ? winner : null, onPick: (i) => setHistorySeat((cur) => (cur === i ? null : i)), P: players, teams: teams }))),
             historySeat !== null && React.createElement(HistoryPanel, { seatIdx: historySeat, seats: seats, onClose: () => setHistorySeat(null), P: players, teams: teams }),
             paused && (React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.pegRed, textAlign: "center", marginTop: 8 } }, "\u23F8 Paused \u2014 automatic play is stopped. Tap \u25B6 to resume.")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.cream, margin: "5px 2px 3px", minHeight: 16, lineHeight: 1.45 } }, message),
@@ -1824,7 +1828,6 @@ const DEAL_MOVE = 230;
 const DEAL_THROW_PAUSE = 150;
 const THROW_STAGGER = 70;
 const CRIB_PEEK = 0.25;
-const CRIB_HOME_LIFT = 0.72;
 function DealFly({ from, legs }) {
     const [idx, setIdx] = React.useState(-1);
     React.useEffect(() => {
@@ -2047,8 +2050,6 @@ function PlayScreen({ state, dispatch, me, needHandoff }) {
     return (React.createElement("div", { ref: tableRef, style: { position: "relative", marginTop: 6, display: "flex", flexDirection: "column", gap: 10 } },
         dealAnim && dealAnim.map((s) => React.createElement(DealFly, { key: s.key, from: s.from, legs: s.legs })),
         throwAnim && throwAnim.sprites.map((s) => React.createElement(DealFly, { key: "t" + s.key, from: s.from, legs: s.legs })),
-        (cutPhase || phase === "play") && crib.length > 0 && (React.createElement("div", { "data-slot": "cribhome", style: { position: "absolute", top: `calc(var(--ch) * ${-CRIB_HOME_LIFT})`, left: 0, right: 0, display: "flex", justifyContent: "center", zIndex: 0, pointerEvents: "none" } },
-            React.createElement(Fan, { items: backItems(crib.length), clip: CRIB_PEEK, clipBottom: true }))),
         ts.top.length > 0 && (React.createElement("div", { style: { display: "grid", gridTemplateColumns: `repeat(${ts.top.length}, 1fr)`, gap: 8 } }, ts.top.map(cell))),
         React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 8, padding: "0 6px" } },
             React.createElement("div", { style: { minWidth: 0 } }, ts.left != null ? cell(ts.left) : null),
@@ -2323,7 +2324,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.23"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.24"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

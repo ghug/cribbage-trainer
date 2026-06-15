@@ -1675,29 +1675,35 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
   const handVisible = meHuman && !needHandoff && (discardPhase || (phase === "play" && !!peg));
   const prevHandVis = React.useRef(false);
   const handPosRef = React.useRef({});                                     // last on-screen spots of the hand-row cards, by card id
+  const handActorRef = React.useRef(null);                                // whose interactive hand is/was showing (may differ from `me` after a throw)
+  const seatXf = (sr, rootR, cw, total, j) => (sr.left - rootR.left) + sr.width / 2 - cw * (1 + (total - 1) * BACK_VISIBLE) / 2 + j * BACK_VISIBLE * cw;
   React.useLayoutEffect(() => {
     const root = tableRef.current;
     const cw = Math.min(68, (Math.min(typeof window !== "undefined" ? window.innerWidth : 560, 560) - 62) / 6);
     const rootR = root && root.getBoundingClientRect();
-    if (root && handVisible) {                                            // keep capturing where each card sits in the hand row
+    if (root && handVisible) {                                            // keep capturing this hand's owner + where each card sits in the row
+      handActorRef.current = me;
       const handEl = root.querySelector('[data-slot="hand"]');
       if (handEl) { const kids = handEl.children, map = {}; for (let i = 0; i < yourHand.length; i++) { const k = kids[i]; if (k) { const r = k.getBoundingClientRect(); map[cardId(yourHand[i])] = { x: r.left - rootR.left, y: r.top - rootR.top }; } } handPosRef.current = map; }
     }
     const was = prevHandVis.current; prevHandVis.current = handVisible;
-    if (!multiHuman || !root || was === handVisible || !yourHand.length) return;
-    const seatEl = root.querySelector(`[data-slot="seat-${me}"]`); if (!seatEl) return;
-    const sr = seatEl.getBoundingClientRect();
-    const total = yourHand.length + (peg ? peg.played[me].length : 0);     // cards the seat fan holds while face down
-    const seatX = (j) => (sr.left - rootR.left) + sr.width / 2 - cw * (1 + (total - 1) * BACK_VISIBLE) / 2 + j * BACK_VISIBLE * cw;
+    if (!multiHuman || !root || was === handVisible) return;
     const sprites = [];
     if (!was && handVisible) {                                            // REVEAL: seat → hand, flip up
+      if (!yourHand.length) return;
+      const seatEl = root.querySelector(`[data-slot="seat-${me}"]`); if (!seatEl) return;
+      const sr = seatEl.getBoundingClientRect(), total = yourHand.length + (peg ? peg.played[me].length : 0);
       const handEl = root.querySelector('[data-slot="hand"]'); if (!handEl) return;
       const kids = handEl.children;
-      for (let j = 0; j < yourHand.length; j++) { const k = kids[j]; if (!k) continue; const t2 = k.getBoundingClientRect(); sprites.push({ key: cardId(yourHand[j]), card: yourHand[j], from: { x: seatX(j), y: sr.top - rootR.top }, to: { x: t2.left - rootR.left, y: t2.top - rootR.top }, delay: j * 55, r0: -180, r1: 0 }); }
+      for (let j = 0; j < yourHand.length; j++) { const k = kids[j]; if (!k) continue; const t2 = k.getBoundingClientRect(); sprites.push({ key: cardId(yourHand[j]), card: yourHand[j], from: { x: seatXf(sr, rootR, cw, total, j), y: sr.top - rootR.top }, to: { x: t2.left - rootR.left, y: t2.top - rootR.top }, delay: j * 55, r0: -180, r1: 0 }); }
       if (sprites.length) setRevealAnim({ dir: "up", sprites });
-    } else {                                                              // RETURN: hand → seat, flip down
-      for (let j = 0; j < yourHand.length; j++) { const f = handPosRef.current[cardId(yourHand[j])]; if (!f) continue; sprites.push({ key: cardId(yourHand[j]), card: yourHand[j], from: f, to: { x: seatX(j), y: sr.top - rootR.top }, delay: j * 55, r0: 0, r1: 180 }); }
-      if (sprites.length) setRevealAnim({ dir: "down", sprites });
+    } else {                                                              // RETURN: the player who just acted sends their kept cards back to their own seat
+      const actor = handActorRef.current; if (actor == null) return;
+      const cards = hands[actor] || []; if (!cards.length) return;
+      const seatEl = root.querySelector(`[data-slot="seat-${actor}"]`); if (!seatEl) return;
+      const sr = seatEl.getBoundingClientRect(), total = cards.length + (peg ? peg.played[actor].length : 0);
+      for (let j = 0; j < cards.length; j++) { const f = handPosRef.current[cardId(cards[j])]; if (!f) continue; sprites.push({ key: cardId(cards[j]), card: cards[j], from: f, to: { x: seatXf(sr, rootR, cw, total, j), y: sr.top - rootR.top }, delay: j * 55, r0: 0, r1: 180 }); }
+      if (sprites.length) setRevealAnim({ dir: "down", actor, sprites });
     }
     if (!sprites.length) return;
     const t = setTimeout(() => setRevealAnim(null), (sprites.length - 1) * 55 + DEAL_MOVE + 100);
@@ -1756,7 +1762,7 @@ function PlayScreen({ state, dispatch, me, needHandoff, cribGliding }) {
     // (your discard / play turn). The active seat — your discard turn, the current pegger,
     // the hand being counted, or the winning team — is chip-highlighted.
     const gridActive = i === me && meHuman && !needHandoff && (discardPhase || (phase === "play" && peg));
-    const remaining = (gridActive || (revealAnim && revealAnim.dir === "down" && i === me)) ? 0 : hands[i].length;
+    const remaining = (gridActive || (revealAnim && revealAnim.dir === "down" && i === revealAnim.actor)) ? 0 : hands[i].length;
     const played = peg ? peg.played[i] : [];
     const active = overPhase ? teamOf(i, P, teams) === teamOf(winner, P, teams)
       : showPhase ? i === info.owner

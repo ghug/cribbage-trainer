@@ -73,7 +73,7 @@ cribbageLocale("en", {
   "play.cut.yourCrib": "your crib",
   "play.cut.seatCrib": "{seat}’s crib",
   "play.pile.count": "pile count",
-  "play.starterCard": "starter card",
+  "play.starterCard": "cut card",
   "play.pile.cleared": "cleared — new count from 0",
   "play.pass.to": "Pass the device to {seat}",
   "play.pass.take": "I’m {seat} — show my hand",

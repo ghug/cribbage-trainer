@@ -67,6 +67,7 @@ cribbageLocale("fr", {
   "play.crib.greedy": "Votre crib — soyez gourmand",
   "play.crib.teamGreedy": "Le crib de {seat} — celui de votre équipe, soyez gourmand",
   "play.crib.defend": "Alimente le crib de {seat} — défendez",
+  "play.dealerTip": "le donneur — reçoit le crib cette main",
   "play.cut.yourCrib": "votre crib",
   "play.cut.seatCrib": "le crib de {seat}",
   "play.pile.count": "total de la pile",

@@ -232,6 +232,7 @@ cribbageLocale("en", {
   "play.crib.greedy": "Your crib — be greedy",
   "play.crib.teamGreedy": "{seat}’s crib — your team’s, be greedy",
   "play.crib.defend": "Feeds {seat}’s crib — defend",
+  "play.dealerTip": "dealer — gets the crib this hand",
   "play.cut.yourCrib": "your crib",
   "play.cut.seatCrib": "{seat}’s crib",
   "play.pile.count": "pile count",
@@ -1424,7 +1425,7 @@ function ScoreRow({ seats, dealerIdx, turn, winner, onPick, P, teams }) {
                 k > 0 && React.createElement("span", null, "&"),
                 React.createElement("span", { style: { display: "inline-flex", alignItems: "center" } },
                     seatShort(m),
-                    m === dealerIdx && React.createElement("span", { style: { color: T.pegIvory, fontWeight: 700 }, title: "dealer \u2014 gets the crib this hand" }, "\u2B24D")))))),
+                    m === dealerIdx && React.createElement("span", { style: { marginLeft: 2 }, title: tr("play.dealerTip") }, "\uD83D\uDD18")))))),
             React.createElement("div", { style: { fontFamily: serif, fontWeight: 700, fontSize: 22, color: isWin ? T.good : T.ivory } }, score),
             React.createElement("div", { style: { marginTop: 6, padding: "0 2px" } },
                 React.createElement(PegTrack, { pct: (score / targetFor(P)) * 100 }))));
@@ -1758,7 +1759,7 @@ function Seat({ i, dealerIdx, active, dim, items }) {
             React.createElement(Fan, { items: items }))));
 }
 function SeatLabel({ i, dealerIdx, active }) {
-    const text = `${seatShort(i)}${dealerIdx === i ? " (D)" : ""}`;
+    const text = `${seatShort(i)}${dealerIdx === i ? " 🔘" : ""}`;
     return (React.createElement("span", { style: active
             ? { fontFamily: mono, fontSize: 10, fontWeight: 700, letterSpacing: 0.3, color: T.ivory, background: T.selBlue, padding: "2px 8px", borderRadius: 999, boxShadow: "0 1px 4px rgba(0,0,0,0.45)" }
             : { fontFamily: mono, fontSize: 10, color: T.muted } }, text));
@@ -2139,7 +2140,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.17-dev.3"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.17-dev.5"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

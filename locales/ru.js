@@ -67,6 +67,7 @@ cribbageLocale("ru", {
   "play.crib.greedy": "Ваш прикуп — будьте жадными",
   "play.crib.teamGreedy": "Прикуп {seat} — вашей команды, будьте жадными",
   "play.crib.defend": "Питает прикуп {seat} — защищайтесь",
+  "play.dealerTip": "сдающий — получает прикуп в этой руке",
   "play.cut.yourCrib": "ваш прикуп",
   "play.cut.seatCrib": "прикуп {seat}",
   "play.pile.count": "счёт стопки",

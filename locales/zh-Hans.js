@@ -67,6 +67,7 @@ cribbageLocale("zh-Hans", {
   "play.crib.greedy": "你的副牌——尽量多拿",
   "play.crib.teamGreedy": "{seat}的副牌——你队的，尽量多拿",
   "play.crib.defend": "喂给{seat}的副牌——防守",
+  "play.dealerTip": "庄家——本手拿到副牌",
   "play.cut.yourCrib": "你的副牌",
   "play.cut.seatCrib": "{seat}的副牌",
   "play.pile.count": "牌堆点数",

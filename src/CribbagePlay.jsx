@@ -839,7 +839,7 @@ function ScoreRow({ seats, dealerIdx, turn, winner, onPick, P, teams }) {
                 <React.Fragment key={m}>
                   {k > 0 && <span>&amp;</span>}
                   <span style={{ display: "inline-flex", alignItems: "center" }}>
-                    {seatShort(m)}{m === dealerIdx && <span style={{ color: T.pegIvory, fontWeight: 700 }} title="dealer — gets the crib this hand">⬤D</span>}
+                    {seatShort(m)}{m === dealerIdx && <span style={{ marginLeft: 2 }} title={tr("play.dealerTip")}>🔘</span>}
                   </span>
                 </React.Fragment>
               ))}
@@ -1259,7 +1259,7 @@ function Seat({ i, dealerIdx, active, dim, items }) {
 // One seat's label. The active seat (current pegger / hand being counted / dealer at the
 // cut-for-deal) gets a filled chip so it clearly stands out from the dimmed inactive seats.
 function SeatLabel({ i, dealerIdx, active }) {
-  const text = `${seatShort(i)}${dealerIdx === i ? " (D)" : ""}`;
+  const text = `${seatShort(i)}${dealerIdx === i ? " 🔘" : ""}`;
   return (
     <span style={active
       ? { fontFamily: mono, fontSize: 10, fontWeight: 700, letterSpacing: 0.3, color: T.ivory, background: T.selBlue, padding: "2px 8px", borderRadius: 999, boxShadow: "0 1px 4px rgba(0,0,0,0.45)" }

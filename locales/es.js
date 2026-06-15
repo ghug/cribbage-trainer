@@ -63,6 +63,7 @@ cribbageLocale("es", {
   "play.crib.greedy": "Tu cuna — sé ambicioso",
   "play.crib.teamGreedy": "La cuna de {seat} — de tu equipo, sé ambicioso",
   "play.crib.defend": "Alimenta la cuna de {seat} — defiende",
+  "play.dealerTip": "el repartidor — se lleva la cuna esta mano",
   "play.cut.yourCrib": "tu cuna",
   "play.cut.seatCrib": "la cuna de {seat}",
   "play.pile.count": "cuenta del montón",

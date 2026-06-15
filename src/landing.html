@@ -410,14 +410,16 @@
         var P = settings.players, teams = settings.teams;
         var pos = seatLayout(P), names = seatNames(P), roles = seatRoles(P);
         var humans = roles.filter(function (r) { return r === 'human'; }).length;
-        // Okabe–Ito colour-blind-safe trio (sky blue / orange / reddish-purple): three
-        // maximally separated hues distinguishable under all common colour-vision types.
-        var palette = ['#56B4E9', '#E69F00', '#CC79A7']; // one colour per team when partnered
+        // Okabe–Ito colour-blind-safe palette (sky blue / orange / reddish-purple / bluish green /
+        // yellow / blue): six maximally separated hues distinguishable under all common colour-
+        // vision types (the 7th Okabe–Ito hue, vermillion, is dropped to avoid orange confusion).
+        // One colour per team when partnered; one per seat in cutthroat (teams === P → i % teams == i).
+        var palette = ['#56B4E9', '#E69F00', '#CC79A7', '#009E73', '#F0E442', '#0072B2'];
         var byTeam = teams < P, target = P >= 5 ? 61 : 121;
         var center = (byTeam ? tr('landing.tableTeams', { p: P, teams: teams }) : tr('landing.tableIndividual', { p: P })) + '<br>' + tr('landing.firstTo', { target: target });
         var html = '<div class="seat-table"><span class="tlabel">' + center + '</span></div>';
         for (var i = 0; i < P; i++) {
-          var avStyle = byTeam ? (' style="border-color:' + palette[i % teams] + ';border-width:4px"') : '';
+          var avStyle = ' style="border-color:' + palette[i % teams] + ';border-width:4px"';   // by team, or per seat in cutthroat (teams === P)
           var human = roles[i] === 'human';
           var isYou = human && humans === 1;                 // a lone human is "you"
           var label = (isYou ? tr('landing.youPrefix') : '') + names[i];

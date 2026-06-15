@@ -2076,6 +2076,15 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
             : discardPhase ? (i === me && myTurn)
                 : cutdealPhase ? i === dealerIdx
                     : turn === i;
+    const phaseTrackRef = React.useRef(phase);
+    const dealJustHappened = phase === "discard" && (phaseTrackRef.current === "deal" || phaseTrackRef.current === "cutdeal");
+    useEffect(() => { phaseTrackRef.current = phase; });
+    const botThrowAtRef = React.useRef(0);
+    const nowMs = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
+    if (dealJustHappened)
+        botThrowAtRef.current = nowMs() + 1060 + Math.max(0, totalDealt - 1) * CARD_STAGGER + MOVE_DUR + 1000;
+    const [, setBotTick] = React.useState(0);
+    const botThrowReady = !(discardPhase && nowMs() < botThrowAtRef.current);
     const place = {};
     const seatCounts = {};
     if (cutdealPhase) {
@@ -2091,7 +2100,8 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
     }
     else if (!dealPhase) {
         for (let i = 0; i < P; i++) {
-            const unplayed = hands[i] || [], played = peg ? peg.played[i] : [];
+            const holding = discardPhase && !botThrowReady && seats[i].isAI;
+            const unplayed = (holding ? (seats[i].dealt || []) : (hands[i] || [])), played = peg ? peg.played[i] : [];
             const gridActive = i === me && meHuman && !needHandoff && (discardPhase || (phase === "play" && peg));
             if (gridActive) {
                 played.forEach((c, j) => { place[cardId(c)] = { group: "seat-" + i, idx: j, up: true }; });
@@ -2106,8 +2116,11 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
         }
         if (discardPhase || (cribbingPhase && !cribGliding)) {
             let k = 0;
-            for (let i = 0; i < P; i++)
+            for (let i = 0; i < P; i++) {
+                if (discardPhase && !botThrowReady && seats[i].isAI)
+                    continue;
                 (seats[i].discard || []).forEach((c) => { place[cardId(c)] = { group: "crib", idx: k++, up: false }; });
+            }
         }
         if (starter && (phase === "play" || showPhase || overPhase))
             place[cardId(starter)] = { group: "deck", idx: 0, up: true };
@@ -2200,8 +2213,10 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
             sigRef.current = Object.keys(targets).sort().map((id) => id + ":" + round(targets[id])).join("|") + "#";
             setDeckShown(52);
             animUntilRef.current = t0 + dealStart + dealSpan + 120;
+            botThrowAtRef.current = animUntilRef.current + 1000;
             dealTimersRef.current.forEach(clearTimeout);
             dealTimersRef.current = [];
+            dealTimersRef.current.push(setTimeout(() => setBotTick((x) => x + 1), dealStart + dealSpan + 120 + 1000));
             dealTimersRef.current.push(setTimeout(() => {
                 setDeckSwap({ offX, offY });
                 const r = { ...homesRef.current };
@@ -2621,7 +2636,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.45"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.19-dev.46"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

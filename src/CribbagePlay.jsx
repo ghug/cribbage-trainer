@@ -1673,6 +1673,19 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
     : cutdealPhase ? i === dealerIdx
     : turn === i;
 
+  // Bots discard the instant they're dealt (in the reducer), but visually a bot should HOLD its
+  // whole dealt hand for a beat after the deal lands, then throw to the crib. `botThrowReady` is
+  // false from the deal until ~1s after it finishes; while false, each bot seat shows its full
+  // dealt hand and the crib holds none of its cards. The human is unaffected (they throw by hand).
+  const phaseTrackRef = React.useRef(phase);
+  const dealJustHappened = phase === "discard" && (phaseTrackRef.current === "deal" || phaseTrackRef.current === "cutdeal");
+  useEffect(() => { phaseTrackRef.current = phase; });
+  const botThrowAtRef = React.useRef(0);
+  const nowMs = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
+  if (dealJustHappened) botThrowAtRef.current = nowMs() + 1060 + Math.max(0, totalDealt - 1) * CARD_STAGGER + MOVE_DUR + 1000;   // estimate; the deal timeline refines it
+  const [, setBotTick] = React.useState(0);
+  const botThrowReady = !(discardPhase && nowMs() < botThrowAtRef.current);
+
   // ---- the persistent card layer ------------------------------------------------------
   // For each card currently out of the deck, where it should sit and which way it faces.
   // place[id] = { group, idx, up }. Groups: "seat-i", "hand", "crib", "deck". The deck and
@@ -1683,7 +1696,8 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
     for (let i = 0; i < P; i++) { const d = dealDraw ? dealDraw[i] : null; if (d) { place[cardId(d)] = { group: "seat-" + i, idx: 0, up: true }; seatCounts[i] = 1; } else seatCounts[i] = 1; }
   } else if (!dealPhase) {
     for (let i = 0; i < P; i++) {
-      const unplayed = hands[i] || [], played = peg ? peg.played[i] : [];
+      const holding = discardPhase && !botThrowReady && seats[i].isAI;   // bot still holding its full hand
+      const unplayed = (holding ? (seats[i].dealt || []) : (hands[i] || [])), played = peg ? peg.played[i] : [];
       const gridActive = i === me && meHuman && !needHandoff && (discardPhase || (phase === "play" && peg));
       if (gridActive) {
         played.forEach((c, j) => { place[cardId(c)] = { group: "seat-" + i, idx: j, up: true }; });
@@ -1699,9 +1713,13 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
     // cards thrown to the crib so far sit (face down) in the discard banner; they stay there
     // through the brief "cribbing" hold, then — once the glide starts — are handed to CribHome
     // (behind the score banner), so the persistent layer only owns the crib up to that point.
+    // A bot's card is withheld from the crib until its post-deal throw beat (botThrowReady).
     if (discardPhase || (cribbingPhase && !cribGliding)) {
       let k = 0;
-      for (let i = 0; i < P; i++) (seats[i].discard || []).forEach((c) => { place[cardId(c)] = { group: "crib", idx: k++, up: false }; });
+      for (let i = 0; i < P; i++) {
+        if (discardPhase && !botThrowReady && seats[i].isAI) continue;
+        (seats[i].discard || []).forEach((c) => { place[cardId(c)] = { group: "crib", idx: k++, up: false }; });
+      }
     }
     // the starter, turned at the cut, lives on the top of the deck face up
     if (starter && (phase === "play" || showPhase || overPhase)) place[cardId(starter)] = { group: "deck", idx: 0, up: true };
@@ -1801,8 +1819,10 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
       sigRef.current = Object.keys(targets).sort().map((id) => id + ":" + round(targets[id])).join("|") + "#";
       setDeckShown(52);
       animUntilRef.current = t0 + dealStart + dealSpan + 120;   // the ring rotation waits for the WHOLE sequence
+      botThrowAtRef.current = animUntilRef.current + 1000;       // bots hold their hands, then throw to the crib 1s after the deal lands
 
       dealTimersRef.current.forEach(clearTimeout); dealTimersRef.current = [];
+      dealTimersRef.current.push(setTimeout(() => setBotTick((x) => x + 1), dealStart + dealSpan + 120 + 1000));   // release the bots' throw
       // STEP 2 (t=GATHER_DUR): swap decks — the old deck (and its consolidated cards) slides off to
       // the upper-left while a fresh deck slides in from the upper-right (DeckSwapView).
       dealTimersRef.current.push(setTimeout(() => {

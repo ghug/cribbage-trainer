@@ -572,11 +572,25 @@ function dealNewHand(state) {
   const deck = freshDeck();
   const d = state.dealerIdx;
   const pl = plan(P, d);
-  let off = 0;
+  // Deal off the TOP of the shuffled deck, ONE CARD AT A TIME, pone-first and clockwise — the
+  // way cards actually leave a dealer's hand, never a block slice. Each pass drops one card on
+  // every seat still short of its size (the 5-/6-handed dealer stops at 4), so the deck is
+  // consumed strictly top-down and deck order IS deal order. Nothing reads the undealt rest:
+  // the crib filler and starter are simply the next cards off the top, taken later at their
+  // own phases (assembleCrib / applyCut). There is no precomputed, peek-ahead layout.
+  const pone = (d + 1) % P;
+  const handCards = Array.from({ length: P }, () => []);
+  let top = 0;
+  for (let dealing = true; dealing; ) {
+    dealing = false;
+    for (let k = 0; k < P; k++) {
+      const seat = (pone + k) % P;
+      if (handCards[seat].length < pl.sizes[seat]) { handCards[seat].push(deck[top++]); dealing = true; }
+    }
+  }
   const seats = [];
   for (let i = 0; i < P; i++) {
-    const dealt = sortHand(deck.slice(off, off + pl.sizes[i])); off += pl.sizes[i];
-    seats.push({ score: state.seats[i].score, isAI: !seatIsHuman(i, state.settings), history: state.seats[i].history || [], dealt, kept: null, discard: null });
+    seats.push({ score: state.seats[i].score, isAI: !seatIsHuman(i, state.settings), history: state.seats[i].history || [], dealt: sortHand(handCards[i]), kept: null, discard: null });
   }
   // Non-throwers keep their hand; throwing BOTS throw now; throwing HUMANS throw
   // interactively during the discard phase (one at a time, passing the device).
@@ -1744,9 +1758,15 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
   const [deckSwap, setDeckSwap] = React.useState(null);   // {offX,offY} while the old deck slides out / new slides in
   const dealPhaseRef = React.useRef(phase);               // previous phase, to spot the deal (preDeal → discard)
   const dealTimersRef = React.useRef([]);                 // the deal-timeline setTimeouts (cleared on re-trigger)
+  const dealingRef = React.useRef(false);                 // true while the deal timeline owns the card homes
 
   React.useLayoutEffect(() => {
     const root = tableRef.current; if (!root) return;
+    // A deal is in flight: its timeline solely owns the card homes (mounting each card on the
+    // deck, then flying it to its seat). Bail out of every other run so a mid-deal layout shift
+    // — e.g. the deck column resizing during the swap — can't fall through to the default path
+    // and snap the still-flying cards into their seats at once (the pop-in bug).
+    if (dealingRef.current) return;
     const rootR = root.getBoundingClientRect();
     const fanX = (host, j) => { const kid = host.children[j]; if (!kid) return null; const r = kid.getBoundingClientRect(); return { x: r.left - rootR.left, y: r.top - rootR.top }; };
     const deckEl = root.querySelector("[data-decktop]");
@@ -1814,14 +1834,13 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
     const prevPlace = prevPlaceRef.current;
     const gatherGone = goneCards;
 
-    // deal order: cards rank by hand-position then seat, starting at the pone (left of the dealer).
-    const pone = (dealerIdx + 1) % P;
-    const dealRank = (id) => {
-      const p = place[id]; if (!p) return 9999;
-      const seat = p.group === "hand" ? me : (p.group.indexOf("seat-") === 0 ? parseInt(p.group.slice(5), 10) : 99);
-      const rel = isNaN(seat) || seat > 90 ? 99 : (seat - pone + P) % P;   // 0 = pone, then clockwise
-      return p.idx * 100 + rel;
-    };
+    // Deal order follows the DECK itself: each card ranks by its position from the top of the
+    // shuffled deck (state.deck). Because the reducer dealt round-robin off the top, deck order
+    // already is pone-first, clockwise, one card per seat per pass — so dealing in deck order
+    // replays the real deal exactly, each flown card being the genuine next card off the top.
+    const deckOrder = {};
+    (state.deck || []).forEach((c, i) => { deckOrder[cardId(c)] = i; });
+    const dealRank = (id) => (deckOrder[id] != null ? deckOrder[id] : 9999);
 
     // ============ THE DEAL: one explicit sequence — consolidate → deck swap → deal → rotate ============
     // A real deal is the preDeal → discard transition (NOT the 1–2-card cut). When it happens we OWN
@@ -1831,6 +1850,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
     // gone — so a rank+suit that happens to appear in both decks can't short-circuit the animation.
     const isDeal = (phaseAtLast === "deal" || phaseAtLast === "cutdeal") && phase === "discard" && newCards.length > 1;
     if (isDeal) {
+      dealingRef.current = true;                                     // lock out every other effect run until the deal lands
       const t0 = (typeof performance !== "undefined" ? performance.now() : Date.now());
       const oldCards = [...prevKnown];                                // every card on the table (the cut-for-deal draws; empty on inter-hand deals)
       const dealList = Object.keys(targets);                          // the new hand
@@ -1878,6 +1898,10 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
           }));
         }, dealStart + k * CARD_STAGGER));
       });
+      // Release the lock once the last card has reached its seat; from here normal effect runs
+      // (the bots' throw to the crib, etc.) resume. Bump a tick so the effect re-runs once to
+      // reconcile anything that changed while the lock was held.
+      dealTimersRef.current.push(setTimeout(() => { dealingRef.current = false; setBotTick((x) => x + 1); }, dealStart + dealSpan));
       return;   // STEP 4 (rotate) is handled by the me-lag reading animUntilRef above
     }
 

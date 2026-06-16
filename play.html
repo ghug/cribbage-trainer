@@ -801,7 +801,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.5";
+const APP_VERSION = "1.1.20-dev.6";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -1143,12 +1143,22 @@ function dealNewHand(state) {
     const deck = freshDeck();
     const d = state.dealerIdx;
     const pl = plan(P, d);
-    let off = 0;
+    const pone = (d + 1) % P;
+    const handCards = Array.from({ length: P }, () => []);
+    let top = 0;
+    for (let dealing = true; dealing;) {
+        dealing = false;
+        for (let k = 0; k < P; k++) {
+            const seat = (pone + k) % P;
+            if (handCards[seat].length < pl.sizes[seat]) {
+                handCards[seat].push(deck[top++]);
+                dealing = true;
+            }
+        }
+    }
     const seats = [];
     for (let i = 0; i < P; i++) {
-        const dealt = sortHand(deck.slice(off, off + pl.sizes[i]));
-        off += pl.sizes[i];
-        seats.push({ score: state.seats[i].score, isAI: !seatIsHuman(i, state.settings), history: state.seats[i].history || [], dealt, kept: null, discard: null });
+        seats.push({ score: state.seats[i].score, isAI: !seatIsHuman(i, state.settings), history: state.seats[i].history || [], dealt: sortHand(handCards[i]), kept: null, discard: null });
     }
     for (let i = 0; i < P; i++) {
         if (pl.throws[i] === 0) {
@@ -2129,9 +2139,12 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
     const [deckSwap, setDeckSwap] = React.useState(null);
     const dealPhaseRef = React.useRef(phase);
     const dealTimersRef = React.useRef([]);
+    const dealingRef = React.useRef(false);
     React.useLayoutEffect(() => {
         const root = tableRef.current;
         if (!root)
+            return;
+        if (dealingRef.current)
             return;
         const rootR = root.getBoundingClientRect();
         const fanX = (host, j) => { const kid = host.children[j]; if (!kid)
@@ -2192,17 +2205,12 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
         dealPhaseRef.current = phase;
         const prevPlace = prevPlaceRef.current;
         const gatherGone = goneCards;
-        const pone = (dealerIdx + 1) % P;
-        const dealRank = (id) => {
-            const p = place[id];
-            if (!p)
-                return 9999;
-            const seat = p.group === "hand" ? me : (p.group.indexOf("seat-") === 0 ? parseInt(p.group.slice(5), 10) : 99);
-            const rel = isNaN(seat) || seat > 90 ? 99 : (seat - pone + P) % P;
-            return p.idx * 100 + rel;
-        };
+        const deckOrder = {};
+        (state.deck || []).forEach((c, i) => { deckOrder[cardId(c)] = i; });
+        const dealRank = (id) => (deckOrder[id] != null ? deckOrder[id] : 9999);
         const isDeal = (phaseAtLast === "deal" || phaseAtLast === "cutdeal") && phase === "discard" && newCards.length > 1;
         if (isDeal) {
+            dealingRef.current = true;
             const t0 = (typeof performance !== "undefined" ? performance.now() : Date.now());
             const oldCards = [...prevKnown];
             const dealList = Object.keys(targets);
@@ -2244,6 +2252,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
                     }));
                 }, dealStart + k * CARD_STAGGER));
             });
+            dealTimersRef.current.push(setTimeout(() => { dealingRef.current = false; setBotTick((x) => x + 1); }, dealStart + dealSpan));
             return;
         }
         if (handEndJustHappened && goneCards.length > 0) {
@@ -2646,7 +2655,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.5"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.6"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

@@ -1763,6 +1763,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
   const dealPhaseRef = React.useRef(phase);               // previous phase, to spot the deal (preDeal → discard)
   const dealTimersRef = React.useRef([]);                 // the deal-timeline setTimeouts (cleared on re-trigger)
   const dealingRef = React.useRef(false);                 // true while the deal timeline owns the card homes
+  const swapUntilRef = React.useRef(0);                   // performance.now() when an in-flight post-show deck swap will have fully settled
 
   // Re-measure every anchor when the viewport changes size (window resize, device rotation, an
   // on-screen keyboard). The homes effect below runs on each render and reads live geometry, so a
@@ -1788,6 +1789,10 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
     const deckEl = root.querySelector("[data-decktop]");
     const deckR = deckEl ? deckEl.getBoundingClientRect() : null;
     const deckTop = deckR ? { x: deckR.left - rootR.left, y: deckR.top - rootR.top } : { x: 0, y: 0 };
+    // The deck top re-read LIVE. A deal can fire while a post-show swap is still mid-slide, so the
+    // deckTop captured above would be stale (off-centre); the deal mounts each card on the deck at
+    // fire time (after the swap has settled), when this returns the real, settled position.
+    const liveDeckTop = () => { const el = root.querySelector("[data-decktop]"); if (!el) return deckTop; const r = el.getBoundingClientRect(), rr = root.getBoundingClientRect(); return { x: r.left - rr.left, y: r.top - rr.top }; };
     // Off-screen parking for the deck swap: far enough left/up that the deck is fully gone.
     // Slide the old/new deck out the side toward the top — but keep it BELOW the score banner
     // (the banner now sits above the card layer, so anything pushed up to negative y would hide
@@ -1869,6 +1874,8 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
       const oldCards = [...prevKnown];                                // every card on the table (the cut-for-deal draws; empty on inter-hand deals)
       const dealList = Object.keys(targets);                          // the new hand
       const swap = oldCards.length > 0;                              // swap the deck at the deal only on the FIRST hand (cut-for-deal); inter-hand decks were already swapped at the end of the show
+      const swapRemaining = Math.max(0, swapUntilRef.current - t0);  // time left on a still-running post-show deck swap
+      const interHandWait = !swap && swapRemaining > 0;             // deal pressed mid-swap: let the new deck finish sliding in, THEN deal — don't cancel it
       const GATHER_DUR = swap ? MOVE_DUR + 80 : 0;                   // step 1 (consolidate) only when there are cut-for-deal cards
       const dealSpan = (dealList.length - 1) * CARD_STAGGER + MOVE_DUR + 80;
       const ordered = dealList.slice().sort((a, b) => dealRank(a) - dealRank(b));   // pone-first, round-robin
@@ -1880,15 +1887,20 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
       for (const id of oldCards) r0[id] = { x: deckTop.x, y: deckTop.y, up: false, z: 60 };
       knownRef.current = nowKnown;
       prevPlaceRef.current = { ...place };
-      homesRef.current = r0; setHomes(r0);
       // freeze the stable post-deal signature so the timeline's setHomes re-renders early-return
       sigRef.current = Object.keys(targets).sort().map((id) => id + ":" + round(targets[id])).join("|") + "#";
-      setDeckShown(52);
-
-      dealTimersRef.current.forEach(clearTimeout); dealTimersRef.current = [];
-      // STEP 2: the sequential deck swap (first hand only — old out, empty beat, new in); the deal
-      // begins once the new deck has fully settled. Inter-hand deals reuse the end-of-show deck.
-      const dealStart = swap ? scheduleDeckSwap(oldCards, GATHER_DUR) : 0;
+      // A post-show deck swap still in flight OWNS the deck + its timers — leave it running and just
+      // delay the deal until it settles. Otherwise (first hand / no pending swap) reset the homes +
+      // deck and drop any stale deal timers as usual.
+      if (!interHandWait) {
+        homesRef.current = r0; setHomes(r0);
+        setDeckShown(52);
+        dealTimersRef.current.forEach(clearTimeout); dealTimersRef.current = [];
+      }
+      // STEP 2: the sequential deck swap (first hand only — old out, empty beat, new in). The deal
+      // begins once the new deck has fully settled — either the swap we kick off here (first hand)
+      // or the in-flight post-show swap we wait out (swapRemaining).
+      const dealStart = swap ? scheduleDeckSwap(oldCards, GATHER_DUR) : swapRemaining;
       animUntilRef.current = t0 + dealStart + dealSpan + 120;   // the ring rotation waits for the WHOLE sequence
       botThrowAtRef.current = animUntilRef.current + 1000;       // bots hold their hands, then throw to the crib 1s after the deal lands
       dealTimersRef.current.push(setTimeout(() => setBotTick((x) => x + 1), dealStart + dealSpan + 120 + 1000));   // release the bots' throw
@@ -1901,8 +1913,9 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
       ordered.forEach((id, k) => {
         dealTimersRef.current.push(setTimeout(() => {
           delayRef.current[id] = 0;
+          const dt = liveDeckTop();                                  // settled deck position (the swap, if any, has finished)
           const r = { ...homesRef.current };
-          r[id] = { x: deckTop.x, y: deckTop.y, up: false, z: 60 };   // appears ON the deck
+          r[id] = { x: dt.x, y: dt.y, up: false, z: 60 };   // appears ON the deck
           homesRef.current = r; setHomes(r);
           requestAnimationFrame(() => requestAnimationFrame(() => {    // a frame later, off it flies
             const r2 = { ...homesRef.current };
@@ -1937,6 +1950,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
       dealTimersRef.current.forEach(clearTimeout); dealTimersRef.current = [];
       // sequential swap: old deck out → empty beat → new deck in. Restore the deck thickness when it settles.
       const settleAt = scheduleDeckSwap(oldCards, GATHER_DUR);
+      swapUntilRef.current = (typeof performance !== "undefined" ? performance.now() : Date.now()) + settleAt;   // a deal pressed before this finishes waits for the new deck
       dealTimersRef.current.push(setTimeout(() => setDeckShown(deckCount), settleAt));
       animUntilRef.current = (typeof performance !== "undefined" ? performance.now() : Date.now()) + settleAt + 120;
       return;

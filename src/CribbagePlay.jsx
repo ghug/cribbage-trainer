@@ -1231,7 +1231,7 @@ export default function CribbagePlay() {
 
 
         {(phase === "cutdeal" || phase === "deal" || phase === "discard" || phase === "cribbing" || phase === "cut" || (phase === "show" && show) || (phase === "play" && peg) || phase === "over") && (
-          <PlayScreen state={state} dispatch={dispatch} me={phase === "discard" ? ds : (phase === "play" && peg && needHandoff) ? peg.turn : (multiHuman && (phase === "cutdeal" || phase === "deal")) ? dealerIdx : playMe} needHandoff={needHandoff} cribGliding={cribGliding} />
+          <PlayScreen state={state} dispatch={dispatch} me={phase === "discard" ? ds : (phase === "play" && peg && multiHuman) ? peg.turn : (multiHuman && (phase === "cutdeal" || phase === "deal")) ? dealerIdx : playMe} needHandoff={needHandoff} cribGliding={cribGliding} />
         )}
       </main>
 

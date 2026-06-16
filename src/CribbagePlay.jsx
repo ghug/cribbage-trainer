@@ -1456,14 +1456,18 @@ function StarterCard({ card }) {
     </div>
   );
 }
-function StarterDeck({ starter, count = 4 }) {
+function StarterDeck({ starter, count = 4, topEmpty = false }) {
   const n = Math.max(1, Math.min(52, count || 1));
   return (
     <div style={{ position: "relative", width: "var(--cw)", height: "var(--ch)", margin: "0 auto" }}>
       {Array.from({ length: n }).map((_, k) => {
         const d = k * DECK_EDGE;                    // k=0 = fixed base; k=n-1 = top of the deck, up-right
         const isTop = k === n - 1;
-        return <div key={k} data-decktop={isTop ? "1" : undefined} style={{ position: "absolute", left: d, top: -d }}>{isTop && starter ? <StarterCard card={starter} /> : <CardBack />}</div>;
+        // The top slot is the deck's top card. Draw the cut card inline if given (`starter`); if a
+        // persistent sprite is already sitting there (`topEmpty`), leave the slot EMPTY — keep only
+        // its data-decktop anchor — so we never draw a back that the sprite would just cover.
+        const content = isTop ? (starter ? <StarterCard card={starter} /> : topEmpty ? null : <CardBack />) : <CardBack />;
+        return <div key={k} data-decktop={isTop ? "1" : undefined} style={{ position: "absolute", left: d, top: -d }}>{content}</div>;
       })}
     </div>
   );
@@ -2094,7 +2098,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
             {deckSwap
               ? (deckSwap.phase === "empty" ? null
                 : <DeckSwapView key={deckSwap.phase} phase={deckSwap.phase} offX={deckSwap.offX} offY={deckSwap.offY} count={Math.max(1, deckShown)} />)
-              : <StarterDeck starter={null} count={Math.max(1, deckShown)} />}
+              : <StarterDeck starter={null} count={Math.max(1, deckShown)} topEmpty={!!(starter && (phase === "play" || showPhase || overPhase))} />}
           </div>
         </div>
         <div style={{ minWidth: 0 }}>{ts.right != null ? cell(ts.right) : null}</div>

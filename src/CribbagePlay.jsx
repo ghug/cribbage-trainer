@@ -1746,8 +1746,11 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
     const deckR = deckEl ? deckEl.getBoundingClientRect() : null;
     const deckTop = deckR ? { x: deckR.left - rootR.left, y: deckR.top - rootR.top } : { x: 0, y: 0 };
     // Off-screen parking for the deck swap: far enough left/up that the deck is fully gone.
-    const swapOffX = rootR.width, swapOffY = deckTop.y + 120;
-    const swapDeckOut = { x: deckTop.x - swapOffX, y: deckTop.y - swapOffY };   // upper-left, off-screen
+    // Slide the old/new deck out the side toward the top — but keep it BELOW the score banner
+    // (the banner now sits above the card layer, so anything pushed up to negative y would hide
+    // behind it). deckOut.y stays a small positive value (near the table top), off the left edge.
+    const swapOffX = rootR.width, swapOffY = Math.max(20, deckTop.y - 8);
+    const swapDeckOut = { x: deckTop.x - swapOffX, y: deckTop.y - swapOffY };   // top-left, off the edge, below the banner
     // Schedule the SEQUENTIAL deck swap: at `startAt` the old deck (and its consolidated cards)
     // slides fully off to the upper-left and is deleted; then an empty beat with nothing on screen;
     // then a fresh deck slides in from the upper-right. Returns when the new deck has settled.

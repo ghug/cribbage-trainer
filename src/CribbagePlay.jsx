@@ -1234,12 +1234,6 @@ export default function CribbagePlay() {
         </div>
         {historySeat !== null && <HistoryPanel seatIdx={historySeat} seats={seats} onClose={() => setHistorySeat(null)} P={players} teams={teams} />}
 
-        {paused && (
-          <div style={{ fontFamily: mono, fontSize: 11.5, color: T.pegRed, textAlign: "center", marginTop: 8 }}>
-            ⏸ Paused — automatic play is stopped. Tap ▶ to resume.
-          </div>
-        )}
-
         {/* Always rendered (even when empty) so the table below never jumps between phases
             that carry a message and those that don't. */}
         <div style={{ fontFamily: mono, fontSize: 12, color: T.cream, margin: "5px 2px 3px", minHeight: 16, lineHeight: 1.45 }}>

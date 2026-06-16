@@ -1042,6 +1042,7 @@ export default function CribbagePlay() {
   setSeatCustom(settings.names);
   const ds = state.discardSeat != null ? state.discardSeat : 0; // active discarder
   const playMe = state.holder == null ? firstHuman(players, settings) : state.holder; // device-holder perspective in play
+  const [viewSeat, setViewSeat] = React.useState(-1);          // the seat currently shown at the bottom — reported up by PlayScreen as the ring rotates
   const needHandoff = multiHuman && (
     phase === "discard" ? (state.discardSeat != null && state.holder !== state.discardSeat)
     : (phase === "play" && peg) ? (seatIsHuman(peg.turn, settings) && state.holder !== peg.turn && peg.hands[peg.turn].length > 0)
@@ -1082,6 +1083,11 @@ export default function CribbagePlay() {
   // a legal card blocks for a tap. Re-runs whenever the peg state changes.
   useEffect(() => {
     if (phase !== "play" || !peg || autoPaused) return;
+    // Wait for the ring to finish rotating to the active seat before any bot (or auto) move. This
+    // makes the rotation a hard precondition, not a race against the play timer — even a 0 ms timer
+    // can't fire until the view has settled on peg.turn. (Only when the ring actually rotates, i.e.
+    // multi-human; single-human keeps the human fixed at the bottom and never gates.)
+    if (multiHuman && viewSeat !== peg.turn) return;
     const seat = peg.turn;
     const hand = peg.hands[seat];
     const legal = hand.filter((c) => pval(c.r) + peg.count <= 31);
@@ -1111,7 +1117,7 @@ export default function CribbagePlay() {
       dispatch({ type: "PLAY_CARD", seat, card: chosen });
     }, 760);
     return () => clearTimeout(t);
-  }, [phase, peg, settings, state.pendingPlay, autoPaused, needHandoff]);
+  }, [phase, peg, settings, state.pendingPlay, autoPaused, needHandoff, multiHuman, viewSeat]);
 
   useEffect(() => {
     if (autoPaused || !settings.autoDeal) return;
@@ -1231,7 +1237,7 @@ export default function CribbagePlay() {
 
 
         {(phase === "cutdeal" || phase === "deal" || phase === "discard" || phase === "cribbing" || phase === "cut" || (phase === "show" && show) || (phase === "play" && peg) || phase === "over") && (
-          <PlayScreen state={state} dispatch={dispatch} me={phase === "discard" ? ds : (phase === "play" && peg && multiHuman) ? peg.turn : (multiHuman && (phase === "cutdeal" || phase === "deal")) ? dealerIdx : playMe} needHandoff={needHandoff} cribGliding={cribGliding} />
+          <PlayScreen state={state} dispatch={dispatch} me={phase === "discard" ? ds : (phase === "play" && peg && multiHuman) ? peg.turn : (multiHuman && (phase === "cutdeal" || phase === "deal")) ? dealerIdx : playMe} needHandoff={needHandoff} cribGliding={cribGliding} onView={setViewSeat} />
         )}
       </main>
 
@@ -1579,7 +1585,7 @@ const MOVE_DUR = 460;                              // base ms for a card to glid
 const CARD_STAGGER = 210;                          // gap between successive cards in a multi-card sweep (deal/gather)
 const SWAP_DUR = 520;                              // ms for the old deck to slide out / the new deck to slide in
 const EMPTY_DUR = 240;                             // empty beat between the old deck leaving and the new deck arriving
-function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding }) {
+function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, onView }) {
   const { peg, starter, dealerIdx, crib, seats, settings, phase, dealDraw, winner } = state;
   const discardPhase = phase === "discard";
   const cribbingPhase = phase === "cribbing";            // crib full, holding while it animates to its home
@@ -1611,6 +1617,9 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
     const id = requestAnimationFrame(step);
     return () => cancelAnimationFrame(id);
   }, [meTarget, me]);
+  // Report the settled view seat up so PlayApp can gate bot/auto moves on the rotation completing
+  // (a bot can't play until the ring has actually reached its seat — see the play auto-move effect).
+  React.useEffect(() => { if (onView) onView(me); }, [me, onView]);
   const ts = seatsAround(P, me);
   const totalDealt = pl.sizes.reduce((a, b) => a + b, 0);
   const deckCount = preDeal ? 52 : 52 - totalDealt - (phase === "discard" ? 0 : 1 + (pl.deckCard ? 1 : 0));

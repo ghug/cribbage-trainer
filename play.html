@@ -801,7 +801,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.16";
+const APP_VERSION = "1.1.20-dev.17";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -1584,6 +1584,7 @@ function CribbagePlay() {
     setSeatCustom(settings.names);
     const ds = state.discardSeat != null ? state.discardSeat : 0;
     const playMe = state.holder == null ? firstHuman(players, settings) : state.holder;
+    const [viewSeat, setViewSeat] = React.useState(-1);
     const needHandoff = multiHuman && (phase === "discard" ? (state.discardSeat != null && state.holder !== state.discardSeat)
         : (phase === "play" && peg) ? (seatIsHuman(peg.turn, settings) && state.holder !== peg.turn && peg.hands[peg.turn].length > 0)
             : false);
@@ -1625,6 +1626,8 @@ function CribbagePlay() {
     useEffect(() => {
         if (phase !== "play" || !peg || autoPaused)
             return;
+        if (multiHuman && viewSeat !== peg.turn)
+            return;
         const seat = peg.turn;
         const hand = peg.hands[seat];
         const legal = hand.filter((c) => pval(c.r) + peg.count <= 31);
@@ -1658,7 +1661,7 @@ function CribbagePlay() {
             dispatch({ type: "PLAY_CARD", seat, card: chosen });
         }, 760);
         return () => clearTimeout(t);
-    }, [phase, peg, settings, state.pendingPlay, autoPaused, needHandoff]);
+    }, [phase, peg, settings, state.pendingPlay, autoPaused, needHandoff, multiHuman, viewSeat]);
     useEffect(() => {
         if (autoPaused || !settings.autoDeal)
             return;
@@ -1762,7 +1765,7 @@ function CribbagePlay() {
                 React.createElement(ScoreRow, { seats: seats, dealerIdx: dealerIdx, turn: turnNow, winner: phase === "over" ? winner : null, onPick: (i) => setHistorySeat((cur) => (cur === i ? null : i)), P: players, teams: teams })),
             historySeat !== null && React.createElement(HistoryPanel, { seatIdx: historySeat, seats: seats, onClose: () => setHistorySeat(null), P: players, teams: teams }),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.cream, marginTop: 5, marginBottom: 3, marginLeft: 2, marginRight: "calc(50% - 50vw)", height: 18, lineHeight: "18px", whiteSpace: "nowrap", overflow: "hidden" } }, message),
-            (phase === "cutdeal" || phase === "deal" || phase === "discard" || phase === "cribbing" || phase === "cut" || (phase === "show" && show) || (phase === "play" && peg) || phase === "over") && (React.createElement(PlayScreen, { state: state, dispatch: dispatch, me: phase === "discard" ? ds : (phase === "play" && peg && multiHuman) ? peg.turn : (multiHuman && (phase === "cutdeal" || phase === "deal")) ? dealerIdx : playMe, needHandoff: needHandoff, cribGliding: cribGliding }))),
+            (phase === "cutdeal" || phase === "deal" || phase === "discard" || phase === "cribbing" || phase === "cut" || (phase === "show" && show) || (phase === "play" && peg) || phase === "over") && (React.createElement(PlayScreen, { state: state, dispatch: dispatch, me: phase === "discard" ? ds : (phase === "play" && peg && multiHuman) ? peg.turn : (multiHuman && (phase === "cutdeal" || phase === "deal")) ? dealerIdx : playMe, needHandoff: needHandoff, cribGliding: cribGliding, onView: setViewSeat }))),
         aboutOpen && React.createElement(AboutModal, { onClose: () => setAboutOpen(false) }),
         historyOpen && React.createElement(HistoryModal, { onClose: () => setHistoryOpen(false) }),
         confirmHome && (React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }, onClick: () => setConfirmHome(false) },
@@ -1971,7 +1974,7 @@ const MOVE_DUR = 460;
 const CARD_STAGGER = 210;
 const SWAP_DUR = 520;
 const EMPTY_DUR = 240;
-function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding }) {
+function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, onView }) {
     const { peg, starter, dealerIdx, crib, seats, settings, phase, dealDraw, winner } = state;
     const discardPhase = phase === "discard";
     const cribbingPhase = phase === "cribbing";
@@ -1999,6 +2002,8 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
         const id = requestAnimationFrame(step);
         return () => cancelAnimationFrame(id);
     }, [meTarget, me]);
+    React.useEffect(() => { if (onView)
+        onView(me); }, [me, onView]);
     const ts = seatsAround(P, me);
     const totalDealt = pl.sizes.reduce((a, b) => a + b, 0);
     const deckCount = preDeal ? 52 : 52 - totalDealt - (phase === "discard" ? 0 : 1 + (pl.deckCard ? 1 : 0));
@@ -2677,7 +2682,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.16"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.17"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

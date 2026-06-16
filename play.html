@@ -801,7 +801,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.11";
+const APP_VERSION = "1.1.20-dev.12";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -1761,7 +1761,7 @@ function CribbagePlay() {
             React.createElement("div", { style: { position: "relative", zIndex: 6, background: `radial-gradient(120% 200% at 50% -40%, ${T.baizeHi}, ${T.baize})` } },
                 React.createElement(ScoreRow, { seats: seats, dealerIdx: dealerIdx, turn: turnNow, winner: phase === "over" ? winner : null, onPick: (i) => setHistorySeat((cur) => (cur === i ? null : i)), P: players, teams: teams })),
             historySeat !== null && React.createElement(HistoryPanel, { seatIdx: historySeat, seats: seats, onClose: () => setHistorySeat(null), P: players, teams: teams }),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.cream, margin: "5px 2px 3px", minHeight: 16, lineHeight: 1.45 } }, message),
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.cream, marginTop: 5, marginBottom: 3, marginLeft: 2, marginRight: "calc(50% - 50vw)", height: 18, lineHeight: "18px", whiteSpace: "nowrap", overflow: "hidden" } }, message),
             (phase === "cutdeal" || phase === "deal" || phase === "discard" || phase === "cribbing" || phase === "cut" || (phase === "show" && show) || (phase === "play" && peg) || phase === "over") && (React.createElement(PlayScreen, { state: state, dispatch: dispatch, me: phase === "discard" ? ds : (phase === "play" && peg && needHandoff) ? peg.turn : (multiHuman && (phase === "cutdeal" || phase === "deal")) ? dealerIdx : playMe, needHandoff: needHandoff, cribGliding: cribGliding }))),
         aboutOpen && React.createElement(AboutModal, { onClose: () => setAboutOpen(false) }),
         historyOpen && React.createElement(HistoryModal, { onClose: () => setHistoryOpen(false) }),
@@ -2660,7 +2660,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.11"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.12"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

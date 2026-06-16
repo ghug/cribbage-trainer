@@ -1220,9 +1220,12 @@ export default function CribbagePlay() {
         </div>
         {historySeat !== null && <HistoryPanel seatIdx={historySeat} seats={seats} onClose={() => setHistorySeat(null)} P={players} teams={teams} />}
 
-        {/* Always rendered (even when empty) so the table below never jumps between phases
-            that carry a message and those that don't. */}
-        <div style={{ fontFamily: mono, fontSize: 12, color: T.cream, margin: "5px 2px 3px", minHeight: 16, lineHeight: 1.45 }}>
+        {/* Fixed ONE-line height, never wrapping: a long status message runs off the RIGHT edge of
+            the screen (clipped there) instead of wrapping to a second line, so the table below never
+            shifts up/down as the message changes. `marginRight: 50% - 50vw` stretches the box's right
+            edge out to the viewport edge (the table is centred), and overflow:hidden clips the bleed
+            there — off-screen-right, with no horizontal scrollbar. */}
+        <div style={{ fontFamily: mono, fontSize: 12, color: T.cream, marginTop: 5, marginBottom: 3, marginLeft: 2, marginRight: "calc(50% - 50vw)", height: 18, lineHeight: "18px", whiteSpace: "nowrap", overflow: "hidden" }}>
           {message}
         </div>
 

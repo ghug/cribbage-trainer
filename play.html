@@ -801,7 +801,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.9";
+const APP_VERSION = "1.1.20-dev.10";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -1758,16 +1758,8 @@ function CribbagePlay() {
                 "--ch": "calc(var(--cw) * 1.41176)",
             } },
             settingsOpen && React.createElement(SettingsPanel, { settings: settings, dispatch: dispatch, onClose: () => setSettingsOpen(false), onAbout: () => { setSettingsOpen(false); setAboutOpen(true); }, onHistory: () => { setSettingsOpen(false); setHistoryOpen(true); } }),
-            React.createElement("div", { style: { position: "relative" } },
-                (() => {
-                    const cribCounting = phase === "show" && state.show && state.show.order[state.show.step] === "CRIB";
-                    const stored = cribGliding || ((phase === "cut" || phase === "play" || phase === "show") && !cribCounting);
-                    const n = (state.crib && state.crib.length) ? state.crib.length : [].concat.apply([], seats.map(function (s) { return s.discard || []; })).length;
-                    return stored && n > 0 && (React.createElement("div", { "data-slot": "cribhome", style: { position: "absolute", right: 0, bottom: `calc(var(--ch) * ${-CRIB_PEEK})`, display: "flex", alignItems: "flex-end", visibility: "hidden", pointerEvents: "none" } },
-                        React.createElement(SlotGhost, { n: n, vis: BACK_VISIBLE })));
-                })(),
-                React.createElement("div", { style: { position: "relative", zIndex: 6, background: `radial-gradient(120% 200% at 50% -40%, ${T.baizeHi}, ${T.baize})` } },
-                    React.createElement(ScoreRow, { seats: seats, dealerIdx: dealerIdx, turn: turnNow, winner: phase === "over" ? winner : null, onPick: (i) => setHistorySeat((cur) => (cur === i ? null : i)), P: players, teams: teams }))),
+            React.createElement("div", { style: { position: "relative", zIndex: 6, background: `radial-gradient(120% 200% at 50% -40%, ${T.baizeHi}, ${T.baize})` } },
+                React.createElement(ScoreRow, { seats: seats, dealerIdx: dealerIdx, turn: turnNow, winner: phase === "over" ? winner : null, onPick: (i) => setHistorySeat((cur) => (cur === i ? null : i)), P: players, teams: teams })),
             historySeat !== null && React.createElement(HistoryPanel, { seatIdx: historySeat, seats: seats, onClose: () => setHistorySeat(null), P: players, teams: teams }),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.cream, margin: "5px 2px 3px", minHeight: 16, lineHeight: 1.45 } }, message),
             (phase === "cutdeal" || phase === "deal" || phase === "discard" || phase === "cribbing" || phase === "cut" || (phase === "show" && show) || (phase === "play" && peg) || phase === "over") && (React.createElement(PlayScreen, { state: state, dispatch: dispatch, me: phase === "discard" ? ds : (phase === "play" && peg && needHandoff) ? peg.turn : (multiHuman && (phase === "cutdeal" || phase === "deal")) ? dealerIdx : playMe, needHandoff: needHandoff, cribGliding: cribGliding }))),
@@ -1793,6 +1785,10 @@ const PILE_VISIBLE = 0.38;
 const cardItems = (cards, vis = STACK_VISIBLE) => (cards || []).map((c) => ({ key: cardId(c), vis, el: React.createElement(Card, { card: c }) }));
 function SlotGhost({ n, vis = BACK_VISIBLE }) {
     return Array.from({ length: Math.max(0, n || 0) }).map((_, k) => (React.createElement("div", { key: k, style: { width: "var(--cw)", aspectRatio: "68 / 96", flex: "0 0 auto", marginLeft: k === 0 ? 0 : `calc(var(--cw) * ${-(1 - vis)})` } })));
+}
+const CRIB_HOME_VISIBLE = 0.2;
+function SlotGhostV({ n, vis = CRIB_HOME_VISIBLE }) {
+    return Array.from({ length: Math.max(0, n || 0) }).map((_, k) => (React.createElement("div", { key: k, style: { position: "absolute", left: 0, bottom: `calc(var(--ch) * ${k * vis})`, width: "var(--cw)", aspectRatio: "68 / 96" } })));
 }
 function Fan({ items, clip, hideFrom, clipBottom }) {
     if (!items.length)
@@ -1956,7 +1952,6 @@ const DEAL_THROW_PAUSE = 300;
 const THROW_STAGGER = 140;
 const CRIB_THROW_TIME = 880;
 const CRIB_MOVE = 840;
-const CRIB_PEEK = 0.25;
 function DealFly({ from, legs, card }) {
     const [idx, setIdx] = React.useState(-1);
     React.useEffect(() => {
@@ -2018,6 +2013,9 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
     const multiHuman = nHumans(P, settings) > 1;
     const meHuman = seatIsHuman(me, settings);
     const cribSoFar = seats.reduce((a, s) => a + (s.discard ? s.discard.length : 0), 0);
+    const cribCounting = showPhase && state.show && state.show.order[state.show.step] === "CRIB";
+    const cribStored = cribGliding || ((cutPhase || phase === "play" || showPhase) && !cribCounting);
+    const cribHomeN = (crib && crib.length) ? crib.length : cribSoFar;
     const [sel, setSel] = React.useState([]);
     const legalSet = peg ? new Set(yourHand.filter((c) => pval(c.r) + peg.count <= 31).map(cardId)) : null;
     const count = discardPhase ? pl.throws[me] : 1;
@@ -2181,7 +2179,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
             if (p.group === "deck")
                 pos = deckTop;
             else {
-                const host = (p.group === "cribhome" ? document : root).querySelector(`[data-slot="${p.group}"]`);
+                const host = root.querySelector(`[data-slot="${p.group}"]`);
                 if (host)
                     pos = fanX(host, p.idx);
             }
@@ -2385,6 +2383,12 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
     return (React.createElement("div", { ref: tableRef, style: { position: "relative", marginTop: 6, display: "flex", flexDirection: "column", gap: 10 } },
         React.createElement("div", { style: { position: "absolute", inset: 0, pointerEvents: "none", zIndex: 5 } },
             React.createElement("div", { style: { position: "relative", width: "100%", height: "100%", pointerEvents: "none" } }, sprites)),
+        cribStored && cribHomeN > 0 && (React.createElement("div", { "data-slot": "cribhome", style: {
+                position: "absolute", left: "calc(var(--cw) * -0.5)", top: "50%", transform: "translateY(-50%)",
+                width: "var(--cw)", height: `calc(var(--ch) * ${1 + (cribHomeN - 1) * CRIB_HOME_VISIBLE})`,
+                visibility: "hidden", pointerEvents: "none",
+            } },
+            React.createElement(SlotGhostV, { n: cribHomeN, vis: CRIB_HOME_VISIBLE }))),
         ts.top.length > 0 && (React.createElement("div", { style: { display: "grid", gridTemplateColumns: `repeat(${ts.top.length}, 1fr)`, gap: 8 } }, ts.top.map(cell))),
         React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 8, padding: "0 6px" } },
             React.createElement("div", { style: { minWidth: 0 } }, ts.left != null ? cell(ts.left) : null),
@@ -2656,7 +2660,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.9"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.10"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

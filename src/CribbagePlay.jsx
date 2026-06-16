@@ -1196,10 +1196,24 @@ export default function CribbagePlay() {
         "--ch": "calc(var(--cw) * 1.41176)",
       }}>
         {settingsOpen && <SettingsPanel settings={settings} dispatch={dispatch} onClose={() => setSettingsOpen(false)} onAbout={() => { setSettingsOpen(false); setAboutOpen(true); }} onHistory={() => { setSettingsOpen(false); setHistoryOpen(true); }} />}
-        {/* Score banner. (The crib is no longer tucked behind it — it's a persistent stack stored
-            at the top-right of the table, owned by PlayScreen's card layer.) */}
+        {/* Score banner. The crib is stored TUCKED behind it: an invisible anchor (data-slot
+            "cribhome") sits right-aligned, poking out only its bottom quarter; the persistent crib
+            sprites (in PlayScreen's layer, zIndex 5) measure it and tuck there, and the score row
+            (raised above zIndex 5) covers them. */}
         <div style={{ position: "relative" }}>
-          <div style={{ position: "relative", zIndex: 1, background: `radial-gradient(120% 200% at 50% -40%, ${T.baizeHi}, ${T.baize})` }}>
+          {(() => {
+            const cribCounting = phase === "show" && state.show && state.show.order[state.show.step] === "CRIB";
+            const stored = cribGliding || ((phase === "cut" || phase === "play" || phase === "show") && !cribCounting);
+            const n = (state.crib && state.crib.length) ? state.crib.length : [].concat.apply([], seats.map(function (s) { return s.discard || []; })).length;
+            return stored && n > 0 && (
+              <div data-slot="cribhome" style={{ position: "absolute", right: 0, bottom: `calc(var(--ch) * ${-CRIB_PEEK})`, display: "flex", alignItems: "flex-end", visibility: "hidden", pointerEvents: "none" }}>
+                {Array.from({ length: n }).map((_, k) => (
+                  <div key={k} style={{ width: "var(--cw)", aspectRatio: "68 / 96", flex: "0 0 auto", marginLeft: k === 0 ? 0 : `calc(var(--cw) * ${-(1 - BACK_VISIBLE)})` }} />
+                ))}
+              </div>
+            );
+          })()}
+          <div style={{ position: "relative", zIndex: 6, background: `radial-gradient(120% 200% at 50% -40%, ${T.baizeHi}, ${T.baize})` }}>
             <ScoreRow seats={seats} dealerIdx={dealerIdx} turn={turnNow} winner={phase === "over" ? winner : null}
               onPick={(i) => setHistorySeat((cur) => (cur === i ? null : i))} P={players} teams={teams} />
           </div>
@@ -1515,6 +1529,7 @@ const DEAL_THROW_PAUSE = 300;                     // beat between the deal landi
 const THROW_STAGGER = 140;                         // gap between your two thrown cards flying to the crib
 const CRIB_THROW_TIME = 880;                      // beat the "cribbing" hold waits for your card to reach the crib before it glides
 const CRIB_MOVE = 840;                            // ms the cribbing hold allows for the crib to glide to its storage spot
+const CRIB_PEEK = 0.25;                           // fraction of the stored crib that pokes out below the score banner
 // A card flying through a path of waypoints (`legs`): it mounts at `from`, then steps to each
 // leg's {x,y} at that leg's absolute `delay`, the CSS transition animating each hop. A deck→seat
 // deal is one leg; a card a bot throws gets a second leg (seat→crib).
@@ -1707,7 +1722,6 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
     if (starter && (phase === "play" || showPhase || overPhase)) place[cardId(starter)] = { group: "deck", idx: 0, up: true };
   }
   const handLen = (place && Object.values(place).filter((p) => p.group === "hand").length) || 0;
-  const cribhomeN = Object.values(place).filter((p) => p.group === "cribhome").length;   // crib cards tucked in storage
   const showcribN = Object.values(place).filter((p) => p.group === "showcrib").length;   // crib cards out for counting
 
   // homes[id] = {x,y,up,z} measured from the (invisible) ghost slots; sprites tween to these.
@@ -1759,9 +1773,14 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
       const p = place[id];
       let pos = null;
       if (p.group === "deck") pos = deckTop;
-      else { const host = root.querySelector(`[data-slot="${p.group}"]`); if (host) pos = fanX(host, p.idx); }
+      // "cribhome" lives behind the score banner (outside the table) — find it document-wide; all
+      // measurements are screen-relative, so it still resolves to a table-relative position.
+      else { const host = (p.group === "cribhome" ? document : root).querySelector(`[data-slot="${p.group}"]`); if (host) pos = fanX(host, p.idx); }
       if (!pos) pos = deckTop;
-      targets[id] = { x: pos.x, y: pos.y, up: p.up, z: 10 + p.idx + (p.group === "hand" ? 30 : p.group === "deck" ? 60 : 0) };
+      // crib cards (crib/cribhome/showcrib) float above the hands so they read clearly when they
+      // glide in front of them; the score banner (raised z) still covers them when they're tucked.
+      const cribZ = (p.group === "crib" || p.group === "cribhome" || p.group === "showcrib") ? 50 : 0;
+      targets[id] = { x: pos.x, y: pos.y, up: p.up, z: 10 + p.idx + cribZ + (p.group === "hand" ? 30 : p.group === "deck" ? 60 : 0) };
     }
     const nowKnown = new Set(Object.keys(targets));
     const prevKnown = knownRef.current;
@@ -2001,15 +2020,6 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
           {sprites}
         </div>
       </div>
-      {/* invisible storage anchor (top-right): where the persistent crib tucks, face down, from the
-          cribbing glide through the show until it's counted. */}
-      {cribhomeN > 0 && (
-        <div data-slot="cribhome" style={{ position: "absolute", top: -6, right: 0, display: "flex", alignItems: "flex-end", visibility: "hidden", zIndex: 4 }}>
-          {Array.from({ length: cribhomeN }).map((_, k) => (
-            <div key={k} style={{ width: "var(--cw)", aspectRatio: "68 / 96", flex: "0 0 auto", marginLeft: k === 0 ? 0 : `calc(var(--cw) * ${-(1 - BACK_VISIBLE)})` }} />
-          ))}
-        </div>
-      )}
       {/* Fixed grids: every seat owns an equal column whatever it's holding, so the labels
           (and their hands) always center on the same spot in every phase. */}
       {ts.top.length > 0 && (

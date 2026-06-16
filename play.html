@@ -801,7 +801,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.2";
+const APP_VERSION = "1.1.20-dev.3";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -1748,7 +1748,13 @@ function CribbagePlay() {
             } },
             settingsOpen && React.createElement(SettingsPanel, { settings: settings, dispatch: dispatch, onClose: () => setSettingsOpen(false), onAbout: () => { setSettingsOpen(false); setAboutOpen(true); }, onHistory: () => { setSettingsOpen(false); setHistoryOpen(true); } }),
             React.createElement("div", { style: { position: "relative" } },
-                React.createElement("div", { style: { position: "relative", zIndex: 1, background: `radial-gradient(120% 200% at 50% -40%, ${T.baizeHi}, ${T.baize})` } },
+                (() => {
+                    const cribCounting = phase === "show" && state.show && state.show.order[state.show.step] === "CRIB";
+                    const stored = cribGliding || ((phase === "cut" || phase === "play" || phase === "show") && !cribCounting);
+                    const n = (state.crib && state.crib.length) ? state.crib.length : [].concat.apply([], seats.map(function (s) { return s.discard || []; })).length;
+                    return stored && n > 0 && (React.createElement("div", { "data-slot": "cribhome", style: { position: "absolute", right: 0, bottom: `calc(var(--ch) * ${-CRIB_PEEK})`, display: "flex", alignItems: "flex-end", visibility: "hidden", pointerEvents: "none" } }, Array.from({ length: n }).map((_, k) => (React.createElement("div", { key: k, style: { width: "var(--cw)", aspectRatio: "68 / 96", flex: "0 0 auto", marginLeft: k === 0 ? 0 : `calc(var(--cw) * ${-(1 - BACK_VISIBLE)})` } })))));
+                })(),
+                React.createElement("div", { style: { position: "relative", zIndex: 6, background: `radial-gradient(120% 200% at 50% -40%, ${T.baizeHi}, ${T.baize})` } },
                     React.createElement(ScoreRow, { seats: seats, dealerIdx: dealerIdx, turn: turnNow, winner: phase === "over" ? winner : null, onPick: (i) => setHistorySeat((cur) => (cur === i ? null : i)), P: players, teams: teams }))),
             historySeat !== null && React.createElement(HistoryPanel, { seatIdx: historySeat, seats: seats, onClose: () => setHistorySeat(null), P: players, teams: teams }),
             paused && (React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.pegRed, textAlign: "center", marginTop: 8 } }, "\u23F8 Paused \u2014 automatic play is stopped. Tap \u25B6 to resume.")),
@@ -1937,6 +1943,7 @@ const DEAL_THROW_PAUSE = 300;
 const THROW_STAGGER = 140;
 const CRIB_THROW_TIME = 880;
 const CRIB_MOVE = 840;
+const CRIB_PEEK = 0.25;
 function DealFly({ from, legs, card }) {
     const [idx, setIdx] = React.useState(-1);
     React.useEffect(() => {
@@ -2106,7 +2113,6 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
             place[cardId(starter)] = { group: "deck", idx: 0, up: true };
     }
     const handLen = (place && Object.values(place).filter((p) => p.group === "hand").length) || 0;
-    const cribhomeN = Object.values(place).filter((p) => p.group === "cribhome").length;
     const showcribN = Object.values(place).filter((p) => p.group === "showcrib").length;
     const [homes, setHomes] = React.useState({});
     const homesRef = React.useRef({});
@@ -2159,13 +2165,14 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
             if (p.group === "deck")
                 pos = deckTop;
             else {
-                const host = root.querySelector(`[data-slot="${p.group}"]`);
+                const host = (p.group === "cribhome" ? document : root).querySelector(`[data-slot="${p.group}"]`);
                 if (host)
                     pos = fanX(host, p.idx);
             }
             if (!pos)
                 pos = deckTop;
-            targets[id] = { x: pos.x, y: pos.y, up: p.up, z: 10 + p.idx + (p.group === "hand" ? 30 : p.group === "deck" ? 60 : 0) };
+            const cribZ = (p.group === "crib" || p.group === "cribhome" || p.group === "showcrib") ? 50 : 0;
+            targets[id] = { x: pos.x, y: pos.y, up: p.up, z: 10 + p.idx + cribZ + (p.group === "hand" ? 30 : p.group === "deck" ? 60 : 0) };
         }
         const nowKnown = new Set(Object.keys(targets));
         const prevKnown = knownRef.current;
@@ -2371,7 +2378,6 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
     return (React.createElement("div", { ref: tableRef, style: { position: "relative", marginTop: 6, display: "flex", flexDirection: "column", gap: 10 } },
         React.createElement("div", { style: { position: "absolute", inset: 0, pointerEvents: "none", zIndex: 5 } },
             React.createElement("div", { style: { position: "relative", width: "100%", height: "100%", pointerEvents: "none" } }, sprites)),
-        cribhomeN > 0 && (React.createElement("div", { "data-slot": "cribhome", style: { position: "absolute", top: -6, right: 0, display: "flex", alignItems: "flex-end", visibility: "hidden", zIndex: 4 } }, Array.from({ length: cribhomeN }).map((_, k) => (React.createElement("div", { key: k, style: { width: "var(--cw)", aspectRatio: "68 / 96", flex: "0 0 auto", marginLeft: k === 0 ? 0 : `calc(var(--cw) * ${-(1 - BACK_VISIBLE)})` } }))))),
         ts.top.length > 0 && (React.createElement("div", { style: { display: "grid", gridTemplateColumns: `repeat(${ts.top.length}, 1fr)`, gap: 8 } }, ts.top.map(cell))),
         React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 8, padding: "0 6px" } },
             React.createElement("div", { style: { minWidth: 0 } }, ts.left != null ? cell(ts.left) : null),
@@ -2640,7 +2646,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.2"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.3"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

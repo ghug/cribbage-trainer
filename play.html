@@ -801,7 +801,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.12";
+const APP_VERSION = "1.1.20-dev.13";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -2138,6 +2138,13 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
     const dealPhaseRef = React.useRef(phase);
     const dealTimersRef = React.useRef([]);
     const dealingRef = React.useRef(false);
+    const [, bumpViewport] = React.useState(0);
+    React.useEffect(() => {
+        const onResize = () => bumpViewport((t) => t + 1);
+        window.addEventListener("resize", onResize);
+        window.addEventListener("orientationchange", onResize);
+        return () => { window.removeEventListener("resize", onResize); window.removeEventListener("orientationchange", onResize); };
+    }, []);
     React.useLayoutEffect(() => {
         const root = tableRef.current;
         if (!root)
@@ -2384,7 +2391,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
         React.createElement("div", { style: { position: "absolute", inset: 0, pointerEvents: "none", zIndex: 5 } },
             React.createElement("div", { style: { position: "relative", width: "100%", height: "100%", pointerEvents: "none" } }, sprites)),
         cribStored && cribHomeN > 0 && (React.createElement("div", { "data-slot": "cribhome", style: {
-                position: "absolute", left: "calc(50% - 50vw - var(--cw) * 0.75)", top: "50%", transform: "translateY(-50%)",
+                position: "fixed", left: "calc(50% - 50vw - var(--cw) * 0.75)", top: "50%", transform: "translateY(-50%)",
                 width: "var(--cw)", height: `calc(var(--ch) * ${1 + (cribHomeN - 1) * CRIB_HOME_VISIBLE})`,
                 visibility: "hidden", pointerEvents: "none",
             } },
@@ -2660,7 +2667,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.12"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.13"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

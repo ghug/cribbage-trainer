@@ -1760,6 +1760,18 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
   const dealTimersRef = React.useRef([]);                 // the deal-timeline setTimeouts (cleared on re-trigger)
   const dealingRef = React.useRef(false);                 // true while the deal timeline owns the card homes
 
+  // Re-measure every anchor when the viewport changes size (window resize, device rotation, an
+  // on-screen keyboard). The homes effect below runs on each render and reads live geometry, so a
+  // forced re-render is all that's needed to snap all card sprites — and the viewport-pinned crib —
+  // to their new anchor positions.
+  const [, bumpViewport] = React.useState(0);
+  React.useEffect(() => {
+    const onResize = () => bumpViewport((t) => t + 1);
+    window.addEventListener("resize", onResize);
+    window.addEventListener("orientationchange", onResize);
+    return () => { window.removeEventListener("resize", onResize); window.removeEventListener("orientationchange", onResize); };
+  }, []);
+
   React.useLayoutEffect(() => {
     const root = tableRef.current; if (!root) return;
     // A deal is in flight: its timeline solely owns the card homes (mounting each card on the
@@ -2052,15 +2064,15 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
           {sprites}
         </div>
       </div>
-      {/* The crib's stored home: a vertical stack hanging 75% off the LEFT edge of the VIEWPORT
-          (only its right 25% shows), vertically centred — the pile's top card at the bottom, deeper
-          cards above it (80% overlap). `50% - 50vw` resolves to the viewport's left edge regardless
-          of the table's centring/padding (the table is horizontally centred), so the −0.75·cw nudge
-          parks the card 75% off-screen on any width. The crib sprites (zIndex 5 layer) measure these
-          ghost footprints and tuck here. */}
+      {/* The crib's stored home: a vertical stack pinned to the VIEWPORT (position:fixed) — 75% off
+          its LEFT edge (only the right 25% shows) and centred on viewport HEIGHT. Fixed makes both
+          axes viewport-relative: top:50% is mid-screen, and `50% - 50vw` is exactly the viewport's
+          left edge, so the −0.75·cw nudge parks the card 75% off-screen on any size. The pile's top
+          card sits at the bottom, deeper cards above it (80% overlap). The crib sprites measure these
+          ghost footprints (re-measured on viewport resize) and tuck here. */}
       {cribStored && cribHomeN > 0 && (
         <div data-slot="cribhome" style={{
-          position: "absolute", left: "calc(50% - 50vw - var(--cw) * 0.75)", top: "50%", transform: "translateY(-50%)",
+          position: "fixed", left: "calc(50% - 50vw - var(--cw) * 0.75)", top: "50%", transform: "translateY(-50%)",
           width: "var(--cw)", height: `calc(var(--ch) * ${1 + (cribHomeN - 1) * CRIB_HOME_VISIBLE})`,
           visibility: "hidden", pointerEvents: "none",
         }}>

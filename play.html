@@ -801,7 +801,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.7";
+const APP_VERSION = "1.1.20-dev.8";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -2540,30 +2540,31 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
         React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, margin: "2px 0 7px", lineHeight: 1.45 } }, desc),
         React.createElement("div", { style: { display: "flex", gap: 6 } }, options.map(([label, val]) => (React.createElement("button", { key: String(val), disabled: disabled, onClick: disabled ? undefined : () => dispatch({ type: "SET_SETTING", key: k, value: val }), style: { ...segStyle(settings[k] === val), cursor: disabled ? "default" : "pointer" } }, label))))));
     const off = tr("common.off"), on = tr("common.on"), manual = tr("common.manual"), auto = tr("common.auto");
-    return (React.createElement("div", { style: { background: "rgba(0,0,0,0.32)", border: `1px solid ${T.line}`, borderRadius: 12, padding: "14px 16px 4px", marginBottom: 14 } },
-        React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 } },
-            React.createElement("span", { style: { fontWeight: 700, fontSize: 16 } }, tr("settings.title")),
-            React.createElement("button", { onClick: onClose, style: { padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 } }, tr("common.done"))),
-        React.createElement(Row, { title: tr("settings.tapToSelect.title"), k: "tapToSelect", desc: tr("settings.tapToSelect.desc"), options: [[off, false], [on, true]] }),
-        React.createElement(Row, { title: tr("settings.autoCut.title"), k: "autoCut", desc: tr("settings.autoCut.desc"), options: [[manual, false], [auto, true]] }),
-        React.createElement(Row, { title: tr("settings.autoGo.title"), k: "autoGo", desc: tr("settings.autoGo.desc"), options: [[manual, false], [auto, true]] }),
-        React.createElement(Row, { title: tr("settings.warn.title"), k: "warn", desc: tr("settings.warn.desc"), options: [[on, true], [off, false]] }),
-        React.createElement(Row, { title: tr("settings.autoPlayOne.title"), k: "autoPlayOne", desc: tr("settings.autoPlayOne.desc"), options: [[off, false], [on, true]] }),
-        React.createElement(Row, { title: tr("settings.autoPlayBest.title"), k: "autoPlayBest", desc: tr("settings.autoPlayBest.desc"), options: [[off, false], [on, true]] }),
-        React.createElement(Row, { title: tr("settings.autoDiscardBest.title"), k: "autoDiscardBest", desc: tr("settings.autoDiscardBest.desc"), options: [[off, false], [on, true]] }),
-        React.createElement(Row, { title: tr("settings.autoContinue.title"), k: "autoContinue", desc: tr("settings.autoContinue.desc"), options: [[off, false], [on, true]] }),
-        React.createElement(Row, { title: tr("settings.autoDeal.title"), k: "autoDeal", desc: tr("settings.autoDeal.desc"), options: [[off, false], [on, true]] }),
-        React.createElement(Row, { title: tr("settings.counting.title"), k: "counting", disabled: !soloGame, desc: tr(soloGame ? "settings.counting.desc" : "settings.counting.disabledDesc"), options: [[tr("settings.counting.optAuto"), "auto"], [tr("settings.counting.optMuggins"), "muggins"]] }),
-        React.createElement(LanguageRow, null),
-        React.createElement("div", { style: { borderTop: `1px solid ${T.line}`, margin: "2px -16px 0", padding: "12px 16px 0" } },
-            React.createElement("button", { onClick: onHistory, style: { width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12, fontWeight: 700 } }, tr("settings.history"))),
-        React.createElement("button", { onClick: () => dispatch({ type: "RESET_SETTINGS" }), style: { width: "100%", margin: "10px 0 0", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12, fontWeight: 700 } }, tr("settings.resetDefaults")),
-        React.createElement(AboutRow, { onAbout: onAbout }),
-        React.createElement("button", { onClick: onClose, style: {
-                width: "100%", margin: "12px 0 10px", padding: "12px", borderRadius: 9, border: "none", cursor: "pointer",
-                background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory,
-                fontFamily: mono, fontSize: 12.5, fontWeight: 700,
-            } }, tr("settings.continue"))));
+    return (React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 220, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }, onClick: onClose },
+        React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "14px 16px 4px", maxWidth: 420, width: "100%", maxHeight: "88vh", overflowY: "auto", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" } },
+            React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 } },
+                React.createElement("span", { style: { fontWeight: 700, fontSize: 16 } }, tr("settings.title")),
+                React.createElement("button", { onClick: onClose, style: { padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 } }, tr("common.done"))),
+            React.createElement(Row, { title: tr("settings.tapToSelect.title"), k: "tapToSelect", desc: tr("settings.tapToSelect.desc"), options: [[off, false], [on, true]] }),
+            React.createElement(Row, { title: tr("settings.autoCut.title"), k: "autoCut", desc: tr("settings.autoCut.desc"), options: [[manual, false], [auto, true]] }),
+            React.createElement(Row, { title: tr("settings.autoGo.title"), k: "autoGo", desc: tr("settings.autoGo.desc"), options: [[manual, false], [auto, true]] }),
+            React.createElement(Row, { title: tr("settings.warn.title"), k: "warn", desc: tr("settings.warn.desc"), options: [[on, true], [off, false]] }),
+            React.createElement(Row, { title: tr("settings.autoPlayOne.title"), k: "autoPlayOne", desc: tr("settings.autoPlayOne.desc"), options: [[off, false], [on, true]] }),
+            React.createElement(Row, { title: tr("settings.autoPlayBest.title"), k: "autoPlayBest", desc: tr("settings.autoPlayBest.desc"), options: [[off, false], [on, true]] }),
+            React.createElement(Row, { title: tr("settings.autoDiscardBest.title"), k: "autoDiscardBest", desc: tr("settings.autoDiscardBest.desc"), options: [[off, false], [on, true]] }),
+            React.createElement(Row, { title: tr("settings.autoContinue.title"), k: "autoContinue", desc: tr("settings.autoContinue.desc"), options: [[off, false], [on, true]] }),
+            React.createElement(Row, { title: tr("settings.autoDeal.title"), k: "autoDeal", desc: tr("settings.autoDeal.desc"), options: [[off, false], [on, true]] }),
+            React.createElement(Row, { title: tr("settings.counting.title"), k: "counting", disabled: !soloGame, desc: tr(soloGame ? "settings.counting.desc" : "settings.counting.disabledDesc"), options: [[tr("settings.counting.optAuto"), "auto"], [tr("settings.counting.optMuggins"), "muggins"]] }),
+            React.createElement(LanguageRow, null),
+            React.createElement("div", { style: { borderTop: `1px solid ${T.line}`, margin: "2px -16px 0", padding: "12px 16px 0" } },
+                React.createElement("button", { onClick: onHistory, style: { width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12, fontWeight: 700 } }, tr("settings.history"))),
+            React.createElement("button", { onClick: () => dispatch({ type: "RESET_SETTINGS" }), style: { width: "100%", margin: "10px 0 0", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12, fontWeight: 700 } }, tr("settings.resetDefaults")),
+            React.createElement(AboutRow, { onAbout: onAbout }),
+            React.createElement("button", { onClick: onClose, style: {
+                    width: "100%", margin: "12px 0 10px", padding: "12px", borderRadius: 9, border: "none", cursor: "pointer",
+                    background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory,
+                    fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+                } }, tr("settings.continue")))));
 }
 function LanguageRow() {
     const i = (typeof window !== "undefined") ? window.i18n : null;
@@ -2656,7 +2657,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.7"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.8"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

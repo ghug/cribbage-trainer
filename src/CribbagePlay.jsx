@@ -2308,7 +2308,8 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
   );
   const off = tr("common.off"), on = tr("common.on"), manual = tr("common.manual"), auto = tr("common.auto");
   return (
-    <div style={{ background: "rgba(0,0,0,0.32)", border: `1px solid ${T.line}`, borderRadius: 12, padding: "14px 16px 4px", marginBottom: 14 }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 220, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "14px 16px 4px", maxWidth: 420, width: "100%", maxHeight: "88vh", overflowY: "auto", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
         <span style={{ fontWeight: 700, fontSize: 16 }}>{tr("settings.title")}</span>
         <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>{tr("common.done")}</button>
@@ -2354,6 +2355,7 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
         background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory,
         fontFamily: mono, fontSize: 12.5, fontWeight: 700,
       }}>{tr("settings.continue")}</button>
+      </div>
     </div>
   );
 }

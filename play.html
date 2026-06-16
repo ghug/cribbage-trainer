@@ -801,7 +801,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.1";
+const APP_VERSION = "1.1.20-dev.2";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -1581,17 +1581,6 @@ function CribbagePlay() {
     const teamStr = teams < players ? (teamCounted ? tr("play.hdr.teamsN", { teams }) : tr("play.hdr.teams")) : "";
     const botStr = nB > 0 ? tr(nB === 1 ? "play.hdr.bot" : "play.hdr.bots", { n: nB }) : "";
     const headLine = tr("play.hdr.handed", { p: players }) + teamStr + botStr;
-    const cribBannerRef = React.useRef(null);
-    React.useLayoutEffect(() => {
-        if (phase !== "discard" && phase !== "cribbing")
-            return;
-        const el = document.querySelector('[data-slot="crib"]');
-        if (el) {
-            const r = el.getBoundingClientRect();
-            if (r.width)
-                cribBannerRef.current = { x: r.left, y: r.top };
-        }
-    });
     const [cribGliding, setCribGliding] = React.useState(false);
     useEffect(() => {
         if (phase !== "cribbing") {
@@ -1759,10 +1748,6 @@ function CribbagePlay() {
             } },
             settingsOpen && React.createElement(SettingsPanel, { settings: settings, dispatch: dispatch, onClose: () => setSettingsOpen(false), onAbout: () => { setSettingsOpen(false); setAboutOpen(true); }, onHistory: () => { setSettingsOpen(false); setHistoryOpen(true); } }),
             React.createElement("div", { style: { position: "relative" } },
-                (() => {
-                    const cribCounting = phase === "show" && state.show && state.show.order[state.show.step] === "CRIB";
-                    return (cribGliding || ((phase === "cut" || phase === "play" || phase === "show") && state.crib.length > 0 && !cribCounting)) && (React.createElement(CribHome, { count: state.crib.length, bannerRef: cribBannerRef }));
-                })(),
                 React.createElement("div", { style: { position: "relative", zIndex: 1, background: `radial-gradient(120% 200% at 50% -40%, ${T.baizeHi}, ${T.baize})` } },
                     React.createElement(ScoreRow, { seats: seats, dealerIdx: dealerIdx, turn: turnNow, winner: phase === "over" ? winner : null, onPick: (i) => setHistorySeat((cur) => (cur === i ? null : i)), P: players, teams: teams }))),
             historySeat !== null && React.createElement(HistoryPanel, { seatIdx: historySeat, seats: seats, onClose: () => setHistorySeat(null), P: players, teams: teams }),
@@ -1950,29 +1935,8 @@ function SeatFlip({ idx, posRef, onMove, children }) {
 }
 const DEAL_THROW_PAUSE = 300;
 const THROW_STAGGER = 140;
-const CRIB_PEEK = 0.25;
 const CRIB_THROW_TIME = 880;
 const CRIB_MOVE = 840;
-function CribHome({ count, bannerRef }) {
-    const ref = React.useRef(null);
-    const [pos, setPos] = React.useState(null);
-    const [glide, setGlide] = React.useState(false);
-    React.useLayoutEffect(() => {
-        const el = ref.current, b = bannerRef.current;
-        if (!el || !b)
-            return;
-        const r = el.getBoundingClientRect();
-        setPos({ x: b.x - r.left, y: b.y - r.top });
-        const id = requestAnimationFrame(() => requestAnimationFrame(() => { setGlide(true); setPos({ x: 0, y: 0 }); }));
-        return () => cancelAnimationFrame(id);
-    }, []);
-    return (React.createElement("div", { ref: ref, "data-slot": "cribhome", style: {
-            position: "absolute", right: 0, bottom: `calc(var(--ch) * ${-CRIB_PEEK})`, zIndex: 0, display: "flex", pointerEvents: "none",
-            transform: pos ? `translate(${pos.x}px, ${pos.y}px)` : "none",
-            transition: glide ? `transform ${CRIB_MOVE}ms cubic-bezier(.2,.7,.3,1)` : "none",
-        } },
-        React.createElement(Fan, { items: backItems(count) })));
-}
 function DealFly({ from, legs, card }) {
     const [idx, setIdx] = React.useState(-1);
     React.useEffect(() => {
@@ -2124,6 +2088,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
                 seatCounts[i] = unplayed.length + played.length;
             }
         }
+        const showCribTurn = showPhase && info && info.isCrib;
         if (discardPhase || (cribbingPhase && !cribGliding)) {
             let k = 0;
             for (let i = 0; i < P; i++) {
@@ -2132,10 +2097,17 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
                 (seats[i].discard || []).forEach((c) => { place[cardId(c)] = { group: "crib", idx: k++, up: false }; });
             }
         }
+        else if (cribbingPhase || cutPhase || phase === "play" || showPhase) {
+            const cribCards = cribbingPhase ? [].concat.apply([], seats.map(function (s) { return s.discard || []; })) : (crib || []);
+            const g = showCribTurn ? "showcrib" : "cribhome";
+            cribCards.forEach((c, k) => { place[cardId(c)] = { group: g, idx: k, up: !!showCribTurn }; });
+        }
         if (starter && (phase === "play" || showPhase || overPhase))
             place[cardId(starter)] = { group: "deck", idx: 0, up: true };
     }
     const handLen = (place && Object.values(place).filter((p) => p.group === "hand").length) || 0;
+    const cribhomeN = Object.values(place).filter((p) => p.group === "cribhome").length;
+    const showcribN = Object.values(place).filter((p) => p.group === "showcrib").length;
     const [homes, setHomes] = React.useState({});
     const homesRef = React.useRef({});
     const knownRef = React.useRef(new Set());
@@ -2209,8 +2181,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
         const phaseAtLast = dealPhaseRef.current;
         dealPhaseRef.current = phase;
         const prevPlace = prevPlaceRef.current;
-        const gatherGone = goneCards.filter((id) => !(prevPlace[id] && prevPlace[id].group === "crib"));
-        const vanishGone = goneCards.filter((id) => prevPlace[id] && prevPlace[id].group === "crib");
+        const gatherGone = goneCards;
         const pone = (dealerIdx + 1) % P;
         const dealRank = (id) => {
             const p = place[id];
@@ -2332,12 +2303,6 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
                 setHomes(homesRef.current);
             }));
         }
-        if (vanishGone.length) {
-            const next = { ...homesRef.current };
-            vanishGone.forEach((id) => { delete next[id]; delete delayRef.current[id]; });
-            homesRef.current = next;
-            setHomes(next);
-        }
         if (gatherGone.length) {
             const drop = gatherGone.slice();
             setTimeout(() => {
@@ -2406,6 +2371,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
     return (React.createElement("div", { ref: tableRef, style: { position: "relative", marginTop: 6, display: "flex", flexDirection: "column", gap: 10 } },
         React.createElement("div", { style: { position: "absolute", inset: 0, pointerEvents: "none", zIndex: 5 } },
             React.createElement("div", { style: { position: "relative", width: "100%", height: "100%", pointerEvents: "none" } }, sprites)),
+        cribhomeN > 0 && (React.createElement("div", { "data-slot": "cribhome", style: { position: "absolute", top: -6, right: 0, display: "flex", alignItems: "flex-end", visibility: "hidden", zIndex: 4 } }, Array.from({ length: cribhomeN }).map((_, k) => (React.createElement("div", { key: k, style: { width: "var(--cw)", aspectRatio: "68 / 96", flex: "0 0 auto", marginLeft: k === 0 ? 0 : `calc(var(--cw) * ${-(1 - BACK_VISIBLE)})` } }))))),
         ts.top.length > 0 && (React.createElement("div", { style: { display: "grid", gridTemplateColumns: `repeat(${ts.top.length}, 1fr)`, gap: 8 } }, ts.top.map(cell))),
         React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 8, padding: "0 6px" } },
             React.createElement("div", { style: { minWidth: 0 } }, ts.left != null ? cell(ts.left) : null),
@@ -2425,7 +2391,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
             React.createElement("div", { style: { fontWeight: 700, fontSize: 15 } }, isDealer ? tr("play.deal.yours") : teammateDeals ? tr("play.deal.teammate", { seat: seatName(dealerIdx) }) : tr("play.deal.theirs", { seat: seatName(dealerIdx) })),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 } }, dealBlurb(P)))) : showPhase ? (info.isCrib ? (React.createElement("div", { style: { background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "12px", minHeight: 88, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 } },
             React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: T.muted } }, tr("play.show.entCounting", { ent: entText(info), step: stepLabel })),
-            React.createElement(Fan, { items: cardItems(info.cards) }))) : (React.createElement(Panel, null,
+            React.createElement("div", { "data-slot": "showcrib", style: { display: "flex", alignItems: "flex-end", justifyContent: "center", height: "var(--ch)", visibility: "hidden" } }, Array.from({ length: Math.max(showcribN, (info.cards || []).length) }).map((_, k) => (React.createElement("div", { key: k, style: { width: "var(--cw)", aspectRatio: "68 / 96", flex: "0 0 auto", marginLeft: k === 0 ? 0 : `calc(var(--cw) * ${-(1 - STACK_VISIBLE)})` } })))))) : (React.createElement(Panel, null,
             React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline" } },
                 React.createElement("div", { style: { fontWeight: 700, fontSize: 15 } }, tr("play.show.title", { ent: entText(info) })),
                 React.createElement("span", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted } }, tr("play.show.counting", { step: stepLabel }))),
@@ -2674,7 +2640,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.1"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.2"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

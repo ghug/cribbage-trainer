@@ -1039,16 +1039,8 @@ export default function CribbagePlay() {
   const botStr = nB > 0 ? tr(nB === 1 ? "play.hdr.bot" : "play.hdr.bots", { n: nB }) : "";
   const headLine = tr("play.hdr.handed", { p: players }) + teamStr + botStr;
 
-  // Track where the crib pile sits in the discard banner each render, so when the crib completes
-  // and its home mounts behind the score bar, it can glide up from that last gathering spot.
-  const cribBannerRef = React.useRef(null);
-  React.useLayoutEffect(() => {
-    if (phase !== "discard" && phase !== "cribbing") return;
-    const el = document.querySelector('[data-slot="crib"]');
-    if (el) { const r = el.getBoundingClientRect(); if (r.width) cribBannerRef.current = { x: r.left, y: r.top }; }
-  });
   // The "cribbing" hold: once the crib is full, give your card a beat to reach the crib, then let
-  // the crib glide to its home, and only then advance the game (CRIB_DONE → the cut).
+  // the crib glide (crib → cribhome in the card layer), and only then advance the game (CRIB_DONE → cut).
   const [cribGliding, setCribGliding] = React.useState(false);
   useEffect(() => {
     if (phase !== "cribbing") { setCribGliding(false); return; }
@@ -1204,17 +1196,9 @@ export default function CribbagePlay() {
         "--ch": "calc(var(--cw) * 1.41176)",
       }}>
         {settingsOpen && <SettingsPanel settings={settings} dispatch={dispatch} onClose={() => setSettingsOpen(false)} onAbout={() => { setSettingsOpen(false); setAboutOpen(true); }} onHistory={() => { setSettingsOpen(false); setHistoryOpen(true); }} />}
-        {/* Score banner: the boxes sit in a full-width solid bar; the completed crib lives behind
-            it (lower z), tucked up so only its bottom quarter pokes out below the bar, right-aligned. */}
+        {/* Score banner. (The crib is no longer tucked behind it — it's a persistent stack stored
+            at the top-right of the table, owned by PlayScreen's card layer.) */}
         <div style={{ position: "relative" }}>
-          {(() => {
-            // The crib stays tucked in storage through the cut, the play, AND the show — it only
-            // leaves storage when it's its turn to be counted (revealed face-up in the centre).
-            const cribCounting = phase === "show" && state.show && state.show.order[state.show.step] === "CRIB";
-            return (cribGliding || ((phase === "cut" || phase === "play" || phase === "show") && state.crib.length > 0 && !cribCounting)) && (
-              <CribHome count={state.crib.length} bannerRef={cribBannerRef} />
-            );
-          })()}
           <div style={{ position: "relative", zIndex: 1, background: `radial-gradient(120% 200% at 50% -40%, ${T.baizeHi}, ${T.baize})` }}>
             <ScoreRow seats={seats} dealerIdx={dealerIdx} turn={turnNow} winner={phase === "over" ? winner : null}
               onPick={(i) => setHistorySeat((cur) => (cur === i ? null : i))} P={players} teams={teams} />
@@ -1529,32 +1513,8 @@ function SeatFlip({ idx, posRef, onMove, children }) {
 }
 const DEAL_THROW_PAUSE = 300;                     // beat between the deal landing and the discards flying to the crib
 const THROW_STAGGER = 140;                         // gap between your two thrown cards flying to the crib
-const CRIB_PEEK = 0.25;                           // fraction of the crib cards' height that pokes out below the score banner
 const CRIB_THROW_TIME = 880;                      // beat the "cribbing" hold waits for your card to reach the crib before it glides
-const CRIB_MOVE = 840;                            // ms for the full crib to glide from the banner up to its home
-// The completed crib at its home behind the score banner. On mount (the crib just became full)
-// it glides up from wherever it was gathering in the discard banner — `bannerRef` holds that
-// last screen position — to here, as one group.
-function CribHome({ count, bannerRef }) {
-  const ref = React.useRef(null);
-  const [pos, setPos] = React.useState(null);    // {x,y} offset from home; null once settled
-  const [glide, setGlide] = React.useState(false);
-  React.useLayoutEffect(() => {
-    const el = ref.current, b = bannerRef.current;
-    if (!el || !b) return;
-    const r = el.getBoundingClientRect();
-    setPos({ x: b.x - r.left, y: b.y - r.top });   // jump to where it was gathering (before paint)
-    const id = requestAnimationFrame(() => requestAnimationFrame(() => { setGlide(true); setPos({ x: 0, y: 0 }); }));
-    return () => cancelAnimationFrame(id);
-  }, []);
-  return (
-    <div ref={ref} data-slot="cribhome" style={{
-      position: "absolute", right: 0, bottom: `calc(var(--ch) * ${-CRIB_PEEK})`, zIndex: 0, display: "flex", pointerEvents: "none",
-      transform: pos ? `translate(${pos.x}px, ${pos.y}px)` : "none",
-      transition: glide ? `transform ${CRIB_MOVE}ms cubic-bezier(.2,.7,.3,1)` : "none",
-    }}><Fan items={backItems(count)} /></div>
-  );
-}
+const CRIB_MOVE = 840;                            // ms the cribbing hold allows for the crib to glide to its storage spot
 // A card flying through a path of waypoints (`legs`): it mounts at `from`, then steps to each
 // leg's {x,y} at that leg's absolute `delay`, the CSS transition animating each hop. A deck→seat
 // deal is one leg; a card a bot throws gets a second leg (seat→crib).
@@ -1724,21 +1684,31 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
         seatCounts[i] = unplayed.length + played.length;
       }
     }
-    // cards thrown to the crib so far sit (face down) in the discard banner; they stay there
-    // through the brief "cribbing" hold, then — once the glide starts — are handed to CribHome
-    // (behind the score banner), so the persistent layer only owns the crib up to that point.
-    // A bot's card is withheld from the crib until its post-deal throw beat (botThrowReady).
+    // ---- the crib, persistent through its whole life ----
+    // While it's being filled it sits at the discard banner ("crib"); once the cribbing glide
+    // starts it moves to storage ("cribhome", a tucked stack at the top-right of the table) and
+    // stays there through the cut, the play, and the show; when it's the crib's turn to be counted
+    // it animates out to the scoring panel ("showcrib", face up). The same four card objects the
+    // whole time — never destroyed and re-created. (A bot's card is withheld from the crib until
+    // its post-deal throw beat, botThrowReady.)
+    const showCribTurn = showPhase && info && info.isCrib;
     if (discardPhase || (cribbingPhase && !cribGliding)) {
       let k = 0;
       for (let i = 0; i < P; i++) {
         if (discardPhase && !botThrowReady && seats[i].isAI) continue;
         (seats[i].discard || []).forEach((c) => { place[cardId(c)] = { group: "crib", idx: k++, up: false }; });
       }
+    } else if (cribbingPhase || cutPhase || phase === "play" || showPhase) {
+      const cribCards = cribbingPhase ? [].concat.apply([], seats.map(function (s) { return s.discard || []; })) : (crib || []);
+      const g = showCribTurn ? "showcrib" : "cribhome";
+      cribCards.forEach((c, k) => { place[cardId(c)] = { group: g, idx: k, up: !!showCribTurn }; });
     }
     // the starter, turned at the cut, lives on the top of the deck face up
     if (starter && (phase === "play" || showPhase || overPhase)) place[cardId(starter)] = { group: "deck", idx: 0, up: true };
   }
   const handLen = (place && Object.values(place).filter((p) => p.group === "hand").length) || 0;
+  const cribhomeN = Object.values(place).filter((p) => p.group === "cribhome").length;   // crib cards tucked in storage
+  const showcribN = Object.values(place).filter((p) => p.group === "showcrib").length;   // crib cards out for counting
 
   // homes[id] = {x,y,up,z} measured from the (invisible) ghost slots; sprites tween to these.
   const [homes, setHomes] = React.useState({});
@@ -1809,11 +1779,11 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
     const phaseAtLast = dealPhaseRef.current;              // previous (meaningful) phase, for the deal sequence below
     dealPhaseRef.current = phase;
 
-    // gone cards split: a finished hand's cards sweep back to the deck (gather); cards that were
-    // in the crib just vanish here — CribHome (behind the score banner) takes the completed crib.
+    // gone cards all sweep back into the deck (the gather). The crib is now persistent — it never
+    // becomes "gone" mid-hand (it just moves crib → cribhome → showcrib) — so there's no separate
+    // vanish path; it only leaves at the end of the hand, with everything else.
     const prevPlace = prevPlaceRef.current;
-    const gatherGone = goneCards.filter((id) => !(prevPlace[id] && prevPlace[id].group === "crib"));
-    const vanishGone = goneCards.filter((id) => prevPlace[id] && prevPlace[id].group === "crib");
+    const gatherGone = goneCards;
 
     // deal order: cards rank by hand-position then seat, starting at the pone (left of the dealer).
     const pone = (dealerIdx + 1) % P;
@@ -1923,7 +1893,6 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
       else render[id] = targets[id];
     }
     for (const id of gatherGone) render[id] = { x: deckTop.x, y: deckTop.y, up: false, z: 60 };    // sweep back to the deck
-    // vanishGone are simply not carried into render
 
     knownRef.current = nowKnown;
     prevPlaceRef.current = { ...place };
@@ -1946,10 +1915,6 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
         homesRef.current = { ...homesRef.current, ...targets };
         setHomes(homesRef.current);
       }));
-    }
-    if (vanishGone.length) {                                // crib handed to CribHome — drop those sprites at once
-      const next = { ...homesRef.current }; vanishGone.forEach((id) => { delete next[id]; delete delayRef.current[id]; });
-      homesRef.current = next; setHomes(next);
     }
     if (gatherGone.length) {                                // drop the gathered cards once they've reached the deck
       const drop = gatherGone.slice();
@@ -2036,6 +2001,15 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
           {sprites}
         </div>
       </div>
+      {/* invisible storage anchor (top-right): where the persistent crib tucks, face down, from the
+          cribbing glide through the show until it's counted. */}
+      {cribhomeN > 0 && (
+        <div data-slot="cribhome" style={{ position: "absolute", top: -6, right: 0, display: "flex", alignItems: "flex-end", visibility: "hidden", zIndex: 4 }}>
+          {Array.from({ length: cribhomeN }).map((_, k) => (
+            <div key={k} style={{ width: "var(--cw)", aspectRatio: "68 / 96", flex: "0 0 auto", marginLeft: k === 0 ? 0 : `calc(var(--cw) * ${-(1 - BACK_VISIBLE)})` }} />
+          ))}
+        </div>
+      )}
       {/* Fixed grids: every seat owns an equal column whatever it's holding, so the labels
           (and their hands) always center on the same spot in every phase. */}
       {ts.top.length > 0 && (
@@ -2081,10 +2055,15 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
         </Panel>
       ) : showPhase ? (
         info.isCrib ? (
-          // the crib has no seat — reveal it face up here, where the pile/crib normally sits.
+          // the crib has no seat — the persistent crib cards animate out of storage to here (the
+          // showcrib ghost just reserves the slots; the real cards are the sprites, face up).
           <div style={{ background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "12px", minHeight: 88, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
             <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{tr("play.show.entCounting", { ent: entText(info), step: stepLabel })}</span>
-            <Fan items={cardItems(info.cards)} />
+            <div data-slot="showcrib" style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", height: "var(--ch)", visibility: "hidden" }}>
+              {Array.from({ length: Math.max(showcribN, (info.cards || []).length) }).map((_, k) => (
+                <div key={k} style={{ width: "var(--cw)", aspectRatio: "68 / 96", flex: "0 0 auto", marginLeft: k === 0 ? 0 : `calc(var(--cw) * ${-(1 - STACK_VISIBLE)})` }} />
+              ))}
+            </div>
           </div>
         ) : (
           <Panel>

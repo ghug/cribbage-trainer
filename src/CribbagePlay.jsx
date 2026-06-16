@@ -1207,9 +1207,7 @@ export default function CribbagePlay() {
             const n = (state.crib && state.crib.length) ? state.crib.length : [].concat.apply([], seats.map(function (s) { return s.discard || []; })).length;
             return stored && n > 0 && (
               <div data-slot="cribhome" style={{ position: "absolute", right: 0, bottom: `calc(var(--ch) * ${-CRIB_PEEK})`, display: "flex", alignItems: "flex-end", visibility: "hidden", pointerEvents: "none" }}>
-                {Array.from({ length: n }).map((_, k) => (
-                  <div key={k} style={{ width: "var(--cw)", aspectRatio: "68 / 96", flex: "0 0 auto", marginLeft: k === 0 ? 0 : `calc(var(--cw) * ${-(1 - BACK_VISIBLE)})` }} />
-                ))}
+                <SlotGhost n={n} vis={BACK_VISIBLE} />
               </div>
             );
           })()}
@@ -1272,7 +1270,16 @@ const BACK_VISIBLE = 0.3;
 // top-left corner), so the whole pile reads at a glance while taking far less vertical room.
 const PILE_VISIBLE = 0.38;                       // keep the top 38% of each card; clip the bottom 62%
 const cardItems = (cards, vis = STACK_VISIBLE) => (cards || []).map((c) => ({ key: cardId(c), vis, el: <Card card={c} /> }));
-const backItems = (n) => Array.from({ length: n || 0 }).map((_, k) => ({ key: "b" + k, vis: BACK_VISIBLE, el: <CardBack /> }));
+// An invisible run of card-SIZED boxes used purely as measurement anchors for the sprite layer.
+// These are NOT cards — no face, no back, no graphics — just empty footprints that reserve each
+// card's landing spot so a flying sprite knows where to go. The persistent sprites are the one and
+// only visible representation of every card; nothing in the DOM is ever an invisible card. `vis` is
+// the fan overlap (the fraction of each card still showing).
+function SlotGhost({ n, vis = BACK_VISIBLE }) {
+  return Array.from({ length: Math.max(0, n || 0) }).map((_, k) => (
+    <div key={k} style={{ width: "var(--cw)", aspectRatio: "68 / 96", flex: "0 0 auto", marginLeft: k === 0 ? 0 : `calc(var(--cw) * ${-(1 - vis)})` }} />
+  ));
+}
 function Fan({ items, clip, hideFrom, clipBottom }) {
   if (!items.length) return null;
   // `clip` (a fraction of the full card height) keeps only part of each card, hiding the rest
@@ -1831,7 +1838,6 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
       const GATHER_DUR = swap ? MOVE_DUR + 80 : 0;                   // step 1 (consolidate) only when there are cut-for-deal cards
       const dealSpan = (dealList.length - 1) * CARD_STAGGER + MOVE_DUR + 80;
       const ordered = dealList.slice().sort((a, b) => dealRank(a) - dealRank(b));   // pone-first, round-robin
-      const dealDelay = {}; ordered.forEach((id, k) => { dealDelay[id] = k * CARD_STAGGER; });
 
       // STEP 1 (now): every cut-for-deal card slides into the centre deck together (from its seat).
       // The new hand is NOT shown yet — it stays "in" the deck until it's dealt.
@@ -1852,23 +1858,26 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
       animUntilRef.current = t0 + dealStart + dealSpan + 120;   // the ring rotation waits for the WHOLE sequence
       botThrowAtRef.current = animUntilRef.current + 1000;       // bots hold their hands, then throw to the crib 1s after the deal lands
       dealTimersRef.current.push(setTimeout(() => setBotTick((x) => x + 1), dealStart + dealSpan + 120 + 1000));   // release the bots' throw
-      // STEP 3 (t=dealStart): mount the new hand on the (fresh) deck, then deal it out one card at a
-      // time, pone-first (a frame later, so a shared id can't reuse a ridden-out element).
-      dealTimersRef.current.push(setTimeout(() => {
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-          const r2 = { ...homesRef.current };
-          for (const id of dealList) { r2[id] = { x: deckTop.x, y: deckTop.y, up: false, z: 60 }; delayRef.current[id] = 0; }
-          homesRef.current = r2; setHomes(r2);
-          requestAnimationFrame(() => requestAnimationFrame(() => {
-            ordered.forEach((id) => { delayRef.current[id] = dealDelay[id]; });
-            const r3 = { ...homesRef.current };
-            for (const id of dealList) r3[id] = targets[id];
-            homesRef.current = r3; setHomes(r3);
-            clearDeckTimers();
-            ordered.forEach((id) => deckTimers.current.push(setTimeout(() => setDeckShown((v) => Math.max(deckCount, v - 1)), dealDelay[id] + 40)));
+      // STEP 3: deal the new hand ONE CARD AT A TIME off the fresh deck, pone-first round-robin.
+      // Card k appears on the centre deck (face down) at dealStart + k·stagger, then a frame later
+      // flies to its seat. Each card is its OWN element on its OWN timer, so the mount-on-deck and
+      // fly-to-seat commits can never collapse into one — the deck→seat tween is always real and no
+      // card ever pops into a seat out of nowhere. The deck thins by one as each card leaves.
+      clearDeckTimers();
+      ordered.forEach((id, k) => {
+        dealTimersRef.current.push(setTimeout(() => {
+          delayRef.current[id] = 0;
+          const r = { ...homesRef.current };
+          r[id] = { x: deckTop.x, y: deckTop.y, up: false, z: 60 };   // appears ON the deck
+          homesRef.current = r; setHomes(r);
+          requestAnimationFrame(() => requestAnimationFrame(() => {    // a frame later, off it flies
+            const r2 = { ...homesRef.current };
+            r2[id] = targets[id];
+            homesRef.current = r2; setHomes(r2);
+            setDeckShown((v) => Math.max(deckCount, v - 1));
           }));
-        }));
-      }, dealStart));
+        }, dealStart + k * CARD_STAGGER));
+      });
       return;   // STEP 4 (rotate) is handled by the me-lag reading animUntilRef above
     }
 
@@ -1988,9 +1997,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
           <SeatLabel i={i} dealerIdx={dealerIdx} active={activeSeat(i)} settings={settings} me={me} />
         </div>
         <div data-slot={"seat-" + i} style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)", visibility: "hidden" }}>
-          {Array.from({ length: Math.max(0, n) }).map((_, k) => (
-            <div key={k} style={{ width: "var(--cw)", aspectRatio: "68 / 96", flex: "0 0 auto", marginLeft: k === 0 ? 0 : `calc(var(--cw) * ${-(1 - BACK_VISIBLE)})` }} />
-          ))}
+          <SlotGhost n={n} vis={BACK_VISIBLE} />
         </div>
       </div>
     );
@@ -2073,9 +2080,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
           <div style={{ background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "12px", minHeight: 88, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
             <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{tr("play.show.entCounting", { ent: entText(info), step: stepLabel })}</span>
             <div data-slot="showcrib" style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", height: "var(--ch)", visibility: "hidden" }}>
-              {Array.from({ length: Math.max(showcribN, (info.cards || []).length) }).map((_, k) => (
-                <div key={k} style={{ width: "var(--cw)", aspectRatio: "68 / 96", flex: "0 0 auto", marginLeft: k === 0 ? 0 : `calc(var(--cw) * ${-(1 - STACK_VISIBLE)})` }} />
-              ))}
+              <SlotGhost n={Math.max(showcribN, (info.cards || []).length)} vis={STACK_VISIBLE} />
             </div>
           </div>
         ) : (
@@ -2096,9 +2101,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding })
             <div style={{ fontWeight: 700, fontSize: 15, minWidth: 0 }}>{multiHuman ? tr("play.crib.seatPrefix", { seat: seatName(me) }) : ""}{isDealer ? tr("play.crib.greedy") : teammateDeals ? tr("play.crib.teamGreedy", { seat: seatName(dealerIdx) }) : tr("play.crib.defend", { seat: seatName(dealerIdx) })}</div>
             {cribSoFar > 0 && !cribGliding && (
               <div data-slot="crib" style={{ flex: "0 0 auto", display: "flex", alignItems: "flex-end", visibility: "hidden" }}>
-                {Array.from({ length: cribSoFar }).map((_, k) => (
-                  <div key={k} style={{ width: "var(--cw)", aspectRatio: "68 / 96", flex: "0 0 auto", marginLeft: k === 0 ? 0 : `calc(var(--cw) * ${-(1 - BACK_VISIBLE)})` }} />
-                ))}
+                <SlotGhost n={cribSoFar} vis={BACK_VISIBLE} />
               </div>
             )}
           </div>

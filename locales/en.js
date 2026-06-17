@@ -242,6 +242,8 @@ cribbageLocale("en", {
   "landing.setNames": "Edit player names",
   "landing.saveNames": "Lock-in player names",
   "landing.resetNames": "Reset names",
+  "landing.resetNames.title": "Reset names?",
+  "landing.resetNames.body": "This clears all custom player names back to the compass defaults.",
   "landing.teams": "Teams",
   "landing.teamsNote": "— how the table splits up",
   "landing.language": "Language",

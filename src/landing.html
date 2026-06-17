@@ -309,11 +309,23 @@
     </div>
   </div>
 
+  <div class="overlay" id="confirmResetNamesOverlay" style="z-index:110" role="dialog" aria-modal="true" aria-label="Reset names" data-i18n-aria="landing.resetNames.title">
+    <div class="modal" style="max-width:340px">
+      <h2 style="margin:0 0 6px" data-i18n="landing.resetNames.title">Reset names?</h2>
+      <p data-i18n="landing.resetNames.body">This clears all custom player names back to the compass defaults.</p>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button class="btn btn-ghost" id="resetNamesCancel" type="button" style="flex:1" data-i18n="common.cancel">Cancel</button>
+        <button class="btn" id="resetNamesConfirm" type="button" style="flex:1;background:linear-gradient(180deg,var(--pegRed),#9c3120);color:var(--ivory);border:none" data-i18n="settings.reset.confirm">Reset</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     (function () {
       var s = document.getElementById('settingsOverlay');
       var a = document.getElementById('aboutOverlay');
       var c = document.getElementById('confirmResetOverlay');
+      var cn = document.getElementById('confirmResetNamesOverlay');
       function open(el) { el.classList.add('open'); }
       function close(el) { el.classList.remove('open'); }
 
@@ -610,10 +622,14 @@
       renderPlayers();
       renderTeams();
       document.getElementById('namesBtn').addEventListener('click', toggleNamesEdit);
-      // Reset names: clear every custom name back to the compass defaults (stays in edit mode if open).
-      document.getElementById('resetNamesBtn').addEventListener('click', function () {
+      // Reset names: confirm first, then clear every custom name back to the compass defaults
+      // (stays in edit mode if open).
+      document.getElementById('resetNamesBtn').addEventListener('click', function () { open(cn); });
+      document.getElementById('resetNamesCancel').addEventListener('click', function () { close(cn); });
+      document.getElementById('resetNamesConfirm').addEventListener('click', function () {
         settings.names = []; saveSettings(settings);
         renderSeatDiagram(); renderNamesButton();
+        close(cn);
       });
       renderNamesButton();
 
@@ -641,11 +657,11 @@
       });
       document.getElementById('footerAbout').addEventListener('click', function () { open(a); });
       document.getElementById('aboutDone').addEventListener('click', function () { close(a); });
-      [s, a, c].forEach(function (el) {
+      [s, a, c, cn].forEach(function (el) {
         el.addEventListener('click', function (e) { if (e.target === el) close(el); });
       });
       document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') { close(s); close(a); close(c); }
+        if (e.key === 'Escape') { close(s); close(a); close(c); close(cn); }
       });
     })();
   </script>

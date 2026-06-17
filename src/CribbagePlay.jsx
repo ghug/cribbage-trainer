@@ -1320,7 +1320,7 @@ export default function CribbagePlay() {
 
 
         {(phase === "cutdeal" || phase === "deal" || phase === "dealing" || phase === "discard" || phase === "cribbing" || phase === "cut" || (phase === "show" && show) || (phase === "play" && peg) || phase === "over") && (
-          <PlayScreen state={state} dispatch={dispatch} me={phase === "discard" ? ds : (phase === "play" && peg && multiHuman) ? peg.turn : (multiHuman && (phase === "cutdeal" || phase === "deal" || phase === "dealing")) ? dealerIdx : playMe} needHandoff={needHandoff} cribGliding={cribGliding} onView={setViewSeat} />
+          <PlayScreen state={state} dispatch={dispatch} me={phase === "discard" ? ds : phase === "cut" ? (dealerIdx + players - 1) % players : (phase === "play" && peg && multiHuman) ? peg.turn : (multiHuman && (phase === "cutdeal" || phase === "deal" || phase === "dealing")) ? dealerIdx : playMe} needHandoff={needHandoff} cribGliding={cribGliding} onView={setViewSeat} />
         )}
       </main>
 
@@ -2464,7 +2464,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
       ) : cutPhase ? (
         // Manual cut: always a deliberate tap that turns the starter — you cut it yourself, or you
         // tap to turn it on a bot cutter's behalf. (Auto-cut skips straight past this phase.)
-        bigBtn(seatIsHuman(cutter, settings) ? tr("play.btn.cutFor", { seat: seatName(dealerIdx) }) : tr("play.cutMsg", { seat: seatName(cutter) }), () => dispatch({ type: "CUT" }), "wood")
+        bigBtn(seatIsHuman(cutter, settings) ? tr("play.btn.cutFor", { seat: seatName(cutter) }) : tr("play.cutMsg", { seat: seatName(cutter) }), () => dispatch({ type: "CUT" }), "wood")
       ) : cribbingPhase ? null : (transitioning || rotating) ? null : needHandoff ? <PassPanel to={discardPhase ? me : peg.turn} dispatch={dispatch} locked={rotating} /> : (
       <div>
         {pending && (discardPhase

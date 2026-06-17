@@ -496,6 +496,27 @@ function buildNote(cribIsOurs, best, chosen) {
   return tr("trainer.note.close", { phrase, delta: delta.toFixed(2) });
 }
 
+// A centered overlay modal (backdrop + card), identical to the Play game's, so the settings menu
+// looks the same across pages.
+function Modal({ onBackdrop, maxWidth = 380, padding = "20px", scroll = false, zIndex = 220, cardStyle, children }) {
+  return (
+    <div onClick={onBackdrop} style={{ position: "fixed", inset: 0, zIndex, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ maxWidth, width: "100%", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding, boxShadow: "0 14px 44px rgba(0,0,0,0.55)", ...(scroll ? { maxHeight: "86vh", overflowY: "auto" } : null), ...cardStyle }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+// The title-left / Done-button-right header the modals share.
+function ModalHeader({ title, onClose, closeLabel, mb = 12, children }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: mb, flex: "0 0 auto" }}>
+      {children != null ? children : <span style={{ fontWeight: 700, fontSize: 17 }}>{title}</span>}
+      <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>{closeLabel || tr("common.done")}</button>
+    </div>
+  );
+}
+
 // Shared segmented-button style (selected vs not), matching the Play game's settings rows.
 const segStyle = (on) => ({
   flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: 11.5,
@@ -540,11 +561,10 @@ function SettingsPanel({ settings, onSet, onReset, onClose, onAbout }) {
   );
   const off = tr("common.off"), on = tr("common.on"), manual = tr("common.manual"), auto = tr("common.auto");
   return (
-    <div style={{ background: "rgba(0,0,0,0.32)", border: `1px solid ${T.line}`, borderRadius: 12, padding: "14px 16px 4px", marginBottom: 16 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+    <Modal onBackdrop={onClose} maxWidth={420} padding="14px 16px 4px" scroll cardStyle={{ maxHeight: "88vh" }}>
+      <ModalHeader title={tr("settings.title")} onClose={onClose}>
         <span style={{ fontWeight: 700, fontSize: 16 }}>{tr("settings.title")}</span>
-        <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>{tr("common.done")}</button>
-      </div>
+      </ModalHeader>
       <SettingsSection title={tr("settings.group.controls")} defaultOpen>
         <Row title={tr("settings.tapToSelect.title")} k="tapToSelect" desc={tr("settings.tapToSelect.desc")} options={[[off, false], [on, true]]} />
         <Row title={tr("settings.warn.title")} k="warn" desc={tr("settings.warn.desc")} options={[[on, true], [off, false]]} />
@@ -568,7 +588,12 @@ function SettingsPanel({ settings, onSet, onReset, onClose, onAbout }) {
       <LanguageRow />
       <button onClick={onReset} style={{ width: "100%", margin: "2px 0 0", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12, fontWeight: 700 }}>{tr("settings.resetDefaults")}</button>
       <AboutRow onAbout={onAbout} />
-    </div>
+      <button onClick={onClose} style={{
+        width: "100%", margin: "12px 0 10px", padding: "12px", borderRadius: 9, border: "none", cursor: "pointer",
+        background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory,
+        fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+      }}>{tr("common.done")}</button>
+    </Modal>
   );
 }
 

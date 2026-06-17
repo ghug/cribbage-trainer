@@ -1189,6 +1189,8 @@ export default function CribbagePlay() {
   const teams = clampTeams(players, settings.teams);
   const multiHuman = nHumans(players, settings) > 1;            // 2+ humans → hot-seat hand-off
   const allBot = nHumans(players, settings) === 0;             // spectated table: always auto-deal + auto-cut, never "you" framing
+  const cutterSeat = (dealerIdx + players - 1) % players;      // the seat right of the dealer cuts for the starter
+  const humanCuts = seatIsHuman(cutterSeat, settings);        // only a human cutter is ever prompted to cut
   setSeatNames(players, soleHuman(players, settings));
   setSeatCustom(settings.names);
   const ds = state.discardSeat != null ? state.discardSeat : 0; // active discarder
@@ -1296,13 +1298,13 @@ export default function CribbagePlay() {
   }, [phase, settings.autoDiscardBest, autoPaused, ds, needHandoff]);
   useEffect(() => {
     if (phase !== "cut" || autoPaused) return;
-    // Only auto-cut turns the starter on a timer. In MANUAL mode the cut is always a deliberate,
-    // visible step — a tap — even when a bot is the one cutting (you're not skipped past it).
-    // An all-bot table always auto-triggers the cut, regardless of the setting.
-    if (!settings.autoCut && !allBot) return;
+    // Auto-cut turns the starter on a timer. A MANUAL cut is only ever prompted for a HUMAN cutter —
+    // a bot is never asked to cut (it auto-cuts), and an all-bot table always auto-cuts. So the only
+    // case that waits for a tap is a human cutter in manual mode.
+    if (!settings.autoCut && !allBot && humanCuts) return;
     const t = setTimeout(() => dispatch({ type: "CUT" }), 650);
     return () => clearTimeout(t);
-  }, [phase, autoPaused, settings.autoCut, dealerIdx, players, settings, allBot]);
+  }, [phase, autoPaused, settings.autoCut, dealerIdx, players, settings, allBot, humanCuts]);
   useEffect(() => {
     if (phase !== "show" || !show || show.scored) return;
     const info = computeShow(state);
@@ -1404,7 +1406,7 @@ export default function CribbagePlay() {
 
 
         {(phase === "cutdeal" || phase === "deal" || phase === "dealing" || phase === "discard" || phase === "cribbing" || phase === "cut" || (phase === "show" && show) || (phase === "play" && peg) || phase === "over") && (
-          <PlayScreen state={state} dispatch={dispatch} me={phase === "discard" ? ds : phase === "cut" ? (dealerIdx + players - 1) % players : (phase === "play" && peg && multiHuman) ? peg.turn : (multiHuman && (phase === "cutdeal" || phase === "deal" || phase === "dealing")) ? dealerIdx : playMe} needHandoff={needHandoff} cribGliding={cribGliding} onView={setViewSeat} onSwap={setDealLocked} />
+          <PlayScreen state={state} dispatch={dispatch} me={phase === "discard" ? ds : (phase === "cut" && multiHuman && humanCuts) ? cutterSeat : (phase === "play" && peg && multiHuman) ? peg.turn : (multiHuman && (phase === "cutdeal" || phase === "deal" || phase === "dealing")) ? dealerIdx : playMe} needHandoff={needHandoff} cribGliding={cribGliding} onView={setViewSeat} onSwap={setDealLocked} />
         )}
       </main>
 
@@ -2554,9 +2556,12 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
               {bigBtn(multiHuman ? tr("play.dealAs", { seat: seatName(dealerIdx) }) : isDealer ? tr("play.deal") : tr("play.dealCrib", { seat: seatName(dealerIdx) }), () => dispatch({ type: "DEAL" }), "wood")}
             </div>)
       ) : cutPhase ? (
-        // Manual cut: always a deliberate tap that turns the starter — you cut it yourself, or you
-        // tap to turn it on a bot cutter's behalf. (Auto-cut skips straight past this phase.)
-        bigBtn(seatIsHuman(cutter, settings) ? tr("play.btn.cutFor", { seat: seatName(cutter) }) : tr("play.cutMsg", { seat: seatName(cutter) }), () => dispatch({ type: "CUT" }), "wood")
+        // Manual cut: a deliberate tap that turns the starter, shown ONLY when a human is the cutter.
+        // A bot cutter is never prompted — it auto-cuts (see the auto-cut effect); auto-cut likewise
+        // skips this phase entirely.
+        seatIsHuman(cutter, settings)
+          ? bigBtn(tr("play.btn.cutFor", { seat: seatName(cutter) }), () => dispatch({ type: "CUT" }), "wood")
+          : null
       ) : cribbingPhase ? null : (transitioning || rotating) ? null : needHandoff ? <PassPanel to={discardPhase ? me : peg.turn} dispatch={dispatch} locked={rotating} /> : (
       <div>
         {pending && (discardPhase

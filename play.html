@@ -834,7 +834,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.62";
+const APP_VERSION = "1.1.20-dev.63";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -1733,6 +1733,8 @@ function CribbagePlay() {
     const teams = clampTeams(players, settings.teams);
     const multiHuman = nHumans(players, settings) > 1;
     const allBot = nHumans(players, settings) === 0;
+    const cutterSeat = (dealerIdx + players - 1) % players;
+    const humanCuts = seatIsHuman(cutterSeat, settings);
     setSeatNames(players, soleHuman(players, settings));
     setSeatCustom(settings.names);
     const ds = state.discardSeat != null ? state.discardSeat : 0;
@@ -1851,11 +1853,11 @@ function CribbagePlay() {
     useEffect(() => {
         if (phase !== "cut" || autoPaused)
             return;
-        if (!settings.autoCut && !allBot)
+        if (!settings.autoCut && !allBot && humanCuts)
             return;
         const t = setTimeout(() => dispatch({ type: "CUT" }), 650);
         return () => clearTimeout(t);
-    }, [phase, autoPaused, settings.autoCut, dealerIdx, players, settings, allBot]);
+    }, [phase, autoPaused, settings.autoCut, dealerIdx, players, settings, allBot, humanCuts]);
     useEffect(() => {
         if (phase !== "show" || !show || show.scored)
             return;
@@ -1938,7 +1940,7 @@ function CribbagePlay() {
                     msgLog.length)),
                 React.createElement("span", { style: { flex: "1 1 auto", minWidth: 0, fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: "18px", whiteSpace: "nowrap", overflow: "hidden", textDecoration: msgLog.length ? "underline dotted rgba(236,224,182,0.45)" : "none", textUnderlineOffset: 3 } }, message)),
             msgLogOpen && React.createElement(MessageLogModal, { log: msgLog, onClose: () => setMsgLogOpen(false) }),
-            (phase === "cutdeal" || phase === "deal" || phase === "dealing" || phase === "discard" || phase === "cribbing" || phase === "cut" || (phase === "show" && show) || (phase === "play" && peg) || phase === "over") && (React.createElement(PlayScreen, { state: state, dispatch: dispatch, me: phase === "discard" ? ds : phase === "cut" ? (dealerIdx + players - 1) % players : (phase === "play" && peg && multiHuman) ? peg.turn : (multiHuman && (phase === "cutdeal" || phase === "deal" || phase === "dealing")) ? dealerIdx : playMe, needHandoff: needHandoff, cribGliding: cribGliding, onView: setViewSeat, onSwap: setDealLocked }))),
+            (phase === "cutdeal" || phase === "deal" || phase === "dealing" || phase === "discard" || phase === "cribbing" || phase === "cut" || (phase === "show" && show) || (phase === "play" && peg) || phase === "over") && (React.createElement(PlayScreen, { state: state, dispatch: dispatch, me: phase === "discard" ? ds : (phase === "cut" && multiHuman && humanCuts) ? cutterSeat : (phase === "play" && peg && multiHuman) ? peg.turn : (multiHuman && (phase === "cutdeal" || phase === "deal" || phase === "dealing")) ? dealerIdx : playMe, needHandoff: needHandoff, cribGliding: cribGliding, onView: setViewSeat, onSwap: setDealLocked }))),
         aboutOpen && React.createElement(AboutModal, { onClose: () => setAboutOpen(false) }),
         historyOpen && React.createElement(HistoryModal, { onClose: () => setHistoryOpen(false) }),
         confirmHome && (React.createElement(Modal, { onBackdrop: () => setConfirmHome(false), maxWidth: 360, padding: "18px", zIndex: 200 },
@@ -2795,7 +2797,9 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
                             React.createElement("span", null,
                                 " ",
                                 tr("play.cfg.tapChange")))),
-                        bigBtn(multiHuman ? tr("play.dealAs", { seat: seatName(dealerIdx) }) : isDealer ? tr("play.deal") : tr("play.dealCrib", { seat: seatName(dealerIdx) }), () => dispatch({ type: "DEAL" }), "wood")))) : cutPhase ? (bigBtn(seatIsHuman(cutter, settings) ? tr("play.btn.cutFor", { seat: seatName(cutter) }) : tr("play.cutMsg", { seat: seatName(cutter) }), () => dispatch({ type: "CUT" }), "wood")) : cribbingPhase ? null : (transitioning || rotating) ? null : needHandoff ? React.createElement(PassPanel, { to: discardPhase ? me : peg.turn, dispatch: dispatch, locked: rotating }) : (React.createElement("div", null,
+                        bigBtn(multiHuman ? tr("play.dealAs", { seat: seatName(dealerIdx) }) : isDealer ? tr("play.deal") : tr("play.dealCrib", { seat: seatName(dealerIdx) }), () => dispatch({ type: "DEAL" }), "wood")))) : cutPhase ? (seatIsHuman(cutter, settings)
+            ? bigBtn(tr("play.btn.cutFor", { seat: seatName(cutter) }), () => dispatch({ type: "CUT" }), "wood")
+            : null) : cribbingPhase ? null : (transitioning || rotating) ? null : needHandoff ? React.createElement(PassPanel, { to: discardPhase ? me : peg.turn, dispatch: dispatch, locked: rotating }) : (React.createElement("div", null,
             pending && (discardPhase
                 ? React.createElement(DiscardWarning, { pd: pending, cribIsOurs: cribOurs, dispatch: dispatch, onCancel: () => setSel([]) })
                 : React.createElement(PlayWarning, { pp: pending, dispatch: dispatch })),
@@ -2981,7 +2985,7 @@ function AboutModal({ onClose }) {
                 background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
             } }, tr("about.sourceLink")),
         React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-        React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.62")));
+        React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.63")));
 }
 function MessageLogModal({ log, onClose }) {
     const scrollRef = React.useRef(null);

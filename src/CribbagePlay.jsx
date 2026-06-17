@@ -2091,15 +2091,16 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
           {sprites}
         </div>
       </div>
-      {/* The crib's stored home: a vertical stack pinned to the VIEWPORT (position:fixed) — 75% off
-          its LEFT edge (only the right 25% shows) and centred on viewport HEIGHT. Fixed makes both
-          axes viewport-relative: top:50% is mid-screen, and `50% - 50vw` is exactly the viewport's
-          left edge, so the −0.75·cw nudge parks the card 75% off-screen on any size. The pile's top
-          card sits at the bottom, deeper cards above it (80% overlap). The crib sprites measure these
-          ghost footprints (re-measured on viewport resize) and tuck here. */}
+      {/* The crib's stored home: a vertical stack parked 75% off the LEFT edge of the VIEWPORT (only
+          the right 25% shows) and centred vertically on the PLAY SCREEN (the table). Absolute inside
+          the table: top:50% centres it on the table's height, while `50% - 50vw` still resolves to
+          the viewport's left edge (the table is horizontally centred), so the −0.75·cw nudge parks
+          the card 75% off-screen-left on any size. The pile's top card sits at the bottom, deeper
+          cards above it (80% overlap). The crib sprites measure these footprints (re-measured on
+          viewport resize) and tuck here. */}
       {cribStored && cribHomeN > 0 && (
         <div data-slot="cribhome" style={{
-          position: "fixed", left: "calc(50% - 50vw - var(--cw) * 0.75)", top: "50%", transform: "translateY(-50%)",
+          position: "absolute", left: "calc(50% - 50vw - var(--cw) * 0.75)", top: "50%", transform: "translateY(-50%)",
           width: "var(--cw)", height: `calc(var(--ch) * ${1 + (cribHomeN - 1) * CRIB_HOME_VISIBLE})`,
           visibility: "hidden", pointerEvents: "none",
         }}>

@@ -1620,7 +1620,7 @@ function DealFly({ from, legs, card }) {
 // The persistent card layer's per-card move/flip timing. One element per card lives from
 // the deal to the reshuffle; every phase just hands it a new home and the browser tweens it.
 const MOVE_DUR = 460;                              // base ms for a card to glide to a new home / flip
-const DEAL_DUR = 115;                              // a dealt card flies fast — a quarter of a normal move (twice as fast again)
+const DEAL_DUR = 38;                               // a dealt card flies very fast (3x faster again)
 const CARD_STAGGER = 210;                          // gap between successive cards in a multi-card sweep (deal/gather)
 const SWAP_DUR = 520;                              // ms for the old deck to slide out / the new deck to slide in
 const EMPTY_DUR = 240;                             // empty beat between the old deck leaving and the new deck arriving

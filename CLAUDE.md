@@ -243,6 +243,14 @@ layout) is derived from the player count via `plan(P, dealerIdx)` / `tableSeats(
   stiffens defense (`cribW 1.3`); `ev` (the whole early/mid game) is **board-neutral, bit-for-bit
   the old pure-EV pick**. `RISK = 0.5`, `cribW` adjusts on defense only — same constants as the
   trainer's `analyze`.
+- **Per-seat bot difficulty** (`easy`/`medium`/`hard`, set by tapping the landing seat diagram — the
+  cycle is human → easy → medium → hard → human). `settings.seats[i]` now holds `"human"` or a level
+  string; legacy `"bot"` and any unconfigured bot seat default to **`hard`** (today's strongest play),
+  so existing games are unchanged. `seatLevel(i,settings)` reads it; `BOT_SKILL[level]` gives
+  `{discardNoise, pegSkill}`: `aiDiscardN` adds uniform ±`discardNoise` points to each throw's
+  objective before argmax (hard = 0 → exact pick), and the pegging effect uses `pegChoose` with
+  probability `pegSkill` else a random legal card (hard = 1 → always greedy). easy = `{2.0, 0.35}`,
+  medium = `{0.8, 0.65}`, hard = `{0, 1}`.
 - **Interactive pegging**: a self-clocking `useEffect` keyed on the peg state. A
   human with a legal card blocks for a tap; bots move and all forced "go"s fire on a
   timer. The reducer mirrors the verified `playPegging` mechanics exactly (15/31/

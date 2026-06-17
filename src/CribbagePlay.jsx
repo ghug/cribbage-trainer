@@ -140,6 +140,16 @@ const twoCombos = (n) => { const out = []; for (let i = 0; i < n; i++) for (let 
 
 const RISK = 0.5; // weight on kept-hand volatility for the board-position discard tilt
 
+// Per-bot difficulty knobs (set per seat on the landing diagram). `discardNoise` = uniform ± points
+// of noise added to each candidate throw's objective before argmax (a weaker bot wanders off the
+// best throw); `pegSkill` = probability the bot plays its pegging card with the greedy `pegChoose`
+// (else a random legal card). "hard" (0 / 1) is the unchanged, strongest play.
+const BOT_SKILL = {
+  easy: { discardNoise: 2.0, pegSkill: 0.35 },
+  medium: { discardNoise: 0.8, pegSkill: 0.65 },
+  hard: { discardNoise: 0, pegSkill: 1 },
+};
+
 // A bot's board-position mood, mirroring the trainer's suggestMode but scaled to this game's target
 // (5/6-handed plays to 61, not 121). Compares the seat's team score to the leading OTHER team.
 function botSuggestMode(you, leader, target) {
@@ -162,12 +172,13 @@ function botBoardMode(seat, seats, P, teams) {
 // (+RISK·sd) and eases off crib defense; "protect" (big lead, late) damps volatility (−RISK·sd) and
 // stiffens crib defense. "ev" (the whole early/mid game) is board-neutral, exactly as before.
 // Returns { discard: [cards], kept: [cards] } — discard is always an array.
-function aiDiscardN(dealt, seat, dealerIdx, n, P, teams, mode = "ev") {
+function aiDiscardN(dealt, seat, dealerIdx, n, P, teams, mode = "ev", level = "hard") {
   const sign = teamOf(seat, P, teams) === teamOf(dealerIdx, P, teams) ? 1 : -1;
   const cribOurs = sign === 1;
   const cribW = (mode === "protect" && !cribOurs) ? 1.3 : (mode === "need" && !cribOurs) ? 0.9 : 1.0;
   const riskSign = mode === "need" ? 1 : mode === "protect" ? -1 : 0;
-  const objective = (four, cribVal) => { const hd = handDetail(four, dealt); return hd.ev + sign * cribW * cribVal + riskSign * RISK * hd.sd; };
+  const noise = (BOT_SKILL[level] || BOT_SKILL.hard).discardNoise;   // easier bots wander off the best throw
+  const objective = (four, cribVal) => { const hd = handDetail(four, dealt); return hd.ev + sign * cribW * cribVal + riskSign * RISK * hd.sd + (noise ? (Math.random() * 2 - 1) * noise : 0); };
   if (n === 2) {
     let best = null, bv = -1e9;
     for (const idxs of twoCombos(dealt.length)) {
@@ -567,9 +578,16 @@ function evalDiscards(dealt, dealerIdx, n, P, teams, seat = 0) {
 // config the default is South (seat 0) human, the rest bots; an explicit role always wins,
 // so even South can be a bot.
 const seatIsHuman = (i, settings) => {
-  const s = settings && settings.seats;
-  if (s && (s[i] === "human" || s[i] === "bot")) return s[i] === "human";
+  const v = settings && settings.seats && settings.seats[i];
+  if (v === "human") return true;
+  if (v === "bot" || v === "easy" || v === "medium" || v === "hard") return false;
   return i === 0;
+};
+// A bot seat's difficulty. Legacy "bot" and any unconfigured bot seat default to "hard" (today's
+// strongest play), so existing games are unchanged; "easy"/"medium" are opt-in from the landing.
+const seatLevel = (i, settings) => {
+  const v = settings && settings.seats && settings.seats[i];
+  return (v === "easy" || v === "medium" || v === "hard") ? v : "hard";
 };
 function nHumans(P, settings) { let c = 0; for (let i = 0; i < P; i++) if (seatIsHuman(i, settings)) c++; return c; }
 // The lone human's seat when exactly one is seated (else -1); and the first human seat (or
@@ -698,7 +716,7 @@ function finalizeDeal(state) {
   // DEAL ORDER here — unsorted — and are sorted only when first shown face-up for a seat's turn.
   for (let i = 0; i < P; i++) {
     if (pl.throws[i] === 0) { seats[i].kept = seats[i].dealt; seats[i].discard = []; }
-    else if (!seatIsHuman(i, state.settings)) { const r = aiDiscardN(seats[i].dealt, i, d, pl.throws[i], P, teams, botBoardMode(i, seats, P, teams)); seats[i].discard = r.discard; seats[i].kept = r.kept; }
+    else if (!seatIsHuman(i, state.settings)) { const r = aiDiscardN(seats[i].dealt, i, d, pl.throws[i], P, teams, botBoardMode(i, seats, P, teams), seatLevel(i, state.settings)); seats[i].discard = r.discard; seats[i].kept = r.kept; }
   }
   const humanThrowers = throwOrder(P, d, state.settings);   // pone first, clockwise, dealer last
   const firstThrower = humanThrowers.length ? humanThrowers[0] : null;
@@ -1290,8 +1308,13 @@ export default function CribbagePlay() {
     }
     const t = setTimeout(() => {
       if (legal.length === 0) { dispatch({ type: "PASS_GO", seat }); return; }
-      const rank = pegChoose(legal.map((c) => c.r), peg.count, peg.pile, hand.map((c) => c.r));
-      const chosen = legal.find((c) => c.r === rank) || legal[0];
+      let chosen;
+      if (Math.random() < (BOT_SKILL[seatLevel(seat, settings)] || BOT_SKILL.hard).pegSkill) {
+        const rank = pegChoose(legal.map((c) => c.r), peg.count, peg.pile, hand.map((c) => c.r));
+        chosen = legal.find((c) => c.r === rank) || legal[0];      // greedy (strong) play
+      } else {
+        chosen = legal[Math.floor(Math.random() * legal.length)];  // easier bots play a random legal card
+      }
       dispatch({ type: "PLAY_CARD", seat, card: chosen });
     }, 760);
     return () => clearTimeout(t);

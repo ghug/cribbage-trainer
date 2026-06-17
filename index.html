@@ -125,10 +125,17 @@
   .seat-table .tlabel{ font-family:var(--mono); font-size:11.5px; line-height:1.45; color:var(--cream); text-align:center }
   .seat{ position:absolute; transform:translate(-50%,-50%); display:flex; flex-direction:column; align-items:center; gap:3px; width:60px }
   button.seat{ background:none; border:none; padding:0; font:inherit; color:inherit; cursor:pointer }
-  .seat .avatar{ width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  .seat .avatar{ position:relative; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center;
     font-size:15px; border:2px solid var(--line); background:rgba(0,0,0,0.28); color:var(--cream); transition:border-color .15s, box-shadow .15s, background .15s }
   .seat-btn.human .avatar{ background:rgba(91,149,194,0.28) }
   .seat.you .avatar{ border-color:#ECDCB4; border-width:4px; color:var(--ivory); box-shadow:0 0 0 3px rgba(236,220,180,0.18) }
+  /* bot difficulty badge, bottom-right corner of the avatar (no extra height) */
+  .seat-diff{ position:absolute; right:-5px; bottom:-4px; min-width:13px; height:13px; padding:0 2px; box-sizing:border-box;
+    border-radius:7px; font-family:var(--mono); font-size:9px; font-weight:700; line-height:13px; text-align:center;
+    color:#10140d; border:1px solid rgba(0,0,0,0.4) }
+  .diff-easy{ background:#3FB57E }
+  .diff-medium{ background:#E6B800 }
+  .diff-hard{ background:#D2553F; color:#fff }
   .seat .seat-name{ font-family:var(--mono); font-size:11px; color:var(--cream); white-space:nowrap }
   .seat.you .seat-name{ color:var(--ivory); font-weight:700 }
   .seat .seat-name-input{ font-family:var(--mono); font-size:11px; color:var(--ivory); width:58px; text-align:center;
@@ -310,6 +317,12 @@ cribbageLocale("en", {
   "common.language": "Language",
   "role.human": "human",
   "role.bot": "bot",
+  "role.easy": "easy bot",
+  "role.medium": "medium bot",
+  "role.hard": "hard bot",
+  "landing.diff.easy": "easy",
+  "landing.diff.medium": "medium",
+  "landing.diff.hard": "hard",
   "app.title": "Cribbage Trainer",
   // compass seat names — full (play game prose/banners) + abbreviations (score columns,
   // landing seat diagram). "You"/"S"/etc. stay the canonical identity keys in code; only
@@ -526,7 +539,7 @@ cribbageLocale("en", {
   // landing — header, nav, footer
   "landing.tagline": "play vs bots or friends and sharpen your discards",
   "landing.playersAtTable": "Players at the table",
-  "landing.seatHint": "Tap any seat to set it as a 🧑 human or 🤖 bot.",
+  "landing.seatHint": "Tap a seat to cycle: 🧑 human, then 🤖 easy / medium / hard bot.",
   "landing.seatHintEdit": "Edit and lock-in player names if you need to adjust any from bot/human",
   "landing.setNames": "Edit player names",
   "landing.saveNames": "Lock-in player names",
@@ -812,7 +825,7 @@ cribbageLocale("en", {
         <div class="pp-segs" id="playersSegs"></div>
       </div>
       <div class="seat-diagram" id="seatDiagram"></div>
-      <div class="seat-hint" data-i18n="landing.seatHint">Tap any seat to set it as a 🧑 human or 🤖 bot.</div>
+      <div class="seat-hint" data-i18n="landing.seatHint">Tap a seat to cycle: 🧑 human, then 🤖 easy / medium / hard bot.</div>
       <div class="players-pick" id="teamsPick">
         <div class="pp-label"><span data-i18n="landing.teams">Teams</span> <span class="pp-note" data-i18n="landing.teamsNote">— how the table splits up</span></div>
         <div class="pp-segs" id="teamsSegs"></div>
@@ -884,7 +897,7 @@ cribbageLocale("en", {
       <a class="btn btn-primary" href="https://github.com/ghug/cribbage-trainer/"
          target="_blank" rel="noopener noreferrer" data-i18n="about.sourceLink">Source, bugs &amp; feedback ↗</a>
       <div class="repo-url" style="margin-bottom:4px">github.com/ghug/cribbage-trainer</div>
-      <div class="repo-url">v1.1.20-dev.69</div>
+      <div class="repo-url">v1.1.20-dev.70</div>
     </div>
   </div>
 
@@ -1028,15 +1041,25 @@ cribbageLocale("en", {
       }
       // Each seat is human or bot (stored in settings.seats). Default: South (seat 0) is a
       // human and the rest bots — but any seat, South included, can be toggled.
+      // A seat is "human" or a bot at one of three difficulties. Legacy "bot" and any unconfigured
+      // bot seat default to "hard" (today's strongest play); seat 0 defaults to human.
+      var SEAT_CYCLE = ['human', 'easy', 'medium', 'hard'];
+      // full i18n keys by role, via a map lookup (a built-up key string would hide it from the lint)
+      var ROLE_KEY = { human: 'role.human', easy: 'role.easy', medium: 'role.medium', hard: 'role.hard' };
+      var DIFF_KEY = { easy: 'landing.diff.easy', medium: 'landing.diff.medium', hard: 'landing.diff.hard' };
       function seatRoles(P) {
         var src = settings.seats || [];
         var r = [];
-        for (var i = 0; i < P; i++) r[i] = (src[i] === 'human') ? 'human' : (src[i] === 'bot') ? 'bot' : (i === 0 ? 'human' : 'bot');
+        for (var i = 0; i < P; i++) {
+          var v = src[i];
+          r[i] = (SEAT_CYCLE.indexOf(v) >= 0) ? v : (v === 'bot' ? 'hard' : (i === 0 ? 'human' : 'hard'));
+        }
         return r;
       }
       function toggleSeatRole(i) {
         var roles = seatRoles(settings.players);
-        roles[i] = roles[i] === 'human' ? 'bot' : 'human';
+        var k = SEAT_CYCLE.indexOf(roles[i]); if (k < 0) k = 0;
+        roles[i] = SEAT_CYCLE[(k + 1) % SEAT_CYCLE.length];   // human → easy → medium → hard → human
         settings.seats = roles; saveSettings(settings); renderSeatDiagram();
       }
       // Per-seat custom name (settings.names[i]) overrides the compass label when set/non-empty.
@@ -1063,6 +1086,8 @@ cribbageLocale("en", {
           var base = baseSeatName(i, names);
           var label = (isYou ? tr('landing.youPrefix') : '') + esc(base);
           var ps = 'left:' + pos[i][0] + '%;top:' + pos[i][1] + '%';
+          // bots show a small colour-coded difficulty badge (first letter of the level) on the avatar
+          var diffBadge = human ? '' : '<span class="seat-diff diff-' + roles[i] + '">' + esc(tr(DIFF_KEY[roles[i]]).charAt(0).toUpperCase()) + '</span>';
           if (editingNames) {
             // Naming mode: the input holds ONLY a real custom name; the compass label is a placeholder.
             // (Pre-filling the value would bake the abbreviation in as a custom name on save, which
@@ -1070,14 +1095,14 @@ cribbageLocale("en", {
             // save as empty, leaving the game's full=direction-name / short=abbreviation defaults.)
             var custom = (settings.names || [])[i] || '';
             html += '<div class="seat ' + roles[i] + (isYou ? ' you' : '') + '" style="' + ps + '">'
-              + '<span class="avatar"' + avStyle + '>' + (human ? '🧑' : '🤖') + '</span>'
+              + '<span class="avatar"' + avStyle + '>' + (human ? '🧑' : '🤖') + diffBadge + '</span>'
               + '<input type="text" class="seat-name-input" data-seat="' + i + '" value="' + esc(custom) + '" placeholder="' + esc(names[i]) + '" aria-label="' + esc(names[i]) + '"></div>';
             continue;
           }
           var cls = 'seat seat-btn ' + roles[i] + (isYou ? ' you' : '');
-          var aria = tr('landing.seatAria', { name: base, role: tr(human ? 'role.human' : 'role.bot') });
+          var aria = tr('landing.seatAria', { name: base, role: tr(ROLE_KEY[roles[i]]) });
           html += '<button type="button" class="' + cls + '" data-seat="' + i + '" style="' + ps + '" aria-label="' + esc(aria) + '">'
-            + '<span class="avatar"' + avStyle + '>' + (human ? '🧑' : '🤖') + '</span><span class="seat-name">' + label + '</span></button>';
+            + '<span class="avatar"' + avStyle + '>' + (human ? '🧑' : '🤖') + diffBadge + '</span><span class="seat-name">' + label + '</span></button>';
         }
         host.innerHTML = html;
         var btns = host.querySelectorAll('.seat-btn');

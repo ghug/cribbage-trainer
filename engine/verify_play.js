@@ -320,7 +320,7 @@ teamsCheck(6, 2, [[0, 2, 4], [1, 3, 5]]);   // every other seat, three to a team
 /* ---- Mixed human/bot games (settings.seats): with 2+ human seats the discard phase
        cycles through each human thrower (discardSeat) and the rest still auto-throw; the
        reducer otherwise drives identically. Drive whole games through the reducer. ---- */
-function seatHuman(i, roles) { return roles[i] === "human" ? true : roles[i] === "bot" ? false : i === 0; }
+function seatHuman(i, roles) { var v = roles[i]; return v === "human" ? true : (v ? false : i === 0); }   // easy/medium/hard/bot are all bots
 function mixedGame(P, roles, seed) {
   // build a cutdeal state then inject the seat roles before dealing
   let state = reduce(reduce(initGame(), { type: "SET_SETTING", key: "autoCut", value: false }), { type: "SET_SETTING", key: "players", value: P });
@@ -360,6 +360,7 @@ mixedGame(6, ["human", "bot", "bot", "human", "bot", "bot"], 2);
 mixedGame(2, ["human", "human"], 3);                 // both human (hot-seat heads-up)
 mixedGame(4, ["bot", "human", "bot", "bot"], 4);     // South is a bot; lone human elsewhere
 mixedGame(4, ["bot", "bot", "bot", "bot"], 5);       // all bots — a spectated game
+mixedGame(4, ["human", "easy", "hard", "medium"], 6); // per-seat bot difficulty levels classify as bots
 
 /* ---- Auto-cut (default on): the cut phase is skipped — after the last discard the state
    goes straight to play with the starter already turned, no visible "cut" phase. ---- */

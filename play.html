@@ -177,6 +177,12 @@ cribbageLocale("en", {
   "common.language": "Language",
   "role.human": "human",
   "role.bot": "bot",
+  "role.easy": "easy bot",
+  "role.medium": "medium bot",
+  "role.hard": "hard bot",
+  "landing.diff.easy": "easy",
+  "landing.diff.medium": "medium",
+  "landing.diff.hard": "hard",
   "app.title": "Cribbage Trainer",
   // compass seat names — full (play game prose/banners) + abbreviations (score columns,
   // landing seat diagram). "You"/"S"/etc. stay the canonical identity keys in code; only
@@ -393,7 +399,7 @@ cribbageLocale("en", {
   // landing — header, nav, footer
   "landing.tagline": "play vs bots or friends and sharpen your discards",
   "landing.playersAtTable": "Players at the table",
-  "landing.seatHint": "Tap any seat to set it as a 🧑 human or 🤖 bot.",
+  "landing.seatHint": "Tap a seat to cycle: 🧑 human, then 🤖 easy / medium / hard bot.",
   "landing.seatHintEdit": "Edit and lock-in player names if you need to adjust any from bot/human",
   "landing.setNames": "Edit player names",
   "landing.saveNames": "Lock-in player names",
@@ -804,6 +810,11 @@ const twoCombos = (n) => { const out = []; for (let i = 0; i < n; i++)
     for (let j = i + 1; j < n; j++)
         out.push([i, j]); return out; };
 const RISK = 0.5;
+const BOT_SKILL = {
+    easy: { discardNoise: 2.0, pegSkill: 0.35 },
+    medium: { discardNoise: 0.8, pegSkill: 0.65 },
+    hard: { discardNoise: 0, pegSkill: 1 },
+};
 function botSuggestMode(you, leader, target) {
     const s = target / 121;
     if (leader >= 106 * s && you < leader)
@@ -820,12 +831,13 @@ function botBoardMode(seat, seats, P, teams) {
             leader = Math.max(leader, seats[i].score);
     return botSuggestMode(seats[seat].score, leader, targetFor(P));
 }
-function aiDiscardN(dealt, seat, dealerIdx, n, P, teams, mode = "ev") {
+function aiDiscardN(dealt, seat, dealerIdx, n, P, teams, mode = "ev", level = "hard") {
     const sign = teamOf(seat, P, teams) === teamOf(dealerIdx, P, teams) ? 1 : -1;
     const cribOurs = sign === 1;
     const cribW = (mode === "protect" && !cribOurs) ? 1.3 : (mode === "need" && !cribOurs) ? 0.9 : 1.0;
     const riskSign = mode === "need" ? 1 : mode === "protect" ? -1 : 0;
-    const objective = (four, cribVal) => { const hd = handDetail(four, dealt); return hd.ev + sign * cribW * cribVal + riskSign * RISK * hd.sd; };
+    const noise = (BOT_SKILL[level] || BOT_SKILL.hard).discardNoise;
+    const objective = (four, cribVal) => { const hd = handDetail(four, dealt); return hd.ev + sign * cribW * cribVal + riskSign * RISK * hd.sd + (noise ? (Math.random() * 2 - 1) * noise : 0); };
     if (n === 2) {
         let best = null, bv = -1e9;
         for (const idxs of twoCombos(dealt.length)) {
@@ -863,7 +875,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.69";
+const APP_VERSION = "1.1.20-dev.70";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -1181,10 +1193,16 @@ function evalDiscards(dealt, dealerIdx, n, P, teams, seat = 0) {
     return { opts, best, sign };
 }
 const seatIsHuman = (i, settings) => {
-    const s = settings && settings.seats;
-    if (s && (s[i] === "human" || s[i] === "bot"))
-        return s[i] === "human";
+    const v = settings && settings.seats && settings.seats[i];
+    if (v === "human")
+        return true;
+    if (v === "bot" || v === "easy" || v === "medium" || v === "hard")
+        return false;
     return i === 0;
+};
+const seatLevel = (i, settings) => {
+    const v = settings && settings.seats && settings.seats[i];
+    return (v === "easy" || v === "medium" || v === "hard") ? v : "hard";
 };
 function nHumans(P, settings) { let c = 0; for (let i = 0; i < P; i++)
     if (seatIsHuman(i, settings))
@@ -1307,7 +1325,7 @@ function finalizeDeal(state) {
             seats[i].discard = [];
         }
         else if (!seatIsHuman(i, state.settings)) {
-            const r = aiDiscardN(seats[i].dealt, i, d, pl.throws[i], P, teams, botBoardMode(i, seats, P, teams));
+            const r = aiDiscardN(seats[i].dealt, i, d, pl.throws[i], P, teams, botBoardMode(i, seats, P, teams), seatLevel(i, state.settings));
             seats[i].discard = r.discard;
             seats[i].kept = r.kept;
         }
@@ -1842,8 +1860,14 @@ function CribbagePlay() {
                 dispatch({ type: "PASS_GO", seat });
                 return;
             }
-            const rank = pegChoose(legal.map((c) => c.r), peg.count, peg.pile, hand.map((c) => c.r));
-            const chosen = legal.find((c) => c.r === rank) || legal[0];
+            let chosen;
+            if (Math.random() < (BOT_SKILL[seatLevel(seat, settings)] || BOT_SKILL.hard).pegSkill) {
+                const rank = pegChoose(legal.map((c) => c.r), peg.count, peg.pile, hand.map((c) => c.r));
+                chosen = legal.find((c) => c.r === rank) || legal[0];
+            }
+            else {
+                chosen = legal[Math.floor(Math.random() * legal.length)];
+            }
             dispatch({ type: "PLAY_CARD", seat, card: chosen });
         }, 760);
         return () => clearTimeout(t);
@@ -3031,7 +3055,7 @@ function AboutModal({ onClose }) {
                 background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
             } }, tr("about.sourceLink")),
         React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-        React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.69")));
+        React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.70")));
 }
 function MessageLogModal({ log, onClose }) {
     const scrollRef = React.useRef(null);

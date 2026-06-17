@@ -1241,7 +1241,7 @@ export default function CribbagePlay() {
 
   return (
     <div style={{
-      minHeight: "100%", background: `radial-gradient(120% 90% at 50% 0%, ${T.baizeHi}, ${T.baize})`,
+      minHeight: "100%", background: T.baizeHi,
       color: T.cream, fontFamily: serif, padding: "0 0 40px",
     }}>
       <style>{`

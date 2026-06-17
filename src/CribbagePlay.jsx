@@ -1408,17 +1408,24 @@ function CardFace({ card, edge }) {
 // up). `dur`/`delay` time the move to a new home. The element holds both faces (front +
 // back rotated 180°) so a face flip is the same rotateY tween as a move. Interactive props
 // (clickable/selected/raised/dim/onClick) apply only when it is the human's live hand card.
-function CardSprite({ card, home, dur, delay, clickable, selected, raised, dim, selLabel, onClick, hidden, onLanded }) {
+function CardSprite({ card, home, dur, delay, clickable, selected, raised, dim, selLabel, onClick, hidden }) {
   const lift = selected || raised ? 8 : 0;                 // selected/raised cards nudge up
   const edge = selected || raised ? T.selBlue : null;
+  // The transform transition is OFF while the card is idle, and turned ON only when its target
+  // actually changes (it's about to move) — then removed again the instant the move ends. So an idle
+  // card carries no transition and can't be animated by an incidental layout change.
+  const key = `${Math.round(home.x)},${Math.round(home.y - lift)},${home.up ? 1 : 0}`;
+  const [moving, setMoving] = React.useState(false);
+  const keyRef = React.useRef(key);
+  if (keyRef.current !== key) { keyRef.current = key; if (!moving) setMoving(true); }   // target changed → animate this move
   return (
     <div onClick={clickable ? onClick : undefined}
-      onTransitionEnd={onLanded ? (e) => { if (e.target === e.currentTarget && e.propertyName === "transform") onLanded(); } : undefined}
+      onTransitionEnd={(e) => { if (e.target === e.currentTarget && e.propertyName === "transform") setMoving(false); }}
       style={{
         position: "absolute", left: 0, top: 0, width: "var(--cw)", height: "var(--ch)",
         transformStyle: "preserve-3d", zIndex: home.z,
         transform: `translate(${home.x}px, ${home.y - lift}px) rotateY(${home.up ? 0 : 180}deg)`,
-        transition: `transform ${dur}ms cubic-bezier(.2,.7,.3,1) ${delay || 0}ms`,
+        transition: moving ? `transform ${dur}ms cubic-bezier(.2,.7,.3,1) ${delay || 0}ms` : "none",
         cursor: clickable ? "pointer" : "default",
         pointerEvents: clickable ? "auto" : "none",
         opacity: hidden ? 0 : (dim ? 0.45 : 1),
@@ -1745,13 +1752,13 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
   const dealJustHappened = phase === "discard" && (phaseTrackRef.current === "dealing" || phaseTrackRef.current === "cutdeal");
   const handEndJustHappened = phase === "deal" && phaseTrackRef.current === "show";   // the show just finished → swap the deck
   useEffect(() => { phaseTrackRef.current = phase; });
-  const botThrowAtRef = React.useRef(0);
+  const botThrowAtRef = React.useRef([]);
   const nowMs = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
-  // Only the LAST card is still in flight when we reach discard (the rest were dealt one-by-one during
-  // "dealing"), so the bots hold for that last card to land, then ~1s, then throw to the crib.
-  if (dealJustHappened) botThrowAtRef.current = nowMs() + MOVE_DUR + 120 + 1000;
+  // Each bot holds its dealt hand a RANDOM 1–3s after the deal, then throws to the crib (so they don't
+  // all throw at once). Per-seat throw times, set when the deal lands.
+  if (dealJustHappened) botThrowAtRef.current = seats.map(() => nowMs() + 1000 + Math.random() * 2000);
   const [, setBotTick] = React.useState(0);
-  const botThrowReady = !(discardPhase && nowMs() < botThrowAtRef.current);
+  const botHolding = (i) => discardPhase && seats[i].isAI && nowMs() < (botThrowAtRef.current[i] || 0);
 
   // ---- the persistent card layer ------------------------------------------------------
   // For each card currently out of the deck, where it should sit and which way it faces.
@@ -1763,7 +1770,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
     for (let i = 0; i < P; i++) { const d = dealDraw ? dealDraw[i] : null; if (d) { place[cardId(d)] = { group: "seat-" + i, idx: 0, up: true }; seatCounts[i] = 1; } else seatCounts[i] = 1; }
   } else if (!dealPhase) {
     for (let i = 0; i < P; i++) {
-      const holding = discardPhase && !botThrowReady && seats[i].isAI;   // bot still holding its full hand
+      const holding = botHolding(i);                                     // bot still holding its full hand (random per-bot beat)
       const unplayed = (holding ? (seats[i].dealt || []) : (hands[i] || []));
       let played = peg ? peg.played[i] : [];
       // During the show, a hand stays in play order until its owner's count turn arrives, then sorts.
@@ -1791,7 +1798,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
     if (discardPhase || (cribbingPhase && !cribGliding)) {
       let k = 0;
       for (let i = 0; i < P; i++) {
-        if (discardPhase && !botThrowReady && seats[i].isAI) continue;
+        if (botHolding(i)) continue;
         (seats[i].discard || []).forEach((c) => { place[cardId(c)] = { group: "crib", idx: k++, up: false }; });
       }
     } else if (cribbingPhase || cutPhase || phase === "play" || showPhase) {
@@ -1842,14 +1849,14 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
     return () => clearTimeout(t);
   }, [dealingPhase, deal && deal.cursor]);
 
-  // When the bots' hold beat ends (set on the deal -> discard transition) re-render so botThrowReady
-  // flips true and their throws reach the crib.
+  // Re-render as EACH bot's random hold beat ends, so its throw reaches the crib at its own time.
   React.useEffect(() => {
     if (!discardPhase) return;
-    const wait = botThrowAtRef.current - nowMs();
-    if (wait <= 0) return;
-    const t = setTimeout(() => setBotTick((x) => x + 1), wait + 30);
-    return () => clearTimeout(t);
+    const timers = (botThrowAtRef.current || []).map((t) => {
+      const wait = t - nowMs();
+      return wait > 0 ? setTimeout(() => setBotTick((x) => x + 1), wait + 30) : null;
+    });
+    return () => timers.forEach((t) => t && clearTimeout(t));
   }, [discardPhase]);
 
   // Sort the human's hand into rank order the moment it's about to be acted on in the clickable hand
@@ -2210,22 +2217,6 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
           {sprites}
         </div>
       </div>
-      {/* The crib's stored home: a vertical stack parked 75% off the LEFT edge of the VIEWPORT (only
-          the right 25% shows) and centred vertically on the PLAY SCREEN (the table). Absolute inside
-          the table: top:50% centres it on the table's height, while `50% - 50vw` still resolves to
-          the viewport's left edge (the table is horizontally centred), so the −0.75·cw nudge parks
-          the card 75% off-screen-left on any size. The pile's top card sits at the bottom, deeper
-          cards above it (80% overlap). The crib sprites measure these footprints (re-measured on
-          viewport resize) and tuck here. */}
-      {cribStored && cribHomeN > 0 && (
-        <div data-slot="cribhome" style={{
-          position: "absolute", left: "calc(50% - 50vw - var(--cw) * 0.75)", top: "50%", transform: "translateY(-50%)",
-          width: "var(--cw)", height: `calc(var(--ch) * ${1 + (cribHomeN - 1) * CRIB_HOME_VISIBLE})`,
-          visibility: "hidden", pointerEvents: "none",
-        }}>
-          <SlotGhostV n={cribHomeN} vis={CRIB_HOME_VISIBLE} />
-        </div>
-      )}
       {/* Fixed grids: every seat owns an equal column whatever it's holding, so the labels
           (and their hands) always center on the same spot in every phase. */}
       {ts.top.length > 0 && (
@@ -2250,8 +2241,21 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
       {/* your own seat at the bottom — rendered through the very same cell() as the others. */}
       {cell(me)}
 
-      {/* middle zone: the crib (face down) before play, the live pile during it. The
-          discard shows the crib-intent banner here instead, the cut-for-deal its own. */}
+      {/* middle zone: the crib (face down) before play, the live pile during it. The discard shows the
+          crib-intent banner here instead, the cut-for-deal its own. The crib's STORED HOME tucks just
+          above this zone — its BOTTOM aligned to this zone's TOP (the pile count banner during play),
+          parked 75% off the left edge of the viewport (50% - 50vw resolves to the viewport's left edge
+          since this zone is horizontally centred). The crib sprites measure these footprints. */}
+      <div style={{ position: "relative" }}>
+      {cribStored && cribHomeN > 0 && (
+        <div data-slot="cribhome" style={{
+          position: "absolute", bottom: "100%", left: "calc(50% - 50vw - var(--cw) * 0.75)",
+          width: "var(--cw)", height: `calc(var(--ch) * ${1 + (cribHomeN - 1) * CRIB_HOME_VISIBLE})`,
+          visibility: "hidden", pointerEvents: "none",
+        }}>
+          <SlotGhostV n={cribHomeN} vis={CRIB_HOME_VISIBLE} />
+        </div>
+      )}
       {overPhase ? (
         <Panel tone="good">
           <div style={{ fontWeight: 700, fontSize: 18 }}>{winner !== null && teamOf(winner, P, teams) === teamOf(me, P, teams) ? tr("play.win.you") : tr("play.win.team", { team: teamLabel(teamsList(P, teams).find((m) => m.includes(winner)) || [winner]) })}</div>
@@ -2317,6 +2321,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
           </div>
         </div>
       )}
+      </div>
 
       {overPhase ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>

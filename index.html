@@ -123,7 +123,7 @@
     border:1px solid var(--line); box-shadow:inset 0 2px 12px rgba(0,0,0,0.4);
     display:flex; align-items:center; justify-content:center }
   .seat-table .tlabel{ font-family:var(--mono); font-size:max(11.5px, var(--min-fs, 0px)); line-height:1.45; color:var(--cream); text-align:center }
-  .seat{ position:absolute; transform:translate(-50%,-50%); display:flex; flex-direction:column; align-items:center; gap:3px; width:60px }
+  .seat{ position:absolute; transform:translate(-50%,-50%); display:flex; flex-direction:column; align-items:center; gap:3px; width:66px }
   button.seat{ background:none; border:none; padding:0; font:inherit; color:inherit; cursor:pointer }
   .seat .avatar{ position:relative; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center;
     font-size:max(15px, var(--min-fs, 0px)); border:2px solid var(--line); background:rgba(0,0,0,0.28); color:var(--cream); transition:border-color .15s, box-shadow .15s, background .15s }
@@ -136,7 +136,8 @@
   .diff-easy{ background:#3FB57E }
   .diff-medium{ background:#E6B800 }
   .diff-hard{ background:#D2553F; color:#fff }
-  .seat .seat-name{ font-family:var(--mono); font-size:max(11px, var(--min-fs, 0px)); color:var(--cream); white-space:nowrap }
+  .seat .seat-name{ font-family:var(--mono); font-size:max(11px, var(--min-fs, 0px)); color:var(--cream);
+    white-space:normal; overflow-wrap:anywhere; line-height:1.15; text-align:center }
   .seat.you .seat-name{ color:var(--ivory); font-weight:700 }
   .seat .seat-name-input{ font-family:var(--mono); font-size:max(11px, var(--min-fs, 0px)); color:var(--ivory); width:58px; text-align:center;
     background:rgba(0,0,0,0.4); border:1px solid var(--line); border-radius:6px; padding:2px 3px }
@@ -909,7 +910,7 @@ cribbageLocale("en", {
       <a class="btn btn-primary" href="https://github.com/ghug/cribbage-trainer/"
          target="_blank" rel="noopener noreferrer" data-i18n="about.sourceLink">Source, bugs &amp; feedback ↗</a>
       <div class="repo-url" style="margin-bottom:4px">github.com/ghug/cribbage-trainer</div>
-      <div class="repo-url">v1.1.20-dev.74</div>
+      <div class="repo-url">v1.1.20-dev.75</div>
     </div>
   </div>
 
@@ -1055,8 +1056,9 @@ cribbageLocale("en", {
         }[P];
       }
       // Canonical position-based abbreviations (S, N, W, E, NW, NE, SW, SE) → translated for
-      // display via seat.* keys (S→S, W→O in Spanish, etc.), matching the games' seatShort.
-      var SEAT_ABBR_KEY = { S: 'seat.s', N: 'seat.n', W: 'seat.w', E: 'seat.e', NW: 'seat.nw', NE: 'seat.ne', SW: 'seat.sw', SE: 'seat.se' };
+      // The diagram shows FULL seat names (South, Northwest, …) via the games' seat.* full-name keys
+      // (localized: Norte/Oeste in Spanish, etc.). Custom names override per seat.
+      var SEAT_FULL_KEY = { S: 'seat.south', N: 'seat.north', W: 'seat.west', E: 'seat.east', NW: 'seat.northwest', NE: 'seat.northeast', SW: 'seat.southwest', SE: 'seat.southeast' };
       function seatNames(P) {
         var n;
         if (P === 2) n = ['S', 'N'];
@@ -1067,7 +1069,7 @@ cribbageLocale("en", {
           var labels = tops.length <= 1 ? ['N'] : tops.length === 2 ? ['NW', 'NE'] : ['NW', 'N', 'NE'];
           tops.forEach(function (sx, k) { n[sx] = labels[k]; });
         }
-        return n.map(function (c) { return tr(SEAT_ABBR_KEY[c] || c); });
+        return n.map(function (c) { return tr(SEAT_FULL_KEY[c] || c); });
       }
       // Each seat is human or bot (stored in settings.seats). Default: South (seat 0) is a
       // human and the rest bots — but any seat, South included, can be toggled.
@@ -1112,9 +1114,9 @@ cribbageLocale("en", {
         for (var i = 0; i < P; i++) {
           var avStyle = ' style="border-color:' + palette[i % teams] + ';border-width:4px"';   // by team, or per seat in cutthroat (teams === P)
           var human = roles[i] === 'human';
-          var isYou = human && humans === 1;                 // a lone human is "you"
+          var isYou = human && humans === 1;                 // a lone human (drives the .you emphasis only)
           var base = baseSeatName(i, names);
-          var label = (isYou ? tr('landing.youPrefix') : '') + esc(base);
+          var label = esc(base);                             // the seat's real name ("You" isn't a name — the 🧑 avatar marks the human)
           var ps = 'left:' + pos[i][0] + '%;top:' + pos[i][1] + '%';
           // bots show a small colour-coded difficulty badge (first letter of the level) on the avatar
           var diffBadge = human ? '' : '<span class="seat-diff diff-' + roles[i] + '">' + esc(tr(DIFF_KEY[roles[i]]).charAt(0).toUpperCase()) + '</span>';

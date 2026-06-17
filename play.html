@@ -891,7 +891,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.74";
+const APP_VERSION = "1.1.20-dev.75";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -917,8 +917,9 @@ function seatNamesFor(P, youSeat) {
     return names;
 }
 let SEAT_NAMES = seatNamesFor(2, 0);
+let SEAT_COMPASS = seatNamesFor(2, -1);
 let SEAT_CUSTOM = [];
-const setSeatNames = (P, youSeat) => { SEAT_NAMES = seatNamesFor(P, youSeat); };
+const setSeatNames = (P, youSeat) => { SEAT_NAMES = seatNamesFor(P, youSeat); SEAT_COMPASS = seatNamesFor(P, -1); };
 const setSeatCustom = (arr) => { SEAT_CUSTOM = Array.isArray(arr) ? arr : []; };
 const customName = (i) => { const c = SEAT_CUSTOM[i]; return (c != null && c !== "") ? c : null; };
 const SEAT_NAME_KEY = { You: "seat.you", South: "seat.south", North: "seat.north", West: "seat.west", East: "seat.east", Northwest: "seat.northwest", Northeast: "seat.northeast", Southwest: "seat.southwest", Southeast: "seat.southeast" };
@@ -926,6 +927,7 @@ const seatName = (i) => { const c = customName(i); return c ? (isYou(i) ? tr("se
 const isYou = (i) => SEAT_NAMES[i] === "You";
 const SEAT_SHORT_KEY = { You: "seat.youShort", North: "seat.n", South: "seat.s", West: "seat.w", East: "seat.e", Northwest: "seat.nw", Northeast: "seat.ne", Southwest: "seat.sw", Southeast: "seat.se" };
 const seatShort = (i) => { const c = customName(i); return c ? (isYou(i) ? tr("seat.youShort") + " - " + c : c) : tr(SEAT_SHORT_KEY[SEAT_NAMES[i]] || SEAT_NAMES[i]); };
+const seatColShort = (i) => customName(i) || tr(SEAT_SHORT_KEY[SEAT_COMPASS[i]] || SEAT_COMPASS[i]);
 const sameCard = (a, b) => a.r === b.r && a.s === b.s;
 const sameSet = (a, b) => a.length === b.length && a.every((x) => b.includes(x));
 const claimKey = (cards) => cards.map(cardId).sort((a, b) => a - b).join(",");
@@ -1667,10 +1669,10 @@ function ScoreRow({ seats, dealerIdx, turn, winner, onPick, P, teams }) {
                 background: isWin ? "rgba(95,164,124,0.28)" : isTurn ? "rgba(91,149,194,0.22)" : "rgba(0,0,0,0.22)",
                 border: `1px solid ${isWin ? T.good : isTurn ? T.selBlue : T.line}`,
             } },
-            React.createElement("div", { style: { fontFamily: mono, fontSize: members.length > 1 ? 9.5 : 10.5, color: T.muted, display: "flex", justifyContent: "center", gap: 3, alignItems: "center", flexWrap: "wrap", minWidth: 0 } }, members.map((m, k) => (React.createElement(React.Fragment, { key: m },
+            React.createElement("div", { style: { fontFamily: mono, fontSize: `max(${members.length > 1 ? 9.5 : 10.5}px, var(--min-fs, 0px))`, color: T.muted, display: "flex", justifyContent: "center", gap: 3, alignItems: "center", flexWrap: "wrap", minWidth: 0 } }, members.map((m, k) => (React.createElement(React.Fragment, { key: m },
                 k > 0 && React.createElement("span", null, "&"),
                 React.createElement("span", { style: { display: "inline-flex", alignItems: "center" } },
-                    seatShort(m),
+                    seatColShort(m),
                     m === dealerIdx && React.createElement("span", { style: { marginLeft: 2 }, title: tr("play.dealerTip") }, "\uD83D\uDD18")))))),
             React.createElement("div", { style: { fontFamily: serif, fontWeight: 700, fontSize: "max(22px, var(--min-fs, 0px))", color: isWin ? T.good : T.ivory } }, score),
             React.createElement("div", { style: { marginTop: 6, padding: "0 2px" } },
@@ -3074,7 +3076,7 @@ function AboutModal({ onClose }) {
                 background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
             } }, tr("about.sourceLink")),
         React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.20-dev.74")));
+        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.20-dev.75")));
 }
 function MessageLogModal({ log, onClose }) {
     const scrollRef = React.useRef(null);

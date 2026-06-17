@@ -264,10 +264,14 @@ function seatNamesFor(P, youSeat) {
 // checks use it directly (isYou); display goes through seatName/seatShort, which translate
 // the canonical name to the active language via these key maps.
 let SEAT_NAMES = seatNamesFor(2, 0);
+// Compass identity WITHOUT the "You" override: the lone human's seat keeps its real name (South,
+// …) here, so score columns show a real abbreviation (S) rather than "You" — which is only a prose
+// pronoun, not a player name. Custom names still win over this.
+let SEAT_COMPASS = seatNamesFor(2, -1);
 // Per-seat custom names set on the landing diagram (settings.names, by seat index). They are
 // DISPLAY-only — identity (isYou and every "you"-vs-other check) still keys off SEAT_NAMES.
 let SEAT_CUSTOM = [];
-const setSeatNames = (P, youSeat) => { SEAT_NAMES = seatNamesFor(P, youSeat); };
+const setSeatNames = (P, youSeat) => { SEAT_NAMES = seatNamesFor(P, youSeat); SEAT_COMPASS = seatNamesFor(P, -1); };
 const setSeatCustom = (arr) => { SEAT_CUSTOM = Array.isArray(arr) ? arr : []; };
 const customName = (i) => { const c = SEAT_CUSTOM[i]; return (c != null && c !== "") ? c : null; };
 const SEAT_NAME_KEY = { You: "seat.you", South: "seat.south", North: "seat.north", West: "seat.west", East: "seat.east", Northwest: "seat.northwest", Northeast: "seat.northeast", Southwest: "seat.southwest", Southeast: "seat.southeast" };
@@ -278,6 +282,9 @@ const isYou = (i) => SEAT_NAMES[i] === "You";
 // message line, banners, history) keeps the full names. Translated like seatName.
 const SEAT_SHORT_KEY = { You: "seat.youShort", North: "seat.n", South: "seat.s", West: "seat.w", East: "seat.e", Northwest: "seat.nw", Northeast: "seat.ne", Southwest: "seat.sw", Southeast: "seat.se" };
 const seatShort = (i) => { const c = customName(i); return c ? (isYou(i) ? tr("seat.youShort") + " - " + c : c) : tr(SEAT_SHORT_KEY[SEAT_NAMES[i]] || SEAT_NAMES[i]); };
+// Score-column label: the seat's compass abbreviation when no custom name is set, else the custom
+// name — never "You" (the lone human shows S/N/… like every other seat).
+const seatColShort = (i) => customName(i) || tr(SEAT_SHORT_KEY[SEAT_COMPASS[i]] || SEAT_COMPASS[i]);
 // "you" is whichever seat setSeatNames marked (the lone human), detected via the name —
 // not a hard-coded seat 0, which is a bot in an all-bot or human-elsewhere game.
 const sameCard = (a, b) => a.r === b.r && a.s === b.s;
@@ -1063,12 +1070,12 @@ function ScoreRow({ seats, dealerIdx, turn, winner, onPick, P, teams }) {
             border: `1px solid ${isWin ? T.good : isTurn ? T.selBlue : T.line}`,
           }}>
             {/* the dealer is still an individual: mark whichever member deals/has the crib */}
-            <div style={{ fontFamily: mono, fontSize: members.length > 1 ? 9.5 : 10.5, color: T.muted, display: "flex", justifyContent: "center", gap: 3, alignItems: "center", flexWrap: "wrap", minWidth: 0 }}>
+            <div style={{ fontFamily: mono, fontSize: `max(${members.length > 1 ? 9.5 : 10.5}px, var(--min-fs, 0px))`, color: T.muted, display: "flex", justifyContent: "center", gap: 3, alignItems: "center", flexWrap: "wrap", minWidth: 0 }}>
               {members.map((m, k) => (
                 <React.Fragment key={m}>
                   {k > 0 && <span>&amp;</span>}
                   <span style={{ display: "inline-flex", alignItems: "center" }}>
-                    {seatShort(m)}{m === dealerIdx && <span style={{ marginLeft: 2 }} title={tr("play.dealerTip")}>🔘</span>}
+                    {seatColShort(m)}{m === dealerIdx && <span style={{ marginLeft: 2 }} title={tr("play.dealerTip")}>🔘</span>}
                   </span>
                 </React.Fragment>
               ))}

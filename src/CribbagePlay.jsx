@@ -1241,10 +1241,11 @@ export default function CribbagePlay() {
 
   return (
     <div style={{
-      minHeight: "100%", background: T.baizeHi,
+      minHeight: "100%", background: `radial-gradient(120% 90% at 50% 0%, ${T.baizeHi}, ${T.baize})`,
       color: T.cream, fontFamily: serif, padding: "0 0 40px",
     }}>
       <style>{`
+        html,body{background:${T.baizeHi}}
         @keyframes dealIn {from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
         .dealwrap > * {animation:dealIn 240ms ease both}
         .dealwrap > *:nth-child(2){animation-delay:50ms}

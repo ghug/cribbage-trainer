@@ -1769,7 +1769,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
       let played = peg ? peg.played[i] : [];
       // During the show, a hand stays in play order until its owner's count turn arrives, then sorts.
       if (showPhase && state.show && state.show.step >= state.show.order.indexOf(i)) played = sortHand(played);
-      const gridActive = i === me && meHuman && !needHandoff && (discardPhase || dealingPhase || (phase === "play" && peg));
+      const gridActive = i === me && meHuman && !needHandoff && (discardPhase || (phase === "play" && peg));
       if (gridActive) {
         played.forEach((c, j) => { place[cardId(c)] = { group: "seat-" + i, idx: j, up: true }; });
         seatCounts[i] = played.length;

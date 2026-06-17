@@ -1749,7 +1749,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
   const legalSet = peg ? new Set(yourHand.filter((c) => pval(c.r) + peg.count <= 31).map(cardId)) : null;
   const count = discardPhase ? pl.throws[me] : 1;          // how many cards to pick
   const myTurn = discardPhase ? !needHandoff : (!!peg && turn === me && legalSet.size > 0);
-  const stuck = !!peg && turn === me && legalSet.size === 0 && yourHand.length > 0;
+  const stuck = !!peg && !peg.pending31 && turn === me && legalSet.size === 0 && yourHand.length > 0;
   const pending = discardPhase ? state.pendingDiscard : state.pendingPlay;   // a confirmed-but-warned choice
   const pendIdxs = !pending ? null
     : discardPhase ? pending.idxs

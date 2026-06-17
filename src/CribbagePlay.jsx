@@ -980,6 +980,31 @@ function ScoreRow({ seats, dealerIdx, turn, winner, onPick, P, teams }) {
   );
 }
 
+// Shared modal shell: the dimmed backdrop + the centred baize card. `onBackdrop` fires on a
+// backdrop tap (dismiss, or — for the play/discard warnings — cancel the pending action). `scroll`
+// caps the height and scrolls the card; `cardStyle` lets a modal tweak it (e.g. a flex column for a
+// sticky header + scrolling body). `zIndex` defaults to 220 (confirm-home intentionally sits under
+// at 200). Every modal renders the same overlay/card through this, so the look lives in one place.
+function Modal({ onBackdrop, maxWidth = 380, padding = "20px", scroll = false, zIndex = 220, cardStyle, children }) {
+  return (
+    <div onClick={onBackdrop} style={{ position: "fixed", inset: 0, zIndex, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ maxWidth, width: "100%", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding, boxShadow: "0 14px 44px rgba(0,0,0,0.55)", ...(scroll ? { maxHeight: "86vh", overflowY: "auto" } : null), ...cardStyle }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+// The title-left / Done-button-right header several modals share. Pass `title` for the default
+// 17px heading, or pass children for a custom left side (e.g. the About modal's icon + title).
+function ModalHeader({ title, onClose, closeLabel, mb = 12, children }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: mb, flex: "0 0 auto" }}>
+      {children != null ? children : <span style={{ fontWeight: 700, fontSize: 17 }}>{title}</span>}
+      <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>{closeLabel || tr("common.done")}</button>
+    </div>
+  );
+}
+
 function HistoryPanel({ seatIdx, seats, onClose, P, teams }) {
   const members = teamsList(P, teams).find((m) => m.includes(seatIdx)) || [seatIdx];
   const isTeam = members.length > 1;
@@ -991,12 +1016,10 @@ function HistoryPanel({ seatIdx, seats, onClose, P, teams }) {
   let run = 0;
   const cols = "1fr 34px 42px";
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 220, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 380, width: "100%", maxHeight: "85vh", overflowY: "auto", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "18px 18px 14px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+    <Modal onBackdrop={onClose} padding="18px 18px 14px" scroll cardStyle={{ maxHeight: "85vh" }}>
+      <ModalHeader onClose={onClose} closeLabel={tr("play.hist.close")} mb={10}>
         <span style={{ fontWeight: 700, fontSize: 15 }}>{tr("play.hist.scoringGame", { team: teamLabel(members) })}</span>
-        <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>{tr("play.hist.close")}</button>
-      </div>
+      </ModalHeader>
       {hist.length === 0 ? (
         <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>{tr("play.hist.noPoints")}</div>
       ) : (
@@ -1017,8 +1040,7 @@ function HistoryPanel({ seatIdx, seats, onClose, P, teams }) {
         <span style={{ color: T.muted }}>{tr("play.hist.total")}</span>
         <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 18, color: T.ivory }}>{total}</span>
       </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -1343,23 +1365,20 @@ export default function CribbagePlay() {
       {historyOpen && <HistoryModal onClose={() => setHistoryOpen(false)} />}
 
       {confirmHome && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
-          onClick={() => setConfirmHome(false)}>
-          <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 360, width: "100%", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "18px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" }}>
-            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6 }}>{tr("play.home.title")}</div>
-            <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, lineHeight: 1.5, marginBottom: 16 }}>{tr("play.home.body")}</div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => setConfirmHome(false)} style={{
-                flex: 1, padding: "12px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer",
-                background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: 13, fontWeight: 700,
-              }}>{tr("play.home.keep")}</button>
-              <a href="index.html" style={{
-                flex: 1, padding: "12px", borderRadius: 9, cursor: "pointer", textDecoration: "none", textAlign: "center", boxSizing: "border-box",
-                background: `linear-gradient(180deg, ${T.pegRed}, #9c3120)`, color: T.ivory, fontFamily: mono, fontSize: 13, fontWeight: 700,
-              }}>{tr("play.home.leave")}</a>
-            </div>
+        <Modal onBackdrop={() => setConfirmHome(false)} maxWidth={360} padding="18px" zIndex={200}>
+          <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6 }}>{tr("play.home.title")}</div>
+          <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, lineHeight: 1.5, marginBottom: 16 }}>{tr("play.home.body")}</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => setConfirmHome(false)} style={{
+              flex: 1, padding: "12px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer",
+              background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: 13, fontWeight: 700,
+            }}>{tr("play.home.keep")}</button>
+            <a href="index.html" style={{
+              flex: 1, padding: "12px", borderRadius: 9, cursor: "pointer", textDecoration: "none", textAlign: "center", boxSizing: "border-box",
+              background: `linear-gradient(180deg, ${T.pegRed}, #9c3120)`, color: T.ivory, fontFamily: mono, fontSize: 13, fontWeight: 700,
+            }}>{tr("play.home.leave")}</a>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );
@@ -2561,28 +2580,26 @@ function DiscardWarning({ pd, cribIsOurs, dispatch, onCancel }) {
   );
   const pickAgain = () => { dispatch({ type: "CANCEL_DISCARD" }); if (onCancel) onCancel(); };
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 220, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={pickAgain}>
-      <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 380, width: "100%", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "20px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" }}>
-        <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 12 }}>{tr("play.warn.title", { delta: delta.toFixed(2) })}</div>
-        <div style={{ display: "grid", gap: 6, marginBottom: 10 }}>
-          <Line label={tr("play.warn.best")} o={best} strong />
-          <Line label={tr("play.warn.yours")} o={chosen} />
-        </div>
-        <div style={{ fontFamily: mono, fontSize: 12, lineHeight: 1.6, color: T.cream, marginBottom: 16 }}>
-          {tr("play.warn.explain", { dir: cribIsOurs ? tr("play.warn.dirOurs") : tr("play.warn.dirOpp") })}
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={() => dispatch({ type: "CONFIRM_DISCARD" })} style={{
-            flex: 1, padding: "12px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer",
-            background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
-          }}>{tr("play.warn.throwAnyway", { thrown: thrownTag(chosen) })}</button>
-          <button onClick={pickAgain} style={{
-            flex: 1, padding: "12px", borderRadius: 9, border: "none", cursor: "pointer",
-            background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
-          }}>{tr("play.warn.pickAgain")}</button>
-        </div>
+    <Modal onBackdrop={pickAgain}>
+      <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 12 }}>{tr("play.warn.title", { delta: delta.toFixed(2) })}</div>
+      <div style={{ display: "grid", gap: 6, marginBottom: 10 }}>
+        <Line label={tr("play.warn.best")} o={best} strong />
+        <Line label={tr("play.warn.yours")} o={chosen} />
       </div>
-    </div>
+      <div style={{ fontFamily: mono, fontSize: 12, lineHeight: 1.6, color: T.cream, marginBottom: 16 }}>
+        {tr("play.warn.explain", { dir: cribIsOurs ? tr("play.warn.dirOurs") : tr("play.warn.dirOpp") })}
+      </div>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button onClick={() => dispatch({ type: "CONFIRM_DISCARD" })} style={{
+          flex: 1, padding: "12px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer",
+          background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+        }}>{tr("play.warn.throwAnyway", { thrown: thrownTag(chosen) })}</button>
+        <button onClick={pickAgain} style={{
+          flex: 1, padding: "12px", borderRadius: 9, border: "none", cursor: "pointer",
+          background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+        }}>{tr("play.warn.pickAgain")}</button>
+      </div>
+    </Modal>
   );
 }
 
@@ -2607,12 +2624,10 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
   );
   const off = tr("common.off"), on = tr("common.on"), manual = tr("common.manual"), auto = tr("common.auto");
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 220, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "14px 16px 4px", maxWidth: 420, width: "100%", maxHeight: "88vh", overflowY: "auto", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+    <Modal onBackdrop={onClose} maxWidth={420} padding="14px 16px 4px" scroll cardStyle={{ maxHeight: "88vh" }}>
+      <ModalHeader title={tr("settings.title")} onClose={onClose}>
         <span style={{ fontWeight: 700, fontSize: 16 }}>{tr("settings.title")}</span>
-        <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>{tr("common.done")}</button>
-      </div>
+      </ModalHeader>
       <Row title={tr("settings.tapToSelect.title")} k="tapToSelect"
         desc={tr("settings.tapToSelect.desc")}
         options={[[off, false], [on, true]]} />
@@ -2654,8 +2669,7 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
         background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory,
         fontFamily: mono, fontSize: 12.5, fontWeight: 700,
       }}>{tr("settings.continue")}</button>
-      </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -2722,12 +2736,8 @@ function HistoryModal({ onClose }) {
   );
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 220, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 380, width: "100%", maxHeight: "86vh", overflowY: "auto", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "20px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 14 }}>
-          <span style={{ fontWeight: 700, fontSize: 17 }}>{tr("play.hist.title")}</span>
-          <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>{tr("common.done")}</button>
-        </div>
+    <Modal onBackdrop={onClose} scroll>
+      <ModalHeader title={tr("play.hist.title")} onClose={onClose} mb={14} />
 
         {all.length === 0 ? (
           <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, lineHeight: 1.6 }} data-tick={tick}>{tr("play.hist.empty")}</div>
@@ -2762,38 +2772,33 @@ function HistoryModal({ onClose }) {
             }}>{confirmClear ? tr("play.hist.clearConfirm") : tr("play.hist.clear")}</button>
           </React.Fragment>
         )}
-      </div>
-    </div>
+    </Modal>
   );
 }
 
 function AboutModal({ onClose }) {
   const REPO = "https://github.com/ghug/cribbage-trainer/";
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 220, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
-      onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 380, width: "100%", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "20px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span aria-hidden="true" style={{ flex: "0 0 auto", width: 34, height: 34, borderRadius: 8, background: "rgba(0,0,0,0.25)", color: T.ivory, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, lineHeight: 1 }}>♣</span>
-            <span style={{ fontWeight: 700, fontSize: 17 }}>{tr("about.title")}</span>
-          </div>
-          <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>{tr("common.done")}</button>
+    <Modal onBackdrop={onClose}>
+      <ModalHeader onClose={onClose}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span aria-hidden="true" style={{ flex: "0 0 auto", width: 34, height: 34, borderRadius: 8, background: "rgba(0,0,0,0.25)", color: T.ivory, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, lineHeight: 1 }}>♣</span>
+          <span style={{ fontWeight: 700, fontSize: 17 }}>{tr("about.title")}</span>
         </div>
-        <div style={{ fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.6, marginBottom: 12 }}>
-          {tr("about.line1")}
-        </div>
-        <div style={{ fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.6, marginBottom: 16 }}>
-          {tr("about.line2")}
-        </div>
-        <a href={REPO} target="_blank" rel="noopener noreferrer" style={{
-          display: "block", textAlign: "center", padding: "12px", borderRadius: 9, textDecoration: "none", boxSizing: "border-box",
-          background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
-        }}>{tr("about.sourceLink")}</a>
-        <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" }}>github.com/ghug/cribbage-trainer</div>
-        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" }}>v__APP_VERSION__</div>
+      </ModalHeader>
+      <div style={{ fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.6, marginBottom: 12 }}>
+        {tr("about.line1")}
       </div>
-    </div>
+      <div style={{ fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.6, marginBottom: 16 }}>
+        {tr("about.line2")}
+      </div>
+      <a href={REPO} target="_blank" rel="noopener noreferrer" style={{
+        display: "block", textAlign: "center", padding: "12px", borderRadius: 9, textDecoration: "none", boxSizing: "border-box",
+        background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+      }}>{tr("about.sourceLink")}</a>
+      <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" }}>github.com/ghug/cribbage-trainer</div>
+      <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" }}>v__APP_VERSION__</div>
+    </Modal>
   );
 }
 
@@ -2803,46 +2808,39 @@ function MessageLogModal({ log, onClose }) {
   const scrollRef = React.useRef(null);
   React.useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, []);
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 220, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420, width: "100%", maxHeight: "80vh", display: "flex", flexDirection: "column", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "18px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12, flex: "0 0 auto" }}>
-          <span style={{ fontWeight: 700, fontSize: 17 }}>{tr("play.log.title")}</span>
-          <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>{tr("common.done")}</button>
-        </div>
-        <div ref={scrollRef} style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
-          {log.length === 0 ? <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>{tr("play.log.empty")}</div>
-            : log.map((m, i) => (
-              <div key={i} style={{ fontFamily: mono, fontSize: 12, lineHeight: 1.5, color: T.cream, paddingBottom: 6, borderBottom: i < log.length - 1 ? `1px solid ${T.line}` : "none" }}>
-                <span style={{ color: T.muted, marginRight: 6 }}>{i + 1}.</span>{m}
-              </div>
-            ))}
-        </div>
+    <Modal onBackdrop={onClose} maxWidth={420} padding="18px" cardStyle={{ maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
+      <ModalHeader title={tr("play.log.title")} onClose={onClose} />
+      <div ref={scrollRef} style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
+        {log.length === 0 ? <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>{tr("play.log.empty")}</div>
+          : log.map((m, i) => (
+            <div key={i} style={{ fontFamily: mono, fontSize: 12, lineHeight: 1.5, color: T.cream, paddingBottom: 6, borderBottom: i < log.length - 1 ? `1px solid ${T.line}` : "none" }}>
+              <span style={{ color: T.muted, marginRight: 6 }}>{i + 1}.</span>{m}
+            </div>
+          ))}
       </div>
-    </div>
+    </Modal>
   );
 }
 
 function PlayWarning({ pp, dispatch }) {
   const pickAgain = () => dispatch({ type: "CANCEL_PLAY" });
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 220, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={pickAgain}>
-      <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 380, width: "100%", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "20px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" }}>
-        <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 12 }}>{tr(pp.delta === 1 ? "play.warn.leavesOne" : "play.warn.leavesMany", { n: pp.delta })}</div>
-        <div style={{ fontFamily: mono, fontSize: 12, lineHeight: 1.6, color: T.cream, marginBottom: 16 }}>
-          {tr("play.warn.playLineA", { card: tag(pp.card), pts: pp.chosenPts })}<b style={{ color: T.good }}>{tag(pp.bestCard)}</b>{tr("play.warn.playLineB", { pts: pp.bestPts, delta: pp.delta })}
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={() => dispatch({ type: "CONFIRM_PLAY" })} style={{
-            flex: 1, padding: "12px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer",
-            background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
-          }}>{tr("play.warn.playAnyway", { card: tag(pp.card) })}</button>
-          <button onClick={pickAgain} style={{
-            flex: 1, padding: "12px", borderRadius: 9, border: "none", cursor: "pointer",
-            background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
-          }}>{tr("play.warn.pickAgain")}</button>
-        </div>
+    <Modal onBackdrop={pickAgain}>
+      <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 12 }}>{tr(pp.delta === 1 ? "play.warn.leavesOne" : "play.warn.leavesMany", { n: pp.delta })}</div>
+      <div style={{ fontFamily: mono, fontSize: 12, lineHeight: 1.6, color: T.cream, marginBottom: 16 }}>
+        {tr("play.warn.playLineA", { card: tag(pp.card), pts: pp.chosenPts })}<b style={{ color: T.good }}>{tag(pp.bestCard)}</b>{tr("play.warn.playLineB", { pts: pp.bestPts, delta: pp.delta })}
       </div>
-    </div>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button onClick={() => dispatch({ type: "CONFIRM_PLAY" })} style={{
+          flex: 1, padding: "12px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer",
+          background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+        }}>{tr("play.warn.playAnyway", { card: tag(pp.card) })}</button>
+        <button onClick={pickAgain} style={{
+          flex: 1, padding: "12px", borderRadius: 9, border: "none", cursor: "pointer",
+          background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+        }}>{tr("play.warn.pickAgain")}</button>
+      </div>
+    </Modal>
   );
 }
 

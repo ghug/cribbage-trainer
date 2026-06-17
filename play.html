@@ -812,7 +812,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.55";
+const APP_VERSION = "1.1.20-dev.56";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -1541,6 +1541,15 @@ function ScoreRow({ seats, dealerIdx, turn, winner, onPick, P, teams }) {
                 React.createElement(PegTrack, { pct: (score / targetFor(P)) * 100 }))));
     })));
 }
+function Modal({ onBackdrop, maxWidth = 380, padding = "20px", scroll = false, zIndex = 220, cardStyle, children }) {
+    return (React.createElement("div", { onClick: onBackdrop, style: { position: "fixed", inset: 0, zIndex, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
+        React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { maxWidth, width: "100%", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding, boxShadow: "0 14px 44px rgba(0,0,0,0.55)", ...(scroll ? { maxHeight: "86vh", overflowY: "auto" } : null), ...cardStyle } }, children)));
+}
+function ModalHeader({ title, onClose, closeLabel, mb = 12, children }) {
+    return (React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: mb, flex: "0 0 auto" } },
+        children != null ? children : React.createElement("span", { style: { fontWeight: 700, fontSize: 17 } }, title),
+        React.createElement("button", { onClick: onClose, style: { padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 } }, closeLabel || tr("common.done"))));
+}
 function HistoryPanel({ seatIdx, seats, onClose, P, teams }) {
     const members = teamsList(P, teams).find((m) => m.includes(seatIdx)) || [seatIdx];
     const isTeam = members.length > 1;
@@ -1549,30 +1558,28 @@ function HistoryPanel({ seatIdx, seats, onClose, P, teams }) {
     const total = seats[members[0]].score;
     let run = 0;
     const cols = "1fr 34px 42px";
-    return (React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 220, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }, onClick: onClose },
-        React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { maxWidth: 380, width: "100%", maxHeight: "85vh", overflowY: "auto", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "18px 18px 14px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" } },
-            React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 } },
-                React.createElement("span", { style: { fontWeight: 700, fontSize: 15 } }, tr("play.hist.scoringGame", { team: teamLabel(members) })),
-                React.createElement("button", { onClick: onClose, style: { padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 } }, tr("play.hist.close"))),
-            hist.length === 0 ? (React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.muted } }, tr("play.hist.noPoints"))) : (React.createElement("div", { style: { display: "grid", gap: 3 } },
-                React.createElement("div", { style: { display: "grid", gridTemplateColumns: cols, gap: 8, fontFamily: mono, fontSize: 10, color: T.muted, paddingBottom: 2 } },
-                    React.createElement("span", null, tr("play.hist.colFor")),
-                    React.createElement("span", { style: { textAlign: "right" } }, tr("play.hist.colPts")),
-                    React.createElement("span", { style: { textAlign: "right" } }, tr("play.hist.total"))),
-                hist.map((h, k) => {
-                    run += h.pts;
-                    return (React.createElement("div", { key: k, style: { display: "grid", gridTemplateColumns: cols, gap: 8, fontFamily: mono, fontSize: 11.5, alignItems: "baseline" } },
-                        React.createElement("span", { style: { color: T.cream } },
-                            isTeam ? `${seatName(h.who)}: ` : "",
-                            h.label),
-                        React.createElement("span", { style: { textAlign: "right", color: T.good } },
-                            "+",
-                            h.pts),
-                        React.createElement("span", { style: { textAlign: "right", color: T.muted } }, run)));
-                }))),
-            React.createElement("div", { style: { display: "flex", justifyContent: "space-between", borderTop: `1px solid ${T.line}`, marginTop: 8, paddingTop: 8, fontFamily: mono, fontSize: 12 } },
-                React.createElement("span", { style: { color: T.muted } }, tr("play.hist.total")),
-                React.createElement("span", { style: { fontFamily: serif, fontWeight: 700, fontSize: 18, color: T.ivory } }, total)))));
+    return (React.createElement(Modal, { onBackdrop: onClose, padding: "18px 18px 14px", scroll: true, cardStyle: { maxHeight: "85vh" } },
+        React.createElement(ModalHeader, { onClose: onClose, closeLabel: tr("play.hist.close"), mb: 10 },
+            React.createElement("span", { style: { fontWeight: 700, fontSize: 15 } }, tr("play.hist.scoringGame", { team: teamLabel(members) }))),
+        hist.length === 0 ? (React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.muted } }, tr("play.hist.noPoints"))) : (React.createElement("div", { style: { display: "grid", gap: 3 } },
+            React.createElement("div", { style: { display: "grid", gridTemplateColumns: cols, gap: 8, fontFamily: mono, fontSize: 10, color: T.muted, paddingBottom: 2 } },
+                React.createElement("span", null, tr("play.hist.colFor")),
+                React.createElement("span", { style: { textAlign: "right" } }, tr("play.hist.colPts")),
+                React.createElement("span", { style: { textAlign: "right" } }, tr("play.hist.total"))),
+            hist.map((h, k) => {
+                run += h.pts;
+                return (React.createElement("div", { key: k, style: { display: "grid", gridTemplateColumns: cols, gap: 8, fontFamily: mono, fontSize: 11.5, alignItems: "baseline" } },
+                    React.createElement("span", { style: { color: T.cream } },
+                        isTeam ? `${seatName(h.who)}: ` : "",
+                        h.label),
+                    React.createElement("span", { style: { textAlign: "right", color: T.good } },
+                        "+",
+                        h.pts),
+                    React.createElement("span", { style: { textAlign: "right", color: T.muted } }, run)));
+            }))),
+        React.createElement("div", { style: { display: "flex", justifyContent: "space-between", borderTop: `1px solid ${T.line}`, marginTop: 8, paddingTop: 8, fontFamily: mono, fontSize: 12 } },
+            React.createElement("span", { style: { color: T.muted } }, tr("play.hist.total")),
+            React.createElement("span", { style: { fontFamily: serif, fontWeight: 700, fontSize: 18, color: T.ivory } }, total))));
 }
 function Panel({ children, tone }) {
     const bg = tone === "good" ? "rgba(95,164,124,0.16)" : tone === "red" ? "rgba(200,65,43,0.14)" : "rgba(0,0,0,0.22)";
@@ -1861,19 +1868,18 @@ function CribbagePlay() {
             (phase === "cutdeal" || phase === "deal" || phase === "dealing" || phase === "discard" || phase === "cribbing" || phase === "cut" || (phase === "show" && show) || (phase === "play" && peg) || phase === "over") && (React.createElement(PlayScreen, { state: state, dispatch: dispatch, me: phase === "discard" ? ds : phase === "cut" ? (dealerIdx + players - 1) % players : (phase === "play" && peg && multiHuman) ? peg.turn : (multiHuman && (phase === "cutdeal" || phase === "deal" || phase === "dealing")) ? dealerIdx : playMe, needHandoff: needHandoff, cribGliding: cribGliding, onView: setViewSeat, onSwap: setDealLocked }))),
         aboutOpen && React.createElement(AboutModal, { onClose: () => setAboutOpen(false) }),
         historyOpen && React.createElement(HistoryModal, { onClose: () => setHistoryOpen(false) }),
-        confirmHome && (React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }, onClick: () => setConfirmHome(false) },
-            React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { maxWidth: 360, width: "100%", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "18px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" } },
-                React.createElement("div", { style: { fontWeight: 700, fontSize: 16, marginBottom: 6 } }, tr("play.home.title")),
-                React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.muted, lineHeight: 1.5, marginBottom: 16 } }, tr("play.home.body")),
-                React.createElement("div", { style: { display: "flex", gap: 8 } },
-                    React.createElement("button", { onClick: () => setConfirmHome(false), style: {
-                            flex: 1, padding: "12px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer",
-                            background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: 13, fontWeight: 700,
-                        } }, tr("play.home.keep")),
-                    React.createElement("a", { href: "index.html", style: {
-                            flex: 1, padding: "12px", borderRadius: 9, cursor: "pointer", textDecoration: "none", textAlign: "center", boxSizing: "border-box",
-                            background: `linear-gradient(180deg, ${T.pegRed}, #9c3120)`, color: T.ivory, fontFamily: mono, fontSize: 13, fontWeight: 700,
-                        } }, tr("play.home.leave"))))))));
+        confirmHome && (React.createElement(Modal, { onBackdrop: () => setConfirmHome(false), maxWidth: 360, padding: "18px", zIndex: 200 },
+            React.createElement("div", { style: { fontWeight: 700, fontSize: 16, marginBottom: 6 } }, tr("play.home.title")),
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.muted, lineHeight: 1.5, marginBottom: 16 } }, tr("play.home.body")),
+            React.createElement("div", { style: { display: "flex", gap: 8 } },
+                React.createElement("button", { onClick: () => setConfirmHome(false), style: {
+                        flex: 1, padding: "12px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer",
+                        background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: 13, fontWeight: 700,
+                    } }, tr("play.home.keep")),
+                React.createElement("a", { href: "index.html", style: {
+                        flex: 1, padding: "12px", borderRadius: 9, cursor: "pointer", textDecoration: "none", textAlign: "center", boxSizing: "border-box",
+                        background: `linear-gradient(180deg, ${T.pegRed}, #9c3120)`, color: T.ivory, fontFamily: mono, fontSize: 13, fontWeight: 700,
+                    } }, tr("play.home.leave")))))));
 }
 const STACK_VISIBLE = 0.3;
 const BACK_VISIBLE = 0.3;
@@ -2770,22 +2776,21 @@ function DiscardWarning({ pd, cribIsOurs, dispatch, onCancel }) {
         React.createElement("b", null, tr("play.warn.net", { net: o.value.toFixed(2) }))));
     const pickAgain = () => { dispatch({ type: "CANCEL_DISCARD" }); if (onCancel)
         onCancel(); };
-    return (React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 220, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }, onClick: pickAgain },
-        React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { maxWidth: 380, width: "100%", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "20px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" } },
-            React.createElement("div", { style: { fontWeight: 700, fontSize: 17, marginBottom: 12 } }, tr("play.warn.title", { delta: delta.toFixed(2) })),
-            React.createElement("div", { style: { display: "grid", gap: 6, marginBottom: 10 } },
-                React.createElement(Line, { label: tr("play.warn.best"), o: best, strong: true }),
-                React.createElement(Line, { label: tr("play.warn.yours"), o: chosen })),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 12, lineHeight: 1.6, color: T.cream, marginBottom: 16 } }, tr("play.warn.explain", { dir: cribIsOurs ? tr("play.warn.dirOurs") : tr("play.warn.dirOpp") })),
-            React.createElement("div", { style: { display: "flex", gap: 8 } },
-                React.createElement("button", { onClick: () => dispatch({ type: "CONFIRM_DISCARD" }), style: {
-                        flex: 1, padding: "12px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer",
-                        background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
-                    } }, tr("play.warn.throwAnyway", { thrown: thrownTag(chosen) })),
-                React.createElement("button", { onClick: pickAgain, style: {
-                        flex: 1, padding: "12px", borderRadius: 9, border: "none", cursor: "pointer",
-                        background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
-                    } }, tr("play.warn.pickAgain"))))));
+    return (React.createElement(Modal, { onBackdrop: pickAgain },
+        React.createElement("div", { style: { fontWeight: 700, fontSize: 17, marginBottom: 12 } }, tr("play.warn.title", { delta: delta.toFixed(2) })),
+        React.createElement("div", { style: { display: "grid", gap: 6, marginBottom: 10 } },
+            React.createElement(Line, { label: tr("play.warn.best"), o: best, strong: true }),
+            React.createElement(Line, { label: tr("play.warn.yours"), o: chosen })),
+        React.createElement("div", { style: { fontFamily: mono, fontSize: 12, lineHeight: 1.6, color: T.cream, marginBottom: 16 } }, tr("play.warn.explain", { dir: cribIsOurs ? tr("play.warn.dirOurs") : tr("play.warn.dirOpp") })),
+        React.createElement("div", { style: { display: "flex", gap: 8 } },
+            React.createElement("button", { onClick: () => dispatch({ type: "CONFIRM_DISCARD" }), style: {
+                    flex: 1, padding: "12px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer",
+                    background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+                } }, tr("play.warn.throwAnyway", { thrown: thrownTag(chosen) })),
+            React.createElement("button", { onClick: pickAgain, style: {
+                    flex: 1, padding: "12px", borderRadius: 9, border: "none", cursor: "pointer",
+                    background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+                } }, tr("play.warn.pickAgain")))));
 }
 const segStyle = (on) => ({
     flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: 11.5,
@@ -2799,31 +2804,29 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
         React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, margin: "2px 0 7px", lineHeight: 1.45 } }, desc),
         React.createElement("div", { style: { display: "flex", gap: 6 } }, options.map(([label, val]) => (React.createElement("button", { key: String(val), disabled: disabled, onClick: disabled ? undefined : () => dispatch({ type: "SET_SETTING", key: k, value: val }), style: { ...segStyle(settings[k] === val), cursor: disabled ? "default" : "pointer" } }, label))))));
     const off = tr("common.off"), on = tr("common.on"), manual = tr("common.manual"), auto = tr("common.auto");
-    return (React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 220, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }, onClick: onClose },
-        React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "14px 16px 4px", maxWidth: 420, width: "100%", maxHeight: "88vh", overflowY: "auto", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" } },
-            React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 } },
-                React.createElement("span", { style: { fontWeight: 700, fontSize: 16 } }, tr("settings.title")),
-                React.createElement("button", { onClick: onClose, style: { padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 } }, tr("common.done"))),
-            React.createElement(Row, { title: tr("settings.tapToSelect.title"), k: "tapToSelect", desc: tr("settings.tapToSelect.desc"), options: [[off, false], [on, true]] }),
-            React.createElement(Row, { title: tr("settings.autoCut.title"), k: "autoCut", desc: tr("settings.autoCut.desc"), options: [[manual, false], [auto, true]] }),
-            React.createElement(Row, { title: tr("settings.autoGo.title"), k: "autoGo", desc: tr("settings.autoGo.desc"), options: [[manual, false], [auto, true]] }),
-            React.createElement(Row, { title: tr("settings.warn.title"), k: "warn", desc: tr("settings.warn.desc"), options: [[on, true], [off, false]] }),
-            React.createElement(Row, { title: tr("settings.autoPlayOne.title"), k: "autoPlayOne", desc: tr("settings.autoPlayOne.desc"), options: [[off, false], [on, true]] }),
-            React.createElement(Row, { title: tr("settings.autoPlayBest.title"), k: "autoPlayBest", desc: tr("settings.autoPlayBest.desc"), options: [[off, false], [on, true]] }),
-            React.createElement(Row, { title: tr("settings.autoDiscardBest.title"), k: "autoDiscardBest", desc: tr("settings.autoDiscardBest.desc"), options: [[off, false], [on, true]] }),
-            React.createElement(Row, { title: tr("settings.autoContinue.title"), k: "autoContinue", desc: tr("settings.autoContinue.desc"), options: [[off, false], [on, true]] }),
-            React.createElement(Row, { title: tr("settings.autoDeal.title"), k: "autoDeal", desc: tr("settings.autoDeal.desc"), options: [[off, false], [on, true]] }),
-            React.createElement(Row, { title: tr("settings.counting.title"), k: "counting", disabled: !soloGame, desc: tr(soloGame ? "settings.counting.desc" : "settings.counting.disabledDesc"), options: [[tr("settings.counting.optAuto"), "auto"], [tr("settings.counting.optMuggins"), "muggins"]] }),
-            React.createElement(LanguageRow, null),
-            React.createElement("div", { style: { borderTop: `1px solid ${T.line}`, margin: "2px -16px 0", padding: "12px 16px 0" } },
-                React.createElement("button", { onClick: onHistory, style: { width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12, fontWeight: 700 } }, tr("settings.history"))),
-            React.createElement("button", { onClick: () => dispatch({ type: "RESET_SETTINGS" }), style: { width: "100%", margin: "10px 0 0", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12, fontWeight: 700 } }, tr("settings.resetDefaults")),
-            React.createElement(AboutRow, { onAbout: onAbout }),
-            React.createElement("button", { onClick: onClose, style: {
-                    width: "100%", margin: "12px 0 10px", padding: "12px", borderRadius: 9, border: "none", cursor: "pointer",
-                    background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory,
-                    fontFamily: mono, fontSize: 12.5, fontWeight: 700,
-                } }, tr("settings.continue")))));
+    return (React.createElement(Modal, { onBackdrop: onClose, maxWidth: 420, padding: "14px 16px 4px", scroll: true, cardStyle: { maxHeight: "88vh" } },
+        React.createElement(ModalHeader, { title: tr("settings.title"), onClose: onClose },
+            React.createElement("span", { style: { fontWeight: 700, fontSize: 16 } }, tr("settings.title"))),
+        React.createElement(Row, { title: tr("settings.tapToSelect.title"), k: "tapToSelect", desc: tr("settings.tapToSelect.desc"), options: [[off, false], [on, true]] }),
+        React.createElement(Row, { title: tr("settings.autoCut.title"), k: "autoCut", desc: tr("settings.autoCut.desc"), options: [[manual, false], [auto, true]] }),
+        React.createElement(Row, { title: tr("settings.autoGo.title"), k: "autoGo", desc: tr("settings.autoGo.desc"), options: [[manual, false], [auto, true]] }),
+        React.createElement(Row, { title: tr("settings.warn.title"), k: "warn", desc: tr("settings.warn.desc"), options: [[on, true], [off, false]] }),
+        React.createElement(Row, { title: tr("settings.autoPlayOne.title"), k: "autoPlayOne", desc: tr("settings.autoPlayOne.desc"), options: [[off, false], [on, true]] }),
+        React.createElement(Row, { title: tr("settings.autoPlayBest.title"), k: "autoPlayBest", desc: tr("settings.autoPlayBest.desc"), options: [[off, false], [on, true]] }),
+        React.createElement(Row, { title: tr("settings.autoDiscardBest.title"), k: "autoDiscardBest", desc: tr("settings.autoDiscardBest.desc"), options: [[off, false], [on, true]] }),
+        React.createElement(Row, { title: tr("settings.autoContinue.title"), k: "autoContinue", desc: tr("settings.autoContinue.desc"), options: [[off, false], [on, true]] }),
+        React.createElement(Row, { title: tr("settings.autoDeal.title"), k: "autoDeal", desc: tr("settings.autoDeal.desc"), options: [[off, false], [on, true]] }),
+        React.createElement(Row, { title: tr("settings.counting.title"), k: "counting", disabled: !soloGame, desc: tr(soloGame ? "settings.counting.desc" : "settings.counting.disabledDesc"), options: [[tr("settings.counting.optAuto"), "auto"], [tr("settings.counting.optMuggins"), "muggins"]] }),
+        React.createElement(LanguageRow, null),
+        React.createElement("div", { style: { borderTop: `1px solid ${T.line}`, margin: "2px -16px 0", padding: "12px 16px 0" } },
+            React.createElement("button", { onClick: onHistory, style: { width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12, fontWeight: 700 } }, tr("settings.history"))),
+        React.createElement("button", { onClick: () => dispatch({ type: "RESET_SETTINGS" }), style: { width: "100%", margin: "10px 0 0", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12, fontWeight: 700 } }, tr("settings.resetDefaults")),
+        React.createElement(AboutRow, { onAbout: onAbout }),
+        React.createElement("button", { onClick: onClose, style: {
+                width: "100%", margin: "12px 0 10px", padding: "12px", borderRadius: 9, border: "none", cursor: "pointer",
+                background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory,
+                fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+            } }, tr("settings.continue"))));
 }
 function LanguageRow() {
     const i = (typeof window !== "undefined") ? window.i18n : null;
@@ -2868,90 +2871,81 @@ function HistoryModal({ onClose }) {
     const Stat = ({ label, value, accent }) => (React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "7px 0", borderBottom: `1px solid ${T.line}` } },
         React.createElement("span", { style: { fontFamily: mono, fontSize: 12, color: T.muted } }, label),
         React.createElement("span", { style: { fontFamily: serif, fontSize: 16, fontWeight: 700, color: accent || T.cream } }, value)));
-    return (React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 220, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }, onClick: onClose },
-        React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { maxWidth: 380, width: "100%", maxHeight: "86vh", overflowY: "auto", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "20px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" } },
-            React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 14 } },
-                React.createElement("span", { style: { fontWeight: 700, fontSize: 17 } }, tr("play.hist.title")),
-                React.createElement("button", { onClick: onClose, style: { padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 } }, tr("common.done"))),
-            all.length === 0 ? (React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.muted, lineHeight: 1.6 }, "data-tick": tick }, tr("play.hist.empty"))) : (React.createElement(React.Fragment, null,
-                React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 } },
-                    chip("all", tr("play.hist.all")),
-                    configs.map((k) => { const [P, t] = k.split("/").map(Number); return chip(k, cfgLabel(P, t)); })),
-                React.createElement(Stat, { label: tr("play.hist.games"), value: games }),
-                React.createElement(Stat, { label: tr("play.hist.won"), value: tr("play.hist.wonValue", { n: won, pct: winPct }), accent: T.good }),
-                React.createElement(Stat, { label: tr("play.hist.lost"), value: lost }),
-                React.createElement(Stat, { label: tr("play.hist.skunked"), value: sk, accent: sk ? T.pegRed : T.cream }),
-                React.createElement(Stat, { label: tr("play.hist.dblSkunked"), value: dsk, accent: dsk ? T.pegRed : T.cream }),
-                specific ? (React.createElement(React.Fragment, null,
-                    React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, margin: "14px 0 4px", letterSpacing: 0.3 } }, tr("play.hist.avgHeader")),
-                    React.createElement(Stat, { label: tr("play.hist.pegging"), value: avg("peg").toFixed(1) }),
-                    React.createElement(Stat, { label: tr("play.hist.hand"), value: avg("hand").toFixed(1) }),
-                    React.createElement(Stat, { label: tr("play.hist.crib"), value: avg("crib").toFixed(1) }))) : (React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, marginTop: 12, lineHeight: 1.5 } }, tr("play.hist.pickHint"))),
-                React.createElement("button", { onClick: () => { if (confirmClear) {
-                        clearHistory();
-                        setSel("all");
-                        setConfirmClear(false);
-                        setTick(tick + 1);
-                    }
-                    else
-                        setConfirmClear(true); }, style: {
-                        width: "100%", marginTop: 16, padding: "10px", borderRadius: 9, cursor: "pointer",
-                        border: `1px solid ${confirmClear ? T.pegRed : T.line}`, background: "rgba(0,0,0,0.25)",
-                        color: confirmClear ? T.pegRed : T.muted, fontFamily: mono, fontSize: 11.5, fontWeight: 700,
-                    } }, confirmClear ? tr("play.hist.clearConfirm") : tr("play.hist.clear")))))));
+    return (React.createElement(Modal, { onBackdrop: onClose, scroll: true },
+        React.createElement(ModalHeader, { title: tr("play.hist.title"), onClose: onClose, mb: 14 }),
+        all.length === 0 ? (React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.muted, lineHeight: 1.6 }, "data-tick": tick }, tr("play.hist.empty"))) : (React.createElement(React.Fragment, null,
+            React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 } },
+                chip("all", tr("play.hist.all")),
+                configs.map((k) => { const [P, t] = k.split("/").map(Number); return chip(k, cfgLabel(P, t)); })),
+            React.createElement(Stat, { label: tr("play.hist.games"), value: games }),
+            React.createElement(Stat, { label: tr("play.hist.won"), value: tr("play.hist.wonValue", { n: won, pct: winPct }), accent: T.good }),
+            React.createElement(Stat, { label: tr("play.hist.lost"), value: lost }),
+            React.createElement(Stat, { label: tr("play.hist.skunked"), value: sk, accent: sk ? T.pegRed : T.cream }),
+            React.createElement(Stat, { label: tr("play.hist.dblSkunked"), value: dsk, accent: dsk ? T.pegRed : T.cream }),
+            specific ? (React.createElement(React.Fragment, null,
+                React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, margin: "14px 0 4px", letterSpacing: 0.3 } }, tr("play.hist.avgHeader")),
+                React.createElement(Stat, { label: tr("play.hist.pegging"), value: avg("peg").toFixed(1) }),
+                React.createElement(Stat, { label: tr("play.hist.hand"), value: avg("hand").toFixed(1) }),
+                React.createElement(Stat, { label: tr("play.hist.crib"), value: avg("crib").toFixed(1) }))) : (React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, marginTop: 12, lineHeight: 1.5 } }, tr("play.hist.pickHint"))),
+            React.createElement("button", { onClick: () => { if (confirmClear) {
+                    clearHistory();
+                    setSel("all");
+                    setConfirmClear(false);
+                    setTick(tick + 1);
+                }
+                else
+                    setConfirmClear(true); }, style: {
+                    width: "100%", marginTop: 16, padding: "10px", borderRadius: 9, cursor: "pointer",
+                    border: `1px solid ${confirmClear ? T.pegRed : T.line}`, background: "rgba(0,0,0,0.25)",
+                    color: confirmClear ? T.pegRed : T.muted, fontFamily: mono, fontSize: 11.5, fontWeight: 700,
+                } }, confirmClear ? tr("play.hist.clearConfirm") : tr("play.hist.clear"))))));
 }
 function AboutModal({ onClose }) {
     const REPO = "https://github.com/ghug/cribbage-trainer/";
-    return (React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 220, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }, onClick: onClose },
-        React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { maxWidth: 380, width: "100%", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "20px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" } },
-            React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 } },
-                React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } },
-                    React.createElement("span", { "aria-hidden": "true", style: { flex: "0 0 auto", width: 34, height: 34, borderRadius: 8, background: "rgba(0,0,0,0.25)", color: T.ivory, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, lineHeight: 1 } }, "\u2663"),
-                    React.createElement("span", { style: { fontWeight: 700, fontSize: 17 } }, tr("about.title"))),
-                React.createElement("button", { onClick: onClose, style: { padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 } }, tr("common.done"))),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.6, marginBottom: 12 } }, tr("about.line1")),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.6, marginBottom: 16 } }, tr("about.line2")),
-            React.createElement("a", { href: REPO, target: "_blank", rel: "noopener noreferrer", style: {
-                    display: "block", textAlign: "center", padding: "12px", borderRadius: 9, textDecoration: "none", boxSizing: "border-box",
-                    background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
-                } }, tr("about.sourceLink")),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.55"))));
+    return (React.createElement(Modal, { onBackdrop: onClose },
+        React.createElement(ModalHeader, { onClose: onClose },
+            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } },
+                React.createElement("span", { "aria-hidden": "true", style: { flex: "0 0 auto", width: 34, height: 34, borderRadius: 8, background: "rgba(0,0,0,0.25)", color: T.ivory, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, lineHeight: 1 } }, "\u2663"),
+                React.createElement("span", { style: { fontWeight: 700, fontSize: 17 } }, tr("about.title")))),
+        React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.6, marginBottom: 12 } }, tr("about.line1")),
+        React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.6, marginBottom: 16 } }, tr("about.line2")),
+        React.createElement("a", { href: REPO, target: "_blank", rel: "noopener noreferrer", style: {
+                display: "block", textAlign: "center", padding: "12px", borderRadius: 9, textDecoration: "none", boxSizing: "border-box",
+                background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+            } }, tr("about.sourceLink")),
+        React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
+        React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.56")));
 }
 function MessageLogModal({ log, onClose }) {
     const scrollRef = React.useRef(null);
     React.useEffect(() => { if (scrollRef.current)
         scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, []);
-    return (React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 220, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }, onClick: onClose },
-        React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { maxWidth: 420, width: "100%", maxHeight: "80vh", display: "flex", flexDirection: "column", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "18px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" } },
-            React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12, flex: "0 0 auto" } },
-                React.createElement("span", { style: { fontWeight: 700, fontSize: 17 } }, tr("play.log.title")),
-                React.createElement("button", { onClick: onClose, style: { padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 } }, tr("common.done"))),
-            React.createElement("div", { ref: scrollRef, style: { overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 } }, log.length === 0 ? React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.muted } }, tr("play.log.empty"))
-                : log.map((m, i) => (React.createElement("div", { key: i, style: { fontFamily: mono, fontSize: 12, lineHeight: 1.5, color: T.cream, paddingBottom: 6, borderBottom: i < log.length - 1 ? `1px solid ${T.line}` : "none" } },
-                    React.createElement("span", { style: { color: T.muted, marginRight: 6 } },
-                        i + 1,
-                        "."),
-                    m)))))));
+    return (React.createElement(Modal, { onBackdrop: onClose, maxWidth: 420, padding: "18px", cardStyle: { maxHeight: "80vh", display: "flex", flexDirection: "column" } },
+        React.createElement(ModalHeader, { title: tr("play.log.title"), onClose: onClose }),
+        React.createElement("div", { ref: scrollRef, style: { overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 } }, log.length === 0 ? React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.muted } }, tr("play.log.empty"))
+            : log.map((m, i) => (React.createElement("div", { key: i, style: { fontFamily: mono, fontSize: 12, lineHeight: 1.5, color: T.cream, paddingBottom: 6, borderBottom: i < log.length - 1 ? `1px solid ${T.line}` : "none" } },
+                React.createElement("span", { style: { color: T.muted, marginRight: 6 } },
+                    i + 1,
+                    "."),
+                m))))));
 }
 function PlayWarning({ pp, dispatch }) {
     const pickAgain = () => dispatch({ type: "CANCEL_PLAY" });
-    return (React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 220, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }, onClick: pickAgain },
-        React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { maxWidth: 380, width: "100%", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "20px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" } },
-            React.createElement("div", { style: { fontWeight: 700, fontSize: 17, marginBottom: 12 } }, tr(pp.delta === 1 ? "play.warn.leavesOne" : "play.warn.leavesMany", { n: pp.delta })),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 12, lineHeight: 1.6, color: T.cream, marginBottom: 16 } },
-                tr("play.warn.playLineA", { card: tag(pp.card), pts: pp.chosenPts }),
-                React.createElement("b", { style: { color: T.good } }, tag(pp.bestCard)),
-                tr("play.warn.playLineB", { pts: pp.bestPts, delta: pp.delta })),
-            React.createElement("div", { style: { display: "flex", gap: 8 } },
-                React.createElement("button", { onClick: () => dispatch({ type: "CONFIRM_PLAY" }), style: {
-                        flex: 1, padding: "12px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer",
-                        background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
-                    } }, tr("play.warn.playAnyway", { card: tag(pp.card) })),
-                React.createElement("button", { onClick: pickAgain, style: {
-                        flex: 1, padding: "12px", borderRadius: 9, border: "none", cursor: "pointer",
-                        background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
-                    } }, tr("play.warn.pickAgain"))))));
+    return (React.createElement(Modal, { onBackdrop: pickAgain },
+        React.createElement("div", { style: { fontWeight: 700, fontSize: 17, marginBottom: 12 } }, tr(pp.delta === 1 ? "play.warn.leavesOne" : "play.warn.leavesMany", { n: pp.delta })),
+        React.createElement("div", { style: { fontFamily: mono, fontSize: 12, lineHeight: 1.6, color: T.cream, marginBottom: 16 } },
+            tr("play.warn.playLineA", { card: tag(pp.card), pts: pp.chosenPts }),
+            React.createElement("b", { style: { color: T.good } }, tag(pp.bestCard)),
+            tr("play.warn.playLineB", { pts: pp.bestPts, delta: pp.delta })),
+        React.createElement("div", { style: { display: "flex", gap: 8 } },
+            React.createElement("button", { onClick: () => dispatch({ type: "CONFIRM_PLAY" }), style: {
+                    flex: 1, padding: "12px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer",
+                    background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+                } }, tr("play.warn.playAnyway", { card: tag(pp.card) })),
+            React.createElement("button", { onClick: pickAgain, style: {
+                    flex: 1, padding: "12px", borderRadius: 9, border: "none", cursor: "pointer",
+                    background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+                } }, tr("play.warn.pickAgain")))));
 }
 function StepBtn({ children, onClick }) {
     return (React.createElement("button", { onClick: onClick, style: {

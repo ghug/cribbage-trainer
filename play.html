@@ -805,7 +805,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.39";
+const APP_VERSION = "1.1.20-dev.40";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -1886,13 +1886,18 @@ function CardFace({ card, edge }) {
             React.createElement("text", { x: "13", y: "30", textAnchor: "middle", dominantBaseline: "central", fontFamily: serif, fontWeight: "700", fontSize: "13", fill: isRed(card.s) ? T.suitRed : T.ink }, SUIT[card.s]),
             React.createElement("text", { x: "34", y: "49", textAnchor: "middle", dominantBaseline: "central", fontFamily: serif, fontSize: "34", fill: isRed(card.s) ? T.suitRed : T.ink }, SUIT[card.s]))));
 }
-function CardSprite({ card, home, dur, delay, clickable, selected, raised, dim, selLabel, onClick, hidden }) {
+function CardSprite({ card, home, dur, delay, clickable, selected, raised, dim, selLabel, onClick, hidden, noAnim }) {
     const lift = selected || raised ? 8 : 0;
     const edge = selected || raised ? T.selBlue : null;
     const key = `${Math.round(home.x)},${Math.round(home.y - lift)},${home.up ? 1 : 0}`;
     const [moving, setMoving] = React.useState(false);
     const keyRef = React.useRef(key);
-    if (keyRef.current !== key) {
+    if (noAnim) {
+        keyRef.current = key;
+        if (moving)
+            setMoving(false);
+    }
+    else if (keyRef.current !== key) {
         keyRef.current = key;
         if (!moving)
             setMoving(true);
@@ -1902,7 +1907,7 @@ function CardSprite({ card, home, dur, delay, clickable, selected, raised, dim, 
             position: "absolute", left: 0, top: 0, width: "var(--cw)", height: "var(--ch)",
             transformStyle: "preserve-3d", zIndex: home.z,
             transform: `translate(${home.x}px, ${home.y - lift}px) rotateY(${home.up ? 0 : 180}deg)`,
-            transition: moving ? `transform ${dur}ms cubic-bezier(.2,.7,.3,1) ${delay || 0}ms` : "none",
+            transition: (moving && !noAnim) ? `transform ${dur}ms cubic-bezier(.2,.7,.3,1) ${delay || 0}ms` : "none",
             cursor: clickable ? "pointer" : "default",
             pointerEvents: clickable ? "auto" : "none",
             opacity: hidden ? 0 : (dim ? 0.45 : 1),
@@ -2268,11 +2273,20 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
         return () => clearTimeout(t);
     }, [discardClickable, me]);
     const [, bumpViewport] = React.useState(0);
+    const [resizing, setResizing] = React.useState(false);
+    const resizeTimer = React.useRef(null);
     React.useEffect(() => {
-        const onResize = () => bumpViewport((t) => t + 1);
+        const onResize = () => {
+            setResizing(true);
+            bumpViewport((t) => t + 1);
+            if (resizeTimer.current)
+                clearTimeout(resizeTimer.current);
+            resizeTimer.current = setTimeout(() => setResizing(false), 160);
+        };
         window.addEventListener("resize", onResize);
         window.addEventListener("orientationchange", onResize);
-        return () => { window.removeEventListener("resize", onResize); window.removeEventListener("orientationchange", onResize); };
+        return () => { window.removeEventListener("resize", onResize); window.removeEventListener("orientationchange", onResize); if (resizeTimer.current)
+            clearTimeout(resizeTimer.current); };
     }, []);
     React.useLayoutEffect(() => {
         const root = tableRef.current;
@@ -2570,7 +2584,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
         const legal = inHand && (discardPhase || (peg && turn === me)) ? isLegal(yourHand[handIdx]) : false;
         const chosen = inHand && (pending ? (pendIdxs && pendIdxs.includes(handIdx)) : sel.includes(handIdx));
         const clickable = inHand && (pending ? true : (myTurn && legal));
-        return React.createElement(CardSprite, { key: id, card: c, home: h, dur: dealingPhase ? DEAL_DUR : MOVE_DUR, delay: delayRef.current[id] || 0, clickable: clickable, selected: inHand && !tapSelect && chosen, raised: inHand && tapSelect && chosen, dim: inHand && !pending && !legal && (discardPhase ? false : turn === me), selLabel: inHand && !discardPhase ? tr("play.sel.play") : undefined, onClick: inHand ? () => tapCard(handIdx) : undefined });
+        return React.createElement(CardSprite, { key: id, card: c, home: h, dur: dealingPhase ? DEAL_DUR : MOVE_DUR, delay: delayRef.current[id] || 0, clickable: clickable, selected: inHand && !tapSelect && chosen, raised: inHand && tapSelect && chosen, dim: inHand && !pending && !legal && (discardPhase ? false : turn === me), selLabel: inHand && !discardPhase ? tr("play.sel.play") : undefined, noAnim: resizing, onClick: inHand ? () => tapCard(handIdx) : undefined });
     });
     return (React.createElement("div", { ref: tableRef, style: { position: "relative", marginTop: 6, display: "flex", flexDirection: "column", gap: 10 } },
         React.createElement("div", { style: { position: "absolute", inset: 0, pointerEvents: "none", zIndex: 5 } },
@@ -2856,7 +2870,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.39"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.40"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

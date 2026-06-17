@@ -1432,16 +1432,18 @@ function CardFace({ card, edge }) {
 // up). `dur`/`delay` time the move to a new home. The element holds both faces (front +
 // back rotated 180°) so a face flip is the same rotateY tween as a move. Interactive props
 // (clickable/selected/raised/dim/onClick) apply only when it is the human's live hand card.
-function CardSprite({ card, home, dur, delay, clickable, selected, raised, dim, selLabel, onClick, hidden }) {
+function CardSprite({ card, home, dur, delay, clickable, selected, raised, dim, selLabel, onClick, hidden, noAnim }) {
   const lift = selected || raised ? 8 : 0;                 // selected/raised cards nudge up
   const edge = selected || raised ? T.selBlue : null;
   // The transform transition is OFF while the card is idle, and turned ON only when its target
   // actually changes (it's about to move) — then removed again the instant the move ends. So an idle
-  // card carries no transition and can't be animated by an incidental layout change.
+  // card carries no transition and can't be animated by an incidental layout change. `noAnim` (a
+  // viewport resize) forces a SNAP: accept the new position with the transition off, never gliding.
   const key = `${Math.round(home.x)},${Math.round(home.y - lift)},${home.up ? 1 : 0}`;
   const [moving, setMoving] = React.useState(false);
   const keyRef = React.useRef(key);
-  if (keyRef.current !== key) { keyRef.current = key; if (!moving) setMoving(true); }   // target changed → animate this move
+  if (noAnim) { keyRef.current = key; if (moving) setMoving(false); }                    // resize → jump, don't animate
+  else if (keyRef.current !== key) { keyRef.current = key; if (!moving) setMoving(true); }   // target changed → animate this move
   return (
     <div onClick={clickable ? onClick : undefined}
       onTransitionEnd={(e) => { if (e.target === e.currentTarget && e.propertyName === "transform") setMoving(false); }}
@@ -1449,7 +1451,7 @@ function CardSprite({ card, home, dur, delay, clickable, selected, raised, dim, 
         position: "absolute", left: 0, top: 0, width: "var(--cw)", height: "var(--ch)",
         transformStyle: "preserve-3d", zIndex: home.z,
         transform: `translate(${home.x}px, ${home.y - lift}px) rotateY(${home.up ? 0 : 180}deg)`,
-        transition: moving ? `transform ${dur}ms cubic-bezier(.2,.7,.3,1) ${delay || 0}ms` : "none",
+        transition: (moving && !noAnim) ? `transform ${dur}ms cubic-bezier(.2,.7,.3,1) ${delay || 0}ms` : "none",
         cursor: clickable ? "pointer" : "default",
         pointerEvents: clickable ? "auto" : "none",
         opacity: hidden ? 0 : (dim ? 0.45 : 1),
@@ -1914,14 +1916,22 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
 
   // Re-measure every anchor when the viewport changes size (window resize, device rotation, an
   // on-screen keyboard). The homes effect below runs on each render and reads live geometry, so a
-  // forced re-render is all that's needed to snap all card sprites — and the viewport-pinned crib —
-  // to their new anchor positions.
+  // forced re-render snaps all card sprites — and the viewport-pinned crib — to their new positions.
+  // While resizing, `resizing` is true so the sprites turn their transition OFF and JUMP to the new
+  // spot rather than gliding there (a resize isn't a move). It clears ~160ms after the last event.
   const [, bumpViewport] = React.useState(0);
+  const [resizing, setResizing] = React.useState(false);
+  const resizeTimer = React.useRef(null);
   React.useEffect(() => {
-    const onResize = () => bumpViewport((t) => t + 1);
+    const onResize = () => {
+      setResizing(true);
+      bumpViewport((t) => t + 1);
+      if (resizeTimer.current) clearTimeout(resizeTimer.current);
+      resizeTimer.current = setTimeout(() => setResizing(false), 160);
+    };
     window.addEventListener("resize", onResize);
     window.addEventListener("orientationchange", onResize);
-    return () => { window.removeEventListener("resize", onResize); window.removeEventListener("orientationchange", onResize); };
+    return () => { window.removeEventListener("resize", onResize); window.removeEventListener("orientationchange", onResize); if (resizeTimer.current) clearTimeout(resizeTimer.current); };
   }, []);
 
   React.useLayoutEffect(() => {
@@ -2268,6 +2278,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
       raised={inHand && tapSelect && chosen}
       dim={inHand && !pending && !legal && (discardPhase ? false : turn === me)}
       selLabel={inHand && !discardPhase ? tr("play.sel.play") : undefined}
+      noAnim={resizing}
       onClick={inHand ? () => tapCard(handIdx) : undefined} />;
   });
 

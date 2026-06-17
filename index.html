@@ -577,13 +577,13 @@ cribbageLocale("en", {
   "trainer.set.resetDefaults": "Reset these settings to defaults",
   "settings.continue": "Continue game",
   "settings.speed.title": "Game speed",
-  "settings.speed.desc": "Scales deal animations, plays, and pauses everywhere. Slow is 2× the normal time, Fast is half, Instant snaps through in ~32 ms.",
+  "settings.speed.desc": "Scales deal animations, plays, and pauses everywhere.",
   "settings.speed.optSlow": "Slow",
   "settings.speed.optNormal": "Normal",
   "settings.speed.optFast": "Fast",
   "settings.speed.optInstant": "Instant",
   "settings.textSize.title": "Text size",
-  "settings.textSize.desc": "Raises the minimum text size across the app. Small keeps the current sizing; Medium and Large make the smallest labels bigger.",
+  "settings.textSize.desc": "Raises the minimum text size across the app.",
   "settings.textSize.optSmall": "Small",
   "settings.textSize.optMedium": "Medium",
   "settings.textSize.optLarge": "Large",
@@ -910,7 +910,7 @@ cribbageLocale("en", {
       <a class="btn btn-primary" href="https://github.com/ghug/cribbage-trainer/"
          target="_blank" rel="noopener noreferrer" data-i18n="about.sourceLink">Source, bugs &amp; feedback ↗</a>
       <div class="repo-url" style="margin-bottom:4px">github.com/ghug/cribbage-trainer</div>
-      <div class="repo-url">v1.1.20-dev.75</div>
+      <div class="repo-url">v1.1.20-dev.76</div>
     </div>
   </div>
 
@@ -981,9 +981,9 @@ cribbageLocale("en", {
       applyTextSize();
       // The toggle rows are grouped into collapsible sections (the menu was a long flat list).
       var GROUPS = [
-        { title: "settings.group.controls", open: true, keys: ["speed", "textSize", "tapToSelect", "warn"] },
+        { title: "settings.group.controls", open: false, keys: ["speed", "textSize", "tapToSelect", "warn"] },
         { title: "settings.group.automation", open: false, keys: ["autoDeal", "autoCut", "autoDiscardBest", "autoPlayOne", "autoPlayBest", "autoGo", "autoContinue"] },
-        { title: "settings.group.counting", open: true, keys: ["counting", "claimWarn"] }
+        { title: "settings.group.counting", open: false, keys: ["counting", "claimWarn"] }
       ];
       function rowByKey(k) { for (var i = 0; i < ROWS.length; i++) if (ROWS[i].k === k) return ROWS[i]; return null; }
       function renderSettings() {

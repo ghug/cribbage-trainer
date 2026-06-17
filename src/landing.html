@@ -366,9 +366,9 @@
       applyTextSize();
       // The toggle rows are grouped into collapsible sections (the menu was a long flat list).
       var GROUPS = [
-        { title: "settings.group.controls", open: true, keys: ["speed", "textSize", "tapToSelect", "warn"] },
+        { title: "settings.group.controls", open: false, keys: ["speed", "textSize", "tapToSelect", "warn"] },
         { title: "settings.group.automation", open: false, keys: ["autoDeal", "autoCut", "autoDiscardBest", "autoPlayOne", "autoPlayBest", "autoGo", "autoContinue"] },
-        { title: "settings.group.counting", open: true, keys: ["counting", "claimWarn"] }
+        { title: "settings.group.counting", open: false, keys: ["counting", "claimWarn"] }
       ];
       function rowByKey(k) { for (var i = 0; i < ROWS.length; i++) if (ROWS[i].k === k) return ROWS[i]; return null; }
       function renderSettings() {

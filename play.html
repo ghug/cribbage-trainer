@@ -436,13 +436,13 @@ cribbageLocale("en", {
   "trainer.set.resetDefaults": "Reset these settings to defaults",
   "settings.continue": "Continue game",
   "settings.speed.title": "Game speed",
-  "settings.speed.desc": "Scales deal animations, plays, and pauses everywhere. Slow is 2× the normal time, Fast is half, Instant snaps through in ~32 ms.",
+  "settings.speed.desc": "Scales deal animations, plays, and pauses everywhere.",
   "settings.speed.optSlow": "Slow",
   "settings.speed.optNormal": "Normal",
   "settings.speed.optFast": "Fast",
   "settings.speed.optInstant": "Instant",
   "settings.textSize.title": "Text size",
-  "settings.textSize.desc": "Raises the minimum text size across the app. Small keeps the current sizing; Medium and Large make the smallest labels bigger.",
+  "settings.textSize.desc": "Raises the minimum text size across the app.",
   "settings.textSize.optSmall": "Small",
   "settings.textSize.optMedium": "Medium",
   "settings.textSize.optLarge": "Large",
@@ -891,7 +891,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.75";
+const APP_VERSION = "1.1.20-dev.76";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -2963,7 +2963,7 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
     return (React.createElement(Modal, { onBackdrop: onClose, maxWidth: 420, padding: "14px 16px 4px", scroll: true, cardStyle: { maxHeight: "88vh" } },
         React.createElement(ModalHeader, { title: tr("settings.title"), onClose: onClose },
             React.createElement("span", { style: { fontWeight: 700, fontSize: "max(16px, var(--min-fs, 0px))" } }, tr("settings.title"))),
-        React.createElement(SettingsSection, { title: tr("settings.group.controls"), defaultOpen: true },
+        React.createElement(SettingsSection, { title: tr("settings.group.controls") },
             React.createElement(Row, { title: tr("settings.speed.title"), k: "speed", desc: tr("settings.speed.desc"), options: [[tr("settings.speed.optSlow"), "slow"], [tr("settings.speed.optNormal"), "normal"], [tr("settings.speed.optFast"), "fast"], [tr("settings.speed.optInstant"), "instant"]] }),
             React.createElement(Row, { title: tr("settings.textSize.title"), k: "textSize", desc: tr("settings.textSize.desc"), options: [[tr("settings.textSize.optSmall"), "small"], [tr("settings.textSize.optMedium"), "medium"], [tr("settings.textSize.optLarge"), "large"]] }),
             React.createElement(Row, { title: tr("settings.tapToSelect.title"), k: "tapToSelect", desc: tr("settings.tapToSelect.desc"), options: [[off, false], [on, true]] }),
@@ -2976,7 +2976,7 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
             React.createElement(Row, { title: tr("settings.autoPlayBest.title"), k: "autoPlayBest", desc: tr("settings.autoPlayBest.desc"), options: [[off, false], [on, true]] }),
             React.createElement(Row, { title: tr("settings.autoGo.title"), k: "autoGo", desc: tr("settings.autoGo.desc"), options: [[manual, false], [auto, true]] }),
             React.createElement(Row, { title: tr("settings.autoContinue.title"), k: "autoContinue", desc: tr("settings.autoContinue.desc"), options: [[off, false], [on, true]] })),
-        React.createElement(SettingsSection, { title: tr("settings.group.counting"), defaultOpen: true },
+        React.createElement(SettingsSection, { title: tr("settings.group.counting") },
             React.createElement(Row, { title: tr("settings.counting.title"), k: "counting", disabled: !soloGame, desc: tr(soloGame ? "settings.counting.desc" : "settings.counting.disabledDesc"), options: [[tr("settings.counting.optAuto"), "auto"], [tr("settings.counting.optMuggins"), "muggins"]] }),
             React.createElement(Row, { title: tr("settings.claimWarn.title"), k: "claimWarn", disabled: !(soloGame && settings.counting === "muggins"), desc: tr("settings.claimWarn.desc"), options: [[on, true], [off, false]] })),
         React.createElement(LanguageRow, null),
@@ -3076,7 +3076,7 @@ function AboutModal({ onClose }) {
                 background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
             } }, tr("about.sourceLink")),
         React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.20-dev.75")));
+        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.20-dev.76")));
 }
 function MessageLogModal({ log, onClose }) {
     const scrollRef = React.useRef(null);

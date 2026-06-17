@@ -577,7 +577,7 @@ function SettingsPanel({ settings, onSet, onReset, onClose, onAbout }) {
       <ModalHeader title={tr("settings.title")} onClose={onClose}>
         <span style={{ fontWeight: 700, fontSize: "max(16px, var(--min-fs, 0px))" }}>{tr("settings.title")}</span>
       </ModalHeader>
-      <SettingsSection title={tr("settings.group.controls")} defaultOpen>
+      <SettingsSection title={tr("settings.group.controls")}>
         <Row title={tr("settings.speed.title")} k="speed" desc={tr("settings.speed.desc")}
           options={[[tr("settings.speed.optSlow"), "slow"], [tr("settings.speed.optNormal"), "normal"], [tr("settings.speed.optFast"), "fast"], [tr("settings.speed.optInstant"), "instant"]]} />
         <Row title={tr("settings.textSize.title")} k="textSize" desc={tr("settings.textSize.desc")}
@@ -594,7 +594,7 @@ function SettingsPanel({ settings, onSet, onReset, onClose, onAbout }) {
         <Row title={tr("settings.autoGo.title")} k="autoGo" desc={tr("settings.autoGo.desc")} options={[[manual, false], [auto, true]]} />
         <Row title={tr("settings.autoContinue.title")} k="autoContinue" desc={tr("settings.autoContinue.desc")} options={[[off, false], [on, true]]} />
       </SettingsSection>
-      <SettingsSection title={tr("settings.group.counting")} defaultOpen>
+      <SettingsSection title={tr("settings.group.counting")}>
         <Row title={tr("settings.counting.title")} k="counting" disabled={!soloGame}
           desc={tr(soloGame ? "settings.counting.desc" : "settings.counting.disabledDesc")}
           options={[[tr("settings.counting.optAuto"), "auto"], [tr("settings.counting.optMuggins"), "muggins"]]} />

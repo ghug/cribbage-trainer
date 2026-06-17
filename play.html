@@ -834,7 +834,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.63";
+const APP_VERSION = "1.1.20-dev.64";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -2229,6 +2229,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
     useEffect(() => { setSel([]); }, [me, phase, turn]);
     const muggins = showPhase && mugginsActive(settings) && seatIsHuman(info.owner, settings);
     const needClaim = muggins && !state.show.claimSubmitted;
+    const mugCribClaim = needClaim && !!info && info.isCrib;
     const commit = (idxs) => dispatch(discardPhase
         ? { type: "SELECT_DISCARD", idxs: idxs.slice().sort((a, b) => a - b) }
         : { type: "SELECT_PLAY", card: yourHand[idxs[0]] });
@@ -2703,7 +2704,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
         const legal = inHand && (discardPhase || (peg && turn === me)) ? isLegal(yourHand[handIdx]) : false;
         const chosen = inHand && (pending ? (pendIdxs && pendIdxs.includes(handIdx)) : sel.includes(handIdx));
         const clickable = inHand && (pending ? true : (myTurn && legal));
-        return React.createElement(CardSprite, { key: id, card: c, home: h, dur: dealingPhase ? DEAL_DUR : MOVE_DUR, delay: delayRef.current[id] || 0, clickable: clickable || inCribHome, selected: inHand && !tapSelect && chosen, raised: inHand && tapSelect && chosen, dim: inHand && !pending && !legal && (discardPhase ? false : turn === me), selLabel: inHand && !discardPhase ? tr("play.sel.play") : undefined, noAnim: resizing || inHand, onClick: inHand ? () => tapCard(handIdx) : inCribHome ? () => setCribNote(true) : undefined });
+        return React.createElement(CardSprite, { key: id, card: c, home: h, dur: dealingPhase ? DEAL_DUR : MOVE_DUR, delay: delayRef.current[id] || 0, clickable: clickable || inCribHome, selected: inHand && !tapSelect && chosen, raised: inHand && tapSelect && chosen, dim: inHand && !pending && !legal && (discardPhase ? false : turn === me), selLabel: inHand && !discardPhase ? tr("play.sel.play") : undefined, noAnim: resizing || inHand, hidden: mugCribClaim && p && (p.group === "showcrib" || p.group === "cribhome"), onClick: inHand ? () => tapCard(handIdx) : inCribHome ? () => setCribNote(true) : undefined });
     });
     return (React.createElement("div", { ref: tableRef, style: { position: "relative", marginTop: 6, display: "flex", flexDirection: "column", gap: 10 } },
         cribNote && (React.createElement("div", { onClick: () => setCribNote(false), role: "status", style: {
@@ -2740,14 +2741,15 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
                     : (isDealer && solo) ? tr("play.cutdeal.subYou")
                         : tr("play.cutdeal.subSeat", { seat: seatName(dealerIdx) })))) : (dealPhase || dealingPhase) ? (React.createElement(Panel, { tone: cribOurs ? "good" : null },
                 React.createElement("div", { style: { fontWeight: 700, fontSize: 15 } }, (isDealer && solo) ? tr("play.deal.yours") : teammateDeals ? tr("play.deal.teammate", { seat: seatName(dealerIdx) }) : tr("play.deal.theirs", { seat: seatName(dealerIdx) })),
-                React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 } }, dealBlurb(P)))) : showPhase ? (info.isCrib ? (React.createElement("div", { style: { background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "12px", minHeight: 88, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 } },
-                React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: T.muted } }, tr("play.show.entCounting", { ent: entText(info), step: stepLabel })),
-                React.createElement("div", { "data-slot": "showcrib", style: { display: "flex", alignItems: "flex-end", justifyContent: "center", height: "var(--ch)", visibility: "hidden" } },
-                    React.createElement(SlotGhost, { n: Math.max(showcribN, (info.cards || []).length), vis: STACK_VISIBLE })))) : (React.createElement(Panel, null,
-                React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline" } },
-                    React.createElement("div", { style: { fontWeight: 700, fontSize: 15 } }, tr("play.show.title", { ent: entText(info) })),
-                    React.createElement("span", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted } }, tr("play.show.counting", { step: stepLabel }))),
-                React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 3 } }, tr("play.show.order"))))) : (discardPhase || cribbingPhase) ? (React.createElement(Panel, { tone: cribOurs ? "good" : "red" },
+                React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 } }, dealBlurb(P)))) : showPhase ? ((info.isCrib && mugCribClaim) ? null
+                : info.isCrib ? (React.createElement("div", { style: { background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "12px", minHeight: 88, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 } },
+                    React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: T.muted } }, tr("play.show.entCounting", { ent: entText(info), step: stepLabel })),
+                    React.createElement("div", { "data-slot": "showcrib", style: { display: "flex", alignItems: "flex-end", justifyContent: "center", height: "var(--ch)", visibility: "hidden" } },
+                        React.createElement(SlotGhost, { n: Math.max(showcribN, (info.cards || []).length), vis: STACK_VISIBLE })))) : (React.createElement(Panel, null,
+                    React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline" } },
+                        React.createElement("div", { style: { fontWeight: 700, fontSize: 15 } }, tr("play.show.title", { ent: entText(info) })),
+                        React.createElement("span", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted } }, tr("play.show.counting", { step: stepLabel }))),
+                    React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 3 } }, tr("play.show.order"))))) : (discardPhase || cribbingPhase) ? (React.createElement(Panel, { tone: cribOurs ? "good" : "red" },
                 React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 } },
                     React.createElement("div", { style: { fontWeight: 700, fontSize: 15, minWidth: 0 } },
                         !solo ? tr("play.crib.seatPrefix", { seat: seatName(me) }) : "",
@@ -2985,7 +2987,7 @@ function AboutModal({ onClose }) {
                 background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
             } }, tr("about.sourceLink")),
         React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-        React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.63")));
+        React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.64")));
 }
 function MessageLogModal({ log, onClose }) {
     const scrollRef = React.useRef(null);

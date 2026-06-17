@@ -1846,6 +1846,9 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
   // Muggins claim entry (solo only) resets each counting step.
   const muggins = showPhase && mugginsActive(settings) && seatIsHuman(info.owner, settings);
   const needClaim = muggins && !state.show.claimSubmitted;
+  // While the human claims their crib in the interactive muggins panel (which shows the crib cards
+  // itself), hide the duplicate crib banner + the crib sprites so the crib isn't shown twice.
+  const mugCribClaim = needClaim && !!info && info.isCrib;
 
   const commit = (idxs) => dispatch(discardPhase
     ? { type: "SELECT_DISCARD", idxs: idxs.slice().sort((a, b) => a - b) }
@@ -2383,6 +2386,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
       dim={inHand && !pending && !legal && (discardPhase ? false : turn === me)}
       selLabel={inHand && !discardPhase ? tr("play.sel.play") : undefined}
       noAnim={resizing || inHand}
+      hidden={mugCribClaim && p && (p.group === "showcrib" || p.group === "cribhome")}
       onClick={inHand ? () => tapCard(handIdx) : inCribHome ? () => setCribNote(true) : undefined} />;
   });
 
@@ -2461,7 +2465,8 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
           <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>{dealBlurb(P)}</div>
         </Panel>
       ) : showPhase ? (
-        info.isCrib ? (
+        (info.isCrib && mugCribClaim) ? null   // the muggins claim panel below shows the crib — don't show it twice
+        : info.isCrib ? (
           // the crib has no seat — the persistent crib cards animate out of storage to here (the
           // showcrib ghost just reserves the slots; the real cards are the sprites, face up).
           <div style={{ background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "12px", minHeight: 88, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>

@@ -205,7 +205,7 @@ cribbageLocale("en", {
   "play.dealAs": "I’m {seat} — Deal the cards",
   "play.dealCrib": "Deal ({seat}'s crib)",
   "play.btn.dealing": "Dealing…",
-  "play.btn.cutFor": "Cut the deck for {seat}",
+  "play.btn.cutFor": "Cut the deck — {seat}",
   "play.cutMsg": "I’m {seat} — cut for the starter",
   "play.btn.playAgain": "Play again",
   "play.btn.continue": "Continue",
@@ -806,7 +806,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.42";
+const APP_VERSION = "1.1.20-dev.43";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -2682,8 +2682,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
                             tr("play.cfg.tapChange")))),
                     bigBtn(multiHuman ? tr("play.dealAs", { seat: seatName(dealerIdx) }) : isDealer ? tr("play.deal") : tr("play.dealCrib", { seat: seatName(dealerIdx) }), () => dispatch({ type: "DEAL" }), "wood")))) : cutPhase ? (bigBtn(seatIsHuman(cutter, settings) ? tr("play.btn.cutFor", { seat: seatName(dealerIdx) }) : tr("play.cutMsg", { seat: seatName(cutter) }), () => dispatch({ type: "CUT" }), "wood")) : cribbingPhase ? null : (transitioning || rotating) ? null : needHandoff ? React.createElement(PassPanel, { to: discardPhase ? me : peg.turn, dispatch: dispatch, locked: rotating }) : (React.createElement("div", null,
             pending && (discardPhase
-                ? React.createElement("div", { style: { marginBottom: 10 } },
-                    React.createElement(DiscardWarning, { pd: pending, cribIsOurs: cribOurs, dispatch: dispatch, onCancel: () => setSel([]) }))
+                ? React.createElement(DiscardWarning, { pd: pending, cribIsOurs: cribOurs, dispatch: dispatch, onCancel: () => setSel([]) })
                 : React.createElement("div", { style: { marginBottom: 10 } },
                     React.createElement(PlayWarning, { pp: pending, dispatch: dispatch }))),
             !pending && (() => {
@@ -2727,22 +2726,25 @@ function DiscardWarning({ pd, cribIsOurs, dispatch, onCancel }) {
         tr("play.warn.line", { thrown: thrownTag(o), keep: o.four.map(tag).join(" "), hand: o.keptEV.toFixed(2), crib: o.cribSwing.toFixed(2), side }),
         " ",
         React.createElement("b", null, tr("play.warn.net", { net: o.value.toFixed(2) }))));
-    return (React.createElement(Panel, { tone: "red" },
-        React.createElement("div", { style: { fontWeight: 700, fontSize: 15, marginBottom: 8 } }, tr("play.warn.title", { delta: delta.toFixed(2) })),
-        React.createElement("div", { style: { display: "grid", gap: 6, marginBottom: 10 } },
-            React.createElement(Line, { label: tr("play.warn.best"), o: best, strong: true }),
-            React.createElement(Line, { label: tr("play.warn.yours"), o: chosen })),
-        React.createElement("div", { style: { fontSize: 12.5, lineHeight: 1.5, color: T.cream, marginBottom: 12 } }, tr("play.warn.explain", { dir: cribIsOurs ? tr("play.warn.dirOurs") : tr("play.warn.dirOpp") })),
-        React.createElement("div", { style: { display: "flex", gap: 8 } },
-            React.createElement("button", { onClick: () => dispatch({ type: "CONFIRM_DISCARD" }), style: {
-                    flex: 1, padding: "11px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer",
-                    background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
-                } }, tr("play.warn.throwAnyway", { thrown: thrownTag(chosen) })),
-            React.createElement("button", { onClick: () => { dispatch({ type: "CANCEL_DISCARD" }); if (onCancel)
-                    onCancel(); }, style: {
-                    flex: 1, padding: "11px", borderRadius: 9, border: "none", cursor: "pointer",
-                    background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
-                } }, tr("play.warn.pickAgain")))));
+    const pickAgain = () => { dispatch({ type: "CANCEL_DISCARD" }); if (onCancel)
+        onCancel(); };
+    return (React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 220, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }, onClick: pickAgain },
+        React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { maxWidth: 400, width: "100%" } },
+            React.createElement(Panel, { tone: "red" },
+                React.createElement("div", { style: { fontWeight: 700, fontSize: 15, marginBottom: 8 } }, tr("play.warn.title", { delta: delta.toFixed(2) })),
+                React.createElement("div", { style: { display: "grid", gap: 6, marginBottom: 10 } },
+                    React.createElement(Line, { label: tr("play.warn.best"), o: best, strong: true }),
+                    React.createElement(Line, { label: tr("play.warn.yours"), o: chosen })),
+                React.createElement("div", { style: { fontSize: 12.5, lineHeight: 1.5, color: T.cream, marginBottom: 12 } }, tr("play.warn.explain", { dir: cribIsOurs ? tr("play.warn.dirOurs") : tr("play.warn.dirOpp") })),
+                React.createElement("div", { style: { display: "flex", gap: 8 } },
+                    React.createElement("button", { onClick: () => dispatch({ type: "CONFIRM_DISCARD" }), style: {
+                            flex: 1, padding: "11px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer",
+                            background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+                        } }, tr("play.warn.throwAnyway", { thrown: thrownTag(chosen) })),
+                    React.createElement("button", { onClick: pickAgain, style: {
+                            flex: 1, padding: "11px", borderRadius: 9, border: "none", cursor: "pointer",
+                            background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+                        } }, tr("play.warn.pickAgain")))))));
 }
 const segStyle = (on) => ({
     flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: 11.5,
@@ -2873,7 +2875,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.42"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.43"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

@@ -2468,7 +2468,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
       ) : cribbingPhase ? null : (transitioning || rotating) ? null : needHandoff ? <PassPanel to={discardPhase ? me : peg.turn} dispatch={dispatch} locked={rotating} /> : (
       <div>
         {pending && (discardPhase
-          ? <div style={{ marginBottom: 10 }}><DiscardWarning pd={pending} cribIsOurs={cribOurs} dispatch={dispatch} onCancel={() => setSel([])} /></div>
+          ? <DiscardWarning pd={pending} cribIsOurs={cribOurs} dispatch={dispatch} onCancel={() => setSel([])} />
           : <div style={{ marginBottom: 10 }}><PlayWarning pp={pending} dispatch={dispatch} /></div>)}
         {!pending && (() => {
           // One fixed-height slot below the table: an action button when there's something to
@@ -2523,27 +2523,32 @@ function DiscardWarning({ pd, cribIsOurs, dispatch, onCancel }) {
       <b style={{ color: strong ? T.good : T.ivory }}>{label}</b> {tr("play.warn.line", { thrown: thrownTag(o), keep: o.four.map(tag).join(" "), hand: o.keptEV.toFixed(2), crib: o.cribSwing.toFixed(2), side })} <b>{tr("play.warn.net", { net: o.value.toFixed(2) })}</b>
     </div>
   );
+  const pickAgain = () => { dispatch({ type: "CANCEL_DISCARD" }); if (onCancel) onCancel(); };
   return (
-    <Panel tone="red">
-      <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>{tr("play.warn.title", { delta: delta.toFixed(2) })}</div>
-      <div style={{ display: "grid", gap: 6, marginBottom: 10 }}>
-        <Line label={tr("play.warn.best")} o={best} strong />
-        <Line label={tr("play.warn.yours")} o={chosen} />
+    <div style={{ position: "fixed", inset: 0, zIndex: 220, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={pickAgain}>
+      <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 400, width: "100%" }}>
+        <Panel tone="red">
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>{tr("play.warn.title", { delta: delta.toFixed(2) })}</div>
+          <div style={{ display: "grid", gap: 6, marginBottom: 10 }}>
+            <Line label={tr("play.warn.best")} o={best} strong />
+            <Line label={tr("play.warn.yours")} o={chosen} />
+          </div>
+          <div style={{ fontSize: 12.5, lineHeight: 1.5, color: T.cream, marginBottom: 12 }}>
+            {tr("play.warn.explain", { dir: cribIsOurs ? tr("play.warn.dirOurs") : tr("play.warn.dirOpp") })}
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => dispatch({ type: "CONFIRM_DISCARD" })} style={{
+              flex: 1, padding: "11px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer",
+              background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+            }}>{tr("play.warn.throwAnyway", { thrown: thrownTag(chosen) })}</button>
+            <button onClick={pickAgain} style={{
+              flex: 1, padding: "11px", borderRadius: 9, border: "none", cursor: "pointer",
+              background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+            }}>{tr("play.warn.pickAgain")}</button>
+          </div>
+        </Panel>
       </div>
-      <div style={{ fontSize: 12.5, lineHeight: 1.5, color: T.cream, marginBottom: 12 }}>
-        {tr("play.warn.explain", { dir: cribIsOurs ? tr("play.warn.dirOurs") : tr("play.warn.dirOpp") })}
-      </div>
-      <div style={{ display: "flex", gap: 8 }}>
-        <button onClick={() => dispatch({ type: "CONFIRM_DISCARD" })} style={{
-          flex: 1, padding: "11px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer",
-          background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
-        }}>{tr("play.warn.throwAnyway", { thrown: thrownTag(chosen) })}</button>
-        <button onClick={() => { dispatch({ type: "CANCEL_DISCARD" }); if (onCancel) onCancel(); }} style={{
-          flex: 1, padding: "11px", borderRadius: 9, border: "none", cursor: "pointer",
-          background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
-        }}>{tr("play.warn.pickAgain")}</button>
-      </div>
-    </Panel>
+    </div>
   );
 }
 

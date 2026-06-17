@@ -81,10 +81,18 @@ function gameFor(P) {
   return reduce(reduce(initGame(), { type: "SET_SETTING", key: "autoCut", value: false }), { type: "SET_SETTING", key: "players", value: P });
 }
 
+// The cut-for-deal is incremental too: from "cutdeal", each CUT_NEXT reveals one card until all P are
+// out and a unique low decides the dealer (ties re-draw a fresh deck). Drain it before dealing.
+function cutAll(state) {
+  let guard = 0;
+  while (state.phase === "cutdeal" && state.cutDeal && !state.cutDeal.settled && guard++ < 600) state = reduce(state, { type: "CUT_NEXT" });
+  return state;
+}
 // The deal is incremental: DEAL starts it (phase "dealing"), then each DEAL_NEXT pushes one card off
 // the deck until the hands are full and it finalizes (-> discard, or straight to cut). The live UI
 // gates each push on a transitionend; the harness just drains them in one go.
 function dealAll(state) {
+  state = cutAll(state);                                 // settle the cut-for-deal first (first hand)
   state = reduce(state, { type: "DEAL" });
   let guard = 0;
   while (state.phase === "dealing" && guard++ < 80) state = reduce(state, { type: "DEAL_NEXT" });
@@ -158,7 +166,10 @@ function playHand(state, P) {
 for (const P of SUPPORTED) {
   let state = gameFor(P);
   check(state.phase === "cutdeal" && state.seats.length === P, `P=${P}: new game is cutdeal with ${P} seats`);
-  check(Array.isArray(state.dealDraw) && state.dealDraw.length === P, `P=${P}: ${P}-card cut-for-deal`);
+  check(state.dealDraw.length === 0 && state.cutDeal && !state.cutDeal.settled, `P=${P}: cut-for-deal starts empty (incremental)`);
+  const cut = cutAll(state);
+  check(cut.dealDraw.length === P && cut.cutDeal.settled, `P=${P}: cut reveals ${P} cards then settles`);
+  { const r = cut.dealDraw.map((c) => c.r), lo = Math.min(...r); check(r.filter((x) => x === lo).length === 1 && cut.dealerIdx === r.indexOf(lo), `P=${P}: unique low card deals`); }
   let prev = state.seats.map((s) => s.score);
   let hands = 0, exceptions = 0;
   for (let h = 0; h < 80 && state.phase !== "over"; h++) {

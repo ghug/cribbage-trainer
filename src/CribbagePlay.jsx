@@ -597,7 +597,7 @@ function startDeal(state) {
   const seq = dealSeq(P, d, pl);
   const seats = state.seats.map((s, i) => ({ score: s.score, isAI: !seatIsHuman(i, state.settings), history: s.history || [], dealt: [], kept: null, discard: null }));
   return {
-    ...state, seats, deck, starter: null, crib: [], hisHeels: false,
+    ...state, seats, deck, starter: null, crib: [], hisHeels: false, cutDeal: null,
     peg: null, show: null, winner: null, phase: "dealing", message: "", pendingDiscard: null, pendingPlay: null,
     deal: { seq, cursor: 0 },
     holder: nHumans(P, state.settings) > 1 ? d : firstHuman(P, state.settings), discardSeat: null,
@@ -693,10 +693,14 @@ function reduce(state, action) {
   const teams = clampTeams(P, state.settings.teams);
   switch (action.type) {
     case "DEAL":
+      if (state.cutDeal && !state.cutDeal.settled) return state;   // the cut-for-deal is still revealing — can't deal yet
       return startDeal(state);
 
     case "DEAL_NEXT":           // push the next card off the deck into its hand (driven by the view's transitionend gate)
       return dealStep(state);
+
+    case "CUT_NEXT":            // reveal the next cut-for-deal card (driven by the view's timer)
+      return cutStep(state);
 
     case "SORT_HAND": {         // sort one seat's hand into rank order — fired from the render when the
       const seat = action.seat; // hand is about to become the interactive clickable row (settled, face-up)
@@ -880,14 +884,22 @@ function gameRecord(state) {
 }
 
 // Cut for deal: each seat draws one card; lowest rank deals. Re-draw on a tie.
-function drawForDealer(P) {
-  for (let attempt = 0; attempt < 500; attempt++) {
-    const draw = freshDeck().slice(0, P);
-    const ranks = draw.map((c) => c.r);
-    const lo = Math.min(...ranks);
-    if (ranks.filter((r) => r === lo).length === 1) return { dealerIdx: ranks.indexOf(lo), draw };
-  }
-  return { dealerIdx: 0, draw: null };
+// One step of the cut-for-deal: reveal the next card off cutDeal.deck to its seat (dealDraw grows).
+// Once all P are out, the unique LOWEST rank deals (A low); a TIE re-draws a FRESH deck and starts
+// the cut over (the view does a deck swap on each redraw). The model only learns the dealer here.
+function cutStep(state) {
+  const P = clampPlayers(state.settings.players);
+  const cd = state.cutDeal;
+  if (!cd || cd.settled || cd.cursor >= P) return state;
+  const dealDraw = [...state.dealDraw, cd.deck[cd.cursor]];   // seat cd.cursor's cut card
+  const next = cd.cursor + 1;
+  if (next < P) return { ...state, dealDraw, cutDeal: { ...cd, cursor: next } };
+  const ranks = dealDraw.map((c) => c.r);
+  const lo = Math.min(...ranks);
+  if (ranks.filter((r) => r === lo).length === 1)
+    return { ...state, dealDraw, dealerIdx: ranks.indexOf(lo), cutDeal: { ...cd, cursor: P, settled: true } };
+  // tie for the low → fresh deck, restart the cut (redraw bumped so the view swaps the deck)
+  return { ...state, dealDraw: [], cutDeal: { deck: freshDeck(), cursor: 0, settled: false, redraw: (cd.redraw || 0) + 1 } };
 }
 
 function newGameState(prev) {
@@ -896,10 +908,11 @@ function newGameState(prev) {
   const settings = { ...base, players: P, teams: clampTeams(P, base.teams) };
   setSeatNames(P, soleHuman(P, settings));
   setSeatCustom(settings.names);
-  const { dealerIdx, draw } = drawForDealer(P);
+  // The cut-for-deal is dealt INCREMENTALLY (CUT_NEXT off cutDeal.deck): the dealer isn't known until
+  // all P cut cards have been revealed. dealerIdx is provisional (0) until then.
   return {
     seats: Array.from({ length: P }, (_, i) => ({ score: 0, isAI: !seatIsHuman(i, settings), dealt: [], kept: null, discard: null, history: [] })),
-    dealerIdx, dealDraw: draw,
+    dealerIdx: 0, dealDraw: [], cutDeal: { deck: freshDeck(), cursor: 0, settled: false, redraw: 0 },
     deck: [], starter: null, crib: [], hisHeels: false, pendingDiscard: null, pendingPlay: null,
     peg: null, show: null, winner: null, phase: "cutdeal", message: "", deal: null,
     holder: firstHuman(P, settings), discardSeat: null, settings,
@@ -1156,11 +1169,12 @@ export default function CribbagePlay() {
     return () => clearTimeout(t);
   }, [phase, peg, settings, state.pendingPlay, autoPaused, needHandoff, multiHuman, viewSeat]);
 
+  const cutSettled = !state.cutDeal || state.cutDeal.settled;   // the cut-for-deal has decided the dealer
   useEffect(() => {
     if (autoPaused || !settings.autoDeal) return;
-    if (phase === "cutdeal") { const t = setTimeout(() => dispatch({ type: "DEAL" }), 1600); return () => clearTimeout(t); }
+    if (phase === "cutdeal") { if (!cutSettled) return; const t = setTimeout(() => dispatch({ type: "DEAL" }), 900); return () => clearTimeout(t); }   // wait for the cut to finish, then a beat to see the winner
     if (phase === "deal") { const t = setTimeout(() => dispatch({ type: "DEAL" }), 650); return () => clearTimeout(t); }
-  }, [phase, settings.autoDeal, autoPaused]);
+  }, [phase, settings.autoDeal, autoPaused, cutSettled]);
   // Auto-discard the best throw for the active human discarder, when enabled (and once
   // they've taken the device in a hot-seat game).
   useEffect(() => {
@@ -1631,11 +1645,12 @@ const CARD_STAGGER = 210;                          // gap between successive car
 const SWAP_DUR = 520;                              // ms for the old deck to slide out / the new deck to slide in
 const EMPTY_DUR = 240;                             // empty beat between the old deck leaving and the new deck arriving
 function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, onView }) {
-  const { peg, starter, dealerIdx, crib, seats, settings, phase, dealDraw, winner, deal } = state;
+  const { peg, starter, dealerIdx, crib, seats, settings, phase, dealDraw, winner, deal, cutDeal } = state;
   const discardPhase = phase === "discard";
   const cribbingPhase = phase === "cribbing";            // crib full, holding while it animates to its home
   const cutPhase = phase === "cut";
   const cutdealPhase = phase === "cutdeal";              // the opening cut-for-deal reveal
+  const cutSettled = !cutDeal || cutDeal.settled;        // the cut-for-deal has revealed all P cards and a unique low won
   const dealPhase = phase === "deal";                    // the between-hands "ready to deal" rest
   const dealingPhase = phase === "dealing";              // cards leaving the deck one at a time
   const showPhase = phase === "show";                    // counting the hands + crib, one at a time
@@ -1739,7 +1754,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
   const activeSeat = (i) => overPhase ? teamOf(i, P, teams) === teamOf(winner, P, teams)
     : showPhase ? i === info.owner
     : discardPhase ? (i === me && myTurn)
-    : cutdealPhase ? i === dealerIdx
+    : cutdealPhase ? (cutSettled && i === dealerIdx)
     : turn === i;
 
   // Bots discard the instant they're dealt (in the reducer), but visually a bot should HOLD its
@@ -1848,6 +1863,15 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
     const t = setTimeout(() => advanceDeal(cursor), wait);
     return () => clearTimeout(t);
   }, [dealingPhase, deal && deal.cursor]);
+
+  // The cut-for-deal is timer-paced the same way: reveal one cut card every DEAL_STAGGER until a unique
+  // low decides the dealer. cursor 0 waits out any in-flight deck swap (a tie re-draw swaps the deck).
+  React.useEffect(() => {
+    if (!cutdealPhase || !cutDeal || cutDeal.settled || cutDeal.cursor >= P) return;
+    const wait = cutDeal.cursor === 0 ? Math.max(120, swapUntilRef.current - nowMs()) : DEAL_STAGGER;
+    const t = setTimeout(() => dispatch({ type: "CUT_NEXT" }), wait);
+    return () => clearTimeout(t);
+  }, [cutdealPhase, cutDeal && cutDeal.cursor, cutDeal && cutDeal.redraw, cutDeal && cutDeal.settled]);
 
   // Re-render as EACH bot's random hold beat ends, so its throw reaches the crib at its own time.
   React.useEffect(() => {
@@ -2088,6 +2112,28 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
       return;
     }
 
+    // CUT-FOR-DEAL TIE: the revealed cut cards just vanished (the model re-drew a fresh deck) — gather
+    // them into the centre and SWAP the deck before the cut re-deals (the driver's cursor-0 waits on
+    // swapUntilRef). Same sequence as the end-of-hand swap.
+    if (cutdealPhase && goneCards.length > 0 && newCards.length === 0) {
+      const oldCards = [...prevKnown];
+      const GATHER_DUR = MOVE_DUR + 80;
+      for (const id in delayRef.current) delayRef.current[id] = 0;
+      const r0 = {};
+      for (const id of oldCards) r0[id] = { x: deckTop.x, y: deckTop.y, up: false, z: 60 };
+      knownRef.current = new Set();
+      prevPlaceRef.current = {};
+      homesRef.current = r0; setHomes(r0);
+      sigRef.current = "#";
+      setDeckShown(52);
+      dealTimersRef.current.forEach(clearTimeout); dealTimersRef.current = [];
+      const settleAt = scheduleDeckSwap(oldCards, GATHER_DUR);
+      swapUntilRef.current = (typeof performance !== "undefined" ? performance.now() : Date.now()) + settleAt;
+      dealTimersRef.current.push(setTimeout(() => setDeckShown(deckCount), settleAt));
+      animUntilRef.current = (typeof performance !== "undefined" ? performance.now() : Date.now()) + settleAt + 120;
+      return;
+    }
+
     // DELAY = how long after the sweep begins each card starts to move. The DEFAULT is 0 for
     // every card, so a rotation / handoff / throw / play moves each whole hand as ONE unit (all
     // its cards travel together, never strung out into a diagonal). Only two sweeps stagger:
@@ -2262,10 +2308,12 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
           <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>{tr("play.win.final", { target: targetFor(P), scores: teamsList(P, teams).map((m) => `${teamLabel(m)} ${seats[m[0]].score}`).join(" · ") })}</div>
         </Panel>
       ) : cutdealPhase ? (
-        <Panel tone={isDealer ? "good" : null}>
+        <Panel tone={cutSettled && isDealer ? "good" : null}>
           <div style={{ fontWeight: 700, fontSize: 15 }}>{tr("play.cutdeal.title")}</div>
           <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>
-            {isDealer ? tr("play.cutdeal.subYou") : tr("play.cutdeal.subSeat", { seat: seatName(dealerIdx) })}
+            {!cutSettled ? tr("play.cutdeal.cutting")
+              : isDealer ? tr("play.cutdeal.subYou")
+              : tr("play.cutdeal.subSeat", { seat: seatName(dealerIdx) })}
           </div>
         </Panel>
       ) : (dealPhase || dealingPhase) ? (
@@ -2363,7 +2411,8 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
           </div>
         )
       ) : preDeal ? (
-        settings.autoDeal
+        !cutSettled ? null   // cut-for-deal still revealing — no deal button until the dealer is decided
+        : settings.autoDeal
           ? <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" }}>{tr("play.btn.dealing")}</div>
           : (<div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {dealPhase && (

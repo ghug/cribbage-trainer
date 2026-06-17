@@ -143,6 +143,7 @@ function playHand(state, P) {
 
   let guard = 0;
   while (state.phase === "play" && guard++ < 400) {
+    if (state.peg.pending31) { state = reduce(state, { type: "RESET_31" }); continue; }   // clear the frozen 31 pile
     const { hands, turn, count } = state.peg;
     const legal = hands[turn].filter((c) => pval(c.r) + count <= 31);
     if (legal.length === 0) { state = reduce(state, { type: "PASS_GO", seat: turn }); continue; }
@@ -340,6 +341,7 @@ function mixedGame(P, roles, seed) {
       check(state.crib.length === 4 && state.discardSeat === null, `mixed P=${P}: crib of 4, discard done`);
       state = reduce(state, { type: "CUT" });
     } else if (state.phase === "play") {
+      if (state.peg.pending31) { state = reduce(state, { type: "RESET_31" }); continue; }   // clear the frozen 31 pile
       const { hands: h, turn, count } = state.peg;
       const legal = h[turn].filter((c) => pval(c.r) + count <= 31);
       if (legal.length === 0) { state = reduce(state, { type: "PASS_GO", seat: turn }); continue; }

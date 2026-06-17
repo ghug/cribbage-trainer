@@ -206,7 +206,7 @@ cribbageLocale("en", {
   "play.dealCrib": "Deal ({seat}'s crib)",
   "play.btn.dealing": "Dealing…",
   "play.btn.cutFor": "Cut the deck for {seat}",
-  "play.cutMsg": "{seat} cuts for the starter…",
+  "play.cutMsg": "I’m {seat} — cut for the starter",
   "play.btn.playAgain": "Play again",
   "play.btn.continue": "Continue",
   "play.go": "Say “Go” — no legal card",
@@ -806,7 +806,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.41";
+const APP_VERSION = "1.1.20-dev.42";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -1235,14 +1235,11 @@ function playCard(state, seat, card) {
             ? tr("play.msg.pegPlayYou", { card: tag(card), count })
             : tr("play.msg.pegPlaySeat", { seat: seatName(seat), card: tag(card), count }));
     const np = { ...peg, hands, count, pile, pileSuited, played, lastPlayer: seat, passes: 0 };
-    if (count === 31) {
-        np.count = 0;
-        np.pile = [];
-        np.pileSuited = [];
-        np.lastPlayer = -1;
-    }
     if (seats[seat].score >= targetFor(P))
         return { ...state, seats, peg: np, phase: "over", winner: seat, message };
+    if (count === 31) {
+        return { ...state, seats, peg: { ...np, pending31: true }, message };
+    }
     const remaining = hands.reduce((a, h) => a + h.length, 0);
     if (remaining === 0) {
         if (np.lastPlayer >= 0) {
@@ -1323,6 +1320,17 @@ function reduce(state, action) {
             return applyCut(state);
         case "PLAY_CARD":
             return playCard(state, action.seat, action.card);
+        case "RESET_31": {
+            const peg = state.peg;
+            if (!peg || !peg.pending31)
+                return state;
+            const np = { ...peg, count: 0, pile: [], pileSuited: [], lastPlayer: -1, passes: 0, pending31: false };
+            const remaining = peg.hands.reduce((a, h) => a + h.length, 0);
+            if (remaining === 0)
+                return { ...state, peg: np, phase: "show", show: initShow(state.dealerIdx, P) };
+            np.turn = (peg.lastPlayer + 1) % P;
+            return { ...state, peg: np };
+        }
         case "SELECT_PLAY": {
             const seat = state.peg.turn;
             if (!state.settings.warn)
@@ -1677,6 +1685,8 @@ function CribbagePlay() {
     useEffect(() => {
         if (phase !== "play" || !peg || autoPaused)
             return;
+        if (peg.pending31)
+            return;
         if (multiHuman && viewSeat !== peg.turn)
             return;
         const seat = peg.turn;
@@ -1713,6 +1723,12 @@ function CribbagePlay() {
         }, 760);
         return () => clearTimeout(t);
     }, [phase, peg, settings, state.pendingPlay, autoPaused, needHandoff, multiHuman, viewSeat]);
+    useEffect(() => {
+        if (phase !== "play" || !peg || !peg.pending31 || autoPaused)
+            return;
+        const t = setTimeout(() => dispatch({ type: "RESET_31" }), 1500);
+        return () => clearTimeout(t);
+    }, [phase, peg, autoPaused]);
     const cutSettled = !state.cutDeal || state.cutDeal.settled;
     useEffect(() => {
         if (autoPaused || !settings.autoDeal)
@@ -2857,7 +2873,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.41"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.42"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

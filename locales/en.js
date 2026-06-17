@@ -43,7 +43,7 @@ cribbageLocale("en", {
   "play.dealCrib": "Deal ({seat}'s crib)",
   "play.btn.dealing": "Dealing…",
   "play.btn.cutFor": "Cut the deck for {seat}",
-  "play.cutMsg": "{seat} cuts for the starter…",
+  "play.cutMsg": "I’m {seat} — cut for the starter",
   "play.btn.playAgain": "Play again",
   "play.btn.continue": "Continue",
   "play.go": "Say “Go” — no legal card",

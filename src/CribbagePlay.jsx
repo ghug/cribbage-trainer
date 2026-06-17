@@ -668,8 +668,12 @@ function playCard(state, seat, card) {
         ? tr("play.msg.pegPlayYou", { card: tag(card), count })
         : tr("play.msg.pegPlaySeat", { seat: seatName(seat), card: tag(card), count }));
   const np = { ...peg, hands, count, pile, pileSuited, played, lastPlayer: seat, passes: 0 };
-  if (count === 31) { np.count = 0; np.pile = []; np.pileSuited = []; np.lastPlayer = -1; }
   if (seats[seat].score >= targetFor(P)) return { ...state, seats, peg: np, phase: "over", winner: seat, message };
+  if (count === 31) {
+    // Freeze the full 31 pile on the table for a beat so it stays visible; RESET_31 (timed in the
+    // view, immediate in the verify harness) then clears the count and hands the lead on.
+    return { ...state, seats, peg: { ...np, pending31: true }, message };
+  }
 
   const remaining = hands.reduce((a, h) => a + h.length, 0);
   if (remaining === 0) {
@@ -754,6 +758,18 @@ function reduce(state, action) {
 
     case "PLAY_CARD":
       return playCard(state, action.seat, action.card);
+
+    case "RESET_31": {
+      // Clear the frozen 31 pile (held a beat for visibility) and pass the lead to the seat after
+      // the one who hit 31, or go to the show if that was the last card of the hand.
+      const peg = state.peg;
+      if (!peg || !peg.pending31) return state;
+      const np = { ...peg, count: 0, pile: [], pileSuited: [], lastPlayer: -1, passes: 0, pending31: false };
+      const remaining = peg.hands.reduce((a, h) => a + h.length, 0);
+      if (remaining === 0) return { ...state, peg: np, phase: "show", show: initShow(state.dealerIdx, P) };
+      np.turn = (peg.lastPlayer + 1) % P;
+      return { ...state, peg: np };
+    }
 
     case "SELECT_PLAY": {
       const seat = state.peg.turn;
@@ -1141,6 +1157,7 @@ export default function CribbagePlay() {
   // a legal card blocks for a tap. Re-runs whenever the peg state changes.
   useEffect(() => {
     if (phase !== "play" || !peg || autoPaused) return;
+    if (peg.pending31) return;               // the 31 pile is frozen for a beat; a separate effect clears it
     // Wait for the ring to finish rotating to the active seat before any bot (or auto) move. This
     // makes the rotation a hard precondition, not a race against the play timer — even a 0 ms timer
     // can't fire until the view has settled on peg.turn. (Only when the ring actually rotates, i.e.
@@ -1176,6 +1193,13 @@ export default function CribbagePlay() {
     }, 760);
     return () => clearTimeout(t);
   }, [phase, peg, settings, state.pendingPlay, autoPaused, needHandoff, multiHuman, viewSeat]);
+
+  // When the pile hits exactly 31 it freezes for a beat so it stays visible, then clears.
+  useEffect(() => {
+    if (phase !== "play" || !peg || !peg.pending31 || autoPaused) return;
+    const t = setTimeout(() => dispatch({ type: "RESET_31" }), 1500);
+    return () => clearTimeout(t);
+  }, [phase, peg, autoPaused]);
 
   const cutSettled = !state.cutDeal || state.cutDeal.settled;   // the cut-for-deal has decided the dealer
   useEffect(() => {

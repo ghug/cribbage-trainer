@@ -225,6 +225,7 @@ cribbageLocale("en", {
   "play.win.final": "First to {target}. Final: {scores}",
   "play.cutdeal.title": "Cut for deal",
   "play.cutdeal.cutting": "Lowest card deals — cutting…",
+  "play.cutdeal.tie": "Tie for low — cutting again…",
   "play.cutdeal.subYou": "Lowest card deals — you deal first this game.",
   "play.cutdeal.subSeat": "Lowest card deals — {seat} deals first this game.",
   "play.deal.yours": "Your deal — the crib is yours.",
@@ -802,7 +803,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.36";
+const APP_VERSION = "1.1.20-dev.37";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -1273,6 +1274,8 @@ function reduce(state, action) {
             return dealStep(state);
         case "CUT_NEXT":
             return cutStep(state);
+        case "CUT_REDRAW":
+            return cutRedraw(state);
         case "SORT_HAND": {
             const seat = action.seat;
             let st = { ...state, seats: state.seats.map((s, i) => (i === seat ? { ...s, dealt: sortHand(s.dealt || []), kept: s.kept ? sortHand(s.kept) : s.kept } : s)) };
@@ -1478,7 +1481,13 @@ function cutStep(state) {
     const lo = Math.min(...ranks);
     if (ranks.filter((r) => r === lo).length === 1)
         return { ...state, dealDraw, dealerIdx: ranks.indexOf(lo), cutDeal: { ...cd, cursor: P, settled: true } };
-    return { ...state, dealDraw: [], cutDeal: { deck: freshDeck(), cursor: 0, settled: false, redraw: (cd.redraw || 0) + 1 } };
+    return { ...state, dealDraw, cutDeal: { ...cd, cursor: P, tie: true } };
+}
+function cutRedraw(state) {
+    const cd = state.cutDeal;
+    if (!cd || !cd.tie)
+        return state;
+    return { ...state, dealDraw: [], cutDeal: { deck: freshDeck(), cursor: 0, settled: false, tie: false, redraw: (cd.redraw || 0) + 1 } };
 }
 function newGameState(prev) {
     const base = prev ? prev.settings : loadSettings();
@@ -2222,12 +2231,18 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
         return () => clearTimeout(t);
     }, [dealingPhase, deal && deal.cursor]);
     React.useEffect(() => {
-        if (!cutdealPhase || !cutDeal || cutDeal.settled || cutDeal.cursor >= P)
+        if (!cutdealPhase || !cutDeal || cutDeal.settled)
+            return;
+        if (cutDeal.tie) {
+            const t = setTimeout(() => dispatch({ type: "CUT_REDRAW" }), 2000);
+            return () => clearTimeout(t);
+        }
+        if (cutDeal.cursor >= P)
             return;
         const wait = cutDeal.cursor === 0 ? Math.max(120, swapUntilRef.current - nowMs()) : DEAL_STAGGER;
         const t = setTimeout(() => dispatch({ type: "CUT_NEXT" }), wait);
         return () => clearTimeout(t);
-    }, [cutdealPhase, cutDeal && cutDeal.cursor, cutDeal && cutDeal.redraw, cutDeal && cutDeal.settled]);
+    }, [cutdealPhase, cutDeal && cutDeal.cursor, cutDeal && cutDeal.redraw, cutDeal && cutDeal.settled, cutDeal && cutDeal.tie]);
     React.useEffect(() => {
         if (!discardPhase)
             return;
@@ -2579,7 +2594,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
                 React.createElement("div", { style: { fontWeight: 700, fontSize: 18 } }, winner !== null && teamOf(winner, P, teams) === teamOf(me, P, teams) ? tr("play.win.you") : tr("play.win.team", { team: teamLabel(teamsList(P, teams).find((m) => m.includes(winner)) || [winner]) })),
                 React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 } }, tr("play.win.final", { target: targetFor(P), scores: teamsList(P, teams).map((m) => `${teamLabel(m)} ${seats[m[0]].score}`).join(" · ") })))) : cutdealPhase ? (React.createElement(Panel, { tone: cutSettled && isDealer ? "good" : null },
                 React.createElement("div", { style: { fontWeight: 700, fontSize: 15 } }, tr("play.cutdeal.title")),
-                React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 } }, !cutSettled ? tr("play.cutdeal.cutting")
+                React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 } }, !cutSettled ? ((cutDeal && cutDeal.tie) ? tr("play.cutdeal.tie") : tr("play.cutdeal.cutting"))
                     : isDealer ? tr("play.cutdeal.subYou")
                         : tr("play.cutdeal.subSeat", { seat: seatName(dealerIdx) })))) : (dealPhase || dealingPhase) ? (React.createElement(Panel, { tone: cribOurs ? "good" : null },
                 React.createElement("div", { style: { fontWeight: 700, fontSize: 15 } }, isDealer ? tr("play.deal.yours") : teammateDeals ? tr("play.deal.teammate", { seat: seatName(dealerIdx) }) : tr("play.deal.theirs", { seat: seatName(dealerIdx) })),
@@ -2838,7 +2853,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.36"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.37"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

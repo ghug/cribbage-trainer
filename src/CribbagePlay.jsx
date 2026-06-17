@@ -702,6 +702,9 @@ function reduce(state, action) {
     case "CUT_NEXT":            // reveal the next cut-for-deal card (driven by the view's timer)
       return cutStep(state);
 
+    case "CUT_REDRAW":          // after the tie pause: fresh deck + restart the cut (view swaps the deck)
+      return cutRedraw(state);
+
     case "SORT_HAND": {         // sort one seat's hand into rank order — fired from the render when the
       const seat = action.seat; // hand is about to become the interactive clickable row (settled, face-up)
       let st = { ...state, seats: state.seats.map((s, i) => (i === seat ? { ...s, dealt: sortHand(s.dealt || []), kept: s.kept ? sortHand(s.kept) : s.kept } : s)) };
@@ -898,8 +901,15 @@ function cutStep(state) {
   const lo = Math.min(...ranks);
   if (ranks.filter((r) => r === lo).length === 1)
     return { ...state, dealDraw, dealerIdx: ranks.indexOf(lo), cutDeal: { ...cd, cursor: P, settled: true } };
-  // tie for the low → fresh deck, restart the cut (redraw bumped so the view swaps the deck)
-  return { ...state, dealDraw: [], cutDeal: { deck: freshDeck(), cursor: 0, settled: false, redraw: (cd.redraw || 0) + 1 } };
+  // tie for the low → HOLD the revealed cards (the view pauses ~2s so the tie is seen); CUT_REDRAW
+  // then swaps the deck and restarts the cut.
+  return { ...state, dealDraw, cutDeal: { ...cd, cursor: P, tie: true } };
+}
+// After the tie pause: fresh deck, restart the cut (redraw bumped so the view swaps the deck).
+function cutRedraw(state) {
+  const cd = state.cutDeal;
+  if (!cd || !cd.tie) return state;
+  return { ...state, dealDraw: [], cutDeal: { deck: freshDeck(), cursor: 0, settled: false, tie: false, redraw: (cd.redraw || 0) + 1 } };
 }
 
 function newGameState(prev) {
@@ -1865,13 +1875,19 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
   }, [dealingPhase, deal && deal.cursor]);
 
   // The cut-for-deal is timer-paced the same way: reveal one cut card every DEAL_STAGGER until a unique
-  // low decides the dealer. cursor 0 waits out any in-flight deck swap (a tie re-draw swaps the deck).
+  // low decides the dealer. On a TIE, hold 2s showing the tie, then CUT_REDRAW (the view swaps the
+  // deck). cursor 0 waits out any in-flight deck swap.
   React.useEffect(() => {
-    if (!cutdealPhase || !cutDeal || cutDeal.settled || cutDeal.cursor >= P) return;
+    if (!cutdealPhase || !cutDeal || cutDeal.settled) return;
+    if (cutDeal.tie) {
+      const t = setTimeout(() => dispatch({ type: "CUT_REDRAW" }), 2000);
+      return () => clearTimeout(t);
+    }
+    if (cutDeal.cursor >= P) return;
     const wait = cutDeal.cursor === 0 ? Math.max(120, swapUntilRef.current - nowMs()) : DEAL_STAGGER;
     const t = setTimeout(() => dispatch({ type: "CUT_NEXT" }), wait);
     return () => clearTimeout(t);
-  }, [cutdealPhase, cutDeal && cutDeal.cursor, cutDeal && cutDeal.redraw, cutDeal && cutDeal.settled]);
+  }, [cutdealPhase, cutDeal && cutDeal.cursor, cutDeal && cutDeal.redraw, cutDeal && cutDeal.settled, cutDeal && cutDeal.tie]);
 
   // Re-render as EACH bot's random hold beat ends, so its throw reaches the crib at its own time.
   React.useEffect(() => {
@@ -2311,7 +2327,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
         <Panel tone={cutSettled && isDealer ? "good" : null}>
           <div style={{ fontWeight: 700, fontSize: 15 }}>{tr("play.cutdeal.title")}</div>
           <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>
-            {!cutSettled ? tr("play.cutdeal.cutting")
+            {!cutSettled ? ((cutDeal && cutDeal.tie) ? tr("play.cutdeal.tie") : tr("play.cutdeal.cutting"))
               : isDealer ? tr("play.cutdeal.subYou")
               : tr("play.cutdeal.subSeat", { seat: seatName(dealerIdx) })}
           </div>

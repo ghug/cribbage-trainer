@@ -62,6 +62,7 @@ cribbageLocale("en", {
   "play.win.final": "First to {target}. Final: {scores}",
   "play.cutdeal.title": "Cut for deal",
   "play.cutdeal.cutting": "Lowest card deals — cutting…",
+  "play.cutdeal.tie": "Tie for low — cutting again…",
   "play.cutdeal.subYou": "Lowest card deals — you deal first this game.",
   "play.cutdeal.subSeat": "Lowest card deals — {seat} deals first this game.",
   "play.deal.yours": "Your deal — the crib is yours.",

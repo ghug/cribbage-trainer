@@ -85,7 +85,8 @@ function gameFor(P) {
 // out and a unique low decides the dealer (ties re-draw a fresh deck). Drain it before dealing.
 function cutAll(state) {
   let guard = 0;
-  while (state.phase === "cutdeal" && state.cutDeal && !state.cutDeal.settled && guard++ < 600) state = reduce(state, { type: "CUT_NEXT" });
+  while (state.phase === "cutdeal" && state.cutDeal && !state.cutDeal.settled && guard++ < 600)
+    state = reduce(state, state.cutDeal.tie ? { type: "CUT_REDRAW" } : { type: "CUT_NEXT" });
   return state;
 }
 // The deal is incremental: DEAL starts it (phase "dealing"), then each DEAL_NEXT pushes one card off

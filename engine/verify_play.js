@@ -167,10 +167,11 @@ function playHand(state, P) {
 for (const P of SUPPORTED) {
   let state = gameFor(P);
   check(state.phase === "cutdeal" && state.seats.length === P, `P=${P}: new game is cutdeal with ${P} seats`);
-  check(state.dealDraw.length === 0 && state.cutDeal && !state.cutDeal.settled, `P=${P}: cut-for-deal starts empty (incremental)`);
+  check(state.dealDraw.length === 0 && state.cutDeal && !state.cutDeal.settled && state.cutDeal.contenders.length === P, `P=${P}: cut-for-deal starts empty, all P in contention`);
   const cut = cutAll(state);
-  check(cut.dealDraw.length === P && cut.cutDeal.settled, `P=${P}: cut reveals ${P} cards then settles`);
-  { const r = cut.dealDraw.map((c) => c.r), lo = Math.min(...r); check(r.filter((x) => x === lo).length === 1 && cut.dealerIdx === r.indexOf(lo), `P=${P}: unique low card deals`); }
+  check(cut.cutDeal.settled && cut.dealDraw[cut.dealerIdx], `P=${P}: cut settles on a dealer holding a cut card`);
+  { const cont = cut.cutDeal.contenders, r = cont.map((s) => cut.dealDraw[s].r), lo = Math.min(...r);
+    check(r.filter((x) => x === lo).length === 1 && cut.dealerIdx === cont[r.indexOf(lo)], `P=${P}: unique low among the final contenders deals`); }
   let prev = state.seats.map((s) => s.score);
   let hands = 0, exceptions = 0;
   for (let h = 0; h < 80 && state.phase !== "over"; h++) {
@@ -191,6 +192,24 @@ for (const P of SUPPORTED) {
   }
   check(exceptions === 0, `P=${P}: no exceptions across many hands`);
   check(hands >= 1, `P=${P}: played at least one full hand`);
+}
+
+/* ---- B2. cut-for-deal TIE-BREAK: only the seats that tied re-cut (forced deck) ---- */
+{
+  const C = (r, s) => ({ r, s });
+  let st = gameFor(4);
+  // seats 0 & 1 draw an Ace (rank 1), seats 2 & 3 draw K/Q → 0 and 1 tie for low
+  st = { ...st, cutDeal: { ...st.cutDeal, deck: [C(1, 0), C(1, 1), C(13, 0), C(12, 0), ...st.cutDeal.deck.slice(4)] } };
+  for (let i = 0; i < 4; i++) st = reduce(st, { type: "CUT_NEXT" });
+  check(st.cutDeal.tie && st.cutDeal.tied.join(",") === "0,1", "tie: seats 0 & 1 tie for the low Ace");
+  check(!st.cutDeal.settled, "tie: cut not settled while holding the tie");
+  st = reduce(st, { type: "CUT_REDRAW" });
+  check(st.cutDeal.contenders.join(",") === "0,1" && st.dealDraw.length === 0 && !st.cutDeal.tie, "redraw: only the two tied seats re-cut, cards cleared");
+  // re-cut: seat 0 draws a 2, seat 1 draws a 5 → seat 0 deals; seats 2 & 3 stay out
+  st = { ...st, cutDeal: { ...st.cutDeal, deck: [C(2, 0), C(5, 0), ...st.cutDeal.deck.slice(2)] } };
+  st = reduce(reduce(st, { type: "CUT_NEXT" }), { type: "CUT_NEXT" });
+  check(st.cutDeal.settled && st.dealerIdx === 0, "tie-break: the lower of the two tied seats deals");
+  check(st.dealDraw[0] && st.dealDraw[1] && !st.dealDraw[2] && !st.dealDraw[3], "tie-break: only the tied seats hold cards; the rest are out");
 }
 
 /* ---- C. his heels = +2 at the cut, per P ---- */

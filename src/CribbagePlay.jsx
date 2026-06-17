@@ -886,30 +886,30 @@ function gameRecord(state) {
   return { t: Date.now(), P, teams, outcome, peg, hand, crib, score };
 }
 
-// Cut for deal: each seat draws one card; lowest rank deals. Re-draw on a tie.
-// One step of the cut-for-deal: reveal the next card off cutDeal.deck to its seat (dealDraw grows).
-// Once all P are out, the unique LOWEST rank deals (A low); a TIE re-draws a FRESH deck and starts
-// the cut over (the view does a deck swap on each redraw). The model only learns the dealer here.
+// Cut for deal, dealt one card at a time off cutDeal.deck to each seat still in contention. The first
+// round is all P seats; on a TIE for the low, only the tied seats re-cut (CUT_REDRAW narrows the
+// contenders to them and swaps in a fresh deck). dealDraw[seat] = that seat's current cut card. The
+// model only learns the dealer once a round produces a unique low (A low).
 function cutStep(state) {
-  const P = clampPlayers(state.settings.players);
   const cd = state.cutDeal;
-  if (!cd || cd.settled || cd.cursor >= P) return state;
-  const dealDraw = [...state.dealDraw, cd.deck[cd.cursor]];   // seat cd.cursor's cut card
+  if (!cd || cd.settled || cd.tie || cd.cursor >= cd.contenders.length) return state;
+  const seat = cd.contenders[cd.cursor];
+  const dealDraw = state.dealDraw.slice(); dealDraw[seat] = cd.deck[cd.cursor];
   const next = cd.cursor + 1;
-  if (next < P) return { ...state, dealDraw, cutDeal: { ...cd, cursor: next } };
-  const ranks = dealDraw.map((c) => c.r);
-  const lo = Math.min(...ranks);
-  if (ranks.filter((r) => r === lo).length === 1)
-    return { ...state, dealDraw, dealerIdx: ranks.indexOf(lo), cutDeal: { ...cd, cursor: P, settled: true } };
-  // tie for the low → HOLD the revealed cards (the view pauses ~2s so the tie is seen); CUT_REDRAW
-  // then swaps the deck and restarts the cut.
-  return { ...state, dealDraw, cutDeal: { ...cd, cursor: P, tie: true } };
+  if (next < cd.contenders.length) return { ...state, dealDraw, cutDeal: { ...cd, cursor: next } };
+  // every contender is out — find the low AMONG them
+  const lo = Math.min(...cd.contenders.map((s) => dealDraw[s].r));
+  const lows = cd.contenders.filter((s) => dealDraw[s].r === lo);
+  if (lows.length === 1) return { ...state, dealDraw, dealerIdx: lows[0], cutDeal: { ...cd, cursor: cd.contenders.length, settled: true } };
+  // tie → HOLD the revealed cards (the view pauses ~2s); CUT_REDRAW then re-cuts the tied seats only.
+  return { ...state, dealDraw, cutDeal: { ...cd, cursor: cd.contenders.length, tie: true, tied: lows } };
 }
-// After the tie pause: fresh deck, restart the cut (redraw bumped so the view swaps the deck).
+// After the tie pause: a fresh deck, and only the seats that tied re-cut (others are out). The view
+// swaps the deck (redraw bumped) and re-deals one card to each tied seat.
 function cutRedraw(state) {
   const cd = state.cutDeal;
   if (!cd || !cd.tie) return state;
-  return { ...state, dealDraw: [], cutDeal: { deck: freshDeck(), cursor: 0, settled: false, tie: false, redraw: (cd.redraw || 0) + 1 } };
+  return { ...state, dealDraw: [], cutDeal: { deck: freshDeck(), cursor: 0, contenders: cd.tied, settled: false, tie: false, redraw: (cd.redraw || 0) + 1 } };
 }
 
 function newGameState(prev) {
@@ -922,7 +922,7 @@ function newGameState(prev) {
   // all P cut cards have been revealed. dealerIdx is provisional (0) until then.
   return {
     seats: Array.from({ length: P }, (_, i) => ({ score: 0, isAI: !seatIsHuman(i, settings), dealt: [], kept: null, discard: null, history: [] })),
-    dealerIdx: 0, dealDraw: [], cutDeal: { deck: freshDeck(), cursor: 0, settled: false, redraw: 0 },
+    dealerIdx: 0, dealDraw: [], cutDeal: { deck: freshDeck(), cursor: 0, contenders: Array.from({ length: P }, (_, i) => i), settled: false, tie: false, redraw: 0 },
     deck: [], starter: null, crib: [], hisHeels: false, pendingDiscard: null, pendingPlay: null,
     peg: null, show: null, winner: null, phase: "cutdeal", message: "", deal: null,
     holder: firstHuman(P, settings), discardSeat: null, settings,
@@ -1883,7 +1883,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
       const t = setTimeout(() => dispatch({ type: "CUT_REDRAW" }), 2000);
       return () => clearTimeout(t);
     }
-    if (cutDeal.cursor >= P) return;
+    if (cutDeal.cursor >= cutDeal.contenders.length) return;
     const wait = cutDeal.cursor === 0 ? Math.max(120, swapUntilRef.current - nowMs()) : DEAL_STAGGER;
     const t = setTimeout(() => dispatch({ type: "CUT_NEXT" }), wait);
     return () => clearTimeout(t);

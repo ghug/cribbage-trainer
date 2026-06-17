@@ -1112,6 +1112,7 @@ export default function CribbagePlay() {
   const players = clampPlayers(settings.players);
   const teams = clampTeams(players, settings.teams);
   const multiHuman = nHumans(players, settings) > 1;            // 2+ humans → hot-seat hand-off
+  const allBot = nHumans(players, settings) === 0;             // spectated table: always auto-deal + auto-cut, never "you" framing
   setSeatNames(players, soleHuman(players, settings));
   setSeatCustom(settings.names);
   const ds = state.discardSeat != null ? state.discardSeat : 0; // active discarder
@@ -1203,10 +1204,10 @@ export default function CribbagePlay() {
 
   const cutSettled = !state.cutDeal || state.cutDeal.settled;   // the cut-for-deal has decided the dealer
   useEffect(() => {
-    if (autoPaused || !settings.autoDeal) return;
+    if (autoPaused || (!settings.autoDeal && !allBot)) return;   // an all-bot table always auto-deals
     if (phase === "cutdeal") { if (!cutSettled) return; const t = setTimeout(() => dispatch({ type: "DEAL" }), 900); return () => clearTimeout(t); }   // wait for the cut to finish, then a beat to see the winner
     if (phase === "deal") { const t = setTimeout(() => dispatch({ type: "DEAL" }), 650); return () => clearTimeout(t); }
-  }, [phase, settings.autoDeal, autoPaused, cutSettled]);
+  }, [phase, settings.autoDeal, autoPaused, cutSettled, allBot]);
   // Auto-discard the best throw for the active human discarder, when enabled (and once
   // they've taken the device in a hot-seat game).
   useEffect(() => {
@@ -1220,10 +1221,11 @@ export default function CribbagePlay() {
     if (phase !== "cut" || autoPaused) return;
     // Only auto-cut turns the starter on a timer. In MANUAL mode the cut is always a deliberate,
     // visible step — a tap — even when a bot is the one cutting (you're not skipped past it).
-    if (!settings.autoCut) return;
+    // An all-bot table always auto-triggers the cut, regardless of the setting.
+    if (!settings.autoCut && !allBot) return;
     const t = setTimeout(() => dispatch({ type: "CUT" }), 650);
     return () => clearTimeout(t);
-  }, [phase, autoPaused, settings.autoCut, dealerIdx, players, settings]);
+  }, [phase, autoPaused, settings.autoCut, dealerIdx, players, settings, allBot]);
   useEffect(() => {
     if (phase !== "show" || !show || show.scored) return;
     const info = computeShow(state);
@@ -1736,6 +1738,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
   const tapSelect = settings.tapToSelect;
   const cutter = (dealerIdx + P - 1) % P;
   const multiHuman = nHumans(P, settings) > 1;
+  const solo = nHumans(P, settings) === 1;                 // exactly one human → "you" framing; else (all-bot) name every seat
   const meHuman = seatIsHuman(me, settings);               // false only in an all-bot (spectated) game
   const cribSoFar = seats.reduce((a, s) => a + (s.discard ? s.discard.length : 0), 0);   // cards thrown to the crib so far
   // The crib's stored home (left edge of the play area). It holds the 4 crib cards from the moment
@@ -2341,7 +2344,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
       )}
       {overPhase ? (
         <Panel tone="good">
-          <div style={{ fontWeight: 700, fontSize: 18 }}>{winner !== null && teamOf(winner, P, teams) === teamOf(me, P, teams) ? tr("play.win.you") : tr("play.win.team", { team: teamLabel(teamsList(P, teams).find((m) => m.includes(winner)) || [winner]) })}</div>
+          <div style={{ fontWeight: 700, fontSize: 18 }}>{winner !== null && solo && teamOf(winner, P, teams) === teamOf(me, P, teams) ? tr("play.win.you") : tr("play.win.team", { team: teamLabel(teamsList(P, teams).find((m) => m.includes(winner)) || [winner]) })}</div>
           <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>{tr("play.win.final", { target: targetFor(P), scores: teamsList(P, teams).map((m) => `${teamLabel(m)} ${seats[m[0]].score}`).join(" · ") })}</div>
         </Panel>
       ) : cutdealPhase ? (
@@ -2349,13 +2352,13 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
           <div style={{ fontWeight: 700, fontSize: 15 }}>{tr("play.cutdeal.title")}</div>
           <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>
             {!cutSettled ? ((cutDeal && cutDeal.tie) ? tr("play.cutdeal.tie") : tr("play.cutdeal.cutting"))
-              : (isDealer && !multiHuman) ? tr("play.cutdeal.subYou")
+              : (isDealer && solo) ? tr("play.cutdeal.subYou")
               : tr("play.cutdeal.subSeat", { seat: seatName(dealerIdx) })}
           </div>
         </Panel>
       ) : (dealPhase || dealingPhase) ? (
         <Panel tone={cribOurs ? "good" : null}>
-          <div style={{ fontWeight: 700, fontSize: 15 }}>{(isDealer && !multiHuman) ? tr("play.deal.yours") : teammateDeals ? tr("play.deal.teammate", { seat: seatName(dealerIdx) }) : tr("play.deal.theirs", { seat: seatName(dealerIdx) })}</div>
+          <div style={{ fontWeight: 700, fontSize: 15 }}>{(isDealer && solo) ? tr("play.deal.yours") : teammateDeals ? tr("play.deal.teammate", { seat: seatName(dealerIdx) }) : tr("play.deal.theirs", { seat: seatName(dealerIdx) })}</div>
           <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>{dealBlurb(P)}</div>
         </Panel>
       ) : showPhase ? (
@@ -2383,7 +2386,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
         // cards leave the banner (to CribHome) once gliding, so the ghost shows only before then.
         <Panel tone={cribOurs ? "good" : "red"}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-            <div style={{ fontWeight: 700, fontSize: 15, minWidth: 0 }}>{multiHuman ? tr("play.crib.seatPrefix", { seat: seatName(me) }) : ""}{isDealer ? tr(!multiHuman ? "play.crib.greedy" : needHandoff ? "play.crib.greedyNamed" : "play.crib.greedyMine") : teammateDeals ? tr((!multiHuman || !needHandoff) ? "play.crib.teamGreedy" : "play.crib.teamGreedyNamed", { seat: seatName(dealerIdx) }) : tr("play.crib.defend", { seat: seatName(dealerIdx) })}</div>
+            <div style={{ fontWeight: 700, fontSize: 15, minWidth: 0 }}>{!solo ? tr("play.crib.seatPrefix", { seat: seatName(me) }) : ""}{isDealer ? tr(solo ? "play.crib.greedy" : (multiHuman && !needHandoff) ? "play.crib.greedyMine" : "play.crib.greedyNamed") : teammateDeals ? tr((solo || (multiHuman && !needHandoff)) ? "play.crib.teamGreedy" : "play.crib.teamGreedyNamed", { seat: seatName(dealerIdx) }) : tr("play.crib.defend", { seat: seatName(dealerIdx) })}</div>
             {cribSoFar > 0 && !cribGliding && (
               <div data-slot="crib" style={{ flex: "0 0 auto", display: "flex", alignItems: "flex-end", visibility: "hidden" }}>
                 <SlotGhost n={cribSoFar} vis={BACK_VISIBLE} />

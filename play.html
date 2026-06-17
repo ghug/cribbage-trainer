@@ -806,7 +806,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.48";
+const APP_VERSION = "1.1.20-dev.49";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -1639,6 +1639,7 @@ function CribbagePlay() {
     const players = clampPlayers(settings.players);
     const teams = clampTeams(players, settings.teams);
     const multiHuman = nHumans(players, settings) > 1;
+    const allBot = nHumans(players, settings) === 0;
     setSeatNames(players, soleHuman(players, settings));
     setSeatCustom(settings.names);
     const ds = state.discardSeat != null ? state.discardSeat : 0;
@@ -1731,7 +1732,7 @@ function CribbagePlay() {
     }, [phase, peg, autoPaused]);
     const cutSettled = !state.cutDeal || state.cutDeal.settled;
     useEffect(() => {
-        if (autoPaused || !settings.autoDeal)
+        if (autoPaused || (!settings.autoDeal && !allBot))
             return;
         if (phase === "cutdeal") {
             if (!cutSettled)
@@ -1743,7 +1744,7 @@ function CribbagePlay() {
             const t = setTimeout(() => dispatch({ type: "DEAL" }), 650);
             return () => clearTimeout(t);
         }
-    }, [phase, settings.autoDeal, autoPaused, cutSettled]);
+    }, [phase, settings.autoDeal, autoPaused, cutSettled, allBot]);
     useEffect(() => {
         if (phase !== "discard" || autoPaused || !settings.autoDiscardBest || state.pendingDiscard || needHandoff)
             return;
@@ -1755,11 +1756,11 @@ function CribbagePlay() {
     useEffect(() => {
         if (phase !== "cut" || autoPaused)
             return;
-        if (!settings.autoCut)
+        if (!settings.autoCut && !allBot)
             return;
         const t = setTimeout(() => dispatch({ type: "CUT" }), 650);
         return () => clearTimeout(t);
-    }, [phase, autoPaused, settings.autoCut, dealerIdx, players, settings]);
+    }, [phase, autoPaused, settings.autoCut, dealerIdx, players, settings, allBot]);
     useEffect(() => {
         if (phase !== "show" || !show || show.scored)
             return;
@@ -2106,6 +2107,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
     const tapSelect = settings.tapToSelect;
     const cutter = (dealerIdx + P - 1) % P;
     const multiHuman = nHumans(P, settings) > 1;
+    const solo = nHumans(P, settings) === 1;
     const meHuman = seatIsHuman(me, settings);
     const cribSoFar = seats.reduce((a, s) => a + (s.discard ? s.discard.length : 0), 0);
     const cribCounting = showPhase && state.show && state.show.order[state.show.step] === "CRIB";
@@ -2612,13 +2614,13 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
                 } },
                 React.createElement(SlotGhostV, { n: cribHomeN, vis: CRIB_HOME_VISIBLE }))),
             overPhase ? (React.createElement(Panel, { tone: "good" },
-                React.createElement("div", { style: { fontWeight: 700, fontSize: 18 } }, winner !== null && teamOf(winner, P, teams) === teamOf(me, P, teams) ? tr("play.win.you") : tr("play.win.team", { team: teamLabel(teamsList(P, teams).find((m) => m.includes(winner)) || [winner]) })),
+                React.createElement("div", { style: { fontWeight: 700, fontSize: 18 } }, winner !== null && solo && teamOf(winner, P, teams) === teamOf(me, P, teams) ? tr("play.win.you") : tr("play.win.team", { team: teamLabel(teamsList(P, teams).find((m) => m.includes(winner)) || [winner]) })),
                 React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 } }, tr("play.win.final", { target: targetFor(P), scores: teamsList(P, teams).map((m) => `${teamLabel(m)} ${seats[m[0]].score}`).join(" · ") })))) : cutdealPhase ? (React.createElement(Panel, { tone: cutSettled && isDealer ? "good" : null },
                 React.createElement("div", { style: { fontWeight: 700, fontSize: 15 } }, tr("play.cutdeal.title")),
                 React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 } }, !cutSettled ? ((cutDeal && cutDeal.tie) ? tr("play.cutdeal.tie") : tr("play.cutdeal.cutting"))
-                    : (isDealer && !multiHuman) ? tr("play.cutdeal.subYou")
+                    : (isDealer && solo) ? tr("play.cutdeal.subYou")
                         : tr("play.cutdeal.subSeat", { seat: seatName(dealerIdx) })))) : (dealPhase || dealingPhase) ? (React.createElement(Panel, { tone: cribOurs ? "good" : null },
-                React.createElement("div", { style: { fontWeight: 700, fontSize: 15 } }, (isDealer && !multiHuman) ? tr("play.deal.yours") : teammateDeals ? tr("play.deal.teammate", { seat: seatName(dealerIdx) }) : tr("play.deal.theirs", { seat: seatName(dealerIdx) })),
+                React.createElement("div", { style: { fontWeight: 700, fontSize: 15 } }, (isDealer && solo) ? tr("play.deal.yours") : teammateDeals ? tr("play.deal.teammate", { seat: seatName(dealerIdx) }) : tr("play.deal.theirs", { seat: seatName(dealerIdx) })),
                 React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 } }, dealBlurb(P)))) : showPhase ? (info.isCrib ? (React.createElement("div", { style: { background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "12px", minHeight: 88, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 } },
                 React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: T.muted } }, tr("play.show.entCounting", { ent: entText(info), step: stepLabel })),
                 React.createElement("div", { "data-slot": "showcrib", style: { display: "flex", alignItems: "flex-end", justifyContent: "center", height: "var(--ch)", visibility: "hidden" } },
@@ -2629,8 +2631,8 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
                 React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 3 } }, tr("play.show.order"))))) : (discardPhase || cribbingPhase) ? (React.createElement(Panel, { tone: cribOurs ? "good" : "red" },
                 React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 } },
                     React.createElement("div", { style: { fontWeight: 700, fontSize: 15, minWidth: 0 } },
-                        multiHuman ? tr("play.crib.seatPrefix", { seat: seatName(me) }) : "",
-                        isDealer ? tr(!multiHuman ? "play.crib.greedy" : needHandoff ? "play.crib.greedyNamed" : "play.crib.greedyMine") : teammateDeals ? tr((!multiHuman || !needHandoff) ? "play.crib.teamGreedy" : "play.crib.teamGreedyNamed", { seat: seatName(dealerIdx) }) : tr("play.crib.defend", { seat: seatName(dealerIdx) })),
+                        !solo ? tr("play.crib.seatPrefix", { seat: seatName(me) }) : "",
+                        isDealer ? tr(solo ? "play.crib.greedy" : (multiHuman && !needHandoff) ? "play.crib.greedyMine" : "play.crib.greedyNamed") : teammateDeals ? tr((solo || (multiHuman && !needHandoff)) ? "play.crib.teamGreedy" : "play.crib.teamGreedyNamed", { seat: seatName(dealerIdx) }) : tr("play.crib.defend", { seat: seatName(dealerIdx) })),
                     cribSoFar > 0 && !cribGliding && (React.createElement("div", { "data-slot": "crib", style: { flex: "0 0 auto", display: "flex", alignItems: "flex-end", visibility: "hidden" } },
                         React.createElement(SlotGhost, { n: cribSoFar, vis: BACK_VISIBLE })))))) : cutPhase ? null : (React.createElement("div", { style: { background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "0 12px 0 0" } },
                 React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, minHeight: `calc(var(--ch) * ${PILE_VISIBLE})` } },
@@ -2875,7 +2877,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.48"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.49"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

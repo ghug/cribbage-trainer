@@ -261,6 +261,7 @@ cribbageLocale("en", {
   "settings.intro": "These apply to the Play game and are saved on this device. (The number of players is set above, on the home page.)",
   "settings.aboutFeedback": "About & feedback",
   "settings.resetDefaults": "Reset game settings to defaults",
+  "trainer.set.resetDefaults": "Reset these settings to defaults",
   "settings.continue": "Continue game",
   "settings.tapToSelect.title": "Tap to select, then confirm",
   "settings.tapToSelect.desc": "Tapping a card lifts it to select (tap again to drop it); a Play or Throw-to-crib button above your hand commits the choice. Off: a tap plays or throws immediately.",

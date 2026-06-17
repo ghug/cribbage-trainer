@@ -556,7 +556,7 @@ function SettingsPanel({ players, teams, onSize, roleMode, onRoleMode, autoBest,
       </div>
 
       <LanguageRow />
-      <button onClick={() => { onRoleMode("random"); onAutoBest(false); }} style={{ width: "100%", margin: "2px 0 0", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12, fontWeight: 700 }}>{tr("settings.resetDefaults")}</button>
+      <button onClick={() => { onRoleMode("random"); onAutoBest(false); }} style={{ width: "100%", margin: "2px 0 0", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12, fontWeight: 700 }}>{tr("trainer.set.resetDefaults")}</button>
       <AboutRow onAbout={onAbout} />
     </div>
   );

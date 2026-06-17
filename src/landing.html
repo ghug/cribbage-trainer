@@ -441,10 +441,14 @@
           var label = (isYou ? tr('landing.youPrefix') : '') + esc(base);
           var ps = 'left:' + pos[i][0] + '%;top:' + pos[i][1] + '%';
           if (editingNames) {
-            // Naming mode: each seat shows an input pre-filled with its current name; no role toggle.
+            // Naming mode: the input holds ONLY a real custom name; the compass label is a placeholder.
+            // (Pre-filling the value would bake the abbreviation in as a custom name on save, which
+            // then overrides BOTH the game's full name and its abbreviation — so an untouched seat must
+            // save as empty, leaving the game's full=direction-name / short=abbreviation defaults.)
+            var custom = (settings.names || [])[i] || '';
             html += '<div class="seat ' + roles[i] + (isYou ? ' you' : '') + '" style="' + ps + '">'
               + '<span class="avatar"' + avStyle + '>' + (human ? '🧑' : '🤖') + '</span>'
-              + '<input type="text" class="seat-name-input" data-seat="' + i + '" value="' + esc(base) + '" aria-label="' + esc(names[i]) + '"></div>';
+              + '<input type="text" class="seat-name-input" data-seat="' + i + '" value="' + esc(custom) + '" placeholder="' + esc(names[i]) + '" aria-label="' + esc(names[i]) + '"></div>';
             continue;
           }
           var cls = 'seat seat-btn ' + roles[i] + (isYou ? ' you' : '');

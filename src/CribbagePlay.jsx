@@ -2328,13 +2328,13 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
           <div style={{ fontWeight: 700, fontSize: 15 }}>{tr("play.cutdeal.title")}</div>
           <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>
             {!cutSettled ? ((cutDeal && cutDeal.tie) ? tr("play.cutdeal.tie") : tr("play.cutdeal.cutting"))
-              : isDealer ? tr("play.cutdeal.subYou")
+              : (isDealer && !multiHuman) ? tr("play.cutdeal.subYou")
               : tr("play.cutdeal.subSeat", { seat: seatName(dealerIdx) })}
           </div>
         </Panel>
       ) : (dealPhase || dealingPhase) ? (
         <Panel tone={cribOurs ? "good" : null}>
-          <div style={{ fontWeight: 700, fontSize: 15 }}>{isDealer ? tr("play.deal.yours") : teammateDeals ? tr("play.deal.teammate", { seat: seatName(dealerIdx) }) : tr("play.deal.theirs", { seat: seatName(dealerIdx) })}</div>
+          <div style={{ fontWeight: 700, fontSize: 15 }}>{(isDealer && !multiHuman) ? tr("play.deal.yours") : teammateDeals ? tr("play.deal.teammate", { seat: seatName(dealerIdx) }) : tr("play.deal.theirs", { seat: seatName(dealerIdx) })}</div>
           <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>{dealBlurb(P)}</div>
         </Panel>
       ) : showPhase ? (
@@ -2362,7 +2362,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
         // cards leave the banner (to CribHome) once gliding, so the ghost shows only before then.
         <Panel tone={cribOurs ? "good" : "red"}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-            <div style={{ fontWeight: 700, fontSize: 15, minWidth: 0 }}>{multiHuman ? tr("play.crib.seatPrefix", { seat: seatName(me) }) : ""}{isDealer ? tr("play.crib.greedy") : teammateDeals ? tr("play.crib.teamGreedy", { seat: seatName(dealerIdx) }) : tr("play.crib.defend", { seat: seatName(dealerIdx) })}</div>
+            <div style={{ fontWeight: 700, fontSize: 15, minWidth: 0 }}>{multiHuman ? tr("play.crib.seatPrefix", { seat: seatName(me) }) : ""}{isDealer ? tr(multiHuman ? "play.crib.greedyNamed" : "play.crib.greedy") : teammateDeals ? tr(multiHuman ? "play.crib.teamGreedyNamed" : "play.crib.teamGreedy", { seat: seatName(dealerIdx) }) : tr("play.crib.defend", { seat: seatName(dealerIdx) })}</div>
             {cribSoFar > 0 && !cribGliding && (
               <div data-slot="crib" style={{ flex: "0 0 auto", display: "flex", alignItems: "flex-end", visibility: "hidden" }}>
                 <SlotGhost n={cribSoFar} vis={BACK_VISIBLE} />

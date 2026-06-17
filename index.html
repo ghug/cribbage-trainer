@@ -75,6 +75,13 @@
   .seg:disabled{ cursor:default; opacity:0.5 }
   .players-pick.disabled .pp-label{ opacity:0.5 }
   .set-row.disabled .set-title, .set-row.disabled .set-desc{ opacity:0.55 }
+  .set-group{ border-top:1px solid var(--line) }
+  .set-group > summary{ list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between;
+    padding:12px 0 10px; font-family:var(--mono); font-size:11.5px; font-weight:700; letter-spacing:0.4px; text-transform:uppercase; color:var(--cream) }
+  .set-group > summary::-webkit-details-marker{ display:none }
+  .set-group > summary::after{ content:"\25B8"; color:var(--muted); font-size:13px }
+  .set-group[open] > summary::after{ content:"\25BE" }
+  .set-group[open]{ padding-bottom:2px }
   .players-pick{ background:rgba(0,0,0,0.18); border:1px solid var(--line); border-radius:14px; padding:14px 16px }
   .pp-label{ font-size:14px; font-weight:700; color:var(--ivory) }
   .pp-note{ font-family:var(--mono); font-size:11px; color:var(--muted); font-weight:400 }
@@ -548,6 +555,9 @@ cribbageLocale("en", {
   // settings popup
   "settings.title": "Settings",
   "settings.intro": "These apply to the Play game and are saved on this device. (The number of players is set above, on the home page.)",
+  "settings.group.controls": "Controls & help",
+  "settings.group.automation": "Automation",
+  "settings.group.counting": "Counting",
   "settings.aboutFeedback": "About & feedback",
   "settings.resetDefaults": "Reset game settings to defaults",
   "trainer.set.resetDefaults": "Reset these settings to defaults",
@@ -874,7 +884,7 @@ cribbageLocale("en", {
       <a class="btn btn-primary" href="https://github.com/ghug/cribbage-trainer/"
          target="_blank" rel="noopener noreferrer" data-i18n="about.sourceLink">Source, bugs &amp; feedback ↗</a>
       <div class="repo-url" style="margin-bottom:4px">github.com/ghug/cribbage-trainer</div>
-      <div class="repo-url">v1.1.20-dev.68</div>
+      <div class="repo-url">v1.1.20-dev.69</div>
     </div>
   </div>
 
@@ -930,27 +940,46 @@ cribbageLocale("en", {
       function loadSettings() { try { var r = localStorage.getItem(SETTINGS_KEY); if (r) { var o = JSON.parse(r); var m = {}; for (var key in DEFAULTS) m[key] = (key in o) ? o[key] : DEFAULTS[key]; return m; } } catch (e) {} var d = {}; for (var k2 in DEFAULTS) d[k2] = DEFAULTS[k2]; return d; }
       function saveSettings(o) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(o)); } catch (e) {} }
       var settings = loadSettings();
+      // The toggle rows are grouped into collapsible sections (the menu was a long flat list).
+      var GROUPS = [
+        { title: "settings.group.controls", open: true, keys: ["warn"] },
+        { title: "settings.group.automation", open: false, keys: ["autoDeal", "autoDiscardBest", "autoPlayOne", "autoPlayBest", "autoGo", "autoContinue"] },
+        { title: "settings.group.counting", open: true, keys: ["counting"] }
+      ];
+      function rowByKey(k) { for (var i = 0; i < ROWS.length; i++) if (ROWS[i].k === k) return ROWS[i]; return null; }
       function renderSettings() {
         var host = document.getElementById('settingsList');
         host.innerHTML = '';
         var humans = 1; for (var i = 1; i < settings.players; i++) if (settings.seats && settings.seats[i] === 'human') humans++;
-        ROWS.forEach(function (row) {
-          // Muggins is solo-only — disable the Counting row when the table has 2+ humans.
-          var disabled = row.k === 'counting' && humans > 1;
-          var wrap = document.createElement('div'); wrap.className = 'set-row' + (disabled ? ' disabled' : '');
-          var titleEl = document.createElement('div'); titleEl.className = 'set-title'; titleEl.textContent = tr(row.title); wrap.appendChild(titleEl);
-          var d = document.createElement('div'); d.className = 'set-desc';
-          d.textContent = tr(disabled ? row.disabledDesc : row.desc);
-          wrap.appendChild(d);
-          var segs = document.createElement('div'); segs.className = 'set-segs';
-          row.opts.forEach(function (opt) {
-            var b = document.createElement('button'); b.type = 'button'; b.textContent = tr(opt[0]);
-            b.className = 'seg' + (settings[row.k] === opt[1] ? ' on' : '');
-            if (disabled) { b.disabled = true; }
-            else { b.addEventListener('click', function () { settings[row.k] = opt[1]; saveSettings(settings); renderSettings(); }); }
-            segs.appendChild(b);
+        GROUPS.forEach(function (g) {
+          var det = document.createElement('details'); det.className = 'set-group'; det.open = g.open;
+          var sum = document.createElement('summary'); sum.textContent = tr(g.title); det.appendChild(sum);
+          g.keys.forEach(function (key) {
+            var row = rowByKey(key); if (!row) return;
+            // Muggins is solo-only — disable the Counting row when the table has 2+ humans.
+            var disabled = row.k === 'counting' && humans > 1;
+            var wrap = document.createElement('div'); wrap.className = 'set-row' + (disabled ? ' disabled' : '');
+            var titleEl = document.createElement('div'); titleEl.className = 'set-title'; titleEl.textContent = tr(row.title); wrap.appendChild(titleEl);
+            var d = document.createElement('div'); d.className = 'set-desc';
+            d.textContent = tr(disabled ? row.disabledDesc : row.desc);
+            wrap.appendChild(d);
+            var segs = document.createElement('div'); segs.className = 'set-segs';
+            row.opts.forEach(function (opt) {
+              var b = document.createElement('button'); b.type = 'button'; b.textContent = tr(opt[0]);
+              b.className = 'seg' + (settings[row.k] === opt[1] ? ' on' : '');
+              if (disabled) { b.disabled = true; }
+              else { b.addEventListener('click', (function (segsEl, btn, k, val) { return function () {
+                settings[k] = val; saveSettings(settings);
+                // update the highlight in place — rebuilding would collapse the open sections
+                var sibs = segsEl.querySelectorAll('.seg');
+                for (var s = 0; s < sibs.length; s++) sibs[s].className = 'seg';
+                btn.className = 'seg on';
+              }; })(segs, b, row.k, opt[1])); }
+              segs.appendChild(b);
+            });
+            wrap.appendChild(segs); det.appendChild(wrap);
           });
-          wrap.appendChild(segs); host.appendChild(wrap);
+          host.appendChild(det);
         });
       }
       renderSettings();

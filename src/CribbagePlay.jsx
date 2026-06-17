@@ -2680,6 +2680,25 @@ const segStyle = (on) => ({
   border: `1px solid ${on ? T.pegIvory : T.line}`, fontWeight: on ? 700 : 400,
 });
 
+// A collapsible settings section: a tappable header (title + chevron) that shows/hides its rows.
+// Its open state lives in local useState, so toggling a setting inside it (which re-renders the
+// panel) never collapses the section.
+function SettingsSection({ title, defaultOpen, children }) {
+  const [open, setOpen] = React.useState(!!defaultOpen);
+  return (
+    <div style={{ borderTop: `1px solid ${T.line}`, marginBottom: open ? 12 : 0 }}>
+      <button onClick={() => setOpen((o) => !o)} style={{
+        width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+        background: "none", border: "none", cursor: "pointer", padding: "12px 0 10px",
+        color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase",
+      }}>
+        <span>{title}</span><span style={{ color: T.muted, fontSize: 13 }}>{open ? "▾" : "▸"}</span>
+      </button>
+      {open && <div>{children}</div>}
+    </div>
+  );
+}
+
 function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
   const soloGame = nHumans(clampPlayers(settings.players), settings) === 1;
   const Row = ({ title, desc, k, options, disabled }) => (
@@ -2699,39 +2718,45 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
       <ModalHeader title={tr("settings.title")} onClose={onClose}>
         <span style={{ fontWeight: 700, fontSize: 16 }}>{tr("settings.title")}</span>
       </ModalHeader>
-      <Row title={tr("settings.tapToSelect.title")} k="tapToSelect"
-        desc={tr("settings.tapToSelect.desc")}
-        options={[[off, false], [on, true]]} />
-      <Row title={tr("settings.autoCut.title")} k="autoCut"
-        desc={tr("settings.autoCut.desc")}
-        options={[[manual, false], [auto, true]]} />
-      <Row title={tr("settings.autoGo.title")} k="autoGo"
-        desc={tr("settings.autoGo.desc")}
-        options={[[manual, false], [auto, true]]} />
-      <Row title={tr("settings.warn.title")} k="warn"
-        desc={tr("settings.warn.desc")}
-        options={[[on, true], [off, false]]} />
-      <Row title={tr("settings.autoPlayOne.title")} k="autoPlayOne"
-        desc={tr("settings.autoPlayOne.desc")}
-        options={[[off, false], [on, true]]} />
-      <Row title={tr("settings.autoPlayBest.title")} k="autoPlayBest"
-        desc={tr("settings.autoPlayBest.desc")}
-        options={[[off, false], [on, true]]} />
-      <Row title={tr("settings.autoDiscardBest.title")} k="autoDiscardBest"
-        desc={tr("settings.autoDiscardBest.desc")}
-        options={[[off, false], [on, true]]} />
-      <Row title={tr("settings.autoContinue.title")} k="autoContinue"
-        desc={tr("settings.autoContinue.desc")}
-        options={[[off, false], [on, true]]} />
-      <Row title={tr("settings.autoDeal.title")} k="autoDeal"
-        desc={tr("settings.autoDeal.desc")}
-        options={[[off, false], [on, true]]} />
-      <Row title={tr("settings.counting.title")} k="counting" disabled={!soloGame}
-        desc={tr(soloGame ? "settings.counting.desc" : "settings.counting.disabledDesc")}
-        options={[[tr("settings.counting.optAuto"), "auto"], [tr("settings.counting.optMuggins"), "muggins"]]} />
-      <Row title={tr("settings.claimWarn.title")} k="claimWarn" disabled={!(soloGame && settings.counting === "muggins")}
-        desc={tr("settings.claimWarn.desc")}
-        options={[[on, true], [off, false]]} />
+      <SettingsSection title={tr("settings.group.controls")} defaultOpen>
+        <Row title={tr("settings.tapToSelect.title")} k="tapToSelect"
+          desc={tr("settings.tapToSelect.desc")}
+          options={[[off, false], [on, true]]} />
+        <Row title={tr("settings.warn.title")} k="warn"
+          desc={tr("settings.warn.desc")}
+          options={[[on, true], [off, false]]} />
+      </SettingsSection>
+      <SettingsSection title={tr("settings.group.automation")}>
+        <Row title={tr("settings.autoDeal.title")} k="autoDeal"
+          desc={tr("settings.autoDeal.desc")}
+          options={[[off, false], [on, true]]} />
+        <Row title={tr("settings.autoCut.title")} k="autoCut"
+          desc={tr("settings.autoCut.desc")}
+          options={[[manual, false], [auto, true]]} />
+        <Row title={tr("settings.autoDiscardBest.title")} k="autoDiscardBest"
+          desc={tr("settings.autoDiscardBest.desc")}
+          options={[[off, false], [on, true]]} />
+        <Row title={tr("settings.autoPlayOne.title")} k="autoPlayOne"
+          desc={tr("settings.autoPlayOne.desc")}
+          options={[[off, false], [on, true]]} />
+        <Row title={tr("settings.autoPlayBest.title")} k="autoPlayBest"
+          desc={tr("settings.autoPlayBest.desc")}
+          options={[[off, false], [on, true]]} />
+        <Row title={tr("settings.autoGo.title")} k="autoGo"
+          desc={tr("settings.autoGo.desc")}
+          options={[[manual, false], [auto, true]]} />
+        <Row title={tr("settings.autoContinue.title")} k="autoContinue"
+          desc={tr("settings.autoContinue.desc")}
+          options={[[off, false], [on, true]]} />
+      </SettingsSection>
+      <SettingsSection title={tr("settings.group.counting")} defaultOpen>
+        <Row title={tr("settings.counting.title")} k="counting" disabled={!soloGame}
+          desc={tr(soloGame ? "settings.counting.desc" : "settings.counting.disabledDesc")}
+          options={[[tr("settings.counting.optAuto"), "auto"], [tr("settings.counting.optMuggins"), "muggins"]]} />
+        <Row title={tr("settings.claimWarn.title")} k="claimWarn" disabled={!(soloGame && settings.counting === "muggins")}
+          desc={tr("settings.claimWarn.desc")}
+          options={[[on, true], [off, false]]} />
+      </SettingsSection>
       <LanguageRow />
       <div style={{ borderTop: `1px solid ${T.line}`, margin: "2px -16px 0", padding: "12px 16px 0" }}>
         <button onClick={onHistory} style={{ width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12, fontWeight: 700 }}>{tr("settings.history")}</button>

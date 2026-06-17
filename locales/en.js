@@ -259,6 +259,9 @@ cribbageLocale("en", {
   // settings popup
   "settings.title": "Settings",
   "settings.intro": "These apply to the Play game and are saved on this device. (The number of players is set above, on the home page.)",
+  "settings.group.controls": "Controls & help",
+  "settings.group.automation": "Automation",
+  "settings.group.counting": "Counting",
   "settings.aboutFeedback": "About & feedback",
   "settings.resetDefaults": "Reset game settings to defaults",
   "trainer.set.resetDefaults": "Reset these settings to defaults",

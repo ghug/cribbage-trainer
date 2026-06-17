@@ -900,7 +900,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.82";
+const APP_VERSION = "1.1.20-dev.83";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -2795,6 +2795,9 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
         const clickable = inHand && (pending ? true : (myTurn && legal));
         return React.createElement(CardSprite, { key: id, card: c, home: h, dur: spd(dealingPhase ? DEAL_DUR : MOVE_DUR), delay: spd(delayRef.current[id] || 0), clickable: clickable || inCribHome, selected: inHand && !tapSelect && chosen, raised: inHand && tapSelect && chosen, dim: inHand && !pending && !legal && (discardPhase ? false : turn === me), selLabel: inHand && !discardPhase ? tr("play.sel.play") : undefined, noAnim: resizing || inHand, hidden: mugCribClaim && p && (p.group === "showcrib" || p.group === "cribhome"), onClick: inHand ? () => tapCard(handIdx) : inCribHome ? () => setCribNote(true) : undefined });
     });
+    const deckAction = (preDeal && !(dealPhase && swapBusy) && cutSettled && !settings.autoDeal) ? "DEAL"
+        : (cutPhase && seatIsHuman(cutter, settings)) ? "CUT" : null;
+    const onDeckTap = deckAction ? () => dispatch({ type: deckAction }) : undefined;
     return (React.createElement("div", { ref: tableRef, style: { position: "relative", marginTop: 6, display: "flex", flexDirection: "column", gap: 10 } },
         cribNote && (React.createElement("div", { onClick: () => setCribNote(false), role: "status", style: {
                 position: "fixed", left: "50%", top: 72, transform: "translateX(-50%)", zIndex: 215,
@@ -2809,7 +2812,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
             React.createElement("div", { style: { minWidth: 0 } }, ts.left != null ? cell(ts.left) : null),
             React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", flex: "0 0 auto" } },
                 React.createElement("div", { style: { height: 18, marginBottom: 4, display: "flex", alignItems: "center", fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, position: "relative", zIndex: 6, textShadow: "0 1px 3px rgba(0,0,0,0.75)" } }, (phase === "play" || showPhase || overPhase) ? tr("play.starterCard") : tr("play.deck")),
-                React.createElement("div", { "data-slot": "deck", style: { display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" } }, deckSwap
+                React.createElement("div", { "data-slot": "deck", onClick: onDeckTap, style: { display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)", cursor: onDeckTap ? "pointer" : "default" } }, deckSwap
                     ? (deckSwap.phase === "empty" ? null
                         : React.createElement(DeckSwapView, { key: deckSwap.phase, phase: deckSwap.phase, offX: deckSwap.offX, offY: deckSwap.offY, count: Math.max(1, deckShown) }))
                     : React.createElement(StarterDeck, { starter: null, count: Math.max(1, deckShown), topEmpty: !!(starter && (phase === "play" || showPhase || overPhase)) }))),
@@ -3101,7 +3104,7 @@ function AboutModal({ onClose }) {
                 background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
             } }, tr("about.sourceLink")),
         React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.20-dev.82")));
+        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.20-dev.83")));
 }
 function MessageLogModal({ log, onClose }) {
     const scrollRef = React.useRef(null);

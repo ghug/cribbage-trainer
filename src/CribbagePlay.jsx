@@ -2473,6 +2473,13 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
       onClick={inHand ? () => tapCard(handIdx) : inCribHome ? () => setCribNote(true) : undefined} />;
   });
 
+  // Tapping the deck is a shortcut for whichever action button is currently waiting on it: the
+  // manual Deal button (preDeal, dealer decided, not auto-dealing) or the Cut-for-starter button
+  // (a human cutter). Mirrors the exact conditions those buttons render under.
+  const deckAction = (preDeal && !(dealPhase && swapBusy) && cutSettled && !settings.autoDeal) ? "DEAL"
+    : (cutPhase && seatIsHuman(cutter, settings)) ? "CUT" : null;
+  const onDeckTap = deckAction ? () => dispatch({ type: deckAction }) : undefined;
+
   return (
     <div ref={tableRef} style={{ position: "relative", marginTop: 6, display: "flex", flexDirection: "column", gap: 10 }}>
       {cribNote && (
@@ -2500,7 +2507,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
         <div style={{ minWidth: 0 }}>{ts.left != null ? cell(ts.left) : null}</div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: "0 0 auto" }}>
           <div style={{ height: 18, marginBottom: 4, display: "flex", alignItems: "center", fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, position: "relative", zIndex: 6, textShadow: "0 1px 3px rgba(0,0,0,0.75)" }}>{(phase === "play" || showPhase || overPhase) ? tr("play.starterCard") : tr("play.deck")}</div>
-          <div data-slot="deck" style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" }}>
+          <div data-slot="deck" onClick={onDeckTap} style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)", cursor: onDeckTap ? "pointer" : "default" }}>
             {deckSwap
               ? (deckSwap.phase === "empty" ? null
                 : <DeckSwapView key={deckSwap.phase} phase={deckSwap.phase} offX={deckSwap.offX} offY={deckSwap.offY} count={Math.max(1, deckShown)} />)

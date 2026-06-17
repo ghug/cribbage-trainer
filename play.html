@@ -801,7 +801,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.27";
+const APP_VERSION = "1.1.20-dev.28";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -1111,10 +1111,8 @@ function commitDiscard(state, idxs) {
             next = order[k];
             break;
         }
-    if (next != null) {
-        const ns = seats.map((s, i) => (i === next ? { ...s, dealt: sortHand(s.dealt) } : s));
-        return { ...state, seats: ns, discardSeat: next, pendingDiscard: null };
-    }
+    if (next != null)
+        return { ...state, seats, discardSeat: next, pendingDiscard: null };
     return { ...state, seats, crib: assembleCrib(seats, state.deck, pl), pendingDiscard: null, phase: "cribbing", discardSeat: null };
 }
 function afterCrib(cutState) {
@@ -1200,10 +1198,7 @@ function finalizeDeal(state) {
         }
     }
     const humanThrowers = throwOrder(P, d, state.settings);
-    const firstThrower = humanThrowers.length ? humanThrowers[0] : null;
-    if (firstThrower != null)
-        seats[firstThrower] = { ...seats[firstThrower], dealt: sortHand(seats[firstThrower].dealt) };
-    const base = { ...state, seats, phase: "discard", message: "", discardSeat: firstThrower };
+    const base = { ...state, seats, phase: "discard", message: "", discardSeat: humanThrowers.length ? humanThrowers[0] : null };
     if (humanThrowers.length === 0) {
         const you = soleHuman(P, state.settings);
         const msg = you < 0 ? tr("play.msg.dealsCut", { seat: seatName(d) })
@@ -1273,6 +1268,13 @@ function reduce(state, action) {
             return startDeal(state);
         case "DEAL_NEXT":
             return dealStep(state);
+        case "SORT_HAND": {
+            const seat = action.seat;
+            let st = { ...state, seats: state.seats.map((s, i) => (i === seat ? { ...s, dealt: sortHand(s.dealt || []), kept: s.kept ? sortHand(s.kept) : s.kept } : s)) };
+            if (st.peg)
+                st = { ...st, peg: { ...st.peg, hands: st.peg.hands.map((h, i) => (i === seat ? sortHand(h) : h)) } };
+            return st;
+        }
         case "SET_SETTING": {
             const settings = { ...state.settings, [action.key]: action.value };
             if (action.key === "players")
@@ -2207,6 +2209,18 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
         const t = setTimeout(() => setBotTick((x) => x + 1), wait + 30);
         return () => clearTimeout(t);
     }, [discardPhase]);
+    const discardClickable = discardPhase && meHuman && !needHandoff;
+    const handSortedRef = React.useRef(-1);
+    React.useEffect(() => {
+        if (!discardClickable) {
+            handSortedRef.current = -1;
+            return;
+        }
+        if (handSortedRef.current === me)
+            return;
+        const t = setTimeout(() => { handSortedRef.current = me; dispatch({ type: "SORT_HAND", seat: me }); }, MOVE_DUR + 120);
+        return () => clearTimeout(t);
+    }, [discardClickable, me]);
     const [, bumpViewport] = React.useState(0);
     React.useEffect(() => {
         const onResize = () => bumpViewport((t) => t + 1);
@@ -2486,7 +2500,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
         const p = place[id];
         const inHand = p && p.group === "hand";
         const handIdx = inHand ? p.idx : -1;
-        const legal = inHand ? isLegal(yourHand[handIdx]) : false;
+        const legal = inHand && (discardPhase || (peg && turn === me)) ? isLegal(yourHand[handIdx]) : false;
         const chosen = inHand && (pending ? (pendIdxs && pendIdxs.includes(handIdx)) : sel.includes(handIdx));
         const clickable = inHand && (pending ? true : (myTurn && legal));
         return React.createElement(CardSprite, { key: id, card: c, home: h, dur: dealingPhase ? DEAL_DUR : MOVE_DUR, delay: delayRef.current[id] || 0, clickable: clickable, selected: inHand && !tapSelect && chosen, raised: inHand && tapSelect && chosen, dim: inHand && !pending && !legal && (discardPhase ? false : turn === me), selLabel: inHand && !discardPhase ? tr("play.sel.play") : undefined, onLanded: id === dealingCardId ? () => advanceDeal(deal.cursor) : undefined, onClick: inHand ? () => tapCard(handIdx) : undefined });
@@ -2771,7 +2785,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.27"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.28"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

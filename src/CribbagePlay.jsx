@@ -528,16 +528,14 @@ function commitDiscard(state, idxs) {
   const seat = state.discardSeat;
   const dealt = state.seats[seat].dealt;
   const discard = idxs.map((i) => dealt[i]);
-  const kept = dealt.filter((_, j) => !idxs.includes(j));   // dealt was sorted at this seat's turn; filtering keeps that order
+  const kept = dealt.filter((_, j) => !idxs.includes(j));   // keeps the hand's current (interactive) order
   const seats = state.seats.map((s, i) => (i === seat ? { ...s, discard, kept } : s));
   const order = throwOrder(P, state.dealerIdx, state.settings);
   let next = null;
   for (let k = order.indexOf(seat) + 1; k < order.length; k++) if (seats[order[k]].discard == null) { next = order[k]; break; }
-  if (next != null) {
-    // Sort the next thrower's hand as the device reaches them and their hand is shown face-up.
-    const ns = seats.map((s, i) => (i === next ? { ...s, dealt: sortHand(s.dealt) } : s));
-    return { ...state, seats: ns, discardSeat: next, pendingDiscard: null };
-  }
+  // The next thrower's hand stays in deal order; the render sorts it (SORT_HAND) when it becomes
+  // the interactive clickable hand row for them.
+  if (next != null) return { ...state, seats, discardSeat: next, pendingDiscard: null };
   // Last throw: the crib is now full, but the game HOLDS in "cribbing" while the render animates
   // the card arriving and the crib gliding to its home. CRIB_DONE (dispatched when the animation
   // finishes — or immediately, in the render-free verify harness) advances to the cut.
@@ -630,11 +628,9 @@ function finalizeDeal(state) {
     else if (!seatIsHuman(i, state.settings)) { const r = aiDiscardN(seats[i].dealt, i, d, pl.throws[i], P, teams); seats[i].discard = r.discard; seats[i].kept = r.kept; }
   }
   const humanThrowers = throwOrder(P, d, state.settings);   // pone first, clockwise, dealer last
-  const firstThrower = humanThrowers.length ? humanThrowers[0] : null;
-  // Sort the first thrower's hand now, as the discard turn begins (the rest sort when the device
-  // reaches them, in commitDiscard; pegging/show hands sort at the cut, in applyCut).
-  if (firstThrower != null) seats[firstThrower] = { ...seats[firstThrower], dealt: sortHand(seats[firstThrower].dealt) };
-  const base = { ...state, seats, phase: "discard", message: "", discardSeat: firstThrower };
+  // Hands stay in DEAL ORDER. A thrower's hand is sorted only when it's about to become the
+  // interactive clickable hand row — dispatched (SORT_HAND) from the render once the deal has settled.
+  const base = { ...state, seats, phase: "discard", message: "", discardSeat: humanThrowers.length ? humanThrowers[0] : null };
   if (humanThrowers.length === 0) {
     // No human throws this hand — the crib is already complete, so skip to the cut. Frame
     // the note from the lone human's seat (if any); with no single human (all-bot spectate
@@ -701,6 +697,13 @@ function reduce(state, action) {
 
     case "DEAL_NEXT":           // push the next card off the deck into its hand (driven by the view's transitionend gate)
       return dealStep(state);
+
+    case "SORT_HAND": {         // sort one seat's hand into rank order — fired from the render when the
+      const seat = action.seat; // hand is about to become the interactive clickable row (settled, face-up)
+      let st = { ...state, seats: state.seats.map((s, i) => (i === seat ? { ...s, dealt: sortHand(s.dealt || []), kept: s.kept ? sortHand(s.kept) : s.kept } : s)) };
+      if (st.peg) st = { ...st, peg: { ...st.peg, hands: st.peg.hands.map((h, i) => (i === seat ? sortHand(h) : h)) } };
+      return st;
+    }
 
     case "SET_SETTING": {
       const settings = { ...state.settings, [action.key]: action.value };
@@ -1851,6 +1854,19 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
     return () => clearTimeout(t);
   }, [discardPhase]);
 
+  // Sort the human's hand into rank order the moment it's about to be acted on in the clickable hand
+  // row — i.e. once it's the active human discarder's hand and the deal has settled — NOT mid-deal and
+  // NOT at the reducer's turn-start. (The played/pegging hands are sorted at the cut; this is the
+  // discard hand presented for throwing.) me === the active discarder during the discard phase.
+  const discardClickable = discardPhase && meHuman && !needHandoff;
+  const handSortedRef = React.useRef(-1);
+  React.useEffect(() => {
+    if (!discardClickable) { handSortedRef.current = -1; return; }
+    if (handSortedRef.current === me) return;                 // already sorted this seat's discard hand
+    const t = setTimeout(() => { handSortedRef.current = me; dispatch({ type: "SORT_HAND", seat: me }); }, MOVE_DUR + 120);
+    return () => clearTimeout(t);
+  }, [discardClickable, me]);
+
   // Re-measure every anchor when the viewport changes size (window resize, device rotation, an
   // on-screen keyboard). The homes effect below runs on each render and reads live geometry, so a
   // forced re-render is all that's needed to snap all card sprites — and the viewport-pinned crib —
@@ -2176,7 +2192,9 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
     const p = place[id];
     const inHand = p && p.group === "hand";
     const handIdx = inHand ? p.idx : -1;
-    const legal = inHand ? isLegal(yourHand[handIdx]) : false;
+    // Evaluate legality ONLY when the hand is the interactive clickable row (your discard, or your
+    // pegging turn) — never just because a card was added to a hand (e.g. while dealing).
+    const legal = inHand && (discardPhase || (peg && turn === me)) ? isLegal(yourHand[handIdx]) : false;
     const chosen = inHand && (pending ? (pendIdxs && pendIdxs.includes(handIdx)) : sel.includes(handIdx));
     const clickable = inHand && (pending ? true : (myTurn && legal));
     return <CardSprite key={id} card={c} home={h} dur={dealingPhase ? DEAL_DUR : MOVE_DUR} delay={delayRef.current[id] || 0}

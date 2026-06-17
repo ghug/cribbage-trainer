@@ -2918,13 +2918,14 @@ function MugginsClaim({ info, starter, isCrib, settings, dispatch }) {
       <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, lineHeight: 1.5, marginBottom: 10 }}>
         {info.isCrib ? tr("play.show.claimInstrCrib") : tr("play.show.claimInstr")}
       </div>
-      <div style={{ display: "flex", gap: 5, justifyContent: "center", marginBottom: 12 }}>
+      <div style={{ display: "flex", gap: 5, justifyContent: "center", alignItems: "flex-start", marginBottom: 12 }}>
         {five.map((c) => {
           const id = cardId(c), on = sel.includes(id), isStarter = sameCard(c, starter);
+          // The starter (last card) sits apart from the four hand cards with a "cut card" caption.
           return (
-            <button key={id} onClick={() => toggle(id)} style={{ border: "none", background: "none", padding: 0, cursor: "pointer", position: "relative", transform: on ? "translateY(-6px)" : "none", transition: "transform 120ms ease" }}>
+            <button key={id} onClick={() => toggle(id)} style={{ border: "none", background: "none", padding: 0, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", marginLeft: isStarter ? 14 : 0, transform: on ? "translateY(-6px)" : "none", transition: "transform 120ms ease" }}>
               <CardFace card={c} edge={on ? T.selBlue : null} />
-              {isStarter && <span aria-hidden="true" style={{ position: "absolute", top: -6, left: 0, right: 0, textAlign: "center", fontSize: 9, color: T.muted }}>✦</span>}
+              <span style={{ height: 12, marginTop: 2, fontFamily: mono, fontSize: 9, fontWeight: 700, color: T.muted, whiteSpace: "nowrap" }}>{isStarter ? tr("play.starterCard") : ""}</span>
             </button>
           );
         })}

@@ -271,8 +271,8 @@ cribbageLocale("en", {
   "play.show.claimedMissed": "you claimed {n} · missed {m}",
   "play.show.claimedOver": "you claimed {n} · over-claim, corrected down",
   "play.show.claimedSpot": "you claimed {n} · spot on",
-  "play.show.claimInstr": "Tap your cards (✦ = the starter), then claim each combination you see.",
-  "play.show.claimInstrCrib": "Tap your crib + the starter (✦), then claim each combination you see.",
+  "play.show.claimInstr": "Tap your cards, then claim each combination you see.",
+  "play.show.claimInstrCrib": "Tap your crib + the cut card, then claim each combination you see.",
   "play.show.cat15": "15",
   "play.show.catPair": "Pair",
   "play.show.catRun": "Run",
@@ -831,7 +831,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.60";
+const APP_VERSION = "1.1.20-dev.61";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -2978,7 +2978,7 @@ function AboutModal({ onClose }) {
                 background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
             } }, tr("about.sourceLink")),
         React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-        React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.60")));
+        React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.61")));
 }
 function MessageLogModal({ log, onClose }) {
     const scrollRef = React.useRef(null);
@@ -3041,11 +3041,11 @@ function MugginsClaim({ info, starter, isCrib, settings, dispatch }) {
     const hintText = remaining.map((v, i) => v > 0 ? `${catName(i)} ${v}` : null).filter(Boolean).join(" · ");
     return (React.createElement("div", { style: { background: "rgba(0,0,0,0.26)", borderRadius: 10, padding: "12px 14px 14px" } },
         React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, lineHeight: 1.5, marginBottom: 10 } }, info.isCrib ? tr("play.show.claimInstrCrib") : tr("play.show.claimInstr")),
-        React.createElement("div", { style: { display: "flex", gap: 5, justifyContent: "center", marginBottom: 12 } }, five.map((c) => {
+        React.createElement("div", { style: { display: "flex", gap: 5, justifyContent: "center", alignItems: "flex-start", marginBottom: 12 } }, five.map((c) => {
             const id = cardId(c), on = sel.includes(id), isStarter = sameCard(c, starter);
-            return (React.createElement("button", { key: id, onClick: () => toggle(id), style: { border: "none", background: "none", padding: 0, cursor: "pointer", position: "relative", transform: on ? "translateY(-6px)" : "none", transition: "transform 120ms ease" } },
+            return (React.createElement("button", { key: id, onClick: () => toggle(id), style: { border: "none", background: "none", padding: 0, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", marginLeft: isStarter ? 14 : 0, transform: on ? "translateY(-6px)" : "none", transition: "transform 120ms ease" } },
                 React.createElement(CardFace, { card: c, edge: on ? T.selBlue : null }),
-                isStarter && React.createElement("span", { "aria-hidden": "true", style: { position: "absolute", top: -6, left: 0, right: 0, textAlign: "center", fontSize: 9, color: T.muted } }, "\u2726")));
+                React.createElement("span", { style: { height: 12, marginTop: 2, fontFamily: mono, fontSize: 9, fontWeight: 700, color: T.muted, whiteSpace: "nowrap" } }, isStarter ? tr("play.starterCard") : "")));
         })),
         React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: claims.length ? 12 : 14 } }, Object.keys(CAT_KEY).map((type) => {
             const ok = claimValue(type, selCards, five, starter, isCrib, claims).ok;

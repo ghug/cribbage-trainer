@@ -125,6 +125,9 @@ cribbageLocale("en", {
   "play.show.keepCounting": "Keep counting",
   "play.show.hintBtn": "Show a hint",
   "play.show.hintLine": "Still on the table —",
+  "play.show.hintItem": "{n} {unit} in {cat}",
+  "play.show.hintPt": "pt",
+  "play.show.hintPts": "pts",
   "play.skunk.double": "Double skunk 🦨🦨 — {list}",
   "play.skunk.single": "Skunk 🦨 — {list}",
   // game history — the per-seat scoring popup + the aggregate stats modal

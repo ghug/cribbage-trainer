@@ -2912,7 +2912,7 @@ function MugginsClaim({ info, starter, isCrib, settings, dispatch }) {
   // of combination are still on the table (not the exact cards) so the player can keep looking.
   const CLAIM_CAT = { fifteen: 0, pair: 1, run: 2, flush: 3, nobs: 4 };
   const remaining = info.acc.map((v, i) => v - claims.filter((c) => CLAIM_CAT[c.type] === i).reduce((a, c) => a + c.pts, 0));
-  const hintText = remaining.map((v, i) => v > 0 ? `${catName(i)} ${v}` : null).filter(Boolean).join(" · ");
+  const hintText = remaining.map((v, i) => v > 0 ? tr("play.show.hintItem", { n: v, unit: tr(v === 1 ? "play.show.hintPt" : "play.show.hintPts"), cat: catName(i) }) : null).filter(Boolean).join(" · ");
   return (
     <div style={{ background: "rgba(0,0,0,0.26)", borderRadius: 10, padding: "12px 14px 14px" }}>
       <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, lineHeight: 1.5, marginBottom: 10 }}>

@@ -288,6 +288,9 @@ cribbageLocale("en", {
   "play.show.keepCounting": "Keep counting",
   "play.show.hintBtn": "Show a hint",
   "play.show.hintLine": "Still on the table —",
+  "play.show.hintItem": "{n} {unit} in {cat}",
+  "play.show.hintPt": "pt",
+  "play.show.hintPts": "pts",
   "play.skunk.double": "Double skunk 🦨🦨 — {list}",
   "play.skunk.single": "Skunk 🦨 — {list}",
   // game history — the per-seat scoring popup + the aggregate stats modal
@@ -831,7 +834,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.61";
+const APP_VERSION = "1.1.20-dev.62";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -2978,7 +2981,7 @@ function AboutModal({ onClose }) {
                 background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
             } }, tr("about.sourceLink")),
         React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-        React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.61")));
+        React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.62")));
 }
 function MessageLogModal({ log, onClose }) {
     const scrollRef = React.useRef(null);
@@ -3038,7 +3041,7 @@ function MugginsClaim({ info, starter, isCrib, settings, dispatch }) {
         submit(); };
     const CLAIM_CAT = { fifteen: 0, pair: 1, run: 2, flush: 3, nobs: 4 };
     const remaining = info.acc.map((v, i) => v - claims.filter((c) => CLAIM_CAT[c.type] === i).reduce((a, c) => a + c.pts, 0));
-    const hintText = remaining.map((v, i) => v > 0 ? `${catName(i)} ${v}` : null).filter(Boolean).join(" · ");
+    const hintText = remaining.map((v, i) => v > 0 ? tr("play.show.hintItem", { n: v, unit: tr(v === 1 ? "play.show.hintPt" : "play.show.hintPts"), cat: catName(i) }) : null).filter(Boolean).join(" · ");
     return (React.createElement("div", { style: { background: "rgba(0,0,0,0.26)", borderRadius: 10, padding: "12px 14px 14px" } },
         React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, lineHeight: 1.5, marginBottom: 10 } }, info.isCrib ? tr("play.show.claimInstrCrib") : tr("play.show.claimInstr")),
         React.createElement("div", { style: { display: "flex", gap: 5, justifyContent: "center", alignItems: "flex-start", marginBottom: 12 } }, five.map((c) => {

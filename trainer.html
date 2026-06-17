@@ -271,6 +271,21 @@ cribbageLocale("en", {
   "play.show.claimedMissed": "you claimed {n} · missed {m}",
   "play.show.claimedOver": "you claimed {n} · over-claim, corrected down",
   "play.show.claimedSpot": "you claimed {n} · spot on",
+  "play.show.claimInstr": "Tap your cards (✦ = the starter), then claim each combination you see.",
+  "play.show.claimInstrCrib": "Tap your crib + the starter (✦), then claim each combination you see.",
+  "play.show.cat15": "15",
+  "play.show.catPair": "Pair",
+  "play.show.catRun": "Run",
+  "play.show.catFlush": "Flush",
+  "play.show.catNobs": "Nobs",
+  "play.show.claimRemove": "Tap to remove this claim",
+  "play.show.claimedTotal": "Claiming {n}",
+  "play.show.claimDone": "Claim {n}",
+  "play.show.claimNone": "No points — Continue",
+  "play.show.incompleteTitle": "Leaving {m} on the table",
+  "play.show.incompleteBody": "You’re claiming {n} of {total} — the next opponent takes the {m} you missed.",
+  "play.show.incompleteConfirm": "Claim {n} anyway",
+  "play.show.keepCounting": "Keep counting",
   "play.skunk.double": "Double skunk 🦨🦨 — {list}",
   "play.skunk.single": "Skunk 🦨 — {list}",
   // game history — the per-seat scoring popup + the aggregate stats modal
@@ -415,6 +430,8 @@ cribbageLocale("en", {
   "settings.counting.disabledDesc": "Muggins is only available in a solo (one-human) game; hot-seat tables auto-count.",
   "settings.counting.optAuto": "Auto-count",
   "settings.counting.optMuggins": "Muggins",
+  "settings.claimWarn.title": "Warn on an incomplete claim",
+  "settings.claimWarn.desc": "In muggins, confirm before submitting a claim worth less than your hand actually scores (so the opponent doesn’t quietly take the rest).",
   "settings.autoGo.title": "Go on no playable card",
   "settings.autoGo.desc": "When you can’t play, Manual waits for you to tap “Go”; Auto passes for you.",
   "settings.warn.title": "Warn on a weak play",
@@ -1188,7 +1205,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.58"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.59"))));
 }
 function MiniCard({ card, selected, disabled, onClick }) {
     return (React.createElement("button", { onClick: onClick, disabled: disabled, "aria-pressed": selected, "aria-label": `${rankLabel(card.r)} of ${["spades", "hearts", "diamonds", "clubs"][card.s]}`, style: {

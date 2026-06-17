@@ -235,6 +235,53 @@ const seatShort = (i) => { const c = customName(i); return c ? (isYou(i) ? tr("s
 const sameCard = (a, b) => a.r === b.r && a.s === b.s;
 const sameSet = (a, b) => a.length === b.length && a.every((x) => b.includes(x));
 
+// Interactive muggins: validate the player's selected combination as ONE scoring claim. `sel` = the
+// selected card objects; `five` = the four hand/crib cards + the starter; `claims` = the claims
+// already made this step ({ type, key, rank }). Returns { ok, pts, rank? }. The rules make
+// over-counting impossible: a run must be MAXIMAL (no other card extends either end, so a 3/4-run
+// inside a longer run is refused), a 4-flush can't stand inside a 5-flush (and a crib never scores a
+// 4-flush), and a rank's pair-group is claimable once (so a pair can't be re-claimed after the
+// triple, nor the triple after the quad). Under-claiming is allowed — the opponent takes the rest.
+const claimKey = (cards) => cards.map(cardId).sort((a, b) => a - b).join(",");
+function claimValue(type, sel, five, starter, isCrib, claims) {
+  const n = sel.length;
+  const key = claimKey(sel);
+  const dup = claims.some((c) => c.type === type && c.key === key);
+  if (type === "fifteen") {
+    if (n < 2 || dup) return { ok: false };
+    return sel.reduce((a, c) => a + fifteenVal(c.r), 0) === 15 ? { ok: true, pts: 2 } : { ok: false };
+  }
+  if (type === "pair") {
+    if (n < 2) return { ok: false };
+    const r = sel[0].r;
+    if (!sel.every((c) => c.r === r) || claims.some((c) => c.type === "pair" && c.rank === r)) return { ok: false };
+    return { ok: true, pts: n === 2 ? 2 : n === 3 ? 6 : 12, rank: r };
+  }
+  if (type === "run") {
+    if (n < 3 || dup) return { ok: false };
+    const ranks = sel.map((c) => c.r);
+    if (new Set(ranks).size !== n) return { ok: false };                  // a rank repeats → not a plain run
+    const lo = Math.min(...ranks), hi = Math.max(...ranks);
+    if (hi - lo !== n - 1) return { ok: false };                          // not consecutive
+    if (five.some((c) => c.r === lo - 1 || c.r === hi + 1)) return { ok: false };   // extendable → part of a longer run
+    return { ok: true, pts: n };
+  }
+  if (type === "flush") {
+    if (claims.some((c) => c.type === "flush") || n < 4) return { ok: false };
+    if (!sel.every((c) => c.s === sel[0].s)) return { ok: false };
+    const allFive = five.every((c) => c.s === five[0].s);
+    if (n === 5 && allFive) return { ok: true, pts: 5 };
+    if (n === 4 && !isCrib && !allFive && !sel.some((c) => sameCard(c, starter))) return { ok: true, pts: 4 };
+    return { ok: false };
+  }
+  if (type === "nobs") {
+    if (n !== 1 || dup) return { ok: false };
+    const c = sel[0];
+    return (c.r === 11 && c.s === starter.s && !sameCard(c, starter)) ? { ok: true, pts: 1 } : { ok: false };
+  }
+  return { ok: false };
+}
+
 function freshDeck() {
   const d = deckExcluding([]);
   for (let i = d.length - 1; i > 0; i--) {
@@ -860,7 +907,7 @@ function reduce(state, action) {
   }
 }
 
-const DEFAULT_SETTINGS = { players: 2, teams: 2, names: [], counting: "auto", tapToSelect: true, autoCut: false, autoGo: false, warn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
+const DEFAULT_SETTINGS = { players: 2, teams: 2, names: [], counting: "auto", tapToSelect: true, autoCut: false, autoGo: false, warn: true, claimWarn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
 // Settings persist across pages in localStorage under a shared key. try/catch keeps
 // the verification harness (no localStorage) and private-mode browsers happy.
 const SETTINGS_KEY = "cribbage:settings";
@@ -1795,8 +1842,6 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
   // Drop the working selection whenever the actor / phase / turn moves on.
   useEffect(() => { setSel([]); }, [me, phase, turn]);
   // Muggins claim entry (solo only) resets each counting step.
-  const [claim, setClaim] = React.useState(0);
-  useEffect(() => { setClaim(0); }, [showPhase ? state.show.step : -1]);
   const muggins = showPhase && mugginsActive(settings) && seatIsHuman(info.owner, settings);
   const needClaim = muggins && !state.show.claimSubmitted;
 
@@ -2470,17 +2515,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
         </div>
       ) : showPhase ? (
         needClaim ? (
-          <div style={{ background: "rgba(0,0,0,0.26)", borderRadius: 10, padding: "14px 14px 16px" }}>
-            <div style={{ fontSize: 13.5, lineHeight: 1.5, marginBottom: 12 }}>
-              {info.isCrib ? tr("play.show.claimCrib") : tr("play.show.claimHand")}
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, justifyContent: "center", marginBottom: 14 }}>
-              <StepBtn onClick={() => setClaim((v) => Math.max(0, v - 1))}>−</StepBtn>
-              <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 34, minWidth: 48, textAlign: "center" }}>{claim}</span>
-              <StepBtn onClick={() => setClaim((v) => Math.min(29, v + 1))}>+</StepBtn>
-            </div>
-            {bigBtn(tr("play.show.claimBtn", { n: claim }), () => dispatch({ type: "SHOW_CLAIM", value: claim }), "good")}
-          </div>
+          <MugginsClaim info={info} starter={starter} isCrib={info.isCrib} settings={settings} dispatch={dispatch} />
         ) : (
           <div style={{ background: "rgba(0,0,0,0.26)", borderRadius: 10, padding: "12px 14px 14px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
@@ -2660,6 +2695,9 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
       <Row title={tr("settings.counting.title")} k="counting" disabled={!soloGame}
         desc={tr(soloGame ? "settings.counting.desc" : "settings.counting.disabledDesc")}
         options={[[tr("settings.counting.optAuto"), "auto"], [tr("settings.counting.optMuggins"), "muggins"]]} />
+      <Row title={tr("settings.claimWarn.title")} k="claimWarn" disabled={!(soloGame && settings.counting === "muggins")}
+        desc={tr("settings.claimWarn.desc")}
+        options={[[on, true], [off, false]]} />
       <LanguageRow />
       <div style={{ borderTop: `1px solid ${T.line}`, margin: "2px -16px 0", padding: "12px 16px 0" }}>
         <button onClick={onHistory} style={{ width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12, fontWeight: 700 }}>{tr("settings.history")}</button>
@@ -2846,11 +2884,78 @@ function PlayWarning({ pp, dispatch }) {
   );
 }
 
-function StepBtn({ children, onClick }) {
+// Interactive muggins claim: tap the five scoring cards to select a combination, then claim it as a
+// 15 / Pair / Run / Flush / Nobs. Each category button enables only when the selection is a valid,
+// not-yet-claimed combo (claimValue enforces maximal runs, 5-over-4 flush, one pair-group per rank).
+// Claims accumulate; Done submits the running total via the existing SHOW_CLAIM (missed points still
+// go to the opponent). `claimWarn` gates a confirm when the claim is short of the real total.
+const CAT_KEY = { fifteen: "play.show.cat15", pair: "play.show.catPair", run: "play.show.catRun", flush: "play.show.catFlush", nobs: "play.show.catNobs" };
+function MugginsClaim({ info, starter, isCrib, settings, dispatch }) {
+  const five = info.cards.concat(starter);
+  const [sel, setSel] = React.useState([]);                // selected card ids
+  const [claims, setClaims] = React.useState([]);          // { type, key, rank?, pts, tags }
+  const [confirm, setConfirm] = React.useState(false);
+  React.useEffect(() => { setSel([]); setClaims([]); setConfirm(false); }, [info.owner, info.isCrib]);
+  const selCards = five.filter((c) => sel.includes(cardId(c)));
+  const claimed = claims.reduce((a, c) => a + c.pts, 0);
+  const toggle = (id) => setSel((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
+  const addClaim = (type) => {
+    const v = claimValue(type, selCards, five, starter, isCrib, claims);
+    if (!v.ok) return;
+    setClaims((cs) => [...cs, { type, key: claimKey(selCards), rank: v.rank, pts: v.pts, tags: selCards.map(tag) }]);
+    setSel([]);
+  };
+  const submit = () => dispatch({ type: "SHOW_CLAIM", value: claimed });
+  const done = () => { if (claimed < info.total && settings.claimWarn) setConfirm(true); else submit(); };
   return (
-    <button onClick={onClick} style={{
-      width: 52, height: 52, borderRadius: 12, cursor: "pointer", border: `1px solid ${T.line}`,
-      background: "rgba(0,0,0,0.3)", color: T.ivory, fontSize: 26, fontFamily: serif, fontWeight: 700,
-    }}>{children}</button>
+    <div style={{ background: "rgba(0,0,0,0.26)", borderRadius: 10, padding: "12px 14px 14px" }}>
+      <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, lineHeight: 1.5, marginBottom: 10 }}>
+        {info.isCrib ? tr("play.show.claimInstrCrib") : tr("play.show.claimInstr")}
+      </div>
+      <div style={{ display: "flex", gap: 5, justifyContent: "center", marginBottom: 12 }}>
+        {five.map((c) => {
+          const id = cardId(c), on = sel.includes(id), isStarter = sameCard(c, starter);
+          return (
+            <button key={id} onClick={() => toggle(id)} style={{ border: "none", background: "none", padding: 0, cursor: "pointer", position: "relative", transform: on ? "translateY(-6px)" : "none", transition: "transform 120ms ease" }}>
+              <CardFace card={c} edge={on ? T.selBlue : null} />
+              {isStarter && <span aria-hidden="true" style={{ position: "absolute", top: -6, left: 0, right: 0, textAlign: "center", fontSize: 9, color: T.muted }}>✦</span>}
+            </button>
+          );
+        })}
+      </div>
+      <div style={{ display: "flex", gap: 6, marginBottom: claims.length ? 12 : 14 }}>
+        {Object.keys(CAT_KEY).map((type) => {
+          const ok = claimValue(type, selCards, five, starter, isCrib, claims).ok;
+          return <button key={type} disabled={!ok} onClick={() => addClaim(type)} style={{
+            flex: 1, padding: "9px 4px", borderRadius: 8, cursor: ok ? "pointer" : "default",
+            border: `1px solid ${T.line}`, background: ok ? T.selBlue : "rgba(0,0,0,0.25)",
+            color: ok ? T.ivory : T.muted, fontFamily: mono, fontSize: 11.5, fontWeight: 700, opacity: ok ? 1 : 0.5,
+          }}>{tr(CAT_KEY[type])}</button>;
+        })}
+      </div>
+      {claims.length > 0 && (
+        <div style={{ display: "grid", gap: 4, marginBottom: 12 }}>
+          {claims.map((c, i) => (
+            <div key={i} onClick={() => setClaims((cs) => cs.filter((_, k) => k !== i))} title={tr("play.show.claimRemove")}
+              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, fontFamily: mono, fontSize: 11.5, color: T.cream, background: "rgba(0,0,0,0.22)", borderRadius: 7, padding: "6px 10px", cursor: "pointer" }}>
+              <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><b>{tr(CAT_KEY[c.type])}</b> {c.tags.join(" ")}</span>
+              <span style={{ flex: "0 0 auto", color: T.good }}>+{c.pts} <span style={{ color: T.muted }}>✕</span></span>
+            </div>
+          ))}
+        </div>
+      )}
+      <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 10 }}>{tr("play.show.claimedTotal", { n: claimed })}</div>
+      {bigBtn(info.total === 0 ? tr("play.show.claimNone") : tr("play.show.claimDone", { n: claimed }), done, "good")}
+      {confirm && (
+        <Modal onBackdrop={() => setConfirm(false)} maxWidth={360}>
+          <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>{tr("play.show.incompleteTitle", { m: info.total - claimed })}</div>
+          <div style={{ fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.5, marginBottom: 16 }}>{tr("play.show.incompleteBody", { n: claimed, total: info.total, m: info.total - claimed })}</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => setConfirm(false)} style={{ flex: 1, padding: "12px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer", background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: 12.5, fontWeight: 700 }}>{tr("play.show.keepCounting")}</button>
+            <button onClick={submit} style={{ flex: 1, padding: "12px", borderRadius: 9, border: "none", cursor: "pointer", background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700 }}>{tr("play.show.incompleteConfirm", { n: claimed })}</button>
+          </div>
+        </Modal>
+      )}
+    </div>
   );
 }

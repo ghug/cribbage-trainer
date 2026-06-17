@@ -271,6 +271,21 @@ cribbageLocale("en", {
   "play.show.claimedMissed": "you claimed {n} · missed {m}",
   "play.show.claimedOver": "you claimed {n} · over-claim, corrected down",
   "play.show.claimedSpot": "you claimed {n} · spot on",
+  "play.show.claimInstr": "Tap your cards (✦ = the starter), then claim each combination you see.",
+  "play.show.claimInstrCrib": "Tap your crib + the starter (✦), then claim each combination you see.",
+  "play.show.cat15": "15",
+  "play.show.catPair": "Pair",
+  "play.show.catRun": "Run",
+  "play.show.catFlush": "Flush",
+  "play.show.catNobs": "Nobs",
+  "play.show.claimRemove": "Tap to remove this claim",
+  "play.show.claimedTotal": "Claiming {n}",
+  "play.show.claimDone": "Claim {n}",
+  "play.show.claimNone": "No points — Continue",
+  "play.show.incompleteTitle": "Leaving {m} on the table",
+  "play.show.incompleteBody": "You’re claiming {n} of {total} — the next opponent takes the {m} you missed.",
+  "play.show.incompleteConfirm": "Claim {n} anyway",
+  "play.show.keepCounting": "Keep counting",
   "play.skunk.double": "Double skunk 🦨🦨 — {list}",
   "play.skunk.single": "Skunk 🦨 — {list}",
   // game history — the per-seat scoring popup + the aggregate stats modal
@@ -415,6 +430,8 @@ cribbageLocale("en", {
   "settings.counting.disabledDesc": "Muggins is only available in a solo (one-human) game; hot-seat tables auto-count.",
   "settings.counting.optAuto": "Auto-count",
   "settings.counting.optMuggins": "Muggins",
+  "settings.claimWarn.title": "Warn on an incomplete claim",
+  "settings.claimWarn.desc": "In muggins, confirm before submitting a claim worth less than your hand actually scores (so the opponent doesn’t quietly take the rest).",
   "settings.autoGo.title": "Go on no playable card",
   "settings.autoGo.desc": "When you can’t play, Manual waits for you to tap “Go”; Auto passes for you.",
   "settings.warn.title": "Warn on a weak play",
@@ -812,7 +829,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.58";
+const APP_VERSION = "1.1.20-dev.59";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -849,6 +866,57 @@ const SEAT_SHORT_KEY = { You: "seat.youShort", North: "seat.n", South: "seat.s",
 const seatShort = (i) => { const c = customName(i); return c ? (isYou(i) ? tr("seat.youShort") + " - " + c : c) : tr(SEAT_SHORT_KEY[SEAT_NAMES[i]] || SEAT_NAMES[i]); };
 const sameCard = (a, b) => a.r === b.r && a.s === b.s;
 const sameSet = (a, b) => a.length === b.length && a.every((x) => b.includes(x));
+const claimKey = (cards) => cards.map(cardId).sort((a, b) => a - b).join(",");
+function claimValue(type, sel, five, starter, isCrib, claims) {
+    const n = sel.length;
+    const key = claimKey(sel);
+    const dup = claims.some((c) => c.type === type && c.key === key);
+    if (type === "fifteen") {
+        if (n < 2 || dup)
+            return { ok: false };
+        return sel.reduce((a, c) => a + fifteenVal(c.r), 0) === 15 ? { ok: true, pts: 2 } : { ok: false };
+    }
+    if (type === "pair") {
+        if (n < 2)
+            return { ok: false };
+        const r = sel[0].r;
+        if (!sel.every((c) => c.r === r) || claims.some((c) => c.type === "pair" && c.rank === r))
+            return { ok: false };
+        return { ok: true, pts: n === 2 ? 2 : n === 3 ? 6 : 12, rank: r };
+    }
+    if (type === "run") {
+        if (n < 3 || dup)
+            return { ok: false };
+        const ranks = sel.map((c) => c.r);
+        if (new Set(ranks).size !== n)
+            return { ok: false };
+        const lo = Math.min(...ranks), hi = Math.max(...ranks);
+        if (hi - lo !== n - 1)
+            return { ok: false };
+        if (five.some((c) => c.r === lo - 1 || c.r === hi + 1))
+            return { ok: false };
+        return { ok: true, pts: n };
+    }
+    if (type === "flush") {
+        if (claims.some((c) => c.type === "flush") || n < 4)
+            return { ok: false };
+        if (!sel.every((c) => c.s === sel[0].s))
+            return { ok: false };
+        const allFive = five.every((c) => c.s === five[0].s);
+        if (n === 5 && allFive)
+            return { ok: true, pts: 5 };
+        if (n === 4 && !isCrib && !allFive && !sel.some((c) => sameCard(c, starter)))
+            return { ok: true, pts: 4 };
+        return { ok: false };
+    }
+    if (type === "nobs") {
+        if (n !== 1 || dup)
+            return { ok: false };
+        const c = sel[0];
+        return (c.r === 11 && c.s === starter.s && !sameCard(c, starter)) ? { ok: true, pts: 1 } : { ok: false };
+    }
+    return { ok: false };
+}
 function freshDeck() {
     const d = deckExcluding([]);
     for (let i = d.length - 1; i > 0; i--) {
@@ -1428,7 +1496,7 @@ function reduce(state, action) {
             return state;
     }
 }
-const DEFAULT_SETTINGS = { players: 2, teams: 2, names: [], counting: "auto", tapToSelect: true, autoCut: false, autoGo: false, warn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
+const DEFAULT_SETTINGS = { players: 2, teams: 2, names: [], counting: "auto", tapToSelect: true, autoCut: false, autoGo: false, warn: true, claimWarn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
 const SETTINGS_KEY = "cribbage:settings";
 function loadSettings() {
     try {
@@ -2152,8 +2220,6 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
             : [yourHand.findIndex((c) => sameCard(c, pending.card))];
     const isLegal = (c) => discardPhase || (!!legalSet && legalSet.has(cardId(c)));
     useEffect(() => { setSel([]); }, [me, phase, turn]);
-    const [claim, setClaim] = React.useState(0);
-    useEffect(() => { setClaim(0); }, [showPhase ? state.show.step : -1]);
     const muggins = showPhase && mugginsActive(settings) && seatIsHuman(info.owner, settings);
     const needClaim = muggins && !state.show.claimSubmitted;
     const commit = (idxs) => dispatch(discardPhase
@@ -2690,13 +2756,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
                         : React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: T.muted } }, tr("play.pile.cleared"))))))),
         overPhase ? (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 16 } },
             React.createElement(SkunkPanel, { seats: seats, winner: winner, P: P, teams: teams }),
-            bigBtn(tr("play.btn.playAgain"), () => dispatch({ type: "PLAY_AGAIN" }), "good"))) : showPhase ? (needClaim ? (React.createElement("div", { style: { background: "rgba(0,0,0,0.26)", borderRadius: 10, padding: "14px 14px 16px" } },
-            React.createElement("div", { style: { fontSize: 13.5, lineHeight: 1.5, marginBottom: 12 } }, info.isCrib ? tr("play.show.claimCrib") : tr("play.show.claimHand")),
-            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 12, justifyContent: "center", marginBottom: 14 } },
-                React.createElement(StepBtn, { onClick: () => setClaim((v) => Math.max(0, v - 1)) }, "\u2212"),
-                React.createElement("span", { style: { fontFamily: serif, fontWeight: 700, fontSize: 34, minWidth: 48, textAlign: "center" } }, claim),
-                React.createElement(StepBtn, { onClick: () => setClaim((v) => Math.min(29, v + 1)) }, "+")),
-            bigBtn(tr("play.show.claimBtn", { n: claim }), () => dispatch({ type: "SHOW_CLAIM", value: claim }), "good"))) : (React.createElement("div", { style: { background: "rgba(0,0,0,0.26)", borderRadius: 10, padding: "12px 14px 14px" } },
+            bigBtn(tr("play.btn.playAgain"), () => dispatch({ type: "PLAY_AGAIN" }), "good"))) : showPhase ? (needClaim ? (React.createElement(MugginsClaim, { info: info, starter: starter, isCrib: info.isCrib, settings: settings, dispatch: dispatch })) : (React.createElement("div", { style: { background: "rgba(0,0,0,0.26)", borderRadius: 10, padding: "12px 14px 14px" } },
             React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 } },
                 React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: T.muted } }, tr("play.show.scoring")),
                 React.createElement("span", { style: { fontFamily: serif, fontWeight: 700, fontSize: 20, color: T.ivory } }, info.total)),
@@ -2818,6 +2878,7 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
         React.createElement(Row, { title: tr("settings.autoContinue.title"), k: "autoContinue", desc: tr("settings.autoContinue.desc"), options: [[off, false], [on, true]] }),
         React.createElement(Row, { title: tr("settings.autoDeal.title"), k: "autoDeal", desc: tr("settings.autoDeal.desc"), options: [[off, false], [on, true]] }),
         React.createElement(Row, { title: tr("settings.counting.title"), k: "counting", disabled: !soloGame, desc: tr(soloGame ? "settings.counting.desc" : "settings.counting.disabledDesc"), options: [[tr("settings.counting.optAuto"), "auto"], [tr("settings.counting.optMuggins"), "muggins"]] }),
+        React.createElement(Row, { title: tr("settings.claimWarn.title"), k: "claimWarn", disabled: !(soloGame && settings.counting === "muggins"), desc: tr("settings.claimWarn.desc"), options: [[on, true], [off, false]] }),
         React.createElement(LanguageRow, null),
         React.createElement("div", { style: { borderTop: `1px solid ${T.line}`, margin: "2px -16px 0", padding: "12px 16px 0" } },
             React.createElement("button", { onClick: onHistory, style: { width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12, fontWeight: 700 } }, tr("settings.history"))),
@@ -2915,7 +2976,7 @@ function AboutModal({ onClose }) {
                 background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
             } }, tr("about.sourceLink")),
         React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-        React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.58")));
+        React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.59")));
 }
 function MessageLogModal({ log, onClose }) {
     const scrollRef = React.useRef(null);
@@ -2948,11 +3009,62 @@ function PlayWarning({ pp, dispatch }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("play.warn.pickAgain")))));
 }
-function StepBtn({ children, onClick }) {
-    return (React.createElement("button", { onClick: onClick, style: {
-            width: 52, height: 52, borderRadius: 12, cursor: "pointer", border: `1px solid ${T.line}`,
-            background: "rgba(0,0,0,0.3)", color: T.ivory, fontSize: 26, fontFamily: serif, fontWeight: 700,
-        } }, children));
+const CAT_KEY = { fifteen: "play.show.cat15", pair: "play.show.catPair", run: "play.show.catRun", flush: "play.show.catFlush", nobs: "play.show.catNobs" };
+function MugginsClaim({ info, starter, isCrib, settings, dispatch }) {
+    const five = info.cards.concat(starter);
+    const [sel, setSel] = React.useState([]);
+    const [claims, setClaims] = React.useState([]);
+    const [confirm, setConfirm] = React.useState(false);
+    React.useEffect(() => { setSel([]); setClaims([]); setConfirm(false); }, [info.owner, info.isCrib]);
+    const selCards = five.filter((c) => sel.includes(cardId(c)));
+    const claimed = claims.reduce((a, c) => a + c.pts, 0);
+    const toggle = (id) => setSel((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
+    const addClaim = (type) => {
+        const v = claimValue(type, selCards, five, starter, isCrib, claims);
+        if (!v.ok)
+            return;
+        setClaims((cs) => [...cs, { type, key: claimKey(selCards), rank: v.rank, pts: v.pts, tags: selCards.map(tag) }]);
+        setSel([]);
+    };
+    const submit = () => dispatch({ type: "SHOW_CLAIM", value: claimed });
+    const done = () => { if (claimed < info.total && settings.claimWarn)
+        setConfirm(true);
+    else
+        submit(); };
+    return (React.createElement("div", { style: { background: "rgba(0,0,0,0.26)", borderRadius: 10, padding: "12px 14px 14px" } },
+        React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, lineHeight: 1.5, marginBottom: 10 } }, info.isCrib ? tr("play.show.claimInstrCrib") : tr("play.show.claimInstr")),
+        React.createElement("div", { style: { display: "flex", gap: 5, justifyContent: "center", marginBottom: 12 } }, five.map((c) => {
+            const id = cardId(c), on = sel.includes(id), isStarter = sameCard(c, starter);
+            return (React.createElement("button", { key: id, onClick: () => toggle(id), style: { border: "none", background: "none", padding: 0, cursor: "pointer", position: "relative", transform: on ? "translateY(-6px)" : "none", transition: "transform 120ms ease" } },
+                React.createElement(CardFace, { card: c, edge: on ? T.selBlue : null }),
+                isStarter && React.createElement("span", { "aria-hidden": "true", style: { position: "absolute", top: -6, left: 0, right: 0, textAlign: "center", fontSize: 9, color: T.muted } }, "\u2726")));
+        })),
+        React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: claims.length ? 12 : 14 } }, Object.keys(CAT_KEY).map((type) => {
+            const ok = claimValue(type, selCards, five, starter, isCrib, claims).ok;
+            return React.createElement("button", { key: type, disabled: !ok, onClick: () => addClaim(type), style: {
+                    flex: 1, padding: "9px 4px", borderRadius: 8, cursor: ok ? "pointer" : "default",
+                    border: `1px solid ${T.line}`, background: ok ? T.selBlue : "rgba(0,0,0,0.25)",
+                    color: ok ? T.ivory : T.muted, fontFamily: mono, fontSize: 11.5, fontWeight: 700, opacity: ok ? 1 : 0.5,
+                } }, tr(CAT_KEY[type]));
+        })),
+        claims.length > 0 && (React.createElement("div", { style: { display: "grid", gap: 4, marginBottom: 12 } }, claims.map((c, i) => (React.createElement("div", { key: i, onClick: () => setClaims((cs) => cs.filter((_, k) => k !== i)), title: tr("play.show.claimRemove"), style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, fontFamily: mono, fontSize: 11.5, color: T.cream, background: "rgba(0,0,0,0.22)", borderRadius: 7, padding: "6px 10px", cursor: "pointer" } },
+            React.createElement("span", { style: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+                React.createElement("b", null, tr(CAT_KEY[c.type])),
+                " ",
+                c.tags.join(" ")),
+            React.createElement("span", { style: { flex: "0 0 auto", color: T.good } },
+                "+",
+                c.pts,
+                " ",
+                React.createElement("span", { style: { color: T.muted } }, "\u2715"))))))),
+        React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 10 } }, tr("play.show.claimedTotal", { n: claimed })),
+        bigBtn(info.total === 0 ? tr("play.show.claimNone") : tr("play.show.claimDone", { n: claimed }), done, "good"),
+        confirm && (React.createElement(Modal, { onBackdrop: () => setConfirm(false), maxWidth: 360 },
+            React.createElement("div", { style: { fontWeight: 700, fontSize: 16, marginBottom: 8 } }, tr("play.show.incompleteTitle", { m: info.total - claimed })),
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.5, marginBottom: 16 } }, tr("play.show.incompleteBody", { n: claimed, total: info.total, m: info.total - claimed })),
+            React.createElement("div", { style: { display: "flex", gap: 8 } },
+                React.createElement("button", { onClick: () => setConfirm(false), style: { flex: 1, padding: "12px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer", background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: 12.5, fontWeight: 700 } }, tr("play.show.keepCounting")),
+                React.createElement("button", { onClick: submit, style: { flex: 1, padding: "12px", borderRadius: 9, border: "none", cursor: "pointer", background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700 } }, tr("play.show.incompleteConfirm", { n: claimed })))))));
 }
 ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(CribbagePlay));
 

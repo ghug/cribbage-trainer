@@ -644,9 +644,15 @@ function MiniCard({ card, selected, disabled, onClick }) {
 
 // Build a specific hand: a four-wide deck grid (all 52, A→K by rank) where you tap to pick
 // exactly `count` cards, then deal them.
-function CardPicker({ count, onPick, onClose }) {
+function CardPicker({ count, onPick, onClose, dealerInit, canDeal }) {
   const [sel, setSel] = useState([]);                  // selected cardIds, in tap order
+  const [asDealer, setAsDealer] = useState(!!dealerInit);   // build the hand as the dealer (your crib) or defending
   const deck = deckExcluding([]);
+  const seg = (on) => ({
+    flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: 11.5,
+    background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
+    border: `1px solid ${on ? T.pegIvory : T.line}`, fontWeight: on ? 700 : 400,
+  });
   const toggle = (c) => {
     const id = cardId(c);
     setSel((s) => s.includes(id) ? s.filter((x) => x !== id) : (s.length >= count ? s : [...s, id]));
@@ -687,7 +693,16 @@ function CardPicker({ count, onPick, onClose }) {
             ))}
           </div>
         </div>
-        <button onClick={ready ? () => onPick(deck.filter((c) => sel.includes(cardId(c)))) : undefined} disabled={!ready}
+        {canDeal && (
+          <div style={{ marginTop: 12 }}>
+            <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 }}>{tr("trainer.picker.roleLabel")}</div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button onClick={() => setAsDealer(true)} style={seg(asDealer)}>{tr("trainer.picker.asDealer")}</button>
+              <button onClick={() => setAsDealer(false)} style={seg(!asDealer)}>{tr("trainer.picker.asDefend")}</button>
+            </div>
+          </div>
+        )}
+        <button onClick={ready ? () => onPick(deck.filter((c) => sel.includes(cardId(c))), canDeal ? asDealer : false) : undefined} disabled={!ready}
           style={{
             marginTop: 14, width: "100%", padding: "13px", borderRadius: 10, border: "none",
             cursor: ready ? "pointer" : "default",
@@ -782,13 +797,15 @@ export default function CribbageTrainer() {
 
   const handSize = players === 2 ? 6 : 5;                 // cards dealt (heads-up deals 6)
   const forcePickRef = useRef(false);                     // one-shot: auto-pick the next choose hand
-  const dealCustom = useCallback((cards) => {
-    const sc = trainerScenario(roleMode, players, teams);
+  const dealCustom = useCallback((cards, asDealer) => {
+    // The picker's Dealer/Defending toggle sets the scenario directly: dealer = your crib, else you
+    // defend into someone else's. (Forced-defend solo 5/6 passes asDealer=false — the toggle is hidden.)
+    const sc = asDealer ? { youDeal: true, cribIsOurs: true } : { youDeal: false, cribIsOurs: false };
     forcePickRef.current = true;                          // a custom hand always reveals the best
     setHand(cards.slice().sort((a, b) => a.r - b.r || a.s - b.s)); setScenario(sc);
     setSelected([]); setChosenId(null); setExpanded(null); setPhase("choose");
     setPickerOpen(false);
-  }, [roleMode, players, teams]);
+  }, []);
 
   const pick = useCallback((idxs) => {
     const id = idxs.slice().sort((a, b) => a - b).join(","); // match analyze's i<j combo ids
@@ -886,7 +903,7 @@ export default function CribbageTrainer() {
       <main style={{ maxWidth: 560, margin: "0 auto", padding: "18px 16px 0" }}>
         {showSettings && <SettingsPanel players={players} teams={teams} roleMode={roleMode} onRoleMode={setRoleMode} autoBest={autoBest} onAutoBest={(v) => { setAutoBest(v); saveAutoBest(v); }} onClose={() => setShowSettings(false)} onAbout={() => { setShowSettings(false); setAboutOpen(true); }} />}
         {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
-        {pickerOpen && <CardPicker count={handSize} onPick={dealCustom} onClose={() => setPickerOpen(false)} />}
+        {pickerOpen && <CardPicker count={handSize} onPick={dealCustom} onClose={() => setPickerOpen(false)} dealerInit={scenario.youDeal} canDeal={!(teams === players && players >= 5)} />}
         <div style={{
           display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", borderRadius: 10,
           background: cribIsOurs ? "rgba(95,164,124,0.16)" : "rgba(200,65,43,0.14)",

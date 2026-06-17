@@ -480,6 +480,9 @@ cribbageLocale("en", {
   "trainer.picker.hint": "tap to pick {n} cards · {sel}/{n}",
   "trainer.picker.cancel": "Cancel",
   "trainer.picker.deal": "Deal these {n}",
+  "trainer.picker.roleLabel": "Counting as",
+  "trainer.picker.asDealer": "Dealer",
+  "trainer.picker.asDefend": "Defending",
   "trainer.hdr.heads": "heads-up · 6 cards, discard two",
   "trainer.hdr.teams": "{p}-handed · {teams} teams of {size}",
   "trainer.hdr.solo": "{p}-handed · every player for themselves",
@@ -1210,7 +1213,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.64"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.65"))));
 }
 function MiniCard({ card, selected, disabled, onClick }) {
     return (React.createElement("button", { onClick: onClick, disabled: disabled, "aria-pressed": selected, "aria-label": `${rankLabel(card.r)} of ${["spades", "hearts", "diamonds", "clubs"][card.s]}`, style: {
@@ -1227,9 +1230,15 @@ function MiniCard({ card, selected, disabled, onClick }) {
             React.createElement("text", { x: "13", y: "30", textAnchor: "middle", dominantBaseline: "central", fontFamily: serif, fontWeight: "700", fontSize: "13", fill: isRed(card.s) ? T.suitRed : T.ink }, SUIT[card.s]),
             React.createElement("text", { x: "34", y: "49", textAnchor: "middle", dominantBaseline: "central", fontFamily: serif, fontSize: "34", fill: isRed(card.s) ? T.suitRed : T.ink }, SUIT[card.s]))));
 }
-function CardPicker({ count, onPick, onClose }) {
+function CardPicker({ count, onPick, onClose, dealerInit, canDeal }) {
     const [sel, setSel] = useState([]);
+    const [asDealer, setAsDealer] = useState(!!dealerInit);
     const deck = deckExcluding([]);
+    const seg = (on) => ({
+        flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: 11.5,
+        background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
+        border: `1px solid ${on ? T.pegIvory : T.line}`, fontWeight: on ? 700 : 400,
+    });
     const toggle = (c) => {
         const id = cardId(c);
         setSel((s) => s.includes(id) ? s.filter((x) => x !== id) : (s.length >= count ? s : [...s, id]));
@@ -1250,7 +1259,12 @@ function CardPicker({ count, onPick, onClose }) {
                     return (React.createElement("div", { key: id, style: { position: "relative", zIndex: k, marginTop: k === 0 ? 0 : "-93.18%" } },
                         React.createElement(MiniCard, { card: c, selected: on, disabled: !on && sel.length >= count, onClick: () => toggle(c) })));
                 })))))),
-            React.createElement("button", { onClick: ready ? () => onPick(deck.filter((c) => sel.includes(cardId(c)))) : undefined, disabled: !ready, style: {
+            canDeal && (React.createElement("div", { style: { marginTop: 12 } },
+                React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 } }, tr("trainer.picker.roleLabel")),
+                React.createElement("div", { style: { display: "flex", gap: 6 } },
+                    React.createElement("button", { onClick: () => setAsDealer(true), style: seg(asDealer) }, tr("trainer.picker.asDealer")),
+                    React.createElement("button", { onClick: () => setAsDealer(false), style: seg(!asDealer) }, tr("trainer.picker.asDefend"))))),
+            React.createElement("button", { onClick: ready ? () => onPick(deck.filter((c) => sel.includes(cardId(c))), canDeal ? asDealer : false) : undefined, disabled: !ready, style: {
                     marginTop: 14, width: "100%", padding: "13px", borderRadius: 10, border: "none",
                     cursor: ready ? "pointer" : "default",
                     background: ready ? `linear-gradient(180deg, ${T.good}, ${T.goodDeep})` : "rgba(0,0,0,0.25)",
@@ -1340,8 +1354,8 @@ function CribbageTrainer() {
     const deal = useCallback(() => dealHand(players), [dealHand, players]);
     const handSize = players === 2 ? 6 : 5;
     const forcePickRef = useRef(false);
-    const dealCustom = useCallback((cards) => {
-        const sc = trainerScenario(roleMode, players, teams);
+    const dealCustom = useCallback((cards, asDealer) => {
+        const sc = asDealer ? { youDeal: true, cribIsOurs: true } : { youDeal: false, cribIsOurs: false };
         forcePickRef.current = true;
         setHand(cards.slice().sort((a, b) => a.r - b.r || a.s - b.s));
         setScenario(sc);
@@ -1350,7 +1364,7 @@ function CribbageTrainer() {
         setExpanded(null);
         setPhase("choose");
         setPickerOpen(false);
-    }, [roleMode, players, teams]);
+    }, []);
     const pick = useCallback((idxs) => {
         const id = idxs.slice().sort((a, b) => a - b).join(",");
         const res = analyze(hand, scenario, mode, players, teams);
@@ -1454,7 +1468,7 @@ function CribbageTrainer() {
         React.createElement("main", { style: { maxWidth: 560, margin: "0 auto", padding: "18px 16px 0" } },
             showSettings && React.createElement(SettingsPanel, { players: players, teams: teams, roleMode: roleMode, onRoleMode: setRoleMode, autoBest: autoBest, onAutoBest: (v) => { setAutoBest(v); saveAutoBest(v); }, onClose: () => setShowSettings(false), onAbout: () => { setShowSettings(false); setAboutOpen(true); } }),
             aboutOpen && React.createElement(AboutModal, { onClose: () => setAboutOpen(false) }),
-            pickerOpen && React.createElement(CardPicker, { count: handSize, onPick: dealCustom, onClose: () => setPickerOpen(false) }),
+            pickerOpen && React.createElement(CardPicker, { count: handSize, onPick: dealCustom, onClose: () => setPickerOpen(false), dealerInit: scenario.youDeal, canDeal: !(teams === players && players >= 5) }),
             React.createElement("div", { style: {
                     display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", borderRadius: 10,
                     background: cribIsOurs ? "rgba(95,164,124,0.16)" : "rgba(200,65,43,0.14)",

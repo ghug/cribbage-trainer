@@ -575,6 +575,12 @@ cribbageLocale("en", {
   "settings.resetDefaults": "Reset game settings to defaults",
   "trainer.set.resetDefaults": "Reset these settings to defaults",
   "settings.continue": "Continue game",
+  "settings.speed.title": "Game speed",
+  "settings.speed.desc": "Scales deal animations, plays, and pauses everywhere. Slow is 2× the normal time, Fast is half, Instant snaps through in ~32 ms.",
+  "settings.speed.optSlow": "Slow",
+  "settings.speed.optNormal": "Normal",
+  "settings.speed.optFast": "Fast",
+  "settings.speed.optInstant": "Instant",
   "settings.tapToSelect.title": "Tap to select, then confirm",
   "settings.tapToSelect.desc": "Tapping a card lifts it to select (tap again to drop it); a Play or Throw-to-crib button above your hand commits the choice. Off: a tap plays or throws immediately.",
   "settings.autoCut.title": "Cut for the starter",
@@ -898,7 +904,7 @@ cribbageLocale("en", {
       <a class="btn btn-primary" href="https://github.com/ghug/cribbage-trainer/"
          target="_blank" rel="noopener noreferrer" data-i18n="about.sourceLink">Source, bugs &amp; feedback ↗</a>
       <div class="repo-url" style="margin-bottom:4px">github.com/ghug/cribbage-trainer</div>
-      <div class="repo-url">v1.1.20-dev.72</div>
+      <div class="repo-url">v1.1.20-dev.73</div>
     </div>
   </div>
 
@@ -938,11 +944,12 @@ cribbageLocale("en", {
       // Game settings, shared across every page via localStorage (same key the games
       // read/write), so a toggle here — or in any game — sticks everywhere.
       var SETTINGS_KEY = "cribbage:settings";
-      var DEFAULTS = { players: 2, teams: 2, seats: [], names: [], counting: "auto", tapToSelect: true, autoCut: false, autoGo: false, warn: true, claimWarn: true, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false, autoContinue: false, autoDeal: false };
+      var DEFAULTS = { players: 2, teams: 2, seats: [], names: [], speed: "normal", counting: "auto", tapToSelect: true, autoCut: false, autoGo: false, warn: true, claimWarn: true, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false, autoContinue: false, autoDeal: false };
       // "Players" lives on the main page (above Play); the rest are in this popup. These are the
       // SAME global game settings every page (landing/trainer/play) reads & writes, so the menu is
       // identical everywhere. title/desc/option labels are i18n keys, translated via tr() at render.
       var ROWS = [
+        { k: "speed", title: "settings.speed.title", desc: "settings.speed.desc", opts: [["settings.speed.optSlow", "slow"], ["settings.speed.optNormal", "normal"], ["settings.speed.optFast", "fast"], ["settings.speed.optInstant", "instant"]] },
         { k: "tapToSelect", title: "settings.tapToSelect.title", desc: "settings.tapToSelect.desc", opts: [["common.off", false], ["common.on", true]] },
         { k: "warn", title: "settings.warn.title", desc: "settings.warn.desc", opts: [["common.on", true], ["common.off", false]] },
         { k: "autoDeal", title: "settings.autoDeal.title", desc: "settings.autoDeal.desc", opts: [["common.off", false], ["common.on", true]] },
@@ -962,7 +969,7 @@ cribbageLocale("en", {
       var settings = loadSettings();
       // The toggle rows are grouped into collapsible sections (the menu was a long flat list).
       var GROUPS = [
-        { title: "settings.group.controls", open: true, keys: ["tapToSelect", "warn"] },
+        { title: "settings.group.controls", open: true, keys: ["speed", "tapToSelect", "warn"] },
         { title: "settings.group.automation", open: false, keys: ["autoDeal", "autoCut", "autoDiscardBest", "autoPlayOne", "autoPlayBest", "autoGo", "autoContinue"] },
         { title: "settings.group.counting", open: true, keys: ["counting", "claimWarn"] }
       ];

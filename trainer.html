@@ -435,6 +435,12 @@ cribbageLocale("en", {
   "settings.resetDefaults": "Reset game settings to defaults",
   "trainer.set.resetDefaults": "Reset these settings to defaults",
   "settings.continue": "Continue game",
+  "settings.speed.title": "Game speed",
+  "settings.speed.desc": "Scales deal animations, plays, and pauses everywhere. Slow is 2× the normal time, Fast is half, Instant snaps through in ~32 ms.",
+  "settings.speed.optSlow": "Slow",
+  "settings.speed.optNormal": "Normal",
+  "settings.speed.optFast": "Fast",
+  "settings.speed.optInstant": "Instant",
   "settings.tapToSelect.title": "Tap to select, then confirm",
   "settings.tapToSelect.desc": "Tapping a card lifts it to select (tap again to drop it); a Play or Throw-to-crib button above your hand commits the choice. Off: a tap plays or throws immediately.",
   "settings.autoCut.title": "Cut for the starter",
@@ -623,6 +629,9 @@ cribbageLocale("en", {
 <script>
 "use strict";
 const { useState, useMemo, useCallback, useEffect, useRef } = React;
+const SPEED_MULT = { slow: 2, normal: 1, fast: 0.5, instant: 0 };
+let SPEED = "normal";
+function spd(ms) { return ms <= 0 ? ms : SPEED === "instant" ? 32 : Math.round(ms * (SPEED_MULT[SPEED] ?? 1)); }
 const fifteenVal = (r) => Math.min(r, 10);
 function scoreInto(four, starter, isCrib, acc) {
     const all = [...four, starter];
@@ -1195,6 +1204,7 @@ function SettingsPanel({ settings, onSet, onReset, onClose, onAbout }) {
         React.createElement(ModalHeader, { title: tr("settings.title"), onClose: onClose },
             React.createElement("span", { style: { fontWeight: 700, fontSize: 16 } }, tr("settings.title"))),
         React.createElement(SettingsSection, { title: tr("settings.group.controls"), defaultOpen: true },
+            React.createElement(Row, { title: tr("settings.speed.title"), k: "speed", desc: tr("settings.speed.desc"), options: [[tr("settings.speed.optSlow"), "slow"], [tr("settings.speed.optNormal"), "normal"], [tr("settings.speed.optFast"), "fast"], [tr("settings.speed.optInstant"), "instant"]] }),
             React.createElement(Row, { title: tr("settings.tapToSelect.title"), k: "tapToSelect", desc: tr("settings.tapToSelect.desc"), options: [[off, false], [on, true]] }),
             React.createElement(Row, { title: tr("settings.warn.title"), k: "warn", desc: tr("settings.warn.desc"), options: [[on, true], [off, false]] })),
         React.createElement(SettingsSection, { title: tr("settings.group.automation") },
@@ -1278,7 +1288,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.72"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.73"))));
 }
 function MiniCard({ card, selected, disabled, onClick }) {
     return (React.createElement("button", { onClick: onClick, disabled: disabled, "aria-pressed": selected, "aria-label": `${rankLabel(card.r)} of ${["spades", "hearts", "diamonds", "clubs"][card.s]}`, style: {
@@ -1339,7 +1349,7 @@ function CardPicker({ count, onPick, onClose, dealerInit, canDeal }) {
 }
 const teamOptionsT = (p) => (p === 4 ? [4, 2] : p === 6 ? [6, 3, 2] : [p]);
 const SETTINGS_KEY = "cribbage:settings";
-const DEFAULT_SETTINGS = { players: 2, teams: 2, seats: [], names: [], counting: "auto", tapToSelect: true, autoCut: false, autoGo: false, warn: true, claimWarn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
+const DEFAULT_SETTINGS = { players: 2, teams: 2, seats: [], names: [], speed: "normal", counting: "auto", tapToSelect: true, autoCut: false, autoGo: false, warn: true, claimWarn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
 function loadSettings() { try {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (raw)
@@ -1383,6 +1393,7 @@ function trainerScenario(roleMode, players, teams) {
 }
 function CribbageTrainer() {
     const [settings, setSettings] = useState(loadSettings);
+    SPEED = settings.speed || "normal";
     const players = (settings.players >= 2 && settings.players <= 6) ? settings.players : 2;
     const teams = teamOptionsT(players).includes(settings.teams) ? settings.teams : players;
     const [roleMode, setRoleMode] = useState("random");
@@ -1510,12 +1521,12 @@ function CribbageTrainer() {
         } },
         React.createElement("style", null, `
         @keyframes dealIn {from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-        .dealwrap > * {animation:dealIn 260ms ease both}
-        .dealwrap > *:nth-child(2){animation-delay:40ms}
-        .dealwrap > *:nth-child(3){animation-delay:80ms}
-        .dealwrap > *:nth-child(4){animation-delay:120ms}
-        .dealwrap > *:nth-child(5){animation-delay:160ms}
-        .dealwrap > *:nth-child(6){animation-delay:200ms}
+        .dealwrap > * {animation:dealIn var(--deal-ms,260ms) ease both}
+        .dealwrap > *:nth-child(2){animation-delay:calc(var(--deal-stg,40ms)*1)}
+        .dealwrap > *:nth-child(3){animation-delay:calc(var(--deal-stg,40ms)*2)}
+        .dealwrap > *:nth-child(4){animation-delay:calc(var(--deal-stg,40ms)*3)}
+        .dealwrap > *:nth-child(5){animation-delay:calc(var(--deal-stg,40ms)*4)}
+        .dealwrap > *:nth-child(6){animation-delay:calc(var(--deal-stg,40ms)*5)}
         button{font-family:inherit}
         button:focus-visible{outline:2px solid ${T.pegIvory}}
         @media (prefers-reduced-motion: reduce){.dealwrap > *{animation:none}}
@@ -1580,7 +1591,7 @@ function CribbageTrainer() {
                 : (mode === "ev"
                     ? tr("trainer.prompt.ranked", { mode: MODE_LABEL[mode] })
                     : tr("trainer.prompt.rankedRisk", { mode: MODE_LABEL[mode], sign: mode === "need" ? "+" : "−" }))),
-            React.createElement("div", { className: phase === "choose" ? "dealwrap" : "", style: { display: "flex", gap: 8, justifyContent: "center", flexWrap: "nowrap" } }, hand.map((card, i) => {
+            React.createElement("div", { className: phase === "choose" ? "dealwrap" : "", style: { display: "flex", gap: 8, justifyContent: "center", flexWrap: "nowrap", "--deal-ms": spd(260) + "ms", "--deal-stg": spd(40) + "ms" } }, hand.map((card, i) => {
                 let badge = null, dim = false, sel = false;
                 if (phase === "revealed") {
                     const isBest = best.idxs.includes(i), isPick = chosen ? chosen.idxs.includes(i) : false;

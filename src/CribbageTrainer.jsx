@@ -5,6 +5,13 @@ import React, { useState, useMemo, useCallback, useEffect, useRef } from "react"
    scoreInto: accumulates category points [15s,pairs,runs,flush,nobs]
    (unit-tested: perfect 29 -> 16/12/0/0/1; locked 4556 -> 12)
    ============================================================ */
+// Global game speed (shared with the Play game via settings.speed). `SPEED` is set from the setting
+// at the top of the root component's render; `spd(ms)` scales any animation duration: slow 2×,
+// normal 1× (unchanged), fast ½×, instant a flat 32 ms (spd(0) passes through).
+const SPEED_MULT = { slow: 2, normal: 1, fast: 0.5, instant: 0 };
+let SPEED = "normal";
+function spd(ms) { return ms <= 0 ? ms : SPEED === "instant" ? 32 : Math.round(ms * (SPEED_MULT[SPEED] ?? 1)); }
+
 const fifteenVal = (r) => Math.min(r, 10);
 
 function scoreInto(four, starter, isCrib, acc) {
@@ -566,6 +573,8 @@ function SettingsPanel({ settings, onSet, onReset, onClose, onAbout }) {
         <span style={{ fontWeight: 700, fontSize: 16 }}>{tr("settings.title")}</span>
       </ModalHeader>
       <SettingsSection title={tr("settings.group.controls")} defaultOpen>
+        <Row title={tr("settings.speed.title")} k="speed" desc={tr("settings.speed.desc")}
+          options={[[tr("settings.speed.optSlow"), "slow"], [tr("settings.speed.optNormal"), "normal"], [tr("settings.speed.optFast"), "fast"], [tr("settings.speed.optInstant"), "instant"]]} />
         <Row title={tr("settings.tapToSelect.title")} k="tapToSelect" desc={tr("settings.tapToSelect.desc")} options={[[off, false], [on, true]]} />
         <Row title={tr("settings.warn.title")} k="warn" desc={tr("settings.warn.desc")} options={[[on, true], [off, false]]} />
       </SettingsSection>
@@ -820,7 +829,7 @@ const SETTINGS_KEY = "cribbage:settings";
 // The full GLOBAL settings object, shared (same localStorage key) with the landing page and the
 // Play game, so the gear menu here is the identical global game-settings menu. The trainer itself
 // only acts on players/teams; the gameplay toggles (counting/automation/...) are carried & synced.
-const DEFAULT_SETTINGS = { players: 2, teams: 2, seats: [], names: [], counting: "auto", tapToSelect: true, autoCut: false, autoGo: false, warn: true, claimWarn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
+const DEFAULT_SETTINGS = { players: 2, teams: 2, seats: [], names: [], speed: "normal", counting: "auto", tapToSelect: true, autoCut: false, autoGo: false, warn: true, claimWarn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
 function loadSettings() { try { const raw = localStorage.getItem(SETTINGS_KEY); if (raw) return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) }; } catch (e) {} return { ...DEFAULT_SETTINGS }; }
 function saveSettings(s) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (e) {} }
 // Solo iff exactly one human seat (seat 0 human by default) — gates the muggins counting rows,
@@ -849,6 +858,7 @@ function trainerScenario(roleMode, players, teams) {
 /* ============================ APP ============================ */
 export default function CribbageTrainer() {
   const [settings, setSettings] = useState(loadSettings);  // the full GLOBAL settings object (shared with landing + Play)
+  SPEED = settings.speed || "normal";   // scales the deal-in animation (and any future trainer timers)
   const players = (settings.players >= 2 && settings.players <= 6) ? settings.players : 2;
   const teams = teamOptionsT(players).includes(settings.teams) ? settings.teams : players;
   const [roleMode, setRoleMode] = useState("random");
@@ -977,12 +987,12 @@ export default function CribbageTrainer() {
     }}>
       <style>{`
         @keyframes dealIn {from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-        .dealwrap > * {animation:dealIn 260ms ease both}
-        .dealwrap > *:nth-child(2){animation-delay:40ms}
-        .dealwrap > *:nth-child(3){animation-delay:80ms}
-        .dealwrap > *:nth-child(4){animation-delay:120ms}
-        .dealwrap > *:nth-child(5){animation-delay:160ms}
-        .dealwrap > *:nth-child(6){animation-delay:200ms}
+        .dealwrap > * {animation:dealIn var(--deal-ms,260ms) ease both}
+        .dealwrap > *:nth-child(2){animation-delay:calc(var(--deal-stg,40ms)*1)}
+        .dealwrap > *:nth-child(3){animation-delay:calc(var(--deal-stg,40ms)*2)}
+        .dealwrap > *:nth-child(4){animation-delay:calc(var(--deal-stg,40ms)*3)}
+        .dealwrap > *:nth-child(5){animation-delay:calc(var(--deal-stg,40ms)*4)}
+        .dealwrap > *:nth-child(6){animation-delay:calc(var(--deal-stg,40ms)*5)}
         button{font-family:inherit}
         button:focus-visible{outline:2px solid ${T.pegIvory}}
         @media (prefers-reduced-motion: reduce){.dealwrap > *{animation:none}}
@@ -1047,7 +1057,7 @@ export default function CribbageTrainer() {
                 ? tr("trainer.prompt.ranked", { mode: MODE_LABEL[mode] })
                 : tr("trainer.prompt.rankedRisk", { mode: MODE_LABEL[mode], sign: mode === "need" ? "+" : "−" }))}
         </p>
-        <div className={phase === "choose" ? "dealwrap" : ""} style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "nowrap" }}>
+        <div className={phase === "choose" ? "dealwrap" : ""} style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "nowrap", "--deal-ms": spd(260) + "ms", "--deal-stg": spd(40) + "ms" }}>
           {hand.map((card, i) => {
             let badge = null, dim = false, sel = false;
             if (phase === "revealed") {

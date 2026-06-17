@@ -435,6 +435,12 @@ cribbageLocale("en", {
   "settings.resetDefaults": "Reset game settings to defaults",
   "trainer.set.resetDefaults": "Reset these settings to defaults",
   "settings.continue": "Continue game",
+  "settings.speed.title": "Game speed",
+  "settings.speed.desc": "Scales deal animations, plays, and pauses everywhere. Slow is 2× the normal time, Fast is half, Instant snaps through in ~32 ms.",
+  "settings.speed.optSlow": "Slow",
+  "settings.speed.optNormal": "Normal",
+  "settings.speed.optFast": "Fast",
+  "settings.speed.optInstant": "Instant",
   "settings.tapToSelect.title": "Tap to select, then confirm",
   "settings.tapToSelect.desc": "Tapping a card lifts it to select (tap again to drop it); a Play or Throw-to-crib button above your hand commits the choice. Off: a tap plays or throws immediately.",
   "settings.autoCut.title": "Cut for the starter",
@@ -623,6 +629,9 @@ cribbageLocale("en", {
 <script>
 "use strict";
 const { useReducer, useEffect } = React;
+const SPEED_MULT = { slow: 2, normal: 1, fast: 0.5, instant: 0 };
+let SPEED = "normal";
+function spd(ms) { return ms <= 0 ? ms : SPEED === "instant" ? 32 : Math.round(ms * (SPEED_MULT[SPEED] ?? 1)); }
 const fifteenVal = (r) => Math.min(r, 10);
 function scoreInto(four, starter, isCrib, acc) {
     const all = [...four, starter];
@@ -876,7 +885,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.72";
+const APP_VERSION = "1.1.20-dev.73";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -1549,7 +1558,7 @@ function reduce(state, action) {
             return state;
     }
 }
-const DEFAULT_SETTINGS = { players: 2, teams: 2, seats: [], names: [], counting: "auto", tapToSelect: true, autoCut: false, autoGo: false, warn: true, claimWarn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
+const DEFAULT_SETTINGS = { players: 2, teams: 2, seats: [], names: [], speed: "normal", counting: "auto", tapToSelect: true, autoCut: false, autoGo: false, warn: true, claimWarn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
 const SETTINGS_KEY = "cribbage:settings";
 function loadSettings() {
     try {
@@ -1773,6 +1782,7 @@ function CribbagePlay() {
             i.onChange(() => bumpLang((v) => v + 1));
     }, []);
     const { phase, seats, dealerIdx, peg, show, starter, winner, message, settings } = state;
+    SPEED = settings.speed || "normal";
     useEffect(() => { if (phase === "cutdeal")
         setMsgLog([]); }, [phase]);
     useEffect(() => { if (message)
@@ -1802,8 +1812,8 @@ function CribbagePlay() {
             setCribGliding(false);
             return;
         }
-        const t1 = setTimeout(() => setCribGliding(true), CRIB_THROW_TIME);
-        const t2 = setTimeout(() => dispatch({ type: "CRIB_DONE" }), CRIB_THROW_TIME + CRIB_MOVE + 80);
+        const t1 = setTimeout(() => setCribGliding(true), spd(CRIB_THROW_TIME));
+        const t2 = setTimeout(() => dispatch({ type: "CRIB_DONE" }), spd(CRIB_THROW_TIME + CRIB_MOVE + 80));
         return () => { clearTimeout(t1); clearTimeout(t2); };
     }, [phase]);
     const recordedRef = React.useRef(false);
@@ -1841,17 +1851,17 @@ function CribbagePlay() {
                 return;
             const out = hand.length === 0;
             if (out || (legal.length === 0 && settings.autoGo)) {
-                const t = setTimeout(() => dispatch({ type: "PASS_GO", seat }), 450);
+                const t = setTimeout(() => dispatch({ type: "PASS_GO", seat }), spd(450));
                 return () => clearTimeout(t);
             }
             if (settings.autoPlayBest && legal.length >= 1 && !state.pendingPlay) {
                 const rank = pegChoose(legal.map((c) => c.r), peg.count, peg.pile, hand.map((c) => c.r));
                 const card = legal.find((c) => c.r === rank) || legal[0];
-                const t = setTimeout(() => dispatch({ type: "PLAY_CARD", seat, card }), 450);
+                const t = setTimeout(() => dispatch({ type: "PLAY_CARD", seat, card }), spd(450));
                 return () => clearTimeout(t);
             }
             if (legal.length === 1 && settings.autoPlayOne && !state.pendingPlay) {
-                const t = setTimeout(() => dispatch({ type: "PLAY_CARD", seat, card: legal[0] }), 450);
+                const t = setTimeout(() => dispatch({ type: "PLAY_CARD", seat, card: legal[0] }), spd(450));
                 return () => clearTimeout(t);
             }
             return;
@@ -1870,13 +1880,13 @@ function CribbagePlay() {
                 chosen = legal[Math.floor(Math.random() * legal.length)];
             }
             dispatch({ type: "PLAY_CARD", seat, card: chosen });
-        }, 760);
+        }, spd(760));
         return () => clearTimeout(t);
     }, [phase, peg, settings, state.pendingPlay, autoPaused, needHandoff, multiHuman, viewSeat]);
     useEffect(() => {
         if (phase !== "play" || !peg || !peg.pending31 || autoPaused)
             return;
-        const t = setTimeout(() => dispatch({ type: "RESET_31" }), 760);
+        const t = setTimeout(() => dispatch({ type: "RESET_31" }), spd(760));
         return () => clearTimeout(t);
     }, [phase, peg, autoPaused]);
     const cutSettled = !state.cutDeal || state.cutDeal.settled;
@@ -1886,13 +1896,13 @@ function CribbagePlay() {
         if (phase === "cutdeal") {
             if (!cutSettled)
                 return;
-            const t = setTimeout(() => dispatch({ type: "DEAL" }), 900);
+            const t = setTimeout(() => dispatch({ type: "DEAL" }), spd(900));
             return () => clearTimeout(t);
         }
         if (phase === "deal") {
             if (dealLocked)
                 return;
-            const t = setTimeout(() => dispatch({ type: "DEAL" }), 650);
+            const t = setTimeout(() => dispatch({ type: "DEAL" }), spd(650));
             return () => clearTimeout(t);
         }
     }, [phase, settings.autoDeal, autoPaused, cutSettled, allBot, dealLocked]);
@@ -1901,7 +1911,7 @@ function CribbagePlay() {
             return;
         const n = plan(players, dealerIdx).throws[ds];
         const best = evalDiscards(state.seats[ds].dealt, dealerIdx, n, players, teams, ds).best;
-        const t = setTimeout(() => dispatch({ type: "DISCARD", idxs: best.idxs }), 550);
+        const t = setTimeout(() => dispatch({ type: "DISCARD", idxs: best.idxs }), spd(550));
         return () => clearTimeout(t);
     }, [phase, settings.autoDiscardBest, autoPaused, ds, needHandoff]);
     useEffect(() => {
@@ -1909,7 +1919,7 @@ function CribbagePlay() {
             return;
         if (!settings.autoCut && !allBot && humanCuts)
             return;
-        const t = setTimeout(() => dispatch({ type: "CUT" }), 650);
+        const t = setTimeout(() => dispatch({ type: "CUT" }), spd(650));
         return () => clearTimeout(t);
     }, [phase, autoPaused, settings.autoCut, dealerIdx, players, settings, allBot, humanCuts]);
     useEffect(() => {
@@ -1924,7 +1934,7 @@ function CribbagePlay() {
     useEffect(() => {
         if (phase !== "show" || !show || !settings.autoContinue || autoPaused || !show.scored)
             return;
-        const t = setTimeout(() => dispatch({ type: "SHOW_NEXT" }), 1200);
+        const t = setTimeout(() => dispatch({ type: "SHOW_NEXT" }), spd(1200));
         return () => clearTimeout(t);
     }, [phase, show, settings.autoContinue, autoPaused]);
     const turnNow = phase === "play" && peg ? peg.turn : phase === "over" ? winner : -1;
@@ -1935,12 +1945,12 @@ function CribbagePlay() {
         React.createElement("style", null, `
         html,body{background:${T.baizeHi}}
         @keyframes dealIn {from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-        .dealwrap > * {animation:dealIn 240ms ease both}
-        .dealwrap > *:nth-child(2){animation-delay:50ms}
-        .dealwrap > *:nth-child(3){animation-delay:100ms}
-        .dealwrap > *:nth-child(4){animation-delay:150ms}
-        .dealwrap > *:nth-child(5){animation-delay:200ms}
-        .dealwrap > *:nth-child(6){animation-delay:250ms}
+        .dealwrap > * {animation:dealIn var(--deal-ms,240ms) ease both}
+        .dealwrap > *:nth-child(2){animation-delay:calc(var(--deal-stg,50ms)*1)}
+        .dealwrap > *:nth-child(3){animation-delay:calc(var(--deal-stg,50ms)*2)}
+        .dealwrap > *:nth-child(4){animation-delay:calc(var(--deal-stg,50ms)*3)}
+        .dealwrap > *:nth-child(5){animation-delay:calc(var(--deal-stg,50ms)*4)}
+        .dealwrap > *:nth-child(6){animation-delay:calc(var(--deal-stg,50ms)*5)}
         button{font-family:inherit}
         button:focus-visible{outline:2px solid ${T.pegIvory}}
         @media (prefers-reduced-motion: reduce){.dealwrap > *{animation:none}}
@@ -2081,7 +2091,7 @@ function CardSprite({ card, home, dur, delay, clickable, selected, raised, dim, 
             position: "absolute", left: 0, top: -lift, width: "var(--cw)", height: "var(--ch)",
             transformStyle: "preserve-3d", zIndex: home.z,
             transform: `translate(${home.x}px, ${home.y}px) rotateY(${home.up ? 0 : 180}deg)`,
-            transition: [moveTr, `top ${MOVE_DUR}ms cubic-bezier(.2,.7,.3,1)`].filter(Boolean).join(", "),
+            transition: [moveTr, `top ${spd(MOVE_DUR)}ms cubic-bezier(.2,.7,.3,1)`].filter(Boolean).join(", "),
             cursor: clickable ? "pointer" : "default",
             pointerEvents: clickable ? "auto" : "none",
             opacity: hidden ? 0 : (dim ? 0.45 : 1),
@@ -2126,7 +2136,7 @@ const DECK_EDGE = 0.2;
 function StarterCard({ card }) {
     const [shown, setShown] = React.useState(false);
     React.useEffect(() => { const id = requestAnimationFrame(() => requestAnimationFrame(() => setShown(true))); return () => cancelAnimationFrame(id); }, []);
-    return (React.createElement("div", { style: { position: "relative", width: "var(--cw)", height: "var(--ch)", transformStyle: "preserve-3d", transition: "transform 920ms cubic-bezier(.2,.7,.3,1)", transform: shown ? "rotateY(0deg)" : "rotateY(-180deg)" } },
+    return (React.createElement("div", { style: { position: "relative", width: "var(--cw)", height: "var(--ch)", transformStyle: "preserve-3d", transition: `transform ${spd(920)}ms cubic-bezier(.2,.7,.3,1)`, transform: shown ? "rotateY(0deg)" : "rotateY(-180deg)" } },
         React.createElement("div", { style: { position: "absolute", top: 0, left: 0, width: "var(--cw)", backfaceVisibility: "hidden" } },
             React.createElement(Card, { card: card })),
         React.createElement("div", { style: { position: "absolute", top: 0, left: 0, width: "var(--cw)", backfaceVisibility: "hidden", transform: "rotateY(180deg)" } },
@@ -2144,7 +2154,7 @@ function StarterDeck({ starter, count = 4, topEmpty = false }) {
 function DeckSwapView({ phase, offX, offY, count = 52 }) {
     const [go, setGo] = React.useState(false);
     React.useEffect(() => { const id = requestAnimationFrame(() => requestAnimationFrame(() => setGo(true))); return () => cancelAnimationFrame(id); }, []);
-    const TR = `transform ${SWAP_DUR}ms cubic-bezier(.4,0,.2,1)`;
+    const TR = `transform ${spd(SWAP_DUR)}ms cubic-bezier(.4,0,.2,1)`;
     const from = phase === "out" ? "none" : `translate(${offX}px, ${-offY}px)`;
     const to = phase === "out" ? `translate(${-offX}px, ${-offY}px)` : "none";
     return (React.createElement("div", { style: { position: "relative", width: "var(--cw)", height: "var(--ch)", margin: "0 auto" } },
@@ -2153,12 +2163,12 @@ function DeckSwapView({ phase, offX, offY, count = 52 }) {
 }
 function RevealFly({ from, to, card, delay, r0 = -180, r1 = 0 }) {
     const [shown, setShown] = React.useState(false);
-    React.useEffect(() => { const t = setTimeout(() => setShown(true), delay); return () => clearTimeout(t); }, []);
+    React.useEffect(() => { const t = setTimeout(() => setShown(true), spd(delay)); return () => clearTimeout(t); }, []);
     const p = shown ? to : from;
     return (React.createElement("div", { style: {
             position: "absolute", left: 0, top: 0, width: "var(--cw)", transformStyle: "preserve-3d", zIndex: 6, pointerEvents: "none",
             transform: `translate(${p.x}px, ${p.y}px) rotateY(${shown ? r1 : r0}deg)`,
-            transition: `transform ${DEAL_MOVE}ms cubic-bezier(.2,.7,.3,1)`,
+            transition: `transform ${spd(DEAL_MOVE)}ms cubic-bezier(.2,.7,.3,1)`,
         } },
         React.createElement("div", { style: { backfaceVisibility: "hidden" } },
             React.createElement(Card, { card: card })),
@@ -2187,9 +2197,9 @@ function SeatFlip({ idx, posRef, onMove, children }) {
             if (onMove)
                 onMove();
             requestAnimationFrame(() => requestAnimationFrame(() => {
-                el.style.transition = `transform ${SEAT_ROTATE}ms cubic-bezier(.4,0,.2,1)`;
+                el.style.transition = `transform ${spd(SEAT_ROTATE)}ms cubic-bezier(.4,0,.2,1)`;
                 el.style.transform = "none";
-                setTimeout(() => { busy.current = false; }, SEAT_ROTATE + 40);
+                setTimeout(() => { busy.current = false; }, spd(SEAT_ROTATE + 40));
             }));
         }
     });
@@ -2202,14 +2212,14 @@ const CRIB_MOVE = 840;
 function DealFly({ from, legs, card }) {
     const [idx, setIdx] = React.useState(-1);
     React.useEffect(() => {
-        const timers = legs.map((lg, i) => setTimeout(() => setIdx(i), lg.delay));
+        const timers = legs.map((lg, i) => setTimeout(() => setIdx(i), spd(lg.delay)));
         return () => timers.forEach(clearTimeout);
     }, []);
     const p = idx < 0 ? from : legs[idx];
     return (React.createElement("div", { style: {
             position: "absolute", left: 0, top: 0, width: "var(--cw)",
             transform: `translate(${p.x}px, ${p.y}px)`,
-            transition: `transform ${idx < 0 ? 0 : legs[idx].dur}ms cubic-bezier(.2,.7,.3,1)`,
+            transition: `transform ${idx < 0 ? 0 : spd(legs[idx].dur)}ms cubic-bezier(.2,.7,.3,1)`,
             zIndex: 6, pointerEvents: "none",
         } }, card ? React.createElement(Card, { card: card }) : React.createElement(CardBack, null)));
 }
@@ -2317,7 +2327,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
     const teammateDeals = cribOurs && !isDealer;
     const [cribNote, setCribNote] = React.useState(false);
     React.useEffect(() => { if (!cribNote)
-        return; const t = setTimeout(() => setCribNote(false), 2800); return () => clearTimeout(t); }, [cribNote]);
+        return; const t = setTimeout(() => setCribNote(false), spd(2800)); return () => clearTimeout(t); }, [cribNote]);
     const cribOwnerText = (solo && cribOurs)
         ? (isDealer ? tr("play.cribNote.yours") : tr("play.cribNote.team"))
         : tr("play.cribNote.seat", { seat: seatName(dealerIdx) });
@@ -2333,7 +2343,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
     const botThrowAtRef = React.useRef([]);
     const nowMs = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
     if (dealJustHappened)
-        botThrowAtRef.current = seats.map(() => nowMs() + 1000 + Math.random() * 2000);
+        botThrowAtRef.current = seats.map(() => nowMs() + spd(1000) + Math.random() * spd(2000));
     const [, setBotTick] = React.useState(0);
     const botHolding = (i) => discardPhase && seats[i].isAI && nowMs() < (botThrowAtRef.current[i] || 0);
     const place = {};
@@ -2417,7 +2427,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
         if (!dealingPhase || !deal || deal.cursor >= deal.seq.length)
             return;
         const cursor = deal.cursor;
-        const wait = cursor === 0 ? (gatherDealRef.current ? DEAL_DUR + 100 : 90) : DEAL_STAGGER;
+        const wait = cursor === 0 ? (gatherDealRef.current ? spd(DEAL_DUR + 100) : spd(90)) : spd(DEAL_STAGGER);
         const t = setTimeout(() => advanceDeal(cursor), wait);
         return () => clearTimeout(t);
     }, [dealingPhase, deal && deal.cursor]);
@@ -2425,12 +2435,12 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
         if (!cutdealPhase || !cutDeal || cutDeal.settled)
             return;
         if (cutDeal.tie) {
-            const t = setTimeout(() => dispatch({ type: "CUT_REDRAW" }), 2000);
+            const t = setTimeout(() => dispatch({ type: "CUT_REDRAW" }), spd(2000));
             return () => clearTimeout(t);
         }
         if (cutDeal.cursor >= cutDeal.contenders.length)
             return;
-        const wait = cutDeal.cursor === 0 ? Math.max(120, swapUntilRef.current - nowMs()) : DEAL_STAGGER;
+        const wait = cutDeal.cursor === 0 ? Math.max(spd(120), swapUntilRef.current - nowMs()) : spd(DEAL_STAGGER);
         const t = setTimeout(() => dispatch({ type: "CUT_NEXT" }), wait);
         return () => clearTimeout(t);
     }, [cutdealPhase, cutDeal && cutDeal.cursor, cutDeal && cutDeal.redraw, cutDeal && cutDeal.settled, cutDeal && cutDeal.tie]);
@@ -2490,10 +2500,10 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
                 homesRef.current = r;
                 setHomes(r);
                 setDeckSwap({ phase: "empty", offX: swapOffX, offY: swapOffY });
-            }, startAt + SWAP_DUR));
-            dealTimersRef.current.push(setTimeout(() => setDeckSwap({ phase: "in", offX: swapOffX, offY: swapOffY }), startAt + SWAP_DUR + EMPTY_DUR));
-            dealTimersRef.current.push(setTimeout(() => setDeckSwap(null), startAt + 2 * SWAP_DUR + EMPTY_DUR));
-            return startAt + 2 * SWAP_DUR + EMPTY_DUR;
+            }, startAt + spd(SWAP_DUR)));
+            dealTimersRef.current.push(setTimeout(() => setDeckSwap({ phase: "in", offX: swapOffX, offY: swapOffY }), startAt + spd(SWAP_DUR) + spd(EMPTY_DUR)));
+            dealTimersRef.current.push(setTimeout(() => setDeckSwap(null), startAt + 2 * spd(SWAP_DUR) + spd(EMPTY_DUR)));
+            return startAt + 2 * spd(SWAP_DUR) + spd(EMPTY_DUR);
         };
         const targets = {};
         for (const id in place) {
@@ -2521,7 +2531,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
             return;
         sigRef.current = sig;
         const sweep = Math.max(newCards.length, goneCards.length, 1);
-        animUntilRef.current = (typeof performance !== "undefined" ? performance.now() : Date.now()) + (sweep - 1) * CARD_STAGGER + MOVE_DUR + 80;
+        animUntilRef.current = (typeof performance !== "undefined" ? performance.now() : Date.now()) + spd((sweep - 1) * CARD_STAGGER + MOVE_DUR + 80);
         const phaseAtLast = dealPhaseRef.current;
         dealPhaseRef.current = phase;
         const prevPlace = prevPlaceRef.current;
@@ -2551,7 +2561,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
             }
             if (gatherGone.length) {
                 const drop = gatherGone.slice();
-                setTimeout(() => { const next = { ...homesRef.current }; drop.forEach((id) => delete next[id]); homesRef.current = next; setHomes(next); }, DEAL_DUR + 80);
+                setTimeout(() => { const next = { ...homesRef.current }; drop.forEach((id) => delete next[id]); homesRef.current = next; setHomes(next); }, spd(DEAL_DUR + 80));
             }
             return;
         }
@@ -2564,8 +2574,8 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
             const swap = oldCards.length > 0;
             const swapRemaining = Math.max(0, swapUntilRef.current - t0);
             const interHandWait = !swap && swapRemaining > 0;
-            const GATHER_DUR = swap ? MOVE_DUR + 80 : 0;
-            const dealSpan = (dealList.length - 1) * CARD_STAGGER + MOVE_DUR + 80;
+            const GATHER_DUR = swap ? spd(MOVE_DUR + 80) : 0;
+            const dealSpan = spd((dealList.length - 1) * CARD_STAGGER + MOVE_DUR + 80);
             const ordered = dealList.slice().sort((a, b) => dealRank(a) - dealRank(b));
             for (const id in delayRef.current)
                 delayRef.current[id] = 0;
@@ -2583,9 +2593,9 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
                 dealTimersRef.current = [];
             }
             const dealStart = swap ? scheduleDeckSwap(oldCards, GATHER_DUR) : swapRemaining;
-            animUntilRef.current = t0 + dealStart + dealSpan + 120;
-            botThrowAtRef.current = animUntilRef.current + 1000;
-            dealTimersRef.current.push(setTimeout(() => setBotTick((x) => x + 1), dealStart + dealSpan + 120 + 1000));
+            animUntilRef.current = t0 + dealStart + dealSpan + spd(120);
+            botThrowAtRef.current = animUntilRef.current + spd(1000);
+            dealTimersRef.current.push(setTimeout(() => setBotTick((x) => x + 1), dealStart + dealSpan + spd(120) + spd(1000)));
             clearDeckTimers();
             ordered.forEach((id, k) => {
                 dealTimersRef.current.push(setTimeout(() => {
@@ -2602,14 +2612,14 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
                         setHomes(r2);
                         setDeckShown((v) => Math.max(deckCount, v - 1));
                     }));
-                }, dealStart + k * CARD_STAGGER));
+                }, dealStart + spd(k * CARD_STAGGER)));
             });
             dealTimersRef.current.push(setTimeout(() => { dealingRef.current = false; setBotTick((x) => x + 1); }, dealStart + dealSpan));
             return;
         }
         if (handEndJustHappened && goneCards.length > 0) {
             const oldCards = [...prevKnown];
-            const GATHER_DUR = MOVE_DUR + 80;
+            const GATHER_DUR = spd(MOVE_DUR + 80);
             for (const id in delayRef.current)
                 delayRef.current[id] = 0;
             const r0 = {};
@@ -2628,12 +2638,12 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
             setSwapBusy(true);
             dealTimersRef.current.push(setTimeout(() => setSwapBusy(false), settleAt));
             dealTimersRef.current.push(setTimeout(() => setDeckShown(deckCount), settleAt));
-            animUntilRef.current = (typeof performance !== "undefined" ? performance.now() : Date.now()) + settleAt + 120;
+            animUntilRef.current = (typeof performance !== "undefined" ? performance.now() : Date.now()) + settleAt + spd(120);
             return;
         }
         if (cutdealPhase && goneCards.length > 0 && newCards.length === 0) {
             const oldCards = [...prevKnown];
-            const GATHER_DUR = MOVE_DUR + 80;
+            const GATHER_DUR = spd(MOVE_DUR + 80);
             for (const id in delayRef.current)
                 delayRef.current[id] = 0;
             const r0 = {};
@@ -2650,7 +2660,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
             const settleAt = scheduleDeckSwap(oldCards, GATHER_DUR);
             swapUntilRef.current = (typeof performance !== "undefined" ? performance.now() : Date.now()) + settleAt;
             dealTimersRef.current.push(setTimeout(() => setDeckShown(deckCount), settleAt));
-            animUntilRef.current = (typeof performance !== "undefined" ? performance.now() : Date.now()) + settleAt + 120;
+            animUntilRef.current = (typeof performance !== "undefined" ? performance.now() : Date.now()) + settleAt + spd(120);
             return;
         }
         for (const id in targets)
@@ -2679,10 +2689,10 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
         clearDeckTimers();
         if (newCards.length > 1) {
             setDeckShown((v) => Math.max(deckCount, v));
-            newCards.forEach((id, k) => deckTimers.current.push(setTimeout(() => setDeckShown((v) => Math.max(deckCount, v - 1)), k * CARD_STAGGER + 40)));
+            newCards.forEach((id, k) => deckTimers.current.push(setTimeout(() => setDeckShown((v) => Math.max(deckCount, v - 1)), spd(k * CARD_STAGGER + 40))));
         }
         else if (gatherGone.length > 1) {
-            gatherGone.forEach((id, k) => deckTimers.current.push(setTimeout(() => setDeckShown((v) => Math.min(52, v + 1)), k * CARD_STAGGER + MOVE_DUR)));
+            gatherGone.forEach((id, k) => deckTimers.current.push(setTimeout(() => setDeckShown((v) => Math.min(52, v + 1)), spd(k * CARD_STAGGER + MOVE_DUR))));
         }
         else {
             setDeckShown(deckCount);
@@ -2701,7 +2711,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
                 homesRef.current = next;
                 setHomes(next);
                 drop.forEach((id) => { delete delayRef.current[id]; });
-            }, (gatherGone.length - 1) * CARD_STAGGER + MOVE_DUR + 80);
+            }, spd((gatherGone.length - 1) * CARD_STAGGER + MOVE_DUR + 80));
         }
     });
     const labelEls = React.useRef({});
@@ -2725,9 +2735,9 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
                 el.style.transform = `translate(${old.x - cur.x}px, ${old.y - cur.y}px)`;
                 const key = i, node = el;
                 requestAnimationFrame(() => requestAnimationFrame(() => {
-                    node.style.transition = `transform ${MOVE_DUR}ms cubic-bezier(.4,0,.2,1)`;
+                    node.style.transition = `transform ${spd(MOVE_DUR)}ms cubic-bezier(.4,0,.2,1)`;
                     node.style.transform = "none";
-                    setTimeout(() => { labelBusy.current[key] = false; }, MOVE_DUR + 40);
+                    setTimeout(() => { labelBusy.current[key] = false; }, spd(MOVE_DUR + 40));
                 }));
             }
         }
@@ -2735,7 +2745,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
             setRotating(true);
             if (rotTimer.current)
                 clearTimeout(rotTimer.current);
-            rotTimer.current = setTimeout(() => setRotating(false), MOVE_DUR + 80);
+            rotTimer.current = setTimeout(() => setRotating(false), spd(MOVE_DUR + 80));
         }
     });
     const cell = (i) => {
@@ -2758,7 +2768,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
         const legal = inHand && (discardPhase || (peg && turn === me)) ? isLegal(yourHand[handIdx]) : false;
         const chosen = inHand && (pending ? (pendIdxs && pendIdxs.includes(handIdx)) : sel.includes(handIdx));
         const clickable = inHand && (pending ? true : (myTurn && legal));
-        return React.createElement(CardSprite, { key: id, card: c, home: h, dur: dealingPhase ? DEAL_DUR : MOVE_DUR, delay: delayRef.current[id] || 0, clickable: clickable || inCribHome, selected: inHand && !tapSelect && chosen, raised: inHand && tapSelect && chosen, dim: inHand && !pending && !legal && (discardPhase ? false : turn === me), selLabel: inHand && !discardPhase ? tr("play.sel.play") : undefined, noAnim: resizing || inHand, hidden: mugCribClaim && p && (p.group === "showcrib" || p.group === "cribhome"), onClick: inHand ? () => tapCard(handIdx) : inCribHome ? () => setCribNote(true) : undefined });
+        return React.createElement(CardSprite, { key: id, card: c, home: h, dur: spd(dealingPhase ? DEAL_DUR : MOVE_DUR), delay: spd(delayRef.current[id] || 0), clickable: clickable || inCribHome, selected: inHand && !tapSelect && chosen, raised: inHand && tapSelect && chosen, dim: inHand && !pending && !legal && (discardPhase ? false : turn === me), selLabel: inHand && !discardPhase ? tr("play.sel.play") : undefined, noAnim: resizing || inHand, hidden: mugCribClaim && p && (p.group === "showcrib" || p.group === "cribhome"), onClick: inHand ? () => tapCard(handIdx) : inCribHome ? () => setCribNote(true) : undefined });
     });
     return (React.createElement("div", { ref: tableRef, style: { position: "relative", marginTop: 6, display: "flex", flexDirection: "column", gap: 10 } },
         cribNote && (React.createElement("div", { onClick: () => setCribNote(false), role: "status", style: {
@@ -2886,7 +2896,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
                 }
                 return React.createElement("div", { style: { minHeight: 44, marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center" } }, el);
             })(),
-            meHuman && (React.createElement("div", { "data-slot": "hand", className: discardPhase ? "dealwrap" : undefined, style: { display: "flex", gap: 6, justifyContent: "center", flexWrap: "nowrap", height: "var(--ch)", visibility: "hidden" } }, Array.from({ length: handLen }).map((_, i) => React.createElement("div", { key: i, style: { width: "var(--cw)", flex: "0 0 auto" } })))),
+            meHuman && (React.createElement("div", { "data-slot": "hand", className: discardPhase ? "dealwrap" : undefined, style: { display: "flex", gap: 6, justifyContent: "center", flexWrap: "nowrap", height: "var(--ch)", visibility: "hidden", "--deal-ms": spd(240) + "ms", "--deal-stg": spd(50) + "ms" } }, Array.from({ length: handLen }).map((_, i) => React.createElement("div", { key: i, style: { width: "var(--cw)", flex: "0 0 auto" } })))),
             meHuman && !discardPhase && yourHand.length === 0 && React.createElement("div", { style: { textAlign: "center", marginTop: -8 } },
                 React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: T.muted } }, tr("play.handEmpty")))))));
 }
@@ -2946,6 +2956,7 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
         React.createElement(ModalHeader, { title: tr("settings.title"), onClose: onClose },
             React.createElement("span", { style: { fontWeight: 700, fontSize: 16 } }, tr("settings.title"))),
         React.createElement(SettingsSection, { title: tr("settings.group.controls"), defaultOpen: true },
+            React.createElement(Row, { title: tr("settings.speed.title"), k: "speed", desc: tr("settings.speed.desc"), options: [[tr("settings.speed.optSlow"), "slow"], [tr("settings.speed.optNormal"), "normal"], [tr("settings.speed.optFast"), "fast"], [tr("settings.speed.optInstant"), "instant"]] }),
             React.createElement(Row, { title: tr("settings.tapToSelect.title"), k: "tapToSelect", desc: tr("settings.tapToSelect.desc"), options: [[off, false], [on, true]] }),
             React.createElement(Row, { title: tr("settings.warn.title"), k: "warn", desc: tr("settings.warn.desc"), options: [[on, true], [off, false]] })),
         React.createElement(SettingsSection, { title: tr("settings.group.automation") },
@@ -3056,7 +3067,7 @@ function AboutModal({ onClose }) {
                 background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
             } }, tr("about.sourceLink")),
         React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-        React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.72")));
+        React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.73")));
 }
 function MessageLogModal({ log, onClose }) {
     const scrollRef = React.useRef(null);

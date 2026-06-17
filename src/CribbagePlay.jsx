@@ -13,9 +13,9 @@ import React, { useReducer, useEffect } from "react";
 // Global game speed. `SPEED` is assigned from settings.speed at the top of the root component's
 // render (so every descendant's render-time CSS and every effect timer in that pass sees it), and
 // `spd(ms)` scales any animation/pause/deal duration: slow 2×, normal 1× (unchanged), fast ½×,
-// lightning a flat 32 ms, instant a flat 5 ms. spd(0) passes through so intentional zeros stay zero.
+// lightning a flat 32 ms, instant a flat 1 ms. spd(0) passes through so intentional zeros stay zero.
 const SPEED_MULT = { slow: 2, normal: 1, fast: 0.5 };
-const SPEED_FLAT = { lightning: 32, instant: 5 };   // a fixed duration regardless of the base value
+const SPEED_FLAT = { lightning: 32, instant: 1 };   // a fixed duration regardless of the base value
 let SPEED = "normal";
 function spd(ms) { if (ms <= 0) return ms; const flat = SPEED_FLAT[SPEED]; return flat != null ? flat : Math.round(ms * (SPEED_MULT[SPEED] ?? 1)); }
 

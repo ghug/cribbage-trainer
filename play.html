@@ -893,7 +893,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.80";
+const APP_VERSION = "1.1.20-dev.81";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -2801,7 +2801,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
         React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 8, padding: "0 6px" } },
             React.createElement("div", { style: { minWidth: 0 } }, ts.left != null ? cell(ts.left) : null),
             React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", flex: "0 0 auto" } },
-                React.createElement("div", { style: { height: 18, marginBottom: 4, display: "flex", alignItems: "center", fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted } }, (phase === "play" || showPhase || overPhase) ? tr("play.starterCard") : tr("play.deck")),
+                React.createElement("div", { style: { height: 18, marginBottom: 4, display: "flex", alignItems: "center", fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, position: "relative", zIndex: 6, textShadow: "0 1px 3px rgba(0,0,0,0.75)" } }, (phase === "play" || showPhase || overPhase) ? tr("play.starterCard") : tr("play.deck")),
                 React.createElement("div", { "data-slot": "deck", style: { display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" } }, deckSwap
                     ? (deckSwap.phase === "empty" ? null
                         : React.createElement(DeckSwapView, { key: deckSwap.phase, phase: deckSwap.phase, offX: deckSwap.offX, offY: deckSwap.offY, count: Math.max(1, deckShown) }))
@@ -3086,7 +3086,7 @@ function AboutModal({ onClose }) {
                 background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
             } }, tr("about.sourceLink")),
         React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.20-dev.80")));
+        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.20-dev.81")));
 }
 function MessageLogModal({ log, onClose }) {
     const scrollRef = React.useRef(null);

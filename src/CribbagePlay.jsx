@@ -2498,7 +2498,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
       <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 8, padding: "0 6px" }}>
         <div style={{ minWidth: 0 }}>{ts.left != null ? cell(ts.left) : null}</div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: "0 0 auto" }}>
-          <div style={{ height: 18, marginBottom: 4, display: "flex", alignItems: "center", fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted }}>{(phase === "play" || showPhase || overPhase) ? tr("play.starterCard") : tr("play.deck")}</div>
+          <div style={{ height: 18, marginBottom: 4, display: "flex", alignItems: "center", fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, position: "relative", zIndex: 6, textShadow: "0 1px 3px rgba(0,0,0,0.75)" }}>{(phase === "play" || showPhase || overPhase) ? tr("play.starterCard") : tr("play.deck")}</div>
           <div data-slot="deck" style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" }}>
             {deckSwap
               ? (deckSwap.phase === "empty" ? null

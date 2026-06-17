@@ -79,7 +79,7 @@ build_one() {
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#0f2417" />
 <title>${TITLE}</title>
-<style>html,body{margin:0;background:#0f2417;min-height:100%}#root{min-height:100vh}</style>
+<style>html,body{margin:0;background:#0f2417;min-height:100%;-webkit-user-select:none;user-select:none}#root{min-height:100vh}input,textarea{-webkit-user-select:text;user-select:text}</style>
 <script src="vendor/react.production.min.js"></script>
 <script src="vendor/react-dom.production.min.js"></script>
 HTML

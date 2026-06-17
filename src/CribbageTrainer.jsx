@@ -7,9 +7,9 @@ import React, { useState, useMemo, useCallback, useEffect, useRef } from "react"
    ============================================================ */
 // Global game speed (shared with the Play game via settings.speed). `SPEED` is set from the setting
 // at the top of the root component's render; `spd(ms)` scales any animation duration: slow 2×,
-// normal 1× (unchanged), fast ½×, lightning a flat 32 ms, instant a flat 1 ms (spd(0) passes through).
+// normal 1× (unchanged), fast ½×, lightning a flat 32 ms, instant a flat 0 ms (spd(0) passes through).
 const SPEED_MULT = { slow: 2, normal: 1, fast: 0.5 };
-const SPEED_FLAT = { lightning: 32, instant: 1 };
+const SPEED_FLAT = { lightning: 32, instant: 0 };
 let SPEED = "normal";
 function spd(ms) { if (ms <= 0) return ms; const flat = SPEED_FLAT[SPEED]; return flat != null ? flat : Math.round(ms * (SPEED_MULT[SPEED] ?? 1)); }
 

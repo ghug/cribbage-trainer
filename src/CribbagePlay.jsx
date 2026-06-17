@@ -556,10 +556,10 @@ function applyCut(state) {
   const pl = plan(P, state.dealerIdx);
   const starter = state.deck[pl.starterIdx];
   const hisHeels = starter.r === 11;
-  // Play begins: the kept hands are now shown face-up for pegging (and the show), so sort them here
-  // — the last place a hand goes from deal order to sorted. (Throwers' hands are already sorted from
-  // their discard turn; this catches non-thrower hands and tidies every hand for the count.)
-  let seats = state.seats.map((s) => (s.kept ? { ...s, kept: sortHand(s.kept) } : s)), winner = null, message = tr("play.msg.cut", { card: tag(starter) });
+  // Play begins: sort the HUMAN seats' kept hands (shown face-up for pegging / their clickable row).
+  // Bots' hands stay in deal order — they're never shown as a fan, and the show display sorts each
+  // hand at its own count step (in the render), not here.
+  let seats = state.seats.map((s, i) => (s.kept && seatIsHuman(i, state.settings) ? { ...s, kept: sortHand(s.kept) } : s)), winner = null, message = tr("play.msg.cut", { card: tag(starter) });
   if (hisHeels) {
     seats = addScore(seats, state.dealerIdx, 2, "his heels", P, teams);
     message = isYou(state.dealerIdx)

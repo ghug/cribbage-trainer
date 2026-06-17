@@ -1295,7 +1295,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.20-dev.76"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.20-dev.77"))));
 }
 function MiniCard({ card, selected, disabled, onClick }) {
     return (React.createElement("button", { onClick: onClick, disabled: disabled, "aria-pressed": selected, "aria-label": `${rankLabel(card.r)} of ${["spades", "hearts", "diamonds", "clubs"][card.s]}`, style: {
@@ -1469,14 +1469,22 @@ function CribbageTrainer() {
         setSettings((prev) => { const next = { ...prev, [k]: val }; saveSettings(next); return next; });
     }, []);
     const resetSettings = useCallback(() => {
+        const dp = DEFAULT_SETTINGS.players, dt = DEFAULT_SETTINGS.teams;
         setSettings((prev) => {
             const next = { ...prev };
             for (const k in DEFAULT_SETTINGS)
-                if (k !== "players" && k !== "teams" && k !== "seats" && k !== "names")
+                if (k !== "seats" && k !== "names")
                     next[k] = DEFAULT_SETTINGS[k];
             saveSettings(next);
             return next;
         });
+        setRoleMode("random");
+        setHand(randomHand(dp === 2 ? 6 : 5));
+        setScenario(trainerScenario("random", dp, dt));
+        setSelected([]);
+        setChosenId(null);
+        setExpanded(null);
+        setPhase("choose");
     }, []);
     const pick = useCallback((idxs) => {
         const id = idxs.slice().sort((a, b) => a - b).join(",");

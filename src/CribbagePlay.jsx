@@ -834,12 +834,14 @@ function reduce(state, action) {
     }
 
     case "RESET_SETTINGS": {
-      // Reset the gameplay preference toggles to defaults; keep the table setup
-      // (players/teams/seats, set on the landing) so the current game isn't disturbed.
+      // Reset all gameplay toggles AND the table size/teams to defaults, keeping the per-seat
+      // human/bot roles + custom names. If the size or teams actually change, start a fresh game so
+      // the board matches the new size; otherwise apply the reset toggles to the running game.
       const settings = { ...state.settings };
-      for (const k in DEFAULT_SETTINGS) if (k !== "players" && k !== "teams" && k !== "seats" && k !== "names") settings[k] = DEFAULT_SETTINGS[k];
+      for (const k in DEFAULT_SETTINGS) if (k !== "seats" && k !== "names") settings[k] = DEFAULT_SETTINGS[k];
       saveSettings(settings);
-      return { ...state, settings };
+      const sizeChanged = settings.players !== state.settings.players || settings.teams !== state.settings.teams;
+      return sizeChanged ? newGameState({ settings }) : { ...state, settings };
     }
 
     case "DISCARD": // commit straight away (programmatic / tests); action.idxs = [..]

@@ -936,14 +936,19 @@ export default function CribbageTrainer() {
   const setSetting = useCallback((k, val) => {
     setSettings((prev) => { const next = { ...prev, [k]: val }; saveSettings(next); return next; });
   }, []);
-  // Reset the gameplay toggles to defaults, keeping the table setup (players/teams/seats/names),
-  // exactly like the Play game's reset so all three pages behave identically.
+  // Reset all gameplay toggles AND the table size/teams to defaults (keeping the per-seat roles +
+  // custom names), then re-deal a fresh hand at the default size — like chooseSize.
   const resetSettings = useCallback(() => {
+    const dp = DEFAULT_SETTINGS.players, dt = DEFAULT_SETTINGS.teams;
     setSettings((prev) => {
       const next = { ...prev };
-      for (const k in DEFAULT_SETTINGS) if (k !== "players" && k !== "teams" && k !== "seats" && k !== "names") next[k] = DEFAULT_SETTINGS[k];
+      for (const k in DEFAULT_SETTINGS) if (k !== "seats" && k !== "names") next[k] = DEFAULT_SETTINGS[k];
       saveSettings(next); return next;
     });
+    setRoleMode("random");
+    setHand(randomHand(dp === 2 ? 6 : 5));
+    setScenario(trainerScenario("random", dp, dt));
+    setSelected([]); setChosenId(null); setExpanded(null); setPhase("choose");
   }, []);
 
   const pick = useCallback((idxs) => {

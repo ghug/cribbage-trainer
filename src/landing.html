@@ -620,8 +620,11 @@
       document.getElementById('openAbout').addEventListener('click', function () { close(s); open(a); });
       // Reset the gameplay preference toggles to defaults; keep the table setup (players/teams/seats).
       document.getElementById('resetSettings').addEventListener('click', function () {
-        for (var rk in DEFAULTS) { if (rk !== 'players' && rk !== 'teams' && rk !== 'seats' && rk !== 'names') settings[rk] = DEFAULTS[rk]; }
-        saveSettings(settings); renderSettings();
+        // Reset everything to defaults EXCEPT the per-seat roles + custom names (the "who's playing"
+        // setup): the table size and teams reset too, so re-render the home controls + diagram.
+        for (var rk in DEFAULTS) { if (rk !== 'seats' && rk !== 'names') settings[rk] = DEFAULTS[rk]; }
+        saveSettings(settings); editingNames = false; applyTextSize();
+        renderSettings(); renderPlayers(); renderTeams(); renderSeatDiagram(); renderNamesButton(); renderSeatHint();
       });
       document.getElementById('footerAbout').addEventListener('click', function () { open(a); });
       document.getElementById('aboutDone').addEventListener('click', function () { close(a); });

@@ -1202,10 +1202,11 @@ export default function CribbagePlay() {
     return () => clearTimeout(t);
   }, [phase, peg, settings, state.pendingPlay, autoPaused, needHandoff, multiHuman, viewSeat]);
 
-  // When the pile hits exactly 31 it freezes for a beat so it stays visible, then clears.
+  // When the pile hits exactly 31 it freezes for a beat (the same 760ms as a bot's move) so it
+  // stays visible, then clears.
   useEffect(() => {
     if (phase !== "play" || !peg || !peg.pending31 || autoPaused) return;
-    const t = setTimeout(() => dispatch({ type: "RESET_31" }), 1500);
+    const t = setTimeout(() => dispatch({ type: "RESET_31" }), 760);
     return () => clearTimeout(t);
   }, [phase, peg, autoPaused]);
 

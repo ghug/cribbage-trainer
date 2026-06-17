@@ -499,7 +499,7 @@ function buildNote(cribIsOurs, best, chosen) {
 // Settings menu. Hosts the trainer's configuration — table size and the role you
 // practice — plus the standard About entry shared with the games. (Board position
 // stays inline on the main screen, alongside the live analysis it re-ranks.)
-function SettingsPanel({ players, teams, roleMode, onRoleMode, autoBest, onAutoBest, onClose, onAbout }) {
+function SettingsPanel({ players, teams, onSize, roleMode, onRoleMode, autoBest, onAutoBest, onClose, onAbout }) {
   const seg = (on) => ({
     flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: 11.5,
     background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
@@ -521,6 +521,15 @@ function SettingsPanel({ players, teams, roleMode, onRoleMode, autoBest, onAutoB
       <div style={{ marginBottom: 14, fontFamily: mono, fontSize: 11, color: T.muted, lineHeight: 1.6 }}>
         {tr("trainer.set.sizeLabel")} <b style={{ color: T.cream }}>{players === 2 ? tr("trainer.set.size2") : tr("trainer.set.sizeN", { p: players })}</b>.{" "}
         {tr("trainer.set.sizeTail")}
+      </div>
+
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 }}>{tr("trainer.set.tableSize")}</div>
+        <div style={{ display: "flex", gap: 6 }}>
+          {[2, 3, 4, 5, 6].map((p) => (
+            <button key={p} onClick={() => onSize(p)} style={seg(players === p)}>{p}</button>
+          ))}
+        </div>
       </div>
 
       {forcedDefend ? (
@@ -755,7 +764,7 @@ function trainerScenario(roleMode, players, teams) {
 
 /* ============================ APP ============================ */
 export default function CribbageTrainer() {
-  const [{ players, teams }] = useState(loadTrainerSettings); // from the landing's global Players/Teams setting
+  const [{ players, teams }, setTable] = useState(loadTrainerSettings); // copies the landing's global Players/Teams at init; the in-trainer size chooser can change it after
   const [roleMode, setRoleMode] = useState("random");
   const [autoBest, setAutoBest] = useState(loadAutoBest);   // auto-pick the best discard on deal
   const [hand, setHand] = useState(() => randomHand(players === 2 ? 6 : 5));
@@ -806,6 +815,18 @@ export default function CribbageTrainer() {
     setSelected([]); setChosenId(null); setExpanded(null); setPhase("choose");
     setPickerOpen(false);
   }, []);
+
+  // In-trainer table-size chooser. Changing the size drops to cutthroat (teams = players) — the team
+  // split is only copied from the global setting at init — resets the role to random, and deals a
+  // fresh hand under the new size (heads-up deals 6, otherwise 5).
+  const chooseSize = useCallback((p) => {
+    if (p === players) return;
+    setTable({ players: p, teams: p });
+    setRoleMode("random");
+    setHand(randomHand(p === 2 ? 6 : 5));
+    setScenario(trainerScenario("random", p, p));
+    setSelected([]); setChosenId(null); setExpanded(null); setPhase("choose");
+  }, [players]);
 
   const pick = useCallback((idxs) => {
     const id = idxs.slice().sort((a, b) => a - b).join(","); // match analyze's i<j combo ids
@@ -901,7 +922,7 @@ export default function CribbageTrainer() {
       </header>
 
       <main style={{ maxWidth: 560, margin: "0 auto", padding: "18px 16px 0" }}>
-        {showSettings && <SettingsPanel players={players} teams={teams} roleMode={roleMode} onRoleMode={setRoleMode} autoBest={autoBest} onAutoBest={(v) => { setAutoBest(v); saveAutoBest(v); }} onClose={() => setShowSettings(false)} onAbout={() => { setShowSettings(false); setAboutOpen(true); }} />}
+        {showSettings && <SettingsPanel players={players} teams={teams} onSize={chooseSize} roleMode={roleMode} onRoleMode={setRoleMode} autoBest={autoBest} onAutoBest={(v) => { setAutoBest(v); saveAutoBest(v); }} onClose={() => setShowSettings(false)} onAbout={() => { setShowSettings(false); setAboutOpen(true); }} />}
         {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
         {pickerOpen && <CardPicker count={handSize} onPick={dealCustom} onClose={() => setPickerOpen(false)} dealerInit={scenario.youDeal} canDeal={!(teams === players && players >= 5)} />}
         <div style={{

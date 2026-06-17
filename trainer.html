@@ -463,7 +463,8 @@ cribbageLocale("en", {
   "trainer.set.sizeLabel": "Table size:",
   "trainer.set.size2": "2-handed (heads-up) — 6 cards, discard two",
   "trainer.set.sizeN": "{p}-handed — 5 cards, discard one",
-  "trainer.set.sizeTail": "Set it on the home page (the “Players at the table” control above Play).",
+  "trainer.set.sizeTail": "Copied from the home page at start — change it here just for the trainer.",
+  "trainer.set.tableSize": "Players at the table",
   "trainer.set.forcedDefend": "In {p}-handed (no teams) you always throw into the dealer’s crib — the dealer (and, at 6, the player to their right) is dealt four and discards nothing, so there’s no “as dealer” discard to practice.",
   "trainer.set.practiceAs": "practice as",
   "trainer.set.practiceAsTeam": "practice as (whose crib)",
@@ -1146,7 +1147,7 @@ function buildNote(cribIsOurs, best, chosen) {
             : tr("trainer.note.handMoreOne", { label: bestLabel, delta: delta.toFixed(2) });
     return tr("trainer.note.close", { phrase, delta: delta.toFixed(2) });
 }
-function SettingsPanel({ players, teams, roleMode, onRoleMode, autoBest, onAutoBest, onClose, onAbout }) {
+function SettingsPanel({ players, teams, onSize, roleMode, onRoleMode, autoBest, onAutoBest, onClose, onAbout }) {
     const seg = (on) => ({
         flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: 11.5,
         background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
@@ -1168,6 +1169,9 @@ function SettingsPanel({ players, teams, roleMode, onRoleMode, autoBest, onAutoB
             ".",
             " ",
             tr("trainer.set.sizeTail")),
+        React.createElement("div", { style: { marginBottom: 14 } },
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 } }, tr("trainer.set.tableSize")),
+            React.createElement("div", { style: { display: "flex", gap: 6 } }, [2, 3, 4, 5, 6].map((p) => (React.createElement("button", { key: p, onClick: () => onSize(p), style: seg(players === p) }, p))))),
         forcedDefend ? (React.createElement("div", { style: { marginBottom: 14, fontFamily: mono, fontSize: 10.5, color: T.muted, lineHeight: 1.5 } }, tr("trainer.set.forcedDefend", { p: players }))) : (React.createElement("div", { style: { marginBottom: 14 } },
             React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 } }, isTeams ? tr("trainer.set.practiceAsTeam") : tr("trainer.set.practiceAs")),
             React.createElement("div", { style: { display: "flex", gap: 6 } }, roleOpts.map(([k, label]) => (React.createElement("button", { key: k, onClick: () => onRoleMode(k), style: seg(roleMode === k) }, label)))))),
@@ -1213,7 +1217,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.65"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.66"))));
 }
 function MiniCard({ card, selected, disabled, onClick }) {
     return (React.createElement("button", { onClick: onClick, disabled: disabled, "aria-pressed": selected, "aria-label": `${rankLabel(card.r)} of ${["spades", "hearts", "diamonds", "clubs"][card.s]}`, style: {
@@ -1314,7 +1318,7 @@ function trainerScenario(roleMode, players, teams) {
     return { youDeal, cribIsOurs };
 }
 function CribbageTrainer() {
-    const [{ players, teams }] = useState(loadTrainerSettings);
+    const [{ players, teams }, setTable] = useState(loadTrainerSettings);
     const [roleMode, setRoleMode] = useState("random");
     const [autoBest, setAutoBest] = useState(loadAutoBest);
     const [hand, setHand] = useState(() => randomHand(players === 2 ? 6 : 5));
@@ -1365,6 +1369,18 @@ function CribbageTrainer() {
         setPhase("choose");
         setPickerOpen(false);
     }, []);
+    const chooseSize = useCallback((p) => {
+        if (p === players)
+            return;
+        setTable({ players: p, teams: p });
+        setRoleMode("random");
+        setHand(randomHand(p === 2 ? 6 : 5));
+        setScenario(trainerScenario("random", p, p));
+        setSelected([]);
+        setChosenId(null);
+        setExpanded(null);
+        setPhase("choose");
+    }, [players]);
     const pick = useCallback((idxs) => {
         const id = idxs.slice().sort((a, b) => a - b).join(",");
         const res = analyze(hand, scenario, mode, players, teams);
@@ -1466,7 +1482,7 @@ function CribbageTrainer() {
                     " ",
                     tr("trainer.stat.lost")))),
         React.createElement("main", { style: { maxWidth: 560, margin: "0 auto", padding: "18px 16px 0" } },
-            showSettings && React.createElement(SettingsPanel, { players: players, teams: teams, roleMode: roleMode, onRoleMode: setRoleMode, autoBest: autoBest, onAutoBest: (v) => { setAutoBest(v); saveAutoBest(v); }, onClose: () => setShowSettings(false), onAbout: () => { setShowSettings(false); setAboutOpen(true); } }),
+            showSettings && React.createElement(SettingsPanel, { players: players, teams: teams, onSize: chooseSize, roleMode: roleMode, onRoleMode: setRoleMode, autoBest: autoBest, onAutoBest: (v) => { setAutoBest(v); saveAutoBest(v); }, onClose: () => setShowSettings(false), onAbout: () => { setShowSettings(false); setAboutOpen(true); } }),
             aboutOpen && React.createElement(AboutModal, { onClose: () => setAboutOpen(false) }),
             pickerOpen && React.createElement(CardPicker, { count: handSize, onPick: dealCustom, onClose: () => setPickerOpen(false), dealerInit: scenario.youDeal, canDeal: !(teams === players && players >= 5) }),
             React.createElement("div", { style: {

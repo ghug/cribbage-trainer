@@ -496,15 +496,87 @@ function buildNote(cribIsOurs, best, chosen) {
   return tr("trainer.note.close", { phrase, delta: delta.toFixed(2) });
 }
 
-// Settings menu. Hosts the trainer's configuration — table size and the role you
-// practice — plus the standard About entry shared with the games. (Board position
-// stays inline on the main screen, alongside the live analysis it re-ranks.)
-function SettingsPanel({ players, teams, onSize, roleMode, onRoleMode, autoBest, onAutoBest, onClose, onAbout }) {
-  const seg = (on) => ({
-    flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: 11.5,
-    background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
-    border: `1px solid ${on ? T.pegIvory : T.line}`, fontWeight: on ? 700 : 400,
-  });
+// Shared segmented-button style (selected vs not), matching the Play game's settings rows.
+const segStyle = (on) => ({
+  flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: 11.5,
+  background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
+  border: `1px solid ${on ? T.pegIvory : T.line}`, fontWeight: on ? 700 : 400,
+});
+
+// A collapsible settings section (header + chevron). Open state is local, so toggling a setting
+// inside it (which re-renders the panel) never collapses the section. Mirrors the Play game.
+function SettingsSection({ title, defaultOpen, children }) {
+  const [open, setOpen] = React.useState(!!defaultOpen);
+  return (
+    <div style={{ borderTop: `1px solid ${T.line}`, marginBottom: open ? 12 : 0 }}>
+      <button onClick={() => setOpen((o) => !o)} style={{
+        width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+        background: "none", border: "none", cursor: "pointer", padding: "12px 0 10px",
+        color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase",
+      }}>
+        <span>{title}</span><span style={{ color: T.muted, fontSize: 13 }}>{open ? "▾" : "▸"}</span>
+      </button>
+      {open && <div>{children}</div>}
+    </div>
+  );
+}
+
+// Settings menu — the IDENTICAL global game-settings menu shared by the landing page and the Play
+// game (one localStorage object), so any toggle here sticks everywhere. The trainer's own setup
+// (table size, practice-as role, new-hand mode) is NOT here — it lives inline on the main screen
+// (InlineSetup), above the board-position item, alongside the analysis it drives.
+function SettingsPanel({ settings, onSet, onReset, onClose, onAbout }) {
+  const soloGame = humanCountT(settings) === 1;
+  const Row = ({ title, desc, k, options, disabled }) => (
+    <div style={{ marginBottom: 14, opacity: disabled ? 0.5 : 1 }}>
+      <div style={{ fontWeight: 700, fontSize: 13.5 }}>{title}</div>
+      <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, margin: "2px 0 7px", lineHeight: 1.45 }}>{desc}</div>
+      <div style={{ display: "flex", gap: 6 }}>
+        {options.map(([label, val]) => (
+          <button key={String(val)} disabled={disabled} onClick={disabled ? undefined : () => onSet(k, val)} style={{ ...segStyle(settings[k] === val), cursor: disabled ? "default" : "pointer" }}>{label}</button>
+        ))}
+      </div>
+    </div>
+  );
+  const off = tr("common.off"), on = tr("common.on"), manual = tr("common.manual"), auto = tr("common.auto");
+  return (
+    <div style={{ background: "rgba(0,0,0,0.32)", border: `1px solid ${T.line}`, borderRadius: 12, padding: "14px 16px 4px", marginBottom: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+        <span style={{ fontWeight: 700, fontSize: 16 }}>{tr("settings.title")}</span>
+        <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>{tr("common.done")}</button>
+      </div>
+      <SettingsSection title={tr("settings.group.controls")} defaultOpen>
+        <Row title={tr("settings.tapToSelect.title")} k="tapToSelect" desc={tr("settings.tapToSelect.desc")} options={[[off, false], [on, true]]} />
+        <Row title={tr("settings.warn.title")} k="warn" desc={tr("settings.warn.desc")} options={[[on, true], [off, false]]} />
+      </SettingsSection>
+      <SettingsSection title={tr("settings.group.automation")}>
+        <Row title={tr("settings.autoDeal.title")} k="autoDeal" desc={tr("settings.autoDeal.desc")} options={[[off, false], [on, true]]} />
+        <Row title={tr("settings.autoCut.title")} k="autoCut" desc={tr("settings.autoCut.desc")} options={[[manual, false], [auto, true]]} />
+        <Row title={tr("settings.autoDiscardBest.title")} k="autoDiscardBest" desc={tr("settings.autoDiscardBest.desc")} options={[[off, false], [on, true]]} />
+        <Row title={tr("settings.autoPlayOne.title")} k="autoPlayOne" desc={tr("settings.autoPlayOne.desc")} options={[[off, false], [on, true]]} />
+        <Row title={tr("settings.autoPlayBest.title")} k="autoPlayBest" desc={tr("settings.autoPlayBest.desc")} options={[[off, false], [on, true]]} />
+        <Row title={tr("settings.autoGo.title")} k="autoGo" desc={tr("settings.autoGo.desc")} options={[[manual, false], [auto, true]]} />
+        <Row title={tr("settings.autoContinue.title")} k="autoContinue" desc={tr("settings.autoContinue.desc")} options={[[off, false], [on, true]]} />
+      </SettingsSection>
+      <SettingsSection title={tr("settings.group.counting")} defaultOpen>
+        <Row title={tr("settings.counting.title")} k="counting" disabled={!soloGame}
+          desc={tr(soloGame ? "settings.counting.desc" : "settings.counting.disabledDesc")}
+          options={[[tr("settings.counting.optAuto"), "auto"], [tr("settings.counting.optMuggins"), "muggins"]]} />
+        <Row title={tr("settings.claimWarn.title")} k="claimWarn" disabled={!(soloGame && settings.counting === "muggins")}
+          desc={tr("settings.claimWarn.desc")} options={[[on, true], [off, false]]} />
+      </SettingsSection>
+      <LanguageRow />
+      <button onClick={onReset} style={{ width: "100%", margin: "2px 0 0", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12, fontWeight: 700 }}>{tr("settings.resetDefaults")}</button>
+      <AboutRow onAbout={onAbout} />
+    </div>
+  );
+}
+
+// The trainer's own setup, inline on the main screen (above the board-position item): table size,
+// the role you practice, and whether new hands auto-pick the best discard. Size persists to the
+// shared global settings (Players); role/auto-best are trainer-local.
+function InlineSetup({ players, teams, roleMode, onRoleMode, autoBest, onAutoBest, onSize }) {
+  const label = { fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 };
   const isTeams = teams < players;
   const forcedDefend = teams === players && players >= 5; // solo 5/6: you can only defend
   // role options map to roleMode: solo uses deal/defend; teams use ours/theirs.
@@ -512,52 +584,41 @@ function SettingsPanel({ players, teams, onSize, roleMode, onRoleMode, autoBest,
     ? [["random", tr("trainer.set.role.random")], ["ours", tr("trainer.set.role.ours")], ["theirs", tr("trainer.set.role.theirs")]]
     : [["random", tr("trainer.set.role.randomDeal", { p: players })], ["deal", tr("trainer.set.role.deal")], ["defend", tr("trainer.set.role.defend")]];
   return (
-    <div style={{ background: "rgba(0,0,0,0.32)", border: `1px solid ${T.line}`, borderRadius: 12, padding: "14px 16px", marginBottom: 16 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-        <span style={{ fontWeight: 700, fontSize: 16 }}>{tr("settings.title")}</span>
-        <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>{tr("common.done")}</button>
-      </div>
-
-      <div style={{ marginBottom: 14, fontFamily: mono, fontSize: 11, color: T.muted, lineHeight: 1.6 }}>
+    <div style={{ background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "12px 14px" }}>
+      <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 10 }}>{tr("trainer.set.setup")}</div>
+      <div style={{ marginBottom: 12, fontFamily: mono, fontSize: 11, color: T.muted, lineHeight: 1.6 }}>
         {tr("trainer.set.sizeLabel")} <b style={{ color: T.cream }}>{players === 2 ? tr("trainer.set.size2") : tr("trainer.set.sizeN", { p: players })}</b>.{" "}
         {tr("trainer.set.sizeTail")}
       </div>
-
-      <div style={{ marginBottom: 14 }}>
-        <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 }}>{tr("trainer.set.tableSize")}</div>
+      <div style={{ marginBottom: 12 }}>
+        <div style={label}>{tr("trainer.set.tableSize")}</div>
         <div style={{ display: "flex", gap: 6 }}>
           {[2, 3, 4, 5, 6].map((p) => (
-            <button key={p} onClick={() => onSize(p)} style={seg(players === p)}>{p}</button>
+            <button key={p} onClick={() => onSize(p)} style={segStyle(players === p)}>{p}</button>
           ))}
         </div>
       </div>
-
       {forcedDefend ? (
-        <div style={{ marginBottom: 14, fontFamily: mono, fontSize: 10.5, color: T.muted, lineHeight: 1.5 }}>
+        <div style={{ marginBottom: 12, fontFamily: mono, fontSize: 10.5, color: T.muted, lineHeight: 1.5 }}>
           {tr("trainer.set.forcedDefend", { p: players })}
         </div>
       ) : (
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 }}>{isTeams ? tr("trainer.set.practiceAsTeam") : tr("trainer.set.practiceAs")}</div>
+        <div style={{ marginBottom: 12 }}>
+          <div style={label}>{isTeams ? tr("trainer.set.practiceAsTeam") : tr("trainer.set.practiceAs")}</div>
           <div style={{ display: "flex", gap: 6 }}>
-            {roleOpts.map(([k, label]) => (
-              <button key={k} onClick={() => onRoleMode(k)} style={seg(roleMode === k)}>{label}</button>
+            {roleOpts.map(([k, l]) => (
+              <button key={k} onClick={() => onRoleMode(k)} style={segStyle(roleMode === k)}>{l}</button>
             ))}
           </div>
         </div>
       )}
-
-      <div style={{ marginBottom: 14 }}>
-        <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 }}>{tr("trainer.set.newHand")}</div>
+      <div>
+        <div style={label}>{tr("trainer.set.newHand")}</div>
         <div style={{ display: "flex", gap: 6 }}>
-          <button onClick={() => onAutoBest(false)} style={seg(!autoBest)}>{tr("trainer.set.iChoose")}</button>
-          <button onClick={() => onAutoBest(true)} style={seg(autoBest)}>{tr("trainer.set.autoBest")}</button>
+          <button onClick={() => onAutoBest(false)} style={segStyle(!autoBest)}>{tr("trainer.set.iChoose")}</button>
+          <button onClick={() => onAutoBest(true)} style={segStyle(autoBest)}>{tr("trainer.set.autoBest")}</button>
         </div>
       </div>
-
-      <LanguageRow />
-      <button onClick={() => { onRoleMode("random"); onAutoBest(false); }} style={{ width: "100%", margin: "2px 0 0", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12, fontWeight: 700 }}>{tr("trainer.set.resetDefaults")}</button>
-      <AboutRow onAbout={onAbout} />
     </div>
   );
 }
@@ -730,18 +791,16 @@ function CardPicker({ count, onPick, onClose, dealerInit, canDeal }) {
 // four and throws none, so the human is always a non-dealer thrower (role "defend")
 // feeding the dealer's all-defender crib. try/catch keeps it safe with no storage.
 const teamOptionsT = (p) => (p === 4 ? [4, 2] : p === 6 ? [6, 3, 2] : [p]);
-function loadTrainerSettings() {
-  let players = 2, teams = 2;
-  try {
-    const raw = localStorage.getItem("cribbage:settings");
-    if (raw) {
-      const o = JSON.parse(raw);
-      if (o.players >= 2 && o.players <= 6) players = o.players;
-      teams = teamOptionsT(players).includes(o.teams) ? o.teams : players;
-    }
-  } catch (e) {}
-  return { players, teams };
-}
+const SETTINGS_KEY = "cribbage:settings";
+// The full GLOBAL settings object, shared (same localStorage key) with the landing page and the
+// Play game, so the gear menu here is the identical global game-settings menu. The trainer itself
+// only acts on players/teams; the gameplay toggles (counting/automation/...) are carried & synced.
+const DEFAULT_SETTINGS = { players: 2, teams: 2, seats: [], names: [], counting: "auto", tapToSelect: true, autoCut: false, autoGo: false, warn: true, claimWarn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
+function loadSettings() { try { const raw = localStorage.getItem(SETTINGS_KEY); if (raw) return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) }; } catch (e) {} return { ...DEFAULT_SETTINGS }; }
+function saveSettings(s) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (e) {} }
+// Solo iff exactly one human seat (seat 0 human by default) — gates the muggins counting rows,
+// mirroring the Play game so the shared menu reads identically.
+function humanCountT(settings) { const P = settings.players; let c = 0; for (let i = 0; i < P; i++) { const v = settings.seats && settings.seats[i]; if (v === "human" || (v == null && i === 0)) c++; } return c; }
 // Trainer-only toggle (persisted): auto-pick the optimal discard the moment a hand is dealt.
 function loadAutoBest() { try { return localStorage.getItem("cribbage:trainerAutoBest") === "1"; } catch (e) { return false; } }
 function saveAutoBest(v) { try { localStorage.setItem("cribbage:trainerAutoBest", v ? "1" : "0"); } catch (e) {} }
@@ -764,7 +823,9 @@ function trainerScenario(roleMode, players, teams) {
 
 /* ============================ APP ============================ */
 export default function CribbageTrainer() {
-  const [{ players, teams }, setTable] = useState(loadTrainerSettings); // copies the landing's global Players/Teams at init; the in-trainer size chooser can change it after
+  const [settings, setSettings] = useState(loadSettings);  // the full GLOBAL settings object (shared with landing + Play)
+  const players = (settings.players >= 2 && settings.players <= 6) ? settings.players : 2;
+  const teams = teamOptionsT(players).includes(settings.teams) ? settings.teams : players;
   const [roleMode, setRoleMode] = useState("random");
   const [autoBest, setAutoBest] = useState(loadAutoBest);   // auto-pick the best discard on deal
   const [hand, setHand] = useState(() => randomHand(players === 2 ? 6 : 5));
@@ -819,14 +880,29 @@ export default function CribbageTrainer() {
   // In-trainer table-size chooser. Changing the size drops to cutthroat (teams = players) — the team
   // split is only copied from the global setting at init — resets the role to random, and deals a
   // fresh hand under the new size (heads-up deals 6, otherwise 5).
+  // Size is a GLOBAL setting (Players): persist it (cutthroat teams), like the Play game does on a
+  // size change, so it stays in sync with the landing page and the Play game.
   const chooseSize = useCallback((p) => {
     if (p === players) return;
-    setTable({ players: p, teams: p });
+    setSettings((prev) => { const next = { ...prev, players: p, teams: p }; saveSettings(next); return next; });
     setRoleMode("random");
     setHand(randomHand(p === 2 ? 6 : 5));
     setScenario(trainerScenario("random", p, p));
     setSelected([]); setChosenId(null); setExpanded(null); setPhase("choose");
   }, [players]);
+  // The shared global menu rows write straight to the settings object (and localStorage).
+  const setSetting = useCallback((k, val) => {
+    setSettings((prev) => { const next = { ...prev, [k]: val }; saveSettings(next); return next; });
+  }, []);
+  // Reset the gameplay toggles to defaults, keeping the table setup (players/teams/seats/names),
+  // exactly like the Play game's reset so all three pages behave identically.
+  const resetSettings = useCallback(() => {
+    setSettings((prev) => {
+      const next = { ...prev };
+      for (const k in DEFAULT_SETTINGS) if (k !== "players" && k !== "teams" && k !== "seats" && k !== "names") next[k] = DEFAULT_SETTINGS[k];
+      saveSettings(next); return next;
+    });
+  }, []);
 
   const pick = useCallback((idxs) => {
     const id = idxs.slice().sort((a, b) => a - b).join(","); // match analyze's i<j combo ids
@@ -922,7 +998,7 @@ export default function CribbageTrainer() {
       </header>
 
       <main style={{ maxWidth: 560, margin: "0 auto", padding: "18px 16px 0" }}>
-        {showSettings && <SettingsPanel players={players} teams={teams} onSize={chooseSize} roleMode={roleMode} onRoleMode={setRoleMode} autoBest={autoBest} onAutoBest={(v) => { setAutoBest(v); saveAutoBest(v); }} onClose={() => setShowSettings(false)} onAbout={() => { setShowSettings(false); setAboutOpen(true); }} />}
+        {showSettings && <SettingsPanel settings={settings} onSet={setSetting} onReset={resetSettings} onClose={() => setShowSettings(false)} onAbout={() => { setShowSettings(false); setAboutOpen(true); }} />}
         {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
         {pickerOpen && <CardPicker count={handSize} onPick={dealCustom} onClose={() => setPickerOpen(false)} dealerInit={scenario.youDeal} canDeal={!(teams === players && players >= 5)} />}
         <div style={{
@@ -1019,6 +1095,9 @@ export default function CribbageTrainer() {
               }}>{label}</button>
             ))}
           </div>
+
+          <InlineSetup players={players} teams={teams} roleMode={roleMode} onRoleMode={setRoleMode}
+            autoBest={autoBest} onAutoBest={(v) => { setAutoBest(v); saveAutoBest(v); }} onSize={chooseSize} />
 
           <div>
             <button onClick={() => setShowBoard((v) => !v)} style={{

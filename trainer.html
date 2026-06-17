@@ -470,6 +470,7 @@ cribbageLocale("en", {
 
   // discard trainer — chrome + key view labels
   "trainer.home": "Home",
+  "trainer.set.setup": "Practice setup",
   "trainer.set.sizeLabel": "Table size:",
   "trainer.set.size2": "2-handed (heads-up) — 6 cards, discard two",
   "trainer.set.sizeN": "{p}-handed — 5 cards, discard one",
@@ -1157,42 +1158,79 @@ function buildNote(cribIsOurs, best, chosen) {
             : tr("trainer.note.handMoreOne", { label: bestLabel, delta: delta.toFixed(2) });
     return tr("trainer.note.close", { phrase, delta: delta.toFixed(2) });
 }
-function SettingsPanel({ players, teams, onSize, roleMode, onRoleMode, autoBest, onAutoBest, onClose, onAbout }) {
-    const seg = (on) => ({
-        flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: 11.5,
-        background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
-        border: `1px solid ${on ? T.pegIvory : T.line}`, fontWeight: on ? 700 : 400,
-    });
+const segStyle = (on) => ({
+    flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: 11.5,
+    background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
+    border: `1px solid ${on ? T.pegIvory : T.line}`, fontWeight: on ? 700 : 400,
+});
+function SettingsSection({ title, defaultOpen, children }) {
+    const [open, setOpen] = React.useState(!!defaultOpen);
+    return (React.createElement("div", { style: { borderTop: `1px solid ${T.line}`, marginBottom: open ? 12 : 0 } },
+        React.createElement("button", { onClick: () => setOpen((o) => !o), style: {
+                width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                background: "none", border: "none", cursor: "pointer", padding: "12px 0 10px",
+                color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase",
+            } },
+            React.createElement("span", null, title),
+            React.createElement("span", { style: { color: T.muted, fontSize: 13 } }, open ? "▾" : "▸")),
+        open && React.createElement("div", null, children)));
+}
+function SettingsPanel({ settings, onSet, onReset, onClose, onAbout }) {
+    const soloGame = humanCountT(settings) === 1;
+    const Row = ({ title, desc, k, options, disabled }) => (React.createElement("div", { style: { marginBottom: 14, opacity: disabled ? 0.5 : 1 } },
+        React.createElement("div", { style: { fontWeight: 700, fontSize: 13.5 } }, title),
+        React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, margin: "2px 0 7px", lineHeight: 1.45 } }, desc),
+        React.createElement("div", { style: { display: "flex", gap: 6 } }, options.map(([label, val]) => (React.createElement("button", { key: String(val), disabled: disabled, onClick: disabled ? undefined : () => onSet(k, val), style: { ...segStyle(settings[k] === val), cursor: disabled ? "default" : "pointer" } }, label))))));
+    const off = tr("common.off"), on = tr("common.on"), manual = tr("common.manual"), auto = tr("common.auto");
+    return (React.createElement("div", { style: { background: "rgba(0,0,0,0.32)", border: `1px solid ${T.line}`, borderRadius: 12, padding: "14px 16px 4px", marginBottom: 16 } },
+        React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 } },
+            React.createElement("span", { style: { fontWeight: 700, fontSize: 16 } }, tr("settings.title")),
+            React.createElement("button", { onClick: onClose, style: { padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 } }, tr("common.done"))),
+        React.createElement(SettingsSection, { title: tr("settings.group.controls"), defaultOpen: true },
+            React.createElement(Row, { title: tr("settings.tapToSelect.title"), k: "tapToSelect", desc: tr("settings.tapToSelect.desc"), options: [[off, false], [on, true]] }),
+            React.createElement(Row, { title: tr("settings.warn.title"), k: "warn", desc: tr("settings.warn.desc"), options: [[on, true], [off, false]] })),
+        React.createElement(SettingsSection, { title: tr("settings.group.automation") },
+            React.createElement(Row, { title: tr("settings.autoDeal.title"), k: "autoDeal", desc: tr("settings.autoDeal.desc"), options: [[off, false], [on, true]] }),
+            React.createElement(Row, { title: tr("settings.autoCut.title"), k: "autoCut", desc: tr("settings.autoCut.desc"), options: [[manual, false], [auto, true]] }),
+            React.createElement(Row, { title: tr("settings.autoDiscardBest.title"), k: "autoDiscardBest", desc: tr("settings.autoDiscardBest.desc"), options: [[off, false], [on, true]] }),
+            React.createElement(Row, { title: tr("settings.autoPlayOne.title"), k: "autoPlayOne", desc: tr("settings.autoPlayOne.desc"), options: [[off, false], [on, true]] }),
+            React.createElement(Row, { title: tr("settings.autoPlayBest.title"), k: "autoPlayBest", desc: tr("settings.autoPlayBest.desc"), options: [[off, false], [on, true]] }),
+            React.createElement(Row, { title: tr("settings.autoGo.title"), k: "autoGo", desc: tr("settings.autoGo.desc"), options: [[manual, false], [auto, true]] }),
+            React.createElement(Row, { title: tr("settings.autoContinue.title"), k: "autoContinue", desc: tr("settings.autoContinue.desc"), options: [[off, false], [on, true]] })),
+        React.createElement(SettingsSection, { title: tr("settings.group.counting"), defaultOpen: true },
+            React.createElement(Row, { title: tr("settings.counting.title"), k: "counting", disabled: !soloGame, desc: tr(soloGame ? "settings.counting.desc" : "settings.counting.disabledDesc"), options: [[tr("settings.counting.optAuto"), "auto"], [tr("settings.counting.optMuggins"), "muggins"]] }),
+            React.createElement(Row, { title: tr("settings.claimWarn.title"), k: "claimWarn", disabled: !(soloGame && settings.counting === "muggins"), desc: tr("settings.claimWarn.desc"), options: [[on, true], [off, false]] })),
+        React.createElement(LanguageRow, null),
+        React.createElement("button", { onClick: onReset, style: { width: "100%", margin: "2px 0 0", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12, fontWeight: 700 } }, tr("settings.resetDefaults")),
+        React.createElement(AboutRow, { onAbout: onAbout })));
+}
+function InlineSetup({ players, teams, roleMode, onRoleMode, autoBest, onAutoBest, onSize }) {
+    const label = { fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 };
     const isTeams = teams < players;
     const forcedDefend = teams === players && players >= 5;
     const roleOpts = isTeams
         ? [["random", tr("trainer.set.role.random")], ["ours", tr("trainer.set.role.ours")], ["theirs", tr("trainer.set.role.theirs")]]
         : [["random", tr("trainer.set.role.randomDeal", { p: players })], ["deal", tr("trainer.set.role.deal")], ["defend", tr("trainer.set.role.defend")]];
-    return (React.createElement("div", { style: { background: "rgba(0,0,0,0.32)", border: `1px solid ${T.line}`, borderRadius: 12, padding: "14px 16px", marginBottom: 16 } },
-        React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 } },
-            React.createElement("span", { style: { fontWeight: 700, fontSize: 16 } }, tr("settings.title")),
-            React.createElement("button", { onClick: onClose, style: { padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 } }, tr("common.done"))),
-        React.createElement("div", { style: { marginBottom: 14, fontFamily: mono, fontSize: 11, color: T.muted, lineHeight: 1.6 } },
+    return (React.createElement("div", { style: { background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "12px 14px" } },
+        React.createElement("div", { style: { fontWeight: 700, fontSize: 13.5, marginBottom: 10 } }, tr("trainer.set.setup")),
+        React.createElement("div", { style: { marginBottom: 12, fontFamily: mono, fontSize: 11, color: T.muted, lineHeight: 1.6 } },
             tr("trainer.set.sizeLabel"),
             " ",
             React.createElement("b", { style: { color: T.cream } }, players === 2 ? tr("trainer.set.size2") : tr("trainer.set.sizeN", { p: players })),
             ".",
             " ",
             tr("trainer.set.sizeTail")),
-        React.createElement("div", { style: { marginBottom: 14 } },
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 } }, tr("trainer.set.tableSize")),
-            React.createElement("div", { style: { display: "flex", gap: 6 } }, [2, 3, 4, 5, 6].map((p) => (React.createElement("button", { key: p, onClick: () => onSize(p), style: seg(players === p) }, p))))),
-        forcedDefend ? (React.createElement("div", { style: { marginBottom: 14, fontFamily: mono, fontSize: 10.5, color: T.muted, lineHeight: 1.5 } }, tr("trainer.set.forcedDefend", { p: players }))) : (React.createElement("div", { style: { marginBottom: 14 } },
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 } }, isTeams ? tr("trainer.set.practiceAsTeam") : tr("trainer.set.practiceAs")),
-            React.createElement("div", { style: { display: "flex", gap: 6 } }, roleOpts.map(([k, label]) => (React.createElement("button", { key: k, onClick: () => onRoleMode(k), style: seg(roleMode === k) }, label)))))),
-        React.createElement("div", { style: { marginBottom: 14 } },
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 } }, tr("trainer.set.newHand")),
+        React.createElement("div", { style: { marginBottom: 12 } },
+            React.createElement("div", { style: label }, tr("trainer.set.tableSize")),
+            React.createElement("div", { style: { display: "flex", gap: 6 } }, [2, 3, 4, 5, 6].map((p) => (React.createElement("button", { key: p, onClick: () => onSize(p), style: segStyle(players === p) }, p))))),
+        forcedDefend ? (React.createElement("div", { style: { marginBottom: 12, fontFamily: mono, fontSize: 10.5, color: T.muted, lineHeight: 1.5 } }, tr("trainer.set.forcedDefend", { p: players }))) : (React.createElement("div", { style: { marginBottom: 12 } },
+            React.createElement("div", { style: label }, isTeams ? tr("trainer.set.practiceAsTeam") : tr("trainer.set.practiceAs")),
+            React.createElement("div", { style: { display: "flex", gap: 6 } }, roleOpts.map(([k, l]) => (React.createElement("button", { key: k, onClick: () => onRoleMode(k), style: segStyle(roleMode === k) }, l)))))),
+        React.createElement("div", null,
+            React.createElement("div", { style: label }, tr("trainer.set.newHand")),
             React.createElement("div", { style: { display: "flex", gap: 6 } },
-                React.createElement("button", { onClick: () => onAutoBest(false), style: seg(!autoBest) }, tr("trainer.set.iChoose")),
-                React.createElement("button", { onClick: () => onAutoBest(true), style: seg(autoBest) }, tr("trainer.set.autoBest")))),
-        React.createElement(LanguageRow, null),
-        React.createElement("button", { onClick: () => { onRoleMode("random"); onAutoBest(false); }, style: { width: "100%", margin: "2px 0 0", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12, fontWeight: 700 } }, tr("trainer.set.resetDefaults")),
-        React.createElement(AboutRow, { onAbout: onAbout })));
+                React.createElement("button", { onClick: () => onAutoBest(false), style: segStyle(!autoBest) }, tr("trainer.set.iChoose")),
+                React.createElement("button", { onClick: () => onAutoBest(true), style: segStyle(autoBest) }, tr("trainer.set.autoBest"))))));
 }
 function LanguageRow() {
     const i = (typeof window !== "undefined") ? window.i18n : null;
@@ -1227,7 +1265,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.70"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.71"))));
 }
 function MiniCard({ card, selected, disabled, onClick }) {
     return (React.createElement("button", { onClick: onClick, disabled: disabled, "aria-pressed": selected, "aria-label": `${rankLabel(card.r)} of ${["spades", "hearts", "diamonds", "clubs"][card.s]}`, style: {
@@ -1287,20 +1325,23 @@ function CardPicker({ count, onPick, onClose, dealerInit, canDeal }) {
                 } }, tr("trainer.picker.deal", { n: count })))));
 }
 const teamOptionsT = (p) => (p === 4 ? [4, 2] : p === 6 ? [6, 3, 2] : [p]);
-function loadTrainerSettings() {
-    let players = 2, teams = 2;
-    try {
-        const raw = localStorage.getItem("cribbage:settings");
-        if (raw) {
-            const o = JSON.parse(raw);
-            if (o.players >= 2 && o.players <= 6)
-                players = o.players;
-            teams = teamOptionsT(players).includes(o.teams) ? o.teams : players;
-        }
-    }
-    catch (e) { }
-    return { players, teams };
+const SETTINGS_KEY = "cribbage:settings";
+const DEFAULT_SETTINGS = { players: 2, teams: 2, seats: [], names: [], counting: "auto", tapToSelect: true, autoCut: false, autoGo: false, warn: true, claimWarn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
+function loadSettings() { try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (raw)
+        return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
 }
+catch (e) { } return { ...DEFAULT_SETTINGS }; }
+function saveSettings(s) { try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+}
+catch (e) { } }
+function humanCountT(settings) { const P = settings.players; let c = 0; for (let i = 0; i < P; i++) {
+    const v = settings.seats && settings.seats[i];
+    if (v === "human" || (v == null && i === 0))
+        c++;
+} return c; }
 function loadAutoBest() { try {
     return localStorage.getItem("cribbage:trainerAutoBest") === "1";
 }
@@ -1328,7 +1369,9 @@ function trainerScenario(roleMode, players, teams) {
     return { youDeal, cribIsOurs };
 }
 function CribbageTrainer() {
-    const [{ players, teams }, setTable] = useState(loadTrainerSettings);
+    const [settings, setSettings] = useState(loadSettings);
+    const players = (settings.players >= 2 && settings.players <= 6) ? settings.players : 2;
+    const teams = teamOptionsT(players).includes(settings.teams) ? settings.teams : players;
     const [roleMode, setRoleMode] = useState("random");
     const [autoBest, setAutoBest] = useState(loadAutoBest);
     const [hand, setHand] = useState(() => randomHand(players === 2 ? 6 : 5));
@@ -1382,7 +1425,7 @@ function CribbageTrainer() {
     const chooseSize = useCallback((p) => {
         if (p === players)
             return;
-        setTable({ players: p, teams: p });
+        setSettings((prev) => { const next = { ...prev, players: p, teams: p }; saveSettings(next); return next; });
         setRoleMode("random");
         setHand(randomHand(p === 2 ? 6 : 5));
         setScenario(trainerScenario("random", p, p));
@@ -1391,6 +1434,19 @@ function CribbageTrainer() {
         setExpanded(null);
         setPhase("choose");
     }, [players]);
+    const setSetting = useCallback((k, val) => {
+        setSettings((prev) => { const next = { ...prev, [k]: val }; saveSettings(next); return next; });
+    }, []);
+    const resetSettings = useCallback(() => {
+        setSettings((prev) => {
+            const next = { ...prev };
+            for (const k in DEFAULT_SETTINGS)
+                if (k !== "players" && k !== "teams" && k !== "seats" && k !== "names")
+                    next[k] = DEFAULT_SETTINGS[k];
+            saveSettings(next);
+            return next;
+        });
+    }, []);
     const pick = useCallback((idxs) => {
         const id = idxs.slice().sort((a, b) => a - b).join(",");
         const res = analyze(hand, scenario, mode, players, teams);
@@ -1492,7 +1548,7 @@ function CribbageTrainer() {
                     " ",
                     tr("trainer.stat.lost")))),
         React.createElement("main", { style: { maxWidth: 560, margin: "0 auto", padding: "18px 16px 0" } },
-            showSettings && React.createElement(SettingsPanel, { players: players, teams: teams, onSize: chooseSize, roleMode: roleMode, onRoleMode: setRoleMode, autoBest: autoBest, onAutoBest: (v) => { setAutoBest(v); saveAutoBest(v); }, onClose: () => setShowSettings(false), onAbout: () => { setShowSettings(false); setAboutOpen(true); } }),
+            showSettings && React.createElement(SettingsPanel, { settings: settings, onSet: setSetting, onReset: resetSettings, onClose: () => setShowSettings(false), onAbout: () => { setShowSettings(false); setAboutOpen(true); } }),
             aboutOpen && React.createElement(AboutModal, { onClose: () => setAboutOpen(false) }),
             pickerOpen && React.createElement(CardPicker, { count: handSize, onPick: dealCustom, onClose: () => setPickerOpen(false), dealerInit: scenario.youDeal, canDeal: !(teams === players && players >= 5) }),
             React.createElement("div", { style: {
@@ -1574,6 +1630,7 @@ function CribbageTrainer() {
                         background: `linear-gradient(180deg, ${T.woodL}, ${T.woodM})`, color: "#2A1B0E",
                         fontSize: 16, fontWeight: 700, letterSpacing: 0.3, boxShadow: "0 4px 12px rgba(0,0,0,0.35)",
                     } }, label)))),
+                React.createElement(InlineSetup, { players: players, teams: teams, roleMode: roleMode, onRoleMode: setRoleMode, autoBest: autoBest, onAutoBest: (v) => { setAutoBest(v); saveAutoBest(v); }, onSize: chooseSize }),
                 React.createElement("div", null,
                     React.createElement("button", { onClick: () => setShowBoard((v) => !v), style: {
                             width: "100%", textAlign: "left", cursor: "pointer", padding: "10px 12px", borderRadius: 8,

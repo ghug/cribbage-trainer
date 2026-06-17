@@ -610,6 +610,7 @@ cribbageLocale("en", {
 
   // discard trainer — chrome + key view labels
   "trainer.home": "Home",
+  "trainer.set.setup": "Practice setup",
   "trainer.set.sizeLabel": "Table size:",
   "trainer.set.size2": "2-handed (heads-up) — 6 cards, discard two",
   "trainer.set.sizeN": "{p}-handed — 5 cards, discard one",
@@ -897,7 +898,7 @@ cribbageLocale("en", {
       <a class="btn btn-primary" href="https://github.com/ghug/cribbage-trainer/"
          target="_blank" rel="noopener noreferrer" data-i18n="about.sourceLink">Source, bugs &amp; feedback ↗</a>
       <div class="repo-url" style="margin-bottom:4px">github.com/ghug/cribbage-trainer</div>
-      <div class="repo-url">v1.1.20-dev.70</div>
+      <div class="repo-url">v1.1.20-dev.71</div>
     </div>
   </div>
 
@@ -937,44 +938,52 @@ cribbageLocale("en", {
       // Game settings, shared across every page via localStorage (same key the games
       // read/write), so a toggle here — or in any game — sticks everywhere.
       var SETTINGS_KEY = "cribbage:settings";
-      var DEFAULTS = { players: 2, teams: 2, seats: [], names: [], counting: "auto", autoGo: false, warn: true, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false, autoContinue: false, autoDeal: false };
-      // "Players" lives on the main page (above Play); the rest are in this popup.
-      // title/desc/option labels are i18n keys, translated via tr() at render time.
+      var DEFAULTS = { players: 2, teams: 2, seats: [], names: [], counting: "auto", tapToSelect: true, autoCut: false, autoGo: false, warn: true, claimWarn: true, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false, autoContinue: false, autoDeal: false };
+      // "Players" lives on the main page (above Play); the rest are in this popup. These are the
+      // SAME global game settings every page (landing/trainer/play) reads & writes, so the menu is
+      // identical everywhere. title/desc/option labels are i18n keys, translated via tr() at render.
       var ROWS = [
-        { k: "counting", title: "settings.counting.title", desc: "settings.counting.desc", disabledDesc: "settings.counting.disabledDesc", opts: [["settings.counting.optAuto", "auto"], ["settings.counting.optMuggins", "muggins"]] },
-        { k: "autoGo", title: "settings.autoGo.title", desc: "settings.autoGo.desc", opts: [["common.manual", false], ["common.auto", true]] },
+        { k: "tapToSelect", title: "settings.tapToSelect.title", desc: "settings.tapToSelect.desc", opts: [["common.off", false], ["common.on", true]] },
         { k: "warn", title: "settings.warn.title", desc: "settings.warn.desc", opts: [["common.on", true], ["common.off", false]] },
+        { k: "autoDeal", title: "settings.autoDeal.title", desc: "settings.autoDeal.desc", opts: [["common.off", false], ["common.on", true]] },
+        { k: "autoCut", title: "settings.autoCut.title", desc: "settings.autoCut.desc", opts: [["common.manual", false], ["common.auto", true]] },
+        { k: "autoDiscardBest", title: "settings.autoDiscardBest.title", desc: "settings.autoDiscardBest.desc", opts: [["common.off", false], ["common.on", true]] },
         { k: "autoPlayOne", title: "settings.autoPlayOne.title", desc: "settings.autoPlayOne.desc", opts: [["common.off", false], ["common.on", true]] },
         { k: "autoPlayBest", title: "settings.autoPlayBest.title", desc: "settings.autoPlayBest.desc", opts: [["common.off", false], ["common.on", true]] },
-        { k: "autoDiscardBest", title: "settings.autoDiscardBest.title", desc: "settings.autoDiscardBest.desc", opts: [["common.off", false], ["common.on", true]] },
+        { k: "autoGo", title: "settings.autoGo.title", desc: "settings.autoGo.desc", opts: [["common.manual", false], ["common.auto", true]] },
         { k: "autoContinue", title: "settings.autoContinue.title", desc: "settings.autoContinue.desc", opts: [["common.off", false], ["common.on", true]] },
-        { k: "autoDeal", title: "settings.autoDeal.title", desc: "settings.autoDeal.desc", opts: [["common.off", false], ["common.on", true]] }
+        { k: "counting", title: "settings.counting.title", desc: "settings.counting.desc", disabledDesc: "settings.counting.disabledDesc", opts: [["settings.counting.optAuto", "auto"], ["settings.counting.optMuggins", "muggins"]] },
+        { k: "claimWarn", title: "settings.claimWarn.title", desc: "settings.claimWarn.desc", opts: [["common.on", true], ["common.off", false]] }
       ];
-      function loadSettings() { try { var r = localStorage.getItem(SETTINGS_KEY); if (r) { var o = JSON.parse(r); var m = {}; for (var key in DEFAULTS) m[key] = (key in o) ? o[key] : DEFAULTS[key]; return m; } } catch (e) {} var d = {}; for (var k2 in DEFAULTS) d[k2] = DEFAULTS[k2]; return d; }
+      // Defaults first, then overlay EVERY saved key (preserving keys this page doesn't itself
+      // render, e.g. tapToSelect/autoCut/claimWarn) so a toggle on any page is never dropped here.
+      function loadSettings() { var m = {}; for (var dk in DEFAULTS) m[dk] = DEFAULTS[dk]; try { var r = localStorage.getItem(SETTINGS_KEY); if (r) { var o = JSON.parse(r); for (var key in o) m[key] = o[key]; } } catch (e) {} return m; }
       function saveSettings(o) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(o)); } catch (e) {} }
       var settings = loadSettings();
       // The toggle rows are grouped into collapsible sections (the menu was a long flat list).
       var GROUPS = [
-        { title: "settings.group.controls", open: true, keys: ["warn"] },
-        { title: "settings.group.automation", open: false, keys: ["autoDeal", "autoDiscardBest", "autoPlayOne", "autoPlayBest", "autoGo", "autoContinue"] },
-        { title: "settings.group.counting", open: true, keys: ["counting"] }
+        { title: "settings.group.controls", open: true, keys: ["tapToSelect", "warn"] },
+        { title: "settings.group.automation", open: false, keys: ["autoDeal", "autoCut", "autoDiscardBest", "autoPlayOne", "autoPlayBest", "autoGo", "autoContinue"] },
+        { title: "settings.group.counting", open: true, keys: ["counting", "claimWarn"] }
       ];
       function rowByKey(k) { for (var i = 0; i < ROWS.length; i++) if (ROWS[i].k === k) return ROWS[i]; return null; }
       function renderSettings() {
         var host = document.getElementById('settingsList');
         host.innerHTML = '';
         var humans = 1; for (var i = 1; i < settings.players; i++) if (settings.seats && settings.seats[i] === 'human') humans++;
+        var solo = humans === 1;
         GROUPS.forEach(function (g) {
           var det = document.createElement('details'); det.className = 'set-group'; det.open = g.open;
           var sum = document.createElement('summary'); sum.textContent = tr(g.title); det.appendChild(sum);
           g.keys.forEach(function (key) {
             var row = rowByKey(key); if (!row) return;
-            // Muggins is solo-only — disable the Counting row when the table has 2+ humans.
-            var disabled = row.k === 'counting' && humans > 1;
+            // Muggins is solo-only — disable Counting at a 2+ human table, and the muggins-claim
+            // warning unless muggins is actually the active solo counting mode.
+            var disabled = (row.k === 'counting' && !solo) || (row.k === 'claimWarn' && !(solo && settings.counting === 'muggins'));
             var wrap = document.createElement('div'); wrap.className = 'set-row' + (disabled ? ' disabled' : '');
             var titleEl = document.createElement('div'); titleEl.className = 'set-title'; titleEl.textContent = tr(row.title); wrap.appendChild(titleEl);
             var d = document.createElement('div'); d.className = 'set-desc';
-            d.textContent = tr(disabled ? row.disabledDesc : row.desc);
+            d.textContent = tr((disabled && row.disabledDesc) ? row.disabledDesc : row.desc);
             wrap.appendChild(d);
             var segs = document.createElement('div'); segs.className = 'set-segs';
             row.opts.forEach(function (opt) {
@@ -983,7 +992,9 @@ cribbageLocale("en", {
               if (disabled) { b.disabled = true; }
               else { b.addEventListener('click', (function (segsEl, btn, k, val) { return function () {
                 settings[k] = val; saveSettings(settings);
-                // update the highlight in place — rebuilding would collapse the open sections
+                // Counting gates claimWarn's enabled state, so re-render the whole list for it;
+                // every other row updates its highlight in place (rebuilding collapses open sections).
+                if (k === 'counting') { renderSettings(); return; }
                 var sibs = segsEl.querySelectorAll('.seg');
                 for (var s = 0; s < sibs.length; s++) sibs[s].className = 'seg';
                 btn.className = 'seg on';

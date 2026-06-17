@@ -307,6 +307,7 @@ cribbageLocale("en", {
 
   // discard trainer — chrome + key view labels
   "trainer.home": "Home",
+  "trainer.set.setup": "Practice setup",
   "trainer.set.sizeLabel": "Table size:",
   "trainer.set.size2": "2-handed (heads-up) — 6 cards, discard two",
   "trainer.set.sizeN": "{p}-handed — 5 cards, discard one",

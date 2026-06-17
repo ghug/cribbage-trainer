@@ -891,7 +891,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.78";
+const APP_VERSION = "1.1.20-dev.79";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -1435,10 +1435,15 @@ function reduce(state, action) {
             return { ...state, settings };
         }
         case "RESET_SETTINGS": {
+            const inProgress = state.phase !== "over";
             const settings = { ...state.settings };
-            for (const k in DEFAULT_SETTINGS)
-                if (k !== "seats" && k !== "names")
-                    settings[k] = DEFAULT_SETTINGS[k];
+            for (const k in DEFAULT_SETTINGS) {
+                if (k === "seats" || k === "names")
+                    continue;
+                if (inProgress && (k === "players" || k === "teams"))
+                    continue;
+                settings[k] = DEFAULT_SETTINGS[k];
+            }
             saveSettings(settings);
             const sizeChanged = settings.players !== state.settings.players || settings.teams !== state.settings.teams;
             return sizeChanged ? newGameState({ settings }) : { ...state, settings };
@@ -3077,7 +3082,7 @@ function AboutModal({ onClose }) {
                 background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
             } }, tr("about.sourceLink")),
         React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.20-dev.78")));
+        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.20-dev.79")));
 }
 function MessageLogModal({ log, onClose }) {
     const scrollRef = React.useRef(null);

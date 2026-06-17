@@ -18,6 +18,11 @@ const SPEED_MULT = { slow: 2, normal: 1, fast: 0.5, instant: 0 };
 let SPEED = "normal";
 function spd(ms) { return ms <= 0 ? ms : SPEED === "instant" ? 32 : Math.round(ms * (SPEED_MULT[SPEED] ?? 1)); }
 
+// Global text-size floor. Every font-size is written `max(<px>px, var(--min-fs, 0px))`, so raising
+// `--min-fs` (set on the app root from settings.textSize) only grows text BELOW the floor — small is
+// the current sizing (0 floor), medium/large lift the minimum. Shared with the landing + trainer.
+const MIN_FS = { small: "0px", medium: "12px", large: "14px" };
+
 const fifteenVal = (r) => Math.min(r, 10);
 
 function scoreInto(four, starter, isCrib, acc) {
@@ -350,7 +355,7 @@ function Card({ card, onClick, clickable, badge, dim, selected, raised, selLabel
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, width: "var(--cw)", flex: "0 0 auto" }}>
       {(badge || selected) && (
         <span style={{
-          fontFamily: mono, fontSize: 9.5, letterSpacing: 0.4, fontWeight: 700,
+          fontFamily: mono, fontSize: "max(9.5px, var(--min-fs, 0px))", letterSpacing: 0.4, fontWeight: 700,
           color: T.ivory, background: badge ? badge.color : T.selBlue, padding: "2px 6px", borderRadius: 4, whiteSpace: "nowrap",
         }}>{badge ? badge.text : (selLabel || tr("play.sel.throw"))}</span>
       )}
@@ -412,11 +417,11 @@ function CatBars({ cats, scale, color }) {
       {cats.map((v, i) =>
         v < 0.005 ? null : (
           <div key={i} style={{ display: "grid", gridTemplateColumns: "58px 1fr 30px", gap: 8, alignItems: "center" }}>
-            <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{catName(i)}</span>
+            <span style={{ fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted }}>{catName(i)}</span>
             <span style={{ height: 7, background: "rgba(0,0,0,0.28)", borderRadius: 4, overflow: "hidden" }}>
               <span style={{ display: "block", height: "100%", width: `${(v / max) * 100}%`, background: color }} />
             </span>
-            <span style={{ fontFamily: mono, fontSize: 11.5, textAlign: "right" }}>{v}</span>
+            <span style={{ fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", textAlign: "right" }}>{v}</span>
           </div>
         )
       )}
@@ -957,7 +962,7 @@ function reduce(state, action) {
   }
 }
 
-const DEFAULT_SETTINGS = { players: 2, teams: 2, seats: [], names: [], speed: "normal", counting: "auto", tapToSelect: true, autoCut: false, autoGo: false, warn: true, claimWarn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
+const DEFAULT_SETTINGS = { players: 2, teams: 2, seats: [], names: [], speed: "normal", textSize: "small", counting: "auto", tapToSelect: true, autoCut: false, autoGo: false, warn: true, claimWarn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
 // Settings persist across pages in localStorage under a shared key. try/catch keeps
 // the verification harness (no localStorage) and private-mode browsers happy.
 const SETTINGS_KEY = "cribbage:settings";
@@ -1068,7 +1073,7 @@ function ScoreRow({ seats, dealerIdx, turn, winner, onPick, P, teams }) {
                 </React.Fragment>
               ))}
             </div>
-            <div style={{ fontFamily: serif, fontWeight: 700, fontSize: 22, color: isWin ? T.good : T.ivory }}>{score}</div>
+            <div style={{ fontFamily: serif, fontWeight: 700, fontSize: "max(22px, var(--min-fs, 0px))", color: isWin ? T.good : T.ivory }}>{score}</div>
             <div style={{ marginTop: 6, padding: "0 2px" }}><PegTrack pct={(score / targetFor(P)) * 100} /></div>
           </button>
         );
@@ -1096,8 +1101,8 @@ function Modal({ onBackdrop, maxWidth = 380, padding = "20px", scroll = false, z
 function ModalHeader({ title, onClose, closeLabel, mb = 12, children }) {
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: mb, flex: "0 0 auto" }}>
-      {children != null ? children : <span style={{ fontWeight: 700, fontSize: 17 }}>{title}</span>}
-      <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>{closeLabel || tr("common.done")}</button>
+      {children != null ? children : <span style={{ fontWeight: 700, fontSize: "max(17px, var(--min-fs, 0px))" }}>{title}</span>}
+      <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", fontWeight: 700 }}>{closeLabel || tr("common.done")}</button>
     </div>
   );
 }
@@ -1115,17 +1120,17 @@ function HistoryPanel({ seatIdx, seats, onClose, P, teams }) {
   return (
     <Modal onBackdrop={onClose} padding="18px 18px 14px" scroll cardStyle={{ maxHeight: "85vh" }}>
       <ModalHeader onClose={onClose} closeLabel={tr("play.hist.close")} mb={10}>
-        <span style={{ fontWeight: 700, fontSize: 15 }}>{tr("play.hist.scoringGame", { team: teamLabel(members) })}</span>
+        <span style={{ fontWeight: 700, fontSize: "max(15px, var(--min-fs, 0px))" }}>{tr("play.hist.scoringGame", { team: teamLabel(members) })}</span>
       </ModalHeader>
       {hist.length === 0 ? (
-        <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>{tr("play.hist.noPoints")}</div>
+        <div style={{ fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.muted }}>{tr("play.hist.noPoints")}</div>
       ) : (
         <div style={{ display: "grid", gap: 3 }}>
-          <div style={{ display: "grid", gridTemplateColumns: cols, gap: 8, fontFamily: mono, fontSize: 10, color: T.muted, paddingBottom: 2 }}>
+          <div style={{ display: "grid", gridTemplateColumns: cols, gap: 8, fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, paddingBottom: 2 }}>
             <span>{tr("play.hist.colFor")}</span><span style={{ textAlign: "right" }}>{tr("play.hist.colPts")}</span><span style={{ textAlign: "right" }}>{tr("play.hist.total")}</span>
           </div>
           {hist.map((h, k) => { run += h.pts; return (
-            <div key={k} style={{ display: "grid", gridTemplateColumns: cols, gap: 8, fontFamily: mono, fontSize: 11.5, alignItems: "baseline" }}>
+            <div key={k} style={{ display: "grid", gridTemplateColumns: cols, gap: 8, fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", alignItems: "baseline" }}>
               <span style={{ color: T.cream }}>{isTeam ? `${seatName(h.who)}: ` : ""}{h.label}</span>
               <span style={{ textAlign: "right", color: T.good }}>+{h.pts}</span>
               <span style={{ textAlign: "right", color: T.muted }}>{run}</span>
@@ -1133,9 +1138,9 @@ function HistoryPanel({ seatIdx, seats, onClose, P, teams }) {
           ); })}
         </div>
       )}
-      <div style={{ display: "flex", justifyContent: "space-between", borderTop: `1px solid ${T.line}`, marginTop: 8, paddingTop: 8, fontFamily: mono, fontSize: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", borderTop: `1px solid ${T.line}`, marginTop: 8, paddingTop: 8, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))" }}>
         <span style={{ color: T.muted }}>{tr("play.hist.total")}</span>
-        <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 18, color: T.ivory }}>{total}</span>
+        <span style={{ fontFamily: serif, fontWeight: 700, fontSize: "max(18px, var(--min-fs, 0px))", color: T.ivory }}>{total}</span>
       </div>
     </Modal>
   );
@@ -1153,7 +1158,7 @@ function Panel({ children, tone }) {
 function PassPanel({ to, dispatch, locked }) {
   return (
     <div style={{ textAlign: "center", padding: "20px 16px", borderRadius: 12, background: "rgba(0,0,0,0.3)", border: `1px solid ${T.line}` }}>
-      <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 14 }}>{tr("play.pass.to", { seat: seatName(to) })}</div>
+      <div style={{ fontWeight: 700, fontSize: "max(16px, var(--min-fs, 0px))", marginBottom: 14 }}>{tr("play.pass.to", { seat: seatName(to) })}</div>
       <ConfirmButton label={tr("play.pass.take", { seat: seatName(to) })} enabled={!locked} onClick={() => dispatch({ type: "TAKE_DEVICE" })} />
     </div>
   );
@@ -1170,8 +1175,8 @@ function SkunkPanel({ seats, winner, P, teams }) {
   const fmt = (arr) => arr.map((x) => `${teamLabel(x.m)} (${x.score})`).join(", ");
   return (
     <Panel tone={youSkunked ? "red" : "good"}>
-      {dbl.length > 0 && <div style={{ fontWeight: 700, fontSize: 15 }}>{tr("play.skunk.double", { list: fmt(dbl) })}</div>}
-      {sk.length > 0 && <div style={{ fontWeight: 700, fontSize: 15, marginTop: dbl.length ? 4 : 0 }}>{tr("play.skunk.single", { list: fmt(sk) })}</div>}
+      {dbl.length > 0 && <div style={{ fontWeight: 700, fontSize: "max(15px, var(--min-fs, 0px))" }}>{tr("play.skunk.double", { list: fmt(dbl) })}</div>}
+      {sk.length > 0 && <div style={{ fontWeight: 700, fontSize: "max(15px, var(--min-fs, 0px))", marginTop: dbl.length ? 4 : 0 }}>{tr("play.skunk.single", { list: fmt(sk) })}</div>}
     </Panel>
   );
 }
@@ -1185,7 +1190,7 @@ function ConfirmButton({ label, enabled, onClick }) {
       cursor: enabled ? "pointer" : "default",
       background: enabled ? `linear-gradient(180deg, ${T.good}, ${T.goodDeep})` : "rgba(0,0,0,0.25)",
       color: enabled ? T.ivory : T.muted, opacity: enabled ? 1 : 0.6,
-      fontSize: 15, fontWeight: 700, letterSpacing: 0.3,
+      fontSize: "max(15px, var(--min-fs, 0px))", fontWeight: 700, letterSpacing: 0.3,
       boxShadow: enabled ? "0 4px 12px rgba(0,0,0,0.35)" : "none",
     }}>{label}</button>
   );
@@ -1197,7 +1202,7 @@ function bigBtn(label, onClick, tone) {
     <button onClick={onClick} style={{
       width: "100%", padding: "13px", borderRadius: 10, border: "none", cursor: "pointer",
       background: grad, color: tone === "wood" ? "#2A1B0E" : T.ivory,
-      fontSize: 16, fontWeight: 700, letterSpacing: 0.3, boxShadow: "0 4px 12px rgba(0,0,0,0.35)",
+      fontSize: "max(16px, var(--min-fs, 0px))", fontWeight: 700, letterSpacing: 0.3, boxShadow: "0 4px 12px rgba(0,0,0,0.35)",
     }}>{label}</button>
   );
 }
@@ -1379,7 +1384,7 @@ export default function CribbagePlay() {
   return (
     <div style={{
       minHeight: "100%", background: `radial-gradient(120% 90% at 50% 0%, ${T.baizeHi}, ${T.baize})`,
-      color: T.cream, fontFamily: serif, padding: "0 0 40px",
+      color: T.cream, fontFamily: serif, padding: "0 0 40px", "--min-fs": MIN_FS[settings.textSize] || "0px",
     }}>
       <style>{`
         html,body{background:${T.baizeHi}}
@@ -1404,28 +1409,28 @@ export default function CribbagePlay() {
             <button onClick={goHome} aria-label="Home" title="Home" style={{
               flex: "0 0 auto", width: 34, height: 34, borderRadius: 8, background: T.baize, color: T.ivory, cursor: "pointer",
               border: "none", padding: 0,
-              display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, lineHeight: 1,
+              display: "flex", alignItems: "center", justifyContent: "center", fontSize: "max(19px, var(--min-fs, 0px))", lineHeight: 1,
               boxShadow: "inset 0 1px 2px rgba(255,255,255,0.12), 0 2px 5px rgba(0,0,0,0.35)",
             }}>♣</button>
-            <span style={{ fontFamily: mono, fontSize: 12, color: "rgba(42,27,14,0.8)", lineHeight: 1.3 }}>{headLine}<br />{tr("play.hdr.playTo", { target: targetFor(players) })}{IS_DEV_VERSION ? ` · v${APP_VERSION}` : ""}</span>
+            <span style={{ fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: "rgba(42,27,14,0.8)", lineHeight: 1.3 }}>{headLine}<br />{tr("play.hdr.playTo", { target: targetFor(players) })}{IS_DEV_VERSION ? ` · v${APP_VERSION}` : ""}</span>
           </div>
           <div style={{ display: "flex", gap: 8, flex: "0 0 auto" }}>
             <button onClick={goHome} aria-label="Home" style={{
               width: 40, height: 40, borderRadius: 10, cursor: "pointer",
               border: "1px solid rgba(0,0,0,0.28)", background: "rgba(42,27,14,0.14)",
-              color: "#2A1B0E", fontSize: 19, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
+              color: "#2A1B0E", fontSize: "max(19px, var(--min-fs, 0px))", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
             }}>⌂</button>
             {canPause && (
               <button onClick={() => setPaused((p) => !p)} aria-label={paused ? "Resume" : "Pause"} aria-pressed={paused} style={{
                 width: 40, height: 40, borderRadius: 10, cursor: "pointer",
                 border: "1px solid rgba(0,0,0,0.28)", background: paused ? "rgba(200,65,43,0.32)" : "rgba(42,27,14,0.14)",
-                color: "#2A1B0E", fontSize: 17, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
+                color: "#2A1B0E", fontSize: "max(17px, var(--min-fs, 0px))", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
               }}>{paused ? "▶" : "⏸"}</button>
             )}
             <button onClick={() => setSettingsOpen((o) => !o)} aria-label="Settings" aria-expanded={settingsOpen} style={{
               width: 40, height: 40, borderRadius: 10, cursor: "pointer",
               border: "1px solid rgba(0,0,0,0.28)", background: settingsOpen ? "rgba(42,27,14,0.28)" : "rgba(42,27,14,0.14)",
-              color: "#2A1B0E", fontSize: 20, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
+              color: "#2A1B0E", fontSize: "max(20px, var(--min-fs, 0px))", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
             }}>⚙</button>
           </div>
         </div>
@@ -1454,9 +1459,9 @@ export default function CribbagePlay() {
             there — off-screen-right, with no horizontal scrollbar. */}
         <div onClick={() => { if (msgLog.length) setMsgLogOpen(true); }} title={msgLog.length ? tr("play.log.tapHint") : undefined} role={msgLog.length ? "button" : undefined} style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 5, marginBottom: 3, marginLeft: 2, marginRight: "calc(50% - 50vw)", height: 18, cursor: msgLog.length ? "pointer" : "default" }}>
           {msgLog.length > 0 && (
-            <span aria-hidden="true" style={{ flex: "0 0 auto", fontFamily: mono, fontSize: 10, fontWeight: 700, color: T.selBlue, border: `1px solid ${T.selBlue}`, borderRadius: 5, padding: "1px 5px", lineHeight: 1 }}>☰ {msgLog.length}</span>
+            <span aria-hidden="true" style={{ flex: "0 0 auto", fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", fontWeight: 700, color: T.selBlue, border: `1px solid ${T.selBlue}`, borderRadius: 5, padding: "1px 5px", lineHeight: 1 }}>☰ {msgLog.length}</span>
           )}
-          <span style={{ flex: "1 1 auto", minWidth: 0, fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: "18px", whiteSpace: "nowrap", overflow: "hidden", textDecoration: msgLog.length ? "underline dotted rgba(236,224,182,0.45)" : "none", textUnderlineOffset: 3 }}>{message}</span>
+          <span style={{ flex: "1 1 auto", minWidth: 0, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.cream, lineHeight: "18px", whiteSpace: "nowrap", overflow: "hidden", textDecoration: msgLog.length ? "underline dotted rgba(236,224,182,0.45)" : "none", textUnderlineOffset: 3 }}>{message}</span>
         </div>
         {msgLogOpen && <MessageLogModal log={msgLog} onClose={() => setMsgLogOpen(false)} />}
 
@@ -1471,16 +1476,16 @@ export default function CribbagePlay() {
 
       {confirmHome && (
         <Modal onBackdrop={() => setConfirmHome(false)} maxWidth={360} padding="18px" zIndex={200}>
-          <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6 }}>{tr("play.home.title")}</div>
-          <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, lineHeight: 1.5, marginBottom: 16 }}>{tr("play.home.body")}</div>
+          <div style={{ fontWeight: 700, fontSize: "max(16px, var(--min-fs, 0px))", marginBottom: 6 }}>{tr("play.home.title")}</div>
+          <div style={{ fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.muted, lineHeight: 1.5, marginBottom: 16 }}>{tr("play.home.body")}</div>
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={() => setConfirmHome(false)} style={{
               flex: 1, padding: "12px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer",
-              background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: 13, fontWeight: 700,
+              background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: "max(13px, var(--min-fs, 0px))", fontWeight: 700,
             }}>{tr("play.home.keep")}</button>
             <a href="index.html" style={{
               flex: 1, padding: "12px", borderRadius: 9, cursor: "pointer", textDecoration: "none", textAlign: "center", boxSizing: "border-box",
-              background: `linear-gradient(180deg, ${T.pegRed}, #9c3120)`, color: T.ivory, fontFamily: mono, fontSize: 13, fontWeight: 700,
+              background: `linear-gradient(180deg, ${T.pegRed}, #9c3120)`, color: T.ivory, fontFamily: mono, fontSize: "max(13px, var(--min-fs, 0px))", fontWeight: 700,
             }}>{tr("play.home.leave")}</a>
           </div>
         </Modal>
@@ -1622,7 +1627,7 @@ function CardSprite({ card, home, dur, delay, clickable, selected, raised, dim, 
       }}>
       {(selected || raised) && (
         <span style={{ position: "absolute", bottom: "calc(100% + 2px)", left: 0, right: 0, textAlign: "center", backfaceVisibility: "hidden",
-          fontFamily: mono, fontSize: 9.5, letterSpacing: 0.4, fontWeight: 700, color: T.ivory, pointerEvents: "none" }}>
+          fontFamily: mono, fontSize: "max(9.5px, var(--min-fs, 0px))", letterSpacing: 0.4, fontWeight: 700, color: T.ivory, pointerEvents: "none" }}>
           <span style={{ background: T.selBlue, padding: "2px 6px", borderRadius: 4, whiteSpace: "nowrap" }}>{selLabel || tr("play.sel.throw")}</span>
         </span>
       )}
@@ -1658,8 +1663,8 @@ function SeatLabel({ i, dealerIdx, active, settings, me }) {
   const text = `${base}${dealerIdx === i ? " 🔘" : ""}`;
   return (
     <span style={active
-      ? { fontFamily: mono, fontSize: 10, fontWeight: 700, letterSpacing: 0.3, color: T.ivory, background: T.selBlue, padding: "2px 8px", borderRadius: 999, boxShadow: "0 1px 4px rgba(0,0,0,0.45)" }
-      : { fontFamily: mono, fontSize: 10, color: T.muted }}>{text}</span>
+      ? { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", fontWeight: 700, letterSpacing: 0.3, color: T.ivory, background: T.selBlue, padding: "2px 8px", borderRadius: 999, boxShadow: "0 1px 4px rgba(0,0,0,0.45)" }
+      : { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted }}>{text}</span>
   );
 }
 
@@ -2451,8 +2456,8 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
       {cribNote && (
         <div onClick={() => setCribNote(false)} role="status" style={{
           position: "fixed", left: "50%", top: 72, transform: "translateX(-50%)", zIndex: 215,
-          background: T.baize, border: `1px solid ${T.line}`, borderRadius: 10, padding: "10px 16px",
-          boxShadow: "0 8px 26px rgba(0,0,0,0.5)", fontWeight: 700, fontSize: 14, color: T.cream,
+          background: `linear-gradient(180deg, ${T.woodL}, ${T.woodM})`, border: `1px solid ${T.pegIvory}`, borderRadius: 10, padding: "10px 16px",
+          boxShadow: `0 8px 26px rgba(0,0,0,0.55), 0 0 0 3px ${T.baize}`, fontWeight: 700, fontSize: "max(14px, var(--min-fs, 0px))", color: T.ink,
           cursor: "pointer", maxWidth: "90vw", textAlign: "center",
         }}>{cribOwnerText}</div>
       )}
@@ -2472,7 +2477,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
       <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 8, padding: "0 6px" }}>
         <div style={{ minWidth: 0 }}>{ts.left != null ? cell(ts.left) : null}</div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: "0 0 auto" }}>
-          <div style={{ height: 18, marginBottom: 4, display: "flex", alignItems: "center", fontFamily: mono, fontSize: 10, color: T.muted }}>{(phase === "play" || showPhase || overPhase) ? tr("play.starterCard") : tr("play.deck")}</div>
+          <div style={{ height: 18, marginBottom: 4, display: "flex", alignItems: "center", fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted }}>{(phase === "play" || showPhase || overPhase) ? tr("play.starterCard") : tr("play.deck")}</div>
           <div data-slot="deck" style={{ display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" }}>
             {deckSwap
               ? (deckSwap.phase === "empty" ? null
@@ -2503,13 +2508,13 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
       )}
       {overPhase ? (
         <Panel tone="good">
-          <div style={{ fontWeight: 700, fontSize: 18 }}>{winner !== null && solo && teamOf(winner, P, teams) === teamOf(me, P, teams) ? tr("play.win.you") : tr("play.win.team", { team: teamLabel(teamsList(P, teams).find((m) => m.includes(winner)) || [winner]) })}</div>
-          <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>{tr("play.win.final", { target: targetFor(P), scores: teamsList(P, teams).map((m) => `${teamLabel(m)} ${seats[m[0]].score}`).join(" · ") })}</div>
+          <div style={{ fontWeight: 700, fontSize: "max(18px, var(--min-fs, 0px))" }}>{winner !== null && solo && teamOf(winner, P, teams) === teamOf(me, P, teams) ? tr("play.win.you") : tr("play.win.team", { team: teamLabel(teamsList(P, teams).find((m) => m.includes(winner)) || [winner]) })}</div>
+          <div style={{ fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", color: T.muted, marginTop: 3 }}>{tr("play.win.final", { target: targetFor(P), scores: teamsList(P, teams).map((m) => `${teamLabel(m)} ${seats[m[0]].score}`).join(" · ") })}</div>
         </Panel>
       ) : cutdealPhase ? (
         <Panel tone={cutSettled && isDealer ? "good" : null}>
-          <div style={{ fontWeight: 700, fontSize: 15 }}>{tr("play.cutdeal.title")}</div>
-          <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>
+          <div style={{ fontWeight: 700, fontSize: "max(15px, var(--min-fs, 0px))" }}>{tr("play.cutdeal.title")}</div>
+          <div style={{ fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", color: T.muted, marginTop: 3 }}>
             {!cutSettled ? ((cutDeal && cutDeal.tie) ? tr("play.cutdeal.tie") : tr("play.cutdeal.cutting"))
               : (isDealer && solo) ? tr("play.cutdeal.subYou")
               : tr("play.cutdeal.subSeat", { seat: seatName(dealerIdx) })}
@@ -2517,8 +2522,8 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
         </Panel>
       ) : (dealPhase || dealingPhase) ? (
         <Panel tone={cribOurs ? "good" : null}>
-          <div style={{ fontWeight: 700, fontSize: 15 }}>{(isDealer && solo) ? tr("play.deal.yours") : teammateDeals ? tr("play.deal.teammate", { seat: seatName(dealerIdx) }) : tr("play.deal.theirs", { seat: seatName(dealerIdx) })}</div>
-          <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>{dealBlurb(P)}</div>
+          <div style={{ fontWeight: 700, fontSize: "max(15px, var(--min-fs, 0px))" }}>{(isDealer && solo) ? tr("play.deal.yours") : teammateDeals ? tr("play.deal.teammate", { seat: seatName(dealerIdx) }) : tr("play.deal.theirs", { seat: seatName(dealerIdx) })}</div>
+          <div style={{ fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", color: T.muted, marginTop: 3 }}>{dealBlurb(P)}</div>
         </Panel>
       ) : showPhase ? (
         (info.isCrib && mugCribClaim) ? null   // the muggins claim panel below shows the crib — don't show it twice
@@ -2526,7 +2531,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
           // the crib has no seat — the persistent crib cards animate out of storage to here (the
           // showcrib ghost just reserves the slots; the real cards are the sprites, face up).
           <div style={{ background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "12px", minHeight: 88, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-            <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{tr("play.show.entCounting", { ent: entText(info), step: stepLabel })}</span>
+            <span style={{ fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted }}>{tr("play.show.entCounting", { ent: entText(info), step: stepLabel })}</span>
             <div data-slot="showcrib" style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", height: "var(--ch)", visibility: "hidden" }}>
               <SlotGhost n={Math.max(showcribN, (info.cards || []).length)} vis={STACK_VISIBLE} />
             </div>
@@ -2534,10 +2539,10 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
         ) : (
           <Panel>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-              <div style={{ fontWeight: 700, fontSize: 15 }}>{tr("play.show.title", { ent: entText(info) })}</div>
-              <span style={{ fontFamily: mono, fontSize: 10.5, color: T.muted }}>{tr("play.show.counting", { step: stepLabel })}</span>
+              <div style={{ fontWeight: 700, fontSize: "max(15px, var(--min-fs, 0px))" }}>{tr("play.show.title", { ent: entText(info) })}</div>
+              <span style={{ fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted }}>{tr("play.show.counting", { step: stepLabel })}</span>
             </div>
-            <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 3 }}>{tr("play.show.order")}</div>
+            <div style={{ fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted, marginTop: 3 }}>{tr("play.show.order")}</div>
           </Panel>
         )
       ) : (discardPhase || cribbingPhase) ? (
@@ -2546,7 +2551,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
         // cards leave the banner (to CribHome) once gliding, so the ghost shows only before then.
         <Panel tone={cribOurs ? "good" : "red"}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-            <div style={{ fontWeight: 700, fontSize: 15, minWidth: 0 }}>{!solo ? tr("play.crib.seatPrefix", { seat: seatName(me) }) : ""}{isDealer ? tr(solo ? "play.crib.greedy" : (multiHuman && !needHandoff) ? "play.crib.greedyMine" : "play.crib.greedyNamed") : teammateDeals ? tr((solo || (multiHuman && !needHandoff)) ? "play.crib.teamGreedy" : "play.crib.teamGreedyNamed", { seat: seatName(dealerIdx) }) : tr("play.crib.defend", { seat: seatName(dealerIdx) })}</div>
+            <div style={{ fontWeight: 700, fontSize: "max(15px, var(--min-fs, 0px))", minWidth: 0 }}>{!solo ? tr("play.crib.seatPrefix", { seat: seatName(me) }) : ""}{isDealer ? tr(solo ? "play.crib.greedy" : (multiHuman && !needHandoff) ? "play.crib.greedyMine" : "play.crib.greedyNamed") : teammateDeals ? tr((solo || (multiHuman && !needHandoff)) ? "play.crib.teamGreedy" : "play.crib.teamGreedyNamed", { seat: seatName(dealerIdx) }) : tr("play.crib.defend", { seat: seatName(dealerIdx) })}</div>
             {cribSoFar > 0 && !cribGliding && (
               <div data-slot="crib" style={{ flex: "0 0 auto", display: "flex", alignItems: "flex-end", visibility: "hidden" }}>
                 <SlotGhost n={cribSoFar} vis={BACK_VISIBLE} />
@@ -2558,13 +2563,13 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
         <div style={{ background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "0 12px 0 0" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14, minHeight: `calc(var(--ch) * ${PILE_VISIBLE})` }}>
             <div style={{ flex: "0 0 auto", display: "flex", flexDirection: "column", alignItems: "center", padding: "4px 12px", borderRadius: 9, background: "rgba(0,0,0,0.3)", border: `1px solid ${T.line}` }}>
-              <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>{tr("play.pile.count")}</span>
-              <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 28, lineHeight: 1, color: peg.count === 31 ? T.good : T.ivory }}>{peg.count}</span>
+              <span style={{ fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted }}>{tr("play.pile.count")}</span>
+              <span style={{ fontFamily: serif, fontWeight: 700, fontSize: "max(28px, var(--min-fs, 0px))", lineHeight: 1, color: peg.count === 31 ? T.good : T.ivory }}>{peg.count}</span>
             </div>
             <div style={{ flex: "1 1 auto", minWidth: 0, overflow: "hidden", display: "flex", justifyContent: "center" }}>
               {peg.pileSuited.length
                 ? <PileFan cards={peg.pileSuited} />
-                : <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{tr("play.pile.cleared")}</span>}
+                : <span style={{ fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted }}>{tr("play.pile.cleared")}</span>}
             </div>
           </div>
         </div>
@@ -2582,14 +2587,14 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
         ) : (
           <div style={{ background: "rgba(0,0,0,0.26)", borderRadius: 10, padding: "12px 14px 14px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
-              <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{tr("play.show.scoring")}</span>
-              <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 20, color: T.ivory }}>{info.total}</span>
+              <span style={{ fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted }}>{tr("play.show.scoring")}</span>
+              <span style={{ fontFamily: serif, fontWeight: 700, fontSize: "max(20px, var(--min-fs, 0px))", color: T.ivory }}>{info.total}</span>
             </div>
             {info.total > 0
               ? <CatBars cats={info.acc} scale={info.total} color={info.isCrib ? (seatIsHuman(info.owner, settings) ? T.good : T.pegRed) : T.good} />
-              : <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>{tr("play.show.nineteen")}</div>}
+              : <div style={{ fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.muted }}>{tr("play.show.nineteen")}</div>}
             {muggins && state.show.claimSubmitted && (
-              <div style={{ fontFamily: mono, fontSize: 11.5, color: state.show.claimValue >= info.total ? T.good : T.pegRed, marginTop: 10 }}>
+              <div style={{ fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", color: state.show.claimValue >= info.total ? T.good : T.pegRed, marginTop: 10 }}>
                 {state.show.claimValue < info.total
                   ? tr("play.show.claimedMissed", { n: state.show.claimValue, m: info.total - state.show.claimValue })
                   : state.show.claimValue > info.total
@@ -2604,10 +2609,10 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
         (dealPhase && swapBusy) ? null   // post-show deck swap still running — no deal UI until the new deck is in
         : !cutSettled ? null   // cut-for-deal still revealing — no deal button until the dealer is decided
         : settings.autoDeal
-          ? <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" }}>{tr("play.btn.dealing")}</div>
+          ? <div style={{ fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" }}>{tr("play.btn.dealing")}</div>
           : (<div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {dealPhase && (
-                <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, lineHeight: 1.7, textAlign: "center" }}>
+                <div style={{ fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, lineHeight: 1.7, textAlign: "center" }}>
                   {tr("play.cfg.counting")} <b style={{ color: T.cream }}>{mugginsActive(settings) ? tr("play.cfg.muggins") : tr("play.cfg.auto")}</b> ·{" "}
                   {tr("play.cfg.goNoCard")} <b style={{ color: T.cream }}>{settings.autoGo ? tr("play.cfg.auto") : tr("play.cfg.manual")}</b> ·{" "}
                   {tr("play.cfg.warn")} <b style={{ color: T.cream }}>{settings.warn ? tr("play.cfg.on") : tr("play.cfg.off")}</b>
@@ -2636,7 +2641,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
             el = <button onClick={() => dispatch({ type: "PASS_GO", seat: me })} style={{
               width: "100%", padding: "12px", borderRadius: 10, border: "none", cursor: "pointer",
               background: `linear-gradient(180deg, ${T.pegRed}, #9c3120)`, color: T.ivory,
-              fontSize: 15, fontWeight: 700, letterSpacing: 0.3, boxShadow: "0 4px 12px rgba(0,0,0,0.35)",
+              fontSize: "max(15px, var(--min-fs, 0px))", fontWeight: 700, letterSpacing: 0.3, boxShadow: "0 4px 12px rgba(0,0,0,0.35)",
             }}>{tr("play.go")}</button>;
           } else if (myTurn && meHuman && tapSelect) {
             // The confirm button doubles as the prompt: disabled "Select a card…" until a full
@@ -2653,7 +2658,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
                   ? (yourHand.length === 0 ? (isYou(me) ? tr("play.allPlayed.you") : tr("play.allPlayed.seat", { seat: seatName(me) })) : tr("play.toPlay", { seat: seatName(me) }))
                   : tr("play.toPlay", { seat: seatName(peg.turn) }))
               : "";
-            el = <div style={{ fontFamily: mono, fontSize: 11.5, color: (myTurn || stuck) ? T.selBlue : T.muted, textAlign: "center", lineHeight: 1.4 }}>{txt}</div>;
+            el = <div style={{ fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", color: (myTurn || stuck) ? T.selBlue : T.muted, textAlign: "center", lineHeight: 1.4 }}>{txt}</div>;
           }
           return <div style={{ minHeight: 44, marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>{el}</div>;
         })()}
@@ -2664,7 +2669,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
             {Array.from({ length: handLen }).map((_, i) => <div key={i} style={{ width: "var(--cw)", flex: "0 0 auto" }} />)}
           </div>
         )}
-        {meHuman && !discardPhase && yourHand.length === 0 && <div style={{ textAlign: "center", marginTop: -8 }}><span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{tr("play.handEmpty")}</span></div>}
+        {meHuman && !discardPhase && yourHand.length === 0 && <div style={{ textAlign: "center", marginTop: -8 }}><span style={{ fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted }}>{tr("play.handEmpty")}</span></div>}
       </div>
       )}
     </div>
@@ -2677,29 +2682,29 @@ function DiscardWarning({ pd, cribIsOurs, dispatch, onCancel }) {
   const side = cribIsOurs ? tr("play.warn.forSide") : tr("play.warn.toOpp");
   const thrownTag = (o) => o.thrown.map(tag).join(" ");
   const Line = ({ label, o, strong }) => (
-    <div style={{ fontFamily: mono, fontSize: 11.5, lineHeight: 1.6, color: strong ? T.cream : T.muted }}>
+    <div style={{ fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", lineHeight: 1.6, color: strong ? T.cream : T.muted }}>
       <b style={{ color: strong ? T.good : T.ivory }}>{label}</b> {tr("play.warn.line", { thrown: thrownTag(o), keep: o.four.map(tag).join(" "), hand: o.keptEV.toFixed(2), crib: o.cribSwing.toFixed(2), side })} <b>{tr("play.warn.net", { net: o.value.toFixed(2) })}</b>
     </div>
   );
   const pickAgain = () => { dispatch({ type: "CANCEL_DISCARD" }); if (onCancel) onCancel(); };
   return (
     <Modal onBackdrop={pickAgain}>
-      <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 12 }}>{tr("play.warn.title", { delta: delta.toFixed(2) })}</div>
+      <div style={{ fontWeight: 700, fontSize: "max(17px, var(--min-fs, 0px))", marginBottom: 12 }}>{tr("play.warn.title", { delta: delta.toFixed(2) })}</div>
       <div style={{ display: "grid", gap: 6, marginBottom: 10 }}>
         <Line label={tr("play.warn.best")} o={best} strong />
         <Line label={tr("play.warn.yours")} o={chosen} />
       </div>
-      <div style={{ fontFamily: mono, fontSize: 12, lineHeight: 1.6, color: T.cream, marginBottom: 16 }}>
+      <div style={{ fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", lineHeight: 1.6, color: T.cream, marginBottom: 16 }}>
         {tr("play.warn.explain", { dir: cribIsOurs ? tr("play.warn.dirOurs") : tr("play.warn.dirOpp") })}
       </div>
       <div style={{ display: "flex", gap: 8 }}>
         <button onClick={() => dispatch({ type: "CONFIRM_DISCARD" })} style={{
           flex: 1, padding: "12px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer",
-          background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+          background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
         }}>{tr("play.warn.throwAnyway", { thrown: thrownTag(chosen) })}</button>
         <button onClick={pickAgain} style={{
           flex: 1, padding: "12px", borderRadius: 9, border: "none", cursor: "pointer",
-          background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+          background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
         }}>{tr("play.warn.pickAgain")}</button>
       </div>
     </Modal>
@@ -2707,7 +2712,7 @@ function DiscardWarning({ pd, cribIsOurs, dispatch, onCancel }) {
 }
 
 const segStyle = (on) => ({
-  flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: 11.5,
+  flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))",
   background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
   border: `1px solid ${on ? T.pegIvory : T.line}`, fontWeight: on ? 700 : 400,
 });
@@ -2722,9 +2727,9 @@ function SettingsSection({ title, defaultOpen, children }) {
       <button onClick={() => setOpen((o) => !o)} style={{
         width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
         background: "none", border: "none", cursor: "pointer", padding: "12px 0 10px",
-        color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase",
+        color: T.cream, fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase",
       }}>
-        <span>{title}</span><span style={{ color: T.muted, fontSize: 13 }}>{open ? "▾" : "▸"}</span>
+        <span>{title}</span><span style={{ color: T.muted, fontSize: "max(13px, var(--min-fs, 0px))" }}>{open ? "▾" : "▸"}</span>
       </button>
       {open && <div>{children}</div>}
     </div>
@@ -2735,8 +2740,8 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
   const soloGame = nHumans(clampPlayers(settings.players), settings) === 1;
   const Row = ({ title, desc, k, options, disabled }) => (
     <div style={{ marginBottom: 14, opacity: disabled ? 0.5 : 1 }}>
-      <div style={{ fontWeight: 700, fontSize: 13.5 }}>{title}</div>
-      <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, margin: "2px 0 7px", lineHeight: 1.45 }}>{desc}</div>
+      <div style={{ fontWeight: 700, fontSize: "max(13.5px, var(--min-fs, 0px))" }}>{title}</div>
+      <div style={{ fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, margin: "2px 0 7px", lineHeight: 1.45 }}>{desc}</div>
       <div style={{ display: "flex", gap: 6 }}>
         {options.map(([label, val]) => (
           <button key={String(val)} disabled={disabled} onClick={disabled ? undefined : () => dispatch({ type: "SET_SETTING", key: k, value: val })} style={{ ...segStyle(settings[k] === val), cursor: disabled ? "default" : "pointer" }}>{label}</button>
@@ -2748,12 +2753,15 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
   return (
     <Modal onBackdrop={onClose} maxWidth={420} padding="14px 16px 4px" scroll cardStyle={{ maxHeight: "88vh" }}>
       <ModalHeader title={tr("settings.title")} onClose={onClose}>
-        <span style={{ fontWeight: 700, fontSize: 16 }}>{tr("settings.title")}</span>
+        <span style={{ fontWeight: 700, fontSize: "max(16px, var(--min-fs, 0px))" }}>{tr("settings.title")}</span>
       </ModalHeader>
       <SettingsSection title={tr("settings.group.controls")} defaultOpen>
         <Row title={tr("settings.speed.title")} k="speed"
           desc={tr("settings.speed.desc")}
           options={[[tr("settings.speed.optSlow"), "slow"], [tr("settings.speed.optNormal"), "normal"], [tr("settings.speed.optFast"), "fast"], [tr("settings.speed.optInstant"), "instant"]]} />
+        <Row title={tr("settings.textSize.title")} k="textSize"
+          desc={tr("settings.textSize.desc")}
+          options={[[tr("settings.textSize.optSmall"), "small"], [tr("settings.textSize.optMedium"), "medium"], [tr("settings.textSize.optLarge"), "large"]]} />
         <Row title={tr("settings.tapToSelect.title")} k="tapToSelect"
           desc={tr("settings.tapToSelect.desc")}
           options={[[off, false], [on, true]]} />
@@ -2794,14 +2802,14 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
       </SettingsSection>
       <LanguageRow />
       <div style={{ borderTop: `1px solid ${T.line}`, margin: "2px -16px 0", padding: "12px 16px 0" }}>
-        <button onClick={onHistory} style={{ width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12, fontWeight: 700 }}>{tr("settings.history")}</button>
+        <button onClick={onHistory} style={{ width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700 }}>{tr("settings.history")}</button>
       </div>
-      <button onClick={() => dispatch({ type: "RESET_SETTINGS" })} style={{ width: "100%", margin: "10px 0 0", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12, fontWeight: 700 }}>{tr("settings.resetDefaults")}</button>
+      <button onClick={() => dispatch({ type: "RESET_SETTINGS" })} style={{ width: "100%", margin: "10px 0 0", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700 }}>{tr("settings.resetDefaults")}</button>
       <AboutRow onAbout={onAbout} />
       <button onClick={onClose} style={{
         width: "100%", margin: "12px 0 10px", padding: "12px", borderRadius: 9, border: "none", cursor: "pointer",
         background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory,
-        fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+        fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
       }}>{tr("settings.continue")}</button>
     </Modal>
   );
@@ -2815,9 +2823,9 @@ function LanguageRow() {
   if (!i || langs.length <= 1) return null;
   return (
     <div style={{ marginBottom: 14 }}>
-      <div style={{ fontWeight: 700, fontSize: 13.5 }}>{window.t ? window.t("common.language") : "Language"}</div>
+      <div style={{ fontWeight: 700, fontSize: "max(13.5px, var(--min-fs, 0px))" }}>{window.t ? window.t("common.language") : "Language"}</div>
       <select defaultValue={i.lang} onChange={(e) => i.choose(e.target.value)}
-        style={{ marginTop: 7, fontFamily: mono, fontSize: 12, color: T.cream, background: "rgba(0,0,0,0.25)", border: `1px solid ${T.line}`, borderRadius: 8, padding: "8px 10px" }}>
+        style={{ marginTop: 7, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.cream, background: "rgba(0,0,0,0.25)", border: `1px solid ${T.line}`, borderRadius: 8, padding: "8px 10px" }}>
         {langs.map((l) => <option key={l.code} value={l.code}>{l.name}</option>)}
       </select>
     </div>
@@ -2830,7 +2838,7 @@ function AboutRow({ onAbout }) {
       <button onClick={onAbout} style={{
         width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer",
         border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream,
-        fontFamily: mono, fontSize: 12, fontWeight: 700,
+        fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700,
       }}>{tr("settings.aboutFeedback")}</button>
     </div>
   );
@@ -2857,15 +2865,15 @@ function HistoryModal({ onClose }) {
 
   const chip = (key, label) => (
     <button key={key} onClick={() => { setSel(key); setConfirmClear(false); }} style={{
-      padding: "6px 10px", borderRadius: 7, cursor: "pointer", fontFamily: mono, fontSize: 11, fontWeight: 700,
+      padding: "6px 10px", borderRadius: 7, cursor: "pointer", fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", fontWeight: 700,
       border: `1px solid ${sel === key ? T.pegIvory : T.line}`,
       background: sel === key ? T.pegIvory : "rgba(0,0,0,0.25)", color: sel === key ? "#2A1B0E" : T.cream,
     }}>{label}</button>
   );
   const Stat = ({ label, value, accent }) => (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "7px 0", borderBottom: `1px solid ${T.line}` }}>
-      <span style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>{label}</span>
-      <span style={{ fontFamily: serif, fontSize: 16, fontWeight: 700, color: accent || T.cream }}>{value}</span>
+      <span style={{ fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.muted }}>{label}</span>
+      <span style={{ fontFamily: serif, fontSize: "max(16px, var(--min-fs, 0px))", fontWeight: 700, color: accent || T.cream }}>{value}</span>
     </div>
   );
 
@@ -2874,7 +2882,7 @@ function HistoryModal({ onClose }) {
       <ModalHeader title={tr("play.hist.title")} onClose={onClose} mb={14} />
 
         {all.length === 0 ? (
-          <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, lineHeight: 1.6 }} data-tick={tick}>{tr("play.hist.empty")}</div>
+          <div style={{ fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.muted, lineHeight: 1.6 }} data-tick={tick}>{tr("play.hist.empty")}</div>
         ) : (
           <React.Fragment>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
@@ -2890,19 +2898,19 @@ function HistoryModal({ onClose }) {
 
             {specific ? (
               <React.Fragment>
-                <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, margin: "14px 0 4px", letterSpacing: 0.3 }}>{tr("play.hist.avgHeader")}</div>
+                <div style={{ fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, margin: "14px 0 4px", letterSpacing: 0.3 }}>{tr("play.hist.avgHeader")}</div>
                 <Stat label={tr("play.hist.pegging")} value={avg("peg").toFixed(1)} />
                 <Stat label={tr("play.hist.hand")} value={avg("hand").toFixed(1)} />
                 <Stat label={tr("play.hist.crib")} value={avg("crib").toFixed(1)} />
               </React.Fragment>
             ) : (
-              <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, marginTop: 12, lineHeight: 1.5 }}>{tr("play.hist.pickHint")}</div>
+              <div style={{ fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, marginTop: 12, lineHeight: 1.5 }}>{tr("play.hist.pickHint")}</div>
             )}
 
             <button onClick={() => { if (confirmClear) { clearHistory(); setSel("all"); setConfirmClear(false); setTick(tick + 1); } else setConfirmClear(true); }} style={{
               width: "100%", marginTop: 16, padding: "10px", borderRadius: 9, cursor: "pointer",
               border: `1px solid ${confirmClear ? T.pegRed : T.line}`, background: "rgba(0,0,0,0.25)",
-              color: confirmClear ? T.pegRed : T.muted, fontFamily: mono, fontSize: 11.5, fontWeight: 700,
+              color: confirmClear ? T.pegRed : T.muted, fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", fontWeight: 700,
             }}>{confirmClear ? tr("play.hist.clearConfirm") : tr("play.hist.clear")}</button>
           </React.Fragment>
         )}
@@ -2916,22 +2924,22 @@ function AboutModal({ onClose }) {
     <Modal onBackdrop={onClose}>
       <ModalHeader onClose={onClose}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span aria-hidden="true" style={{ flex: "0 0 auto", width: 34, height: 34, borderRadius: 8, background: "rgba(0,0,0,0.25)", color: T.ivory, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, lineHeight: 1 }}>♣</span>
-          <span style={{ fontWeight: 700, fontSize: 17 }}>{tr("about.title")}</span>
+          <span aria-hidden="true" style={{ flex: "0 0 auto", width: 34, height: 34, borderRadius: 8, background: "rgba(0,0,0,0.25)", color: T.ivory, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "max(19px, var(--min-fs, 0px))", lineHeight: 1 }}>♣</span>
+          <span style={{ fontWeight: 700, fontSize: "max(17px, var(--min-fs, 0px))" }}>{tr("about.title")}</span>
         </div>
       </ModalHeader>
-      <div style={{ fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.6, marginBottom: 12 }}>
+      <div style={{ fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.cream, lineHeight: 1.6, marginBottom: 12 }}>
         {tr("about.line1")}
       </div>
-      <div style={{ fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.6, marginBottom: 16 }}>
+      <div style={{ fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.cream, lineHeight: 1.6, marginBottom: 16 }}>
         {tr("about.line2")}
       </div>
       <a href={REPO} target="_blank" rel="noopener noreferrer" style={{
         display: "block", textAlign: "center", padding: "12px", borderRadius: 9, textDecoration: "none", boxSizing: "border-box",
-        background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+        background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
       }}>{tr("about.sourceLink")}</a>
-      <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" }}>github.com/ghug/cribbage-trainer</div>
-      <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" }}>v__APP_VERSION__</div>
+      <div style={{ fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" }}>github.com/ghug/cribbage-trainer</div>
+      <div style={{ fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" }}>v__APP_VERSION__</div>
     </Modal>
   );
 }
@@ -2945,9 +2953,9 @@ function MessageLogModal({ log, onClose }) {
     <Modal onBackdrop={onClose} maxWidth={420} padding="18px" cardStyle={{ maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
       <ModalHeader title={tr("play.log.title")} onClose={onClose} />
       <div ref={scrollRef} style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
-        {log.length === 0 ? <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>{tr("play.log.empty")}</div>
+        {log.length === 0 ? <div style={{ fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.muted }}>{tr("play.log.empty")}</div>
           : log.map((m, i) => (
-            <div key={i} style={{ fontFamily: mono, fontSize: 12, lineHeight: 1.5, color: T.cream, paddingBottom: 6, borderBottom: i < log.length - 1 ? `1px solid ${T.line}` : "none" }}>
+            <div key={i} style={{ fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", lineHeight: 1.5, color: T.cream, paddingBottom: 6, borderBottom: i < log.length - 1 ? `1px solid ${T.line}` : "none" }}>
               <span style={{ color: T.muted, marginRight: 6 }}>{i + 1}.</span>{m}
             </div>
           ))}
@@ -2960,18 +2968,18 @@ function PlayWarning({ pp, dispatch }) {
   const pickAgain = () => dispatch({ type: "CANCEL_PLAY" });
   return (
     <Modal onBackdrop={pickAgain}>
-      <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 12 }}>{tr(pp.delta === 1 ? "play.warn.leavesOne" : "play.warn.leavesMany", { n: pp.delta })}</div>
-      <div style={{ fontFamily: mono, fontSize: 12, lineHeight: 1.6, color: T.cream, marginBottom: 16 }}>
+      <div style={{ fontWeight: 700, fontSize: "max(17px, var(--min-fs, 0px))", marginBottom: 12 }}>{tr(pp.delta === 1 ? "play.warn.leavesOne" : "play.warn.leavesMany", { n: pp.delta })}</div>
+      <div style={{ fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", lineHeight: 1.6, color: T.cream, marginBottom: 16 }}>
         {tr("play.warn.playLineA", { card: tag(pp.card), pts: pp.chosenPts })}<b style={{ color: T.good }}>{tag(pp.bestCard)}</b>{tr("play.warn.playLineB", { pts: pp.bestPts, delta: pp.delta })}
       </div>
       <div style={{ display: "flex", gap: 8 }}>
         <button onClick={() => dispatch({ type: "CONFIRM_PLAY" })} style={{
           flex: 1, padding: "12px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer",
-          background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+          background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
         }}>{tr("play.warn.playAnyway", { card: tag(pp.card) })}</button>
         <button onClick={pickAgain} style={{
           flex: 1, padding: "12px", borderRadius: 9, border: "none", cursor: "pointer",
-          background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+          background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
         }}>{tr("play.warn.pickAgain")}</button>
       </div>
     </Modal>
@@ -3009,7 +3017,7 @@ function MugginsClaim({ info, starter, isCrib, settings, dispatch }) {
   const hintText = remaining.map((v, i) => v > 0 ? tr("play.show.hintItem", { n: v, unit: tr(v === 1 ? "play.show.hintPt" : "play.show.hintPts"), cat: catName(i) }) : null).filter(Boolean).join(" · ");
   return (
     <div style={{ background: "rgba(0,0,0,0.26)", borderRadius: 10, padding: "12px 14px 14px" }}>
-      <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, lineHeight: 1.5, marginBottom: 10 }}>
+      <div style={{ fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", color: T.muted, lineHeight: 1.5, marginBottom: 10 }}>
         {info.isCrib ? tr("play.show.claimInstrCrib") : tr("play.show.claimInstr")}
       </div>
       <div style={{ display: "flex", gap: 5, justifyContent: "center", alignItems: "flex-start", marginBottom: 12 }}>
@@ -3019,7 +3027,7 @@ function MugginsClaim({ info, starter, isCrib, settings, dispatch }) {
           return (
             <button key={id} onClick={() => toggle(id)} style={{ border: "none", background: "none", padding: 0, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", marginLeft: isStarter ? 14 : 0, transform: on ? "translateY(-6px)" : "none", transition: "transform 120ms ease" }}>
               <CardFace card={c} edge={on ? T.selBlue : null} />
-              <span style={{ height: 12, marginTop: 2, fontFamily: mono, fontSize: 9, fontWeight: 700, color: T.muted, whiteSpace: "nowrap" }}>{isStarter ? tr("play.starterCard") : ""}</span>
+              <span style={{ height: 12, marginTop: 2, fontFamily: mono, fontSize: "max(9px, var(--min-fs, 0px))", fontWeight: 700, color: T.muted, whiteSpace: "nowrap" }}>{isStarter ? tr("play.starterCard") : ""}</span>
             </button>
           );
         })}
@@ -3030,7 +3038,7 @@ function MugginsClaim({ info, starter, isCrib, settings, dispatch }) {
           return <button key={type} disabled={!ok} onClick={() => addClaim(type)} style={{
             flex: 1, padding: "9px 4px", borderRadius: 8, cursor: ok ? "pointer" : "default",
             border: `1px solid ${T.line}`, background: ok ? T.selBlue : "rgba(0,0,0,0.25)",
-            color: ok ? T.ivory : T.muted, fontFamily: mono, fontSize: 11.5, fontWeight: 700, opacity: ok ? 1 : 0.5,
+            color: ok ? T.ivory : T.muted, fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", fontWeight: 700, opacity: ok ? 1 : 0.5,
           }}>{tr(CAT_KEY[type])}</button>;
         })}
       </div>
@@ -3038,25 +3046,25 @@ function MugginsClaim({ info, starter, isCrib, settings, dispatch }) {
         <div style={{ display: "grid", gap: 4, marginBottom: 12 }}>
           {claims.map((c, i) => (
             <div key={i} onClick={() => setClaims((cs) => cs.filter((_, k) => k !== i))} title={tr("play.show.claimRemove")}
-              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, fontFamily: mono, fontSize: 11.5, color: T.cream, background: "rgba(0,0,0,0.22)", borderRadius: 7, padding: "6px 10px", cursor: "pointer" }}>
+              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", color: T.cream, background: "rgba(0,0,0,0.22)", borderRadius: 7, padding: "6px 10px", cursor: "pointer" }}>
               <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><b>{tr(CAT_KEY[c.type])}</b> {c.tags.join(" ")}</span>
               <span style={{ flex: "0 0 auto", color: T.good }}>+{c.pts} <span style={{ color: T.muted }}>✕</span></span>
             </div>
           ))}
         </div>
       )}
-      <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 10 }}>{tr("play.show.claimedTotal", { n: claimed })}</div>
+      <div style={{ fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted, marginBottom: 10 }}>{tr("play.show.claimedTotal", { n: claimed })}</div>
       {bigBtn(info.total === 0 ? tr("play.show.claimNone") : tr("play.show.claimDone", { n: claimed }), done, "good")}
       {confirm && (
         <Modal onBackdrop={() => setConfirm(false)} maxWidth={360}>
-          <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>{tr("play.show.incompleteTitle", { m: info.total - claimed })}</div>
-          <div style={{ fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.5, marginBottom: 12 }}>{tr("play.show.incompleteBody", { n: claimed, total: info.total, m: info.total - claimed })}</div>
+          <div style={{ fontWeight: 700, fontSize: "max(16px, var(--min-fs, 0px))", marginBottom: 8 }}>{tr("play.show.incompleteTitle", { m: info.total - claimed })}</div>
+          <div style={{ fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.cream, lineHeight: 1.5, marginBottom: 12 }}>{tr("play.show.incompleteBody", { n: claimed, total: info.total, m: info.total - claimed })}</div>
           {hint
-            ? <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, lineHeight: 1.5, marginBottom: 16, background: "rgba(0,0,0,0.22)", borderRadius: 7, padding: "8px 10px" }}>{tr("play.show.hintLine")} <b style={{ color: T.cream }}>{hintText}</b></div>
-            : <button onClick={() => setHint(true)} style={{ width: "100%", marginBottom: 12, padding: "10px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer", background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12, fontWeight: 700 }}>{tr("play.show.hintBtn")}</button>}
+            ? <div style={{ fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", color: T.muted, lineHeight: 1.5, marginBottom: 16, background: "rgba(0,0,0,0.22)", borderRadius: 7, padding: "8px 10px" }}>{tr("play.show.hintLine")} <b style={{ color: T.cream }}>{hintText}</b></div>
+            : <button onClick={() => setHint(true)} style={{ width: "100%", marginBottom: 12, padding: "10px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer", background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700 }}>{tr("play.show.hintBtn")}</button>}
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => setConfirm(false)} style={{ flex: 1, padding: "12px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer", background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: 12.5, fontWeight: 700 }}>{tr("play.show.keepCounting")}</button>
-            <button onClick={submit} style={{ flex: 1, padding: "12px", borderRadius: 9, border: "none", cursor: "pointer", background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700 }}>{tr("play.show.incompleteConfirm", { n: claimed })}</button>
+            <button onClick={() => setConfirm(false)} style={{ flex: 1, padding: "12px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer", background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700 }}>{tr("play.show.keepCounting")}</button>
+            <button onClick={submit} style={{ flex: 1, padding: "12px", borderRadius: 9, border: "none", cursor: "pointer", background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700 }}>{tr("play.show.incompleteConfirm", { n: claimed })}</button>
           </div>
         </Modal>
       )}

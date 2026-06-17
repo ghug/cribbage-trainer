@@ -12,6 +12,11 @@ const SPEED_MULT = { slow: 2, normal: 1, fast: 0.5, instant: 0 };
 let SPEED = "normal";
 function spd(ms) { return ms <= 0 ? ms : SPEED === "instant" ? 32 : Math.round(ms * (SPEED_MULT[SPEED] ?? 1)); }
 
+// Global text-size floor (shared with landing + Play): every font-size is `max(<px>px, var(--min-fs,
+// 0px))`, so raising `--min-fs` (set on the app root from settings.textSize) grows only sub-floor
+// text. small = current sizing (0 floor); medium/large lift the minimum.
+const MIN_FS = { small: "0px", medium: "12px", large: "14px" };
+
 const fifteenVal = (r) => Math.min(r, 10);
 
 function scoreInto(four, starter, isCrib, acc) {
@@ -335,12 +340,12 @@ function Card({ card, onClick, phase, badge, dim, selected }) {
       <div style={{ height: 18 }}>
         {badge ? (
           <span style={{
-            fontFamily: mono, fontSize: 10, letterSpacing: 0.5, fontWeight: 700,
+            fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", letterSpacing: 0.5, fontWeight: 700,
             color: T.ivory, background: badge.color, padding: "2px 7px", borderRadius: 4, whiteSpace: "nowrap",
           }}>{badge.text}</span>
         ) : selected ? (
           <span style={{
-            fontFamily: mono, fontSize: 10, letterSpacing: 0.5, fontWeight: 700,
+            fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", letterSpacing: 0.5, fontWeight: 700,
             color: T.ivory, background: T.selBlue, padding: "2px 7px", borderRadius: 4, whiteSpace: "nowrap",
           }}>THROW</span>
         ) : null}
@@ -399,11 +404,11 @@ function CatBars({ cats, scale, color }) {
       {cats.map((v, i) =>
         v < 0.005 ? null : (
           <div key={i} style={{ display: "grid", gridTemplateColumns: "58px 1fr 44px", gap: 8, alignItems: "center" }}>
-            <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{catName(i)}</span>
+            <span style={{ fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted }}>{catName(i)}</span>
             <span style={{ height: 7, background: "rgba(0,0,0,0.28)", borderRadius: 4, overflow: "hidden" }}>
               <span style={{ display: "block", height: "100%", width: `${(v / max) * 100}%`, background: color }} />
             </span>
-            <span style={{ fontFamily: mono, fontSize: 11.5, textAlign: "right" }}>{v.toFixed(2)}</span>
+            <span style={{ fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", textAlign: "right" }}>{v.toFixed(2)}</span>
           </div>
         )
       )}
@@ -429,23 +434,23 @@ function Explain({ opt, cribIsOurs, youDeal, mode, players = 4 }) {
   return (
     <div style={{ padding: "12px 12px 14px", background: "rgba(0,0,0,0.26)", borderRadius: 9, marginTop: 6, lineHeight: 1.5 }}>
       {/* HAND */}
-      <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 }}>
+      <div style={{ fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted, marginBottom: 6 }}>
         {tr("trainer.ex.handHdr", { ev: h.ev.toFixed(2), cuts: players === 2 ? 46 : 47 })}
       </div>
-      <div style={{ fontSize: 13.5, marginBottom: 8 }}>
+      <div style={{ fontSize: "max(13.5px, var(--min-fs, 0px))", marginBottom: 8 }}>
         {tr("trainer.ex.handBody", { locked: h.locked.toFixed(0), fromCut: h.fromCut.toFixed(2), cat: dominant(h.cats) })}
       </div>
       <CatBars cats={h.cats} scale={h.ev} color={T.good} />
-      <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 8 }}>
+      <div style={{ fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted, marginTop: 8 }}>
         {tr("trainer.ex.bestCuts")}&nbsp; <span style={{ color: T.cream }}>{topStr}</span>
       </div>
 
       {/* CRIB */}
       <div style={{ height: 1, background: T.line, margin: "13px 0" }} />
-      <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 }}>
+      <div style={{ fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted, marginBottom: 6 }}>
         {tr(opt.cards.length > 1 ? "trainer.ex.cribHdrTwo" : "trainer.ex.cribHdrOne", { cards: opt.cards.map(tag).join(" + "), ev: cr.ev.toFixed(2), dir: cribIsOurs ? tr("trainer.ex.forYou") : tr("trainer.ex.againstYou") })}
       </div>
-      <div style={{ fontSize: 13.5, marginBottom: 8 }}>
+      <div style={{ fontSize: "max(13.5px, var(--min-fs, 0px))", marginBottom: 8 }}>
         {tr("trainer.ex.cribBody", { pct: (cr.hitRate * 100).toFixed(0), cat: dominant(cr.cats) })}
         {cribIsOurs ? tr("trainer.ex.cribOurs") : tr("trainer.ex.cribTheirs")}
       </div>
@@ -453,14 +458,14 @@ function Explain({ opt, cribIsOurs, youDeal, mode, players = 4 }) {
 
       {/* PEGGING */}
       <div style={{ height: 1, background: T.line, margin: "13px 0" }} />
-      <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 }}>
+      <div style={{ fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted, marginBottom: 6 }}>
         {tr("trainer.ex.pegHdr", { ev: pg.ev.toFixed(2), seat: youDeal ? tr("trainer.ex.pegLast") : "" })}
       </div>
-      <div style={{ fontSize: 13.5, marginBottom: 4 }}>{pegWhy}</div>
+      <div style={{ fontSize: "max(13.5px, var(--min-fs, 0px))", marginBottom: 4 }}>{pegWhy}</div>
 
       {/* SPREAD + COMPONENTS */}
       <div style={{ height: 1, background: T.line, margin: "13px 0" }} />
-      <div style={{ fontFamily: mono, fontSize: 11, color: T.cream, lineHeight: 1.7 }}>
+      <div style={{ fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.cream, lineHeight: 1.7 }}>
         <div>{tr("trainer.tbl.hand")} {h.ev.toFixed(2)} &nbsp; {tr("trainer.tbl.crib")} {cribIsOurs ? "+" : "−"}{cr.ev.toFixed(2)} &nbsp; {tr("trainer.tbl.peg")} +{pg.ev.toFixed(2)} &nbsp;→&nbsp; <b>{tr("trainer.ex.net", { v: opt.netEV.toFixed(2) })}</b></div>
         <div style={{ color: T.muted }}>{tr("trainer.ex.spread", { sd: opt.sd.toFixed(2), mn: h.mn, mx: h.mx, p10: h.p10, p90: h.p90 })}</div>
         {mode !== "ev" && (
@@ -469,7 +474,7 @@ function Explain({ opt, cribIsOurs, youDeal, mode, players = 4 }) {
           </div>
         )}
       </div>
-      <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, marginTop: 10, lineHeight: 1.5 }}>
+      <div style={{ fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, marginTop: 10, lineHeight: 1.5 }}>
         {tr("trainer.ex.footer", { deck: players === 3 ? tr("trainer.ex.footerDeck") : "", p: players, seat: youDeal ? tr("trainer.ex.seatDealer") : tr("trainer.ex.seatNon") })}
       </div>
     </div>
@@ -518,15 +523,15 @@ function Modal({ onBackdrop, maxWidth = 380, padding = "20px", scroll = false, z
 function ModalHeader({ title, onClose, closeLabel, mb = 12, children }) {
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: mb, flex: "0 0 auto" }}>
-      {children != null ? children : <span style={{ fontWeight: 700, fontSize: 17 }}>{title}</span>}
-      <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>{closeLabel || tr("common.done")}</button>
+      {children != null ? children : <span style={{ fontWeight: 700, fontSize: "max(17px, var(--min-fs, 0px))" }}>{title}</span>}
+      <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", fontWeight: 700 }}>{closeLabel || tr("common.done")}</button>
     </div>
   );
 }
 
 // Shared segmented-button style (selected vs not), matching the Play game's settings rows.
 const segStyle = (on) => ({
-  flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: 11.5,
+  flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))",
   background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
   border: `1px solid ${on ? T.pegIvory : T.line}`, fontWeight: on ? 700 : 400,
 });
@@ -540,9 +545,9 @@ function SettingsSection({ title, defaultOpen, children }) {
       <button onClick={() => setOpen((o) => !o)} style={{
         width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
         background: "none", border: "none", cursor: "pointer", padding: "12px 0 10px",
-        color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase",
+        color: T.cream, fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase",
       }}>
-        <span>{title}</span><span style={{ color: T.muted, fontSize: 13 }}>{open ? "▾" : "▸"}</span>
+        <span>{title}</span><span style={{ color: T.muted, fontSize: "max(13px, var(--min-fs, 0px))" }}>{open ? "▾" : "▸"}</span>
       </button>
       {open && <div>{children}</div>}
     </div>
@@ -557,8 +562,8 @@ function SettingsPanel({ settings, onSet, onReset, onClose, onAbout }) {
   const soloGame = humanCountT(settings) === 1;
   const Row = ({ title, desc, k, options, disabled }) => (
     <div style={{ marginBottom: 14, opacity: disabled ? 0.5 : 1 }}>
-      <div style={{ fontWeight: 700, fontSize: 13.5 }}>{title}</div>
-      <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, margin: "2px 0 7px", lineHeight: 1.45 }}>{desc}</div>
+      <div style={{ fontWeight: 700, fontSize: "max(13.5px, var(--min-fs, 0px))" }}>{title}</div>
+      <div style={{ fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, margin: "2px 0 7px", lineHeight: 1.45 }}>{desc}</div>
       <div style={{ display: "flex", gap: 6 }}>
         {options.map(([label, val]) => (
           <button key={String(val)} disabled={disabled} onClick={disabled ? undefined : () => onSet(k, val)} style={{ ...segStyle(settings[k] === val), cursor: disabled ? "default" : "pointer" }}>{label}</button>
@@ -570,11 +575,13 @@ function SettingsPanel({ settings, onSet, onReset, onClose, onAbout }) {
   return (
     <Modal onBackdrop={onClose} maxWidth={420} padding="14px 16px 4px" scroll cardStyle={{ maxHeight: "88vh" }}>
       <ModalHeader title={tr("settings.title")} onClose={onClose}>
-        <span style={{ fontWeight: 700, fontSize: 16 }}>{tr("settings.title")}</span>
+        <span style={{ fontWeight: 700, fontSize: "max(16px, var(--min-fs, 0px))" }}>{tr("settings.title")}</span>
       </ModalHeader>
       <SettingsSection title={tr("settings.group.controls")} defaultOpen>
         <Row title={tr("settings.speed.title")} k="speed" desc={tr("settings.speed.desc")}
           options={[[tr("settings.speed.optSlow"), "slow"], [tr("settings.speed.optNormal"), "normal"], [tr("settings.speed.optFast"), "fast"], [tr("settings.speed.optInstant"), "instant"]]} />
+        <Row title={tr("settings.textSize.title")} k="textSize" desc={tr("settings.textSize.desc")}
+          options={[[tr("settings.textSize.optSmall"), "small"], [tr("settings.textSize.optMedium"), "medium"], [tr("settings.textSize.optLarge"), "large"]]} />
         <Row title={tr("settings.tapToSelect.title")} k="tapToSelect" desc={tr("settings.tapToSelect.desc")} options={[[off, false], [on, true]]} />
         <Row title={tr("settings.warn.title")} k="warn" desc={tr("settings.warn.desc")} options={[[on, true], [off, false]]} />
       </SettingsSection>
@@ -595,12 +602,12 @@ function SettingsPanel({ settings, onSet, onReset, onClose, onAbout }) {
           desc={tr("settings.claimWarn.desc")} options={[[on, true], [off, false]]} />
       </SettingsSection>
       <LanguageRow />
-      <button onClick={onReset} style={{ width: "100%", margin: "2px 0 0", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12, fontWeight: 700 }}>{tr("settings.resetDefaults")}</button>
+      <button onClick={onReset} style={{ width: "100%", margin: "2px 0 0", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700 }}>{tr("settings.resetDefaults")}</button>
       <AboutRow onAbout={onAbout} />
       <button onClick={onClose} style={{
         width: "100%", margin: "12px 0 10px", padding: "12px", borderRadius: 9, border: "none", cursor: "pointer",
         background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory,
-        fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+        fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
       }}>{tr("common.done")}</button>
     </Modal>
   );
@@ -610,7 +617,7 @@ function SettingsPanel({ settings, onSet, onReset, onClose, onAbout }) {
 // the role you practice, and whether new hands auto-pick the best discard. Size persists to the
 // shared global settings (Players); role/auto-best are trainer-local.
 function InlineSetup({ players, teams, roleMode, onRoleMode, autoBest, onAutoBest, onSize }) {
-  const label = { fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 };
+  const label = { fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted, marginBottom: 6 };
   const isTeams = teams < players;
   const forcedDefend = teams === players && players >= 5; // solo 5/6: you can only defend
   // role options map to roleMode: solo uses deal/defend; teams use ours/theirs.
@@ -619,8 +626,8 @@ function InlineSetup({ players, teams, roleMode, onRoleMode, autoBest, onAutoBes
     : [["random", tr("trainer.set.role.randomDeal", { p: players })], ["deal", tr("trainer.set.role.deal")], ["defend", tr("trainer.set.role.defend")]];
   return (
     <div style={{ background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "12px 14px" }}>
-      <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 10 }}>{tr("trainer.set.setup")}</div>
-      <div style={{ marginBottom: 12, fontFamily: mono, fontSize: 11, color: T.muted, lineHeight: 1.6 }}>
+      <div style={{ fontWeight: 700, fontSize: "max(13.5px, var(--min-fs, 0px))", marginBottom: 10 }}>{tr("trainer.set.setup")}</div>
+      <div style={{ marginBottom: 12, fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted, lineHeight: 1.6 }}>
         {tr("trainer.set.sizeLabel")} <b style={{ color: T.cream }}>{players === 2 ? tr("trainer.set.size2") : tr("trainer.set.sizeN", { p: players })}</b>.{" "}
         {tr("trainer.set.sizeTail")}
       </div>
@@ -633,7 +640,7 @@ function InlineSetup({ players, teams, roleMode, onRoleMode, autoBest, onAutoBes
         </div>
       </div>
       {forcedDefend ? (
-        <div style={{ marginBottom: 12, fontFamily: mono, fontSize: 10.5, color: T.muted, lineHeight: 1.5 }}>
+        <div style={{ marginBottom: 12, fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, lineHeight: 1.5 }}>
           {tr("trainer.set.forcedDefend", { p: players })}
         </div>
       ) : (
@@ -665,9 +672,9 @@ function LanguageRow() {
   if (!i || langs.length <= 1) return null;
   return (
     <div style={{ marginBottom: 14 }}>
-      <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 }}>{window.t ? window.t("common.language") : "Language"}</div>
+      <div style={{ fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted, marginBottom: 6 }}>{window.t ? window.t("common.language") : "Language"}</div>
       <select defaultValue={i.lang} onChange={(e) => i.choose(e.target.value)}
-        style={{ fontFamily: mono, fontSize: 12, color: T.cream, background: "rgba(0,0,0,0.2)", border: `1px solid ${T.line}`, borderRadius: 8, padding: "8px 10px" }}>
+        style={{ fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.cream, background: "rgba(0,0,0,0.2)", border: `1px solid ${T.line}`, borderRadius: 8, padding: "8px 10px" }}>
         {langs.map((l) => <option key={l.code} value={l.code}>{l.name}</option>)}
       </select>
     </div>
@@ -682,7 +689,7 @@ function AboutRow({ onAbout }) {
       <button onClick={onAbout} style={{
         width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer",
         border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream,
-        fontFamily: mono, fontSize: 12, fontWeight: 700,
+        fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700,
       }}>{tr("settings.aboutFeedback")}</button>
     </div>
   );
@@ -698,23 +705,23 @@ function AboutModal({ onClose }) {
       <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 380, width: "100%", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "20px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span aria-hidden="true" style={{ flex: "0 0 auto", width: 34, height: 34, borderRadius: 8, background: "rgba(0,0,0,0.25)", color: T.ivory, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, lineHeight: 1 }}>♣</span>
-            <span style={{ fontWeight: 700, fontSize: 17 }}>{tr("about.title")}</span>
+            <span aria-hidden="true" style={{ flex: "0 0 auto", width: 34, height: 34, borderRadius: 8, background: "rgba(0,0,0,0.25)", color: T.ivory, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "max(19px, var(--min-fs, 0px))", lineHeight: 1 }}>♣</span>
+            <span style={{ fontWeight: 700, fontSize: "max(17px, var(--min-fs, 0px))" }}>{tr("about.title")}</span>
           </div>
-          <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>{tr("common.done")}</button>
+          <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", fontWeight: 700 }}>{tr("common.done")}</button>
         </div>
-        <div style={{ fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.6, marginBottom: 12 }}>
+        <div style={{ fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.cream, lineHeight: 1.6, marginBottom: 12 }}>
           {tr("about.line1")}
         </div>
-        <div style={{ fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.6, marginBottom: 16 }}>
+        <div style={{ fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.cream, lineHeight: 1.6, marginBottom: 16 }}>
           {tr("about.line2")}
         </div>
         <a href={REPO} target="_blank" rel="noopener noreferrer" style={{
           display: "block", textAlign: "center", padding: "12px", borderRadius: 9, textDecoration: "none", boxSizing: "border-box",
-          background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+          background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
         }}>{tr("about.sourceLink")}</a>
-        <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" }}>github.com/ghug/cribbage-trainer</div>
-        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" }}>v__APP_VERSION__</div>
+        <div style={{ fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" }}>github.com/ghug/cribbage-trainer</div>
+        <div style={{ fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" }}>v__APP_VERSION__</div>
       </div>
     </div>
   );
@@ -753,7 +760,7 @@ function CardPicker({ count, onPick, onClose, dealerInit, canDeal }) {
   const [asDealer, setAsDealer] = useState(!!dealerInit);   // build the hand as the dealer (your crib) or defending
   const deck = deckExcluding([]);
   const seg = (on) => ({
-    flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: 11.5,
+    flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))",
     background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
     border: `1px solid ${on ? T.pegIvory : T.line}`, fontWeight: on ? 700 : 400,
   });
@@ -771,10 +778,10 @@ function CardPicker({ count, onPick, onClose, dealerInit, canDeal }) {
       <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", top: 12, bottom: 12, left: "50%", transform: "translateX(-50%)", width: "calc(100% - 24px)", maxWidth: 360, display: "flex", flexDirection: "column", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "16px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)", boxSizing: "border-box" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
           <div>
-            <div style={{ fontWeight: 700, fontSize: 16 }}>{tr("trainer.picker.title")}</div>
-            <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 2 }}>{tr("trainer.picker.hint", { n: count, sel: sel.length })}</div>
+            <div style={{ fontWeight: 700, fontSize: "max(16px, var(--min-fs, 0px))" }}>{tr("trainer.picker.title")}</div>
+            <div style={{ fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted, marginTop: 2 }}>{tr("trainer.picker.hint", { n: count, sel: sel.length })}</div>
           </div>
-          <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>{tr("trainer.picker.cancel")}</button>
+          <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", fontWeight: 700 }}>{tr("trainer.picker.cancel")}</button>
         </div>
         {/* Four suit columns, ranks A->K down each, overlapping vertically by 66% (so each
             card shows its top 34% — the corner rank+suit — with the bottom card full).
@@ -799,7 +806,7 @@ function CardPicker({ count, onPick, onClose, dealerInit, canDeal }) {
         </div>
         {canDeal && (
           <div style={{ marginTop: 12 }}>
-            <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 }}>{tr("trainer.picker.roleLabel")}</div>
+            <div style={{ fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted, marginBottom: 6 }}>{tr("trainer.picker.roleLabel")}</div>
             <div style={{ display: "flex", gap: 6 }}>
               <button onClick={() => setAsDealer(true)} style={seg(asDealer)}>{tr("trainer.picker.asDealer")}</button>
               <button onClick={() => setAsDealer(false)} style={seg(!asDealer)}>{tr("trainer.picker.asDefend")}</button>
@@ -812,7 +819,7 @@ function CardPicker({ count, onPick, onClose, dealerInit, canDeal }) {
             cursor: ready ? "pointer" : "default",
             background: ready ? `linear-gradient(180deg, ${T.good}, ${T.goodDeep})` : "rgba(0,0,0,0.25)",
             color: ready ? T.ivory : T.muted, opacity: ready ? 1 : 0.6,
-            fontSize: 16, fontWeight: 700, letterSpacing: 0.3, boxShadow: ready ? "0 4px 12px rgba(0,0,0,0.35)" : "none",
+            fontSize: "max(16px, var(--min-fs, 0px))", fontWeight: 700, letterSpacing: 0.3, boxShadow: ready ? "0 4px 12px rgba(0,0,0,0.35)" : "none",
           }}>{tr("trainer.picker.deal", { n: count })}</button>
       </div>
     </div>
@@ -829,7 +836,7 @@ const SETTINGS_KEY = "cribbage:settings";
 // The full GLOBAL settings object, shared (same localStorage key) with the landing page and the
 // Play game, so the gear menu here is the identical global game-settings menu. The trainer itself
 // only acts on players/teams; the gameplay toggles (counting/automation/...) are carried & synced.
-const DEFAULT_SETTINGS = { players: 2, teams: 2, seats: [], names: [], speed: "normal", counting: "auto", tapToSelect: true, autoCut: false, autoGo: false, warn: true, claimWarn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
+const DEFAULT_SETTINGS = { players: 2, teams: 2, seats: [], names: [], speed: "normal", textSize: "small", counting: "auto", tapToSelect: true, autoCut: false, autoGo: false, warn: true, claimWarn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
 function loadSettings() { try { const raw = localStorage.getItem(SETTINGS_KEY); if (raw) return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) }; } catch (e) {} return { ...DEFAULT_SETTINGS }; }
 function saveSettings(s) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (e) {} }
 // Solo iff exactly one human seat (seat 0 human by default) — gates the muggins counting rows,
@@ -983,7 +990,7 @@ export default function CribbageTrainer() {
   return (
     <div style={{
       minHeight: "100%", background: `radial-gradient(120% 90% at 50% 0%, ${T.baizeHi}, ${T.baize})`,
-      color: T.cream, fontFamily: serif, padding: "0 0 28px",
+      color: T.cream, fontFamily: serif, padding: "0 0 28px", "--min-fs": MIN_FS[settings.textSize] || "0px",
     }}>
       <style>{`
         @keyframes dealIn {from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
@@ -1006,29 +1013,29 @@ export default function CribbageTrainer() {
           <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
             <a href="index.html" aria-label={tr("trainer.home")} title={tr("trainer.home")} style={{
               flex: "0 0 auto", width: 34, height: 34, borderRadius: 8, background: T.baize, color: T.ivory, textDecoration: "none",
-              display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, lineHeight: 1,
+              display: "flex", alignItems: "center", justifyContent: "center", fontSize: "max(19px, var(--min-fs, 0px))", lineHeight: 1,
               boxShadow: "inset 0 1px 2px rgba(255,255,255,0.12), 0 2px 5px rgba(0,0,0,0.35)",
             }}>♣</a>
-            <span style={{ fontFamily: mono, fontSize: 12, color: "rgba(42,27,14,0.8)", lineHeight: 1.3 }}>{players === 2 ? tr("trainer.hdr.heads") : teams < players ? tr("trainer.hdr.teams", { p: players, teams, size: players / teams }) : tr("trainer.hdr.solo", { p: players })}</span>
+            <span style={{ fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: "rgba(42,27,14,0.8)", lineHeight: 1.3 }}>{players === 2 ? tr("trainer.hdr.heads") : teams < players ? tr("trainer.hdr.teams", { p: players, teams, size: players / teams }) : tr("trainer.hdr.solo", { p: players })}</span>
           </div>
           <div style={{ display: "flex", gap: 8, flex: "0 0 auto" }}>
             <a href="index.html" aria-label={tr("trainer.home")} style={{
               width: 40, height: 40, borderRadius: 10, textDecoration: "none",
               border: "1px solid rgba(0,0,0,0.28)", background: "rgba(42,27,14,0.14)",
-              color: "#2A1B0E", fontSize: 19, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
+              color: "#2A1B0E", fontSize: "max(19px, var(--min-fs, 0px))", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
             }}>⌂</a>
             <button onClick={() => setShowSettings((o) => !o)} aria-label={tr("settings.title")} aria-expanded={showSettings} style={{
               width: 40, height: 40, borderRadius: 10, cursor: "pointer",
               border: "1px solid rgba(0,0,0,0.28)", background: showSettings ? "rgba(42,27,14,0.28)" : "rgba(42,27,14,0.14)",
-              color: "#2A1B0E", fontSize: 20, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
+              color: "#2A1B0E", fontSize: "max(20px, var(--min-fs, 0px))", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
             }}>⚙</button>
           </div>
         </div>
         <div style={{ marginTop: 12 }}><PegTrack pct={acc} /></div>
-        <div style={{ marginTop: 10, display: "flex", gap: 18, flexWrap: "wrap", fontFamily: mono, fontSize: 12, color: "#2A1B0E" }}>
-          <span><b style={{ fontSize: 15 }}>{stats.hands}</b> {tr("trainer.stat.hands")}</span>
-          <span><b style={{ fontSize: 15 }}>{stats.hands ? acc.toFixed(0) : "–"}%</b> {tr("trainer.stat.optimal")}</span>
-          <span><b style={{ fontSize: 15 }}>{stats.hands ? avgLost.toFixed(2) : "–"}</b> {tr("trainer.stat.lost")}</span>
+        <div style={{ marginTop: 10, display: "flex", gap: 18, flexWrap: "wrap", fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: "#2A1B0E" }}>
+          <span><b style={{ fontSize: "max(15px, var(--min-fs, 0px))" }}>{stats.hands}</b> {tr("trainer.stat.hands")}</span>
+          <span><b style={{ fontSize: "max(15px, var(--min-fs, 0px))" }}>{stats.hands ? acc.toFixed(0) : "–"}%</b> {tr("trainer.stat.optimal")}</span>
+          <span><b style={{ fontSize: "max(15px, var(--min-fs, 0px))" }}>{stats.hands ? avgLost.toFixed(2) : "–"}</b> {tr("trainer.stat.lost")}</span>
         </div>
       </header>
 
@@ -1043,12 +1050,12 @@ export default function CribbageTrainer() {
         }}>
           <span style={{ width: 12, height: 12, borderRadius: "50%", background: cribIsOurs ? T.good : T.pegRed, flex: "0 0 auto", boxShadow: "0 0 0 3px rgba(0,0,0,0.2)" }} />
           <div>
-            <div style={{ fontWeight: 700, fontSize: 15 }}>{bannerTitle}</div>
-            <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 2 }}>{bannerSub}</div>
+            <div style={{ fontWeight: 700, fontSize: "max(15px, var(--min-fs, 0px))" }}>{bannerTitle}</div>
+            <div style={{ fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", color: T.muted, marginTop: 2 }}>{bannerSub}</div>
           </div>
         </div>
 
-        <p style={{ fontFamily: mono, fontSize: 12, color: T.muted, margin: "18px 2px 6px" }}>
+        <p style={{ fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.muted, margin: "18px 2px 6px" }}>
           {phase === "choose"
             ? (discardCount === 2
                 ? (selected.length === 1 ? tr("trainer.prompt.tapTwoMore") : tr("trainer.prompt.tapTwo"))
@@ -1076,12 +1083,12 @@ export default function CribbageTrainer() {
         {phase === "revealed" && opts && (
           <div style={{ marginTop: 20 }}>
             <div style={{
-              padding: "12px 14px", borderRadius: 10, marginBottom: 14, lineHeight: 1.5, fontSize: 14.5,
+              padding: "12px 14px", borderRadius: 10, marginBottom: 14, lineHeight: 1.5, fontSize: "max(14.5px, var(--min-fs, 0px))",
               background: chosenId === best.id ? "rgba(95,164,124,0.14)" : "rgba(0,0,0,0.22)",
               border: `1px solid ${chosenId === best.id ? "rgba(95,164,124,0.4)" : T.line}`,
             }}>{buildNote(cribIsOurs, best, chosen)}</div>
 
-            <div style={{ display: "grid", gridTemplateColumns: gridCols, gap: 5, fontFamily: mono, fontSize: 10, color: T.muted, padding: "0 4px 2px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: gridCols, gap: 5, fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, padding: "0 4px 2px" }}>
               <span></span><span>{tr("trainer.tbl.throw")}</span><span>{tr("trainer.tbl.bar", { m: mode === "ev" ? tr("trainer.tbl.net") : tr("trainer.tbl.adj") })}</span>
               <span style={{ textAlign: "right" }}>{tr("trainer.tbl.hand")}</span><span style={{ textAlign: "right" }}>{tr("trainer.tbl.crib")}</span>
               <span style={{ textAlign: "right" }}>{tr("trainer.tbl.peg")}</span><span style={{ textAlign: "right" }}>{mode === "ev" ? tr("trainer.tbl.net") : tr("trainer.tbl.adj")}</span>
@@ -1100,17 +1107,17 @@ export default function CribbageTrainer() {
                       background: isBest ? "rgba(95,164,124,0.12)" : "rgba(0,0,0,0.12)",
                       border: isPick && !isBest ? `1px solid ${T.pegRed}` : "1px solid transparent",
                     }}>
-                      <span style={{ fontFamily: mono, fontSize: 12, color: T.muted, transform: isOpen ? "rotate(90deg)" : "none", transition: "transform 150ms" }}>{"›"}</span>
+                      <span style={{ fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.muted, transform: isOpen ? "rotate(90deg)" : "none", transition: "transform 150ms" }}>{"›"}</span>
                       <span style={{ fontFamily: serif, fontWeight: 700, fontSize: discardCount === 2 ? 13 : 15, display: "flex", gap: 4, flexWrap: "wrap" }}>
                         {o.cards.map((c) => <span key={cardId(c)} style={{ color: isRed(c.s) ? T.suitRed : T.ivory }}>{tag(c)}</span>)}
                       </span>
                       <span style={{ height: 9, background: "rgba(0,0,0,0.28)", borderRadius: 5, overflow: "hidden" }}>
                         <span style={{ display: "block", height: "100%", width: `${Math.max(4, (scoreVal / maxAdj) * 100)}%`, background: isBest ? T.good : isPick ? T.pegRed : "rgba(236,224,182,0.45)" }} />
                       </span>
-                      <span style={{ fontFamily: mono, fontSize: 11.5, textAlign: "right", color: T.cream }}>{o.handEV.toFixed(2)}</span>
-                      <span style={{ fontFamily: mono, fontSize: 11.5, textAlign: "right", color: T.muted }}>{cribIsOurs ? "+" : "−"}{o.cribEV.toFixed(2)}</span>
-                      <span style={{ fontFamily: mono, fontSize: 11.5, textAlign: "right", color: T.muted }}>+{o.pegEV.toFixed(2)}</span>
-                      <span style={{ fontFamily: mono, fontSize: 12.5, fontWeight: 700, textAlign: "right", color: isBest ? T.good : T.cream }}>{scoreVal.toFixed(2)}</span>
+                      <span style={{ fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", textAlign: "right", color: T.cream }}>{o.handEV.toFixed(2)}</span>
+                      <span style={{ fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", textAlign: "right", color: T.muted }}>{cribIsOurs ? "+" : "−"}{o.cribEV.toFixed(2)}</span>
+                      <span style={{ fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", textAlign: "right", color: T.muted }}>+{o.pegEV.toFixed(2)}</span>
+                      <span style={{ fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700, textAlign: "right", color: isBest ? T.good : T.cream }}>{scoreVal.toFixed(2)}</span>
                     </button>
                     {isOpen && <Explain opt={o} cribIsOurs={cribIsOurs} youDeal={scenario.youDeal} mode={mode} players={players} />}
                   </div>
@@ -1126,7 +1133,7 @@ export default function CribbageTrainer() {
               <button key={label} onClick={onClick} style={{
                 flex: 1, padding: "13px", borderRadius: 10, border: "none", cursor: "pointer",
                 background: `linear-gradient(180deg, ${T.woodL}, ${T.woodM})`, color: "#2A1B0E",
-                fontSize: 16, fontWeight: 700, letterSpacing: 0.3, boxShadow: "0 4px 12px rgba(0,0,0,0.35)",
+                fontSize: "max(16px, var(--min-fs, 0px))", fontWeight: 700, letterSpacing: 0.3, boxShadow: "0 4px 12px rgba(0,0,0,0.35)",
               }}>{label}</button>
             ))}
           </div>
@@ -1139,31 +1146,31 @@ export default function CribbageTrainer() {
               width: "100%", textAlign: "left", cursor: "pointer", padding: "10px 12px", borderRadius: 8,
               background: mode === "ev" ? "rgba(0,0,0,0.2)" : (mode === "need" ? "rgba(95,164,124,0.18)" : "rgba(200,65,43,0.16)"),
               border: `1px solid ${mode === "ev" ? T.line : (mode === "need" ? "rgba(95,164,124,0.5)" : "rgba(200,65,43,0.45)")}`,
-              color: T.cream, fontFamily: mono, fontSize: 11.5, display: "flex", justifyContent: "space-between", alignItems: "center",
+              color: T.cream, fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", display: "flex", justifyContent: "space-between", alignItems: "center",
             }}>
               <span>{tr("trainer.board.toggle", { mode: MODE_LABEL[mode], state: modeOverride ? tr("trainer.board.stManual") : tr("trainer.board.stAuto") })}</span>
               <span style={{ transform: showBoard ? "rotate(90deg)" : "none", transition: "transform 150ms" }}>{"›"}</span>
             </button>
             {showBoard && (
               <div style={{ padding: "12px 12px 14px", background: "rgba(0,0,0,0.26)", borderRadius: 9, marginTop: 6 }}>
-                <div style={{ fontSize: 13, lineHeight: 1.5, marginBottom: 12 }}>
+                <div style={{ fontSize: "max(13px, var(--min-fs, 0px))", lineHeight: 1.5, marginBottom: 12 }}>
                   {tr("trainer.board.body")}
                 </div>
                 <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
                   {[["your", tr("trainer.board.yourPips"), yourPips, setYourPips], ["leader", tr("trainer.board.leaderPips"), leaderPips, setLeaderPips]].map(([id, lbl, val, set]) => (
-                    <label key={id} style={{ flex: 1, fontFamily: mono, fontSize: 11, color: T.muted }}>
+                    <label key={id} style={{ flex: 1, fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted }}>
                       {lbl}
                       <input type="number" min={0} max={120} value={val}
                         onChange={(e) => set(Math.max(0, Math.min(120, parseInt(e.target.value || "0", 10))))}
                         style={{
                           width: "100%", marginTop: 4, padding: "8px 10px", borderRadius: 7, boxSizing: "border-box",
                           background: "rgba(0,0,0,0.35)", border: `1px solid ${T.line}`, color: T.cream,
-                          fontFamily: mono, fontSize: 15,
+                          fontFamily: mono, fontSize: "max(15px, var(--min-fs, 0px))",
                         }} />
                     </label>
                   ))}
                 </div>
-                <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 10 }}>
+                <div style={{ fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted, marginBottom: 10 }}>
                   {yourPips || leaderPips
                     ? tr("trainer.board.need", { you: Math.max(0, 121 - yourPips), leader: Math.max(0, 121 - leaderPips), mode: MODE_LABEL[suggested] })
                     : tr("trainer.board.neutral")}
@@ -1174,14 +1181,14 @@ export default function CribbageTrainer() {
                     const txt = val === null ? tr("trainer.board.auto") : MODE_LABEL[val];
                     return (
                       <button key={lbl} onClick={() => setModeOverride(val)} style={{
-                        flex: 1, padding: "9px 4px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: 10.5,
+                        flex: 1, padding: "9px 4px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))",
                         background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
                         border: `1px solid ${on ? T.pegIvory : T.line}`, fontWeight: on ? 700 : 400,
                       }}>{txt}</button>
                     );
                   })}
                 </div>
-                <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 8, lineHeight: 1.5 }}>
+                <div style={{ fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, marginTop: 8, lineHeight: 1.5 }}>
                   {tr("trainer.board.risk", { risk: RISK })}
                 </div>
               </div>
@@ -1192,14 +1199,14 @@ export default function CribbageTrainer() {
             <button onClick={() => setShowModel((v) => !v)} style={{
               width: "100%", textAlign: "left", cursor: "pointer", padding: "10px 12px", borderRadius: 8,
               background: "rgba(0,0,0,0.2)", border: `1px solid ${T.line}`, color: T.cream,
-              fontFamily: mono, fontSize: 11.5, display: "flex", justifyContent: "space-between", alignItems: "center",
+              fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", display: "flex", justifyContent: "space-between", alignItems: "center",
             }}>
               <span>{tr("trainer.model.toggle")}</span>
               <span style={{ transform: showModel ? "rotate(90deg)" : "none", transition: "transform 150ms" }}>{"›"}</span>
             </button>
             {showModel && (
               <div style={{ padding: "12px 12px 14px", background: "rgba(0,0,0,0.26)", borderRadius: 9, marginTop: 6 }}>
-                <div style={{ fontSize: 13, lineHeight: 1.5, marginBottom: 12 }}>
+                <div style={{ fontSize: "max(13px, var(--min-fs, 0px))", lineHeight: 1.5, marginBottom: 12 }}>
                   {tr("trainer.model.introA")}<b>{tr("trainer.model.dealers")}</b>{tr("trainer.model.introMid")}<b>{tr("trainer.model.defenders")}</b>{tr("trainer.model.introB")}{" "}
                   {isTeams
                     ? tr("trainer.model.teams", { teams })
@@ -1217,8 +1224,8 @@ export default function CribbageTrainer() {
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "16px 1fr 1fr", gap: 6, alignItems: "center", marginBottom: 6 }}>
                   <span></span>
-                  <span style={{ fontFamily: mono, fontSize: 10, color: T.good }}>{tr("trainer.model.dealerCol")}</span>
-                  <span style={{ fontFamily: mono, fontSize: 10, color: T.pegRed }}>{tr("trainer.model.defenderCol")}</span>
+                  <span style={{ fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.good }}>{tr("trainer.model.dealerCol")}</span>
+                  <span style={{ fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.pegRed }}>{tr("trainer.model.defenderCol")}</span>
                 </div>
                 {DEALER_DISCARD_PROBS.map((dp, i) => {
                   const r = i + 1;
@@ -1229,12 +1236,12 @@ export default function CribbageTrainer() {
                       <span style={{ height: 8, flex: 1, background: "rgba(0,0,0,0.28)", borderRadius: 4, overflow: "hidden" }}>
                         <span style={{ display: "block", height: "100%", width: `${(v / mx) * 100}%`, background: color }} />
                       </span>
-                      <span style={{ fontFamily: mono, fontSize: 9.5, color: T.muted, width: 30, textAlign: "right" }}>{(v * 100).toFixed(1)}</span>
+                      <span style={{ fontFamily: mono, fontSize: "max(9.5px, var(--min-fs, 0px))", color: T.muted, width: 30, textAlign: "right" }}>{(v * 100).toFixed(1)}</span>
                     </span>
                   );
                   return (
                     <div key={r} style={{ display: "grid", gridTemplateColumns: "16px 1fr 1fr", gap: 6, alignItems: "center", marginBottom: 3 }}>
-                      <span style={{ fontFamily: serif, fontWeight: 700, fontSize: 13 }}>{rankLabel(r)}</span>
+                      <span style={{ fontFamily: serif, fontWeight: 700, fontSize: "max(13px, var(--min-fs, 0px))" }}>{rankLabel(r)}</span>
                       <Bar v={dp} color={T.good} />
                       <Bar v={fp} color={T.pegRed} />
                     </div>

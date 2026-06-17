@@ -130,21 +130,6 @@ for f in index.html trainer.html play.html; do
 done
 echo "stamped version v${VERSION}"
 
-# DEV BUILDS ONLY: embed Eruda (an on-device DevTools console) before </body> so the deployed dev
-# pages can be inspected on a phone with no desktop. Release builds (no "-dev" in VERSION) omit it,
-# so it never ships in the offline APK (which is built from a release version). It loads from a CDN,
-# so it simply no-ops when offline — the guard skips init if eruda didn't load. The snippet has no
-# '&' or '|' so it's safe as a sed replacement with a '|' delimiter.
-case "$VERSION" in
-  *-dev*)
-    ERUDA='<script src="https://cdn.jsdelivr.net/npm/eruda"></script><script>if(window.eruda)eruda.init();</script>'
-    for f in index.html trainer.html play.html; do
-      sed -i "s|</body>|${ERUDA}</body>|" "$ROOT/$f"
-    done
-    echo "embedded eruda (dev build)"
-    ;;
-esac
-
 # i18n key-parity lint: fail the build if any referenced key is missing from en.js (it would
 # otherwise render as the raw key), or a translation has a stray/typo'd key.
 node "$ROOT/engine/verify_i18n.js"

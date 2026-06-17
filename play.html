@@ -441,6 +441,11 @@ cribbageLocale("en", {
   "settings.speed.optNormal": "Normal",
   "settings.speed.optFast": "Fast",
   "settings.speed.optInstant": "Instant",
+  "settings.textSize.title": "Text size",
+  "settings.textSize.desc": "Raises the minimum text size across the app. Small keeps the current sizing; Medium and Large make the smallest labels bigger.",
+  "settings.textSize.optSmall": "Small",
+  "settings.textSize.optMedium": "Medium",
+  "settings.textSize.optLarge": "Large",
   "settings.tapToSelect.title": "Tap to select, then confirm",
   "settings.tapToSelect.desc": "Tapping a card lifts it to select (tap again to drop it); a Play or Throw-to-crib button above your hand commits the choice. Off: a tap plays or throws immediately.",
   "settings.autoCut.title": "Cut for the starter",
@@ -632,6 +637,7 @@ const { useReducer, useEffect } = React;
 const SPEED_MULT = { slow: 2, normal: 1, fast: 0.5, instant: 0 };
 let SPEED = "normal";
 function spd(ms) { return ms <= 0 ? ms : SPEED === "instant" ? 32 : Math.round(ms * (SPEED_MULT[SPEED] ?? 1)); }
+const MIN_FS = { small: "0px", medium: "12px", large: "14px" };
 const fifteenVal = (r) => Math.min(r, 10);
 function scoreInto(four, starter, isCrib, acc) {
     const all = [...four, starter];
@@ -885,7 +891,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.73";
+const APP_VERSION = "1.1.20-dev.74";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -989,7 +995,7 @@ function Card({ card, onClick, clickable, badge, dim, selected, raised, selLabel
     const elevated = badge || selected || raised;
     return (React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 5, width: "var(--cw)", flex: "0 0 auto" } },
         (badge || selected) && (React.createElement("span", { style: {
-                fontFamily: mono, fontSize: 9.5, letterSpacing: 0.4, fontWeight: 700,
+                fontFamily: mono, fontSize: "max(9.5px, var(--min-fs, 0px))", letterSpacing: 0.4, fontWeight: 700,
                 color: T.ivory, background: badge ? badge.color : T.selBlue, padding: "2px 6px", borderRadius: 4, whiteSpace: "nowrap",
             } }, badge ? badge.text : (selLabel || tr("play.sel.throw")))),
         React.createElement("button", { onClick: clickable ? onClick : undefined, onPointerEnter: () => setHover(true), onPointerLeave: () => setHover(false), "aria-label": `${rankLabel(card.r)} of ${["spades", "hearts", "diamonds", "clubs"][card.s]}`, style: {
@@ -1024,10 +1030,10 @@ function PegTrack({ pct }) {
 function CatBars({ cats, scale, color }) {
     const max = Math.max(scale, ...cats, 0.001);
     return (React.createElement("div", { style: { display: "grid", gap: 4 } }, cats.map((v, i) => v < 0.005 ? null : (React.createElement("div", { key: i, style: { display: "grid", gridTemplateColumns: "58px 1fr 30px", gap: 8, alignItems: "center" } },
-        React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: T.muted } }, catName(i)),
+        React.createElement("span", { style: { fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted } }, catName(i)),
         React.createElement("span", { style: { height: 7, background: "rgba(0,0,0,0.28)", borderRadius: 4, overflow: "hidden" } },
             React.createElement("span", { style: { display: "block", height: "100%", width: `${(v / max) * 100}%`, background: color } })),
-        React.createElement("span", { style: { fontFamily: mono, fontSize: 11.5, textAlign: "right" } }, v))))));
+        React.createElement("span", { style: { fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", textAlign: "right" } }, v))))));
 }
 const targetFor = (P) => (P >= 5 ? 61 : 121);
 const skunkLines = (P) => (P >= 5 ? { skunk: 30, dbl: 15 } : { skunk: 90, dbl: 60 });
@@ -1558,7 +1564,7 @@ function reduce(state, action) {
             return state;
     }
 }
-const DEFAULT_SETTINGS = { players: 2, teams: 2, seats: [], names: [], speed: "normal", counting: "auto", tapToSelect: true, autoCut: false, autoGo: false, warn: true, claimWarn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
+const DEFAULT_SETTINGS = { players: 2, teams: 2, seats: [], names: [], speed: "normal", textSize: "small", counting: "auto", tapToSelect: true, autoCut: false, autoGo: false, warn: true, claimWarn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
 const SETTINGS_KEY = "cribbage:settings";
 function loadSettings() {
     try {
@@ -1666,7 +1672,7 @@ function ScoreRow({ seats, dealerIdx, turn, winner, onPick, P, teams }) {
                 React.createElement("span", { style: { display: "inline-flex", alignItems: "center" } },
                     seatShort(m),
                     m === dealerIdx && React.createElement("span", { style: { marginLeft: 2 }, title: tr("play.dealerTip") }, "\uD83D\uDD18")))))),
-            React.createElement("div", { style: { fontFamily: serif, fontWeight: 700, fontSize: 22, color: isWin ? T.good : T.ivory } }, score),
+            React.createElement("div", { style: { fontFamily: serif, fontWeight: 700, fontSize: "max(22px, var(--min-fs, 0px))", color: isWin ? T.good : T.ivory } }, score),
             React.createElement("div", { style: { marginTop: 6, padding: "0 2px" } },
                 React.createElement(PegTrack, { pct: (score / targetFor(P)) * 100 }))));
     })));
@@ -1677,8 +1683,8 @@ function Modal({ onBackdrop, maxWidth = 380, padding = "20px", scroll = false, z
 }
 function ModalHeader({ title, onClose, closeLabel, mb = 12, children }) {
     return (React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: mb, flex: "0 0 auto" } },
-        children != null ? children : React.createElement("span", { style: { fontWeight: 700, fontSize: 17 } }, title),
-        React.createElement("button", { onClick: onClose, style: { padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 } }, closeLabel || tr("common.done"))));
+        children != null ? children : React.createElement("span", { style: { fontWeight: 700, fontSize: "max(17px, var(--min-fs, 0px))" } }, title),
+        React.createElement("button", { onClick: onClose, style: { padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", fontWeight: 700 } }, closeLabel || tr("common.done"))));
 }
 function HistoryPanel({ seatIdx, seats, onClose, P, teams }) {
     const members = teamsList(P, teams).find((m) => m.includes(seatIdx)) || [seatIdx];
@@ -1690,15 +1696,15 @@ function HistoryPanel({ seatIdx, seats, onClose, P, teams }) {
     const cols = "1fr 34px 42px";
     return (React.createElement(Modal, { onBackdrop: onClose, padding: "18px 18px 14px", scroll: true, cardStyle: { maxHeight: "85vh" } },
         React.createElement(ModalHeader, { onClose: onClose, closeLabel: tr("play.hist.close"), mb: 10 },
-            React.createElement("span", { style: { fontWeight: 700, fontSize: 15 } }, tr("play.hist.scoringGame", { team: teamLabel(members) }))),
-        hist.length === 0 ? (React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.muted } }, tr("play.hist.noPoints"))) : (React.createElement("div", { style: { display: "grid", gap: 3 } },
-            React.createElement("div", { style: { display: "grid", gridTemplateColumns: cols, gap: 8, fontFamily: mono, fontSize: 10, color: T.muted, paddingBottom: 2 } },
+            React.createElement("span", { style: { fontWeight: 700, fontSize: "max(15px, var(--min-fs, 0px))" } }, tr("play.hist.scoringGame", { team: teamLabel(members) }))),
+        hist.length === 0 ? (React.createElement("div", { style: { fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.muted } }, tr("play.hist.noPoints"))) : (React.createElement("div", { style: { display: "grid", gap: 3 } },
+            React.createElement("div", { style: { display: "grid", gridTemplateColumns: cols, gap: 8, fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, paddingBottom: 2 } },
                 React.createElement("span", null, tr("play.hist.colFor")),
                 React.createElement("span", { style: { textAlign: "right" } }, tr("play.hist.colPts")),
                 React.createElement("span", { style: { textAlign: "right" } }, tr("play.hist.total"))),
             hist.map((h, k) => {
                 run += h.pts;
-                return (React.createElement("div", { key: k, style: { display: "grid", gridTemplateColumns: cols, gap: 8, fontFamily: mono, fontSize: 11.5, alignItems: "baseline" } },
+                return (React.createElement("div", { key: k, style: { display: "grid", gridTemplateColumns: cols, gap: 8, fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", alignItems: "baseline" } },
                     React.createElement("span", { style: { color: T.cream } },
                         isTeam ? `${seatName(h.who)}: ` : "",
                         h.label),
@@ -1707,9 +1713,9 @@ function HistoryPanel({ seatIdx, seats, onClose, P, teams }) {
                         h.pts),
                     React.createElement("span", { style: { textAlign: "right", color: T.muted } }, run)));
             }))),
-        React.createElement("div", { style: { display: "flex", justifyContent: "space-between", borderTop: `1px solid ${T.line}`, marginTop: 8, paddingTop: 8, fontFamily: mono, fontSize: 12 } },
+        React.createElement("div", { style: { display: "flex", justifyContent: "space-between", borderTop: `1px solid ${T.line}`, marginTop: 8, paddingTop: 8, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))" } },
             React.createElement("span", { style: { color: T.muted } }, tr("play.hist.total")),
-            React.createElement("span", { style: { fontFamily: serif, fontWeight: 700, fontSize: 18, color: T.ivory } }, total))));
+            React.createElement("span", { style: { fontFamily: serif, fontWeight: 700, fontSize: "max(18px, var(--min-fs, 0px))", color: T.ivory } }, total))));
 }
 function Panel({ children, tone }) {
     const bg = tone === "good" ? "rgba(95,164,124,0.16)" : tone === "red" ? "rgba(200,65,43,0.14)" : "rgba(0,0,0,0.22)";
@@ -1718,7 +1724,7 @@ function Panel({ children, tone }) {
 }
 function PassPanel({ to, dispatch, locked }) {
     return (React.createElement("div", { style: { textAlign: "center", padding: "20px 16px", borderRadius: 12, background: "rgba(0,0,0,0.3)", border: `1px solid ${T.line}` } },
-        React.createElement("div", { style: { fontWeight: 700, fontSize: 16, marginBottom: 14 } }, tr("play.pass.to", { seat: seatName(to) })),
+        React.createElement("div", { style: { fontWeight: 700, fontSize: "max(16px, var(--min-fs, 0px))", marginBottom: 14 } }, tr("play.pass.to", { seat: seatName(to) })),
         React.createElement(ConfirmButton, { label: tr("play.pass.take", { seat: seatName(to) }), enabled: !locked, onClick: () => dispatch({ type: "TAKE_DEVICE" }) })));
 }
 function SkunkPanel({ seats, winner, P, teams }) {
@@ -1732,8 +1738,8 @@ function SkunkPanel({ seats, winner, P, teams }) {
     const youSkunked = losers.some((x) => x.m.includes(0) && x.score <= skLine);
     const fmt = (arr) => arr.map((x) => `${teamLabel(x.m)} (${x.score})`).join(", ");
     return (React.createElement(Panel, { tone: youSkunked ? "red" : "good" },
-        dbl.length > 0 && React.createElement("div", { style: { fontWeight: 700, fontSize: 15 } }, tr("play.skunk.double", { list: fmt(dbl) })),
-        sk.length > 0 && React.createElement("div", { style: { fontWeight: 700, fontSize: 15, marginTop: dbl.length ? 4 : 0 } }, tr("play.skunk.single", { list: fmt(sk) }))));
+        dbl.length > 0 && React.createElement("div", { style: { fontWeight: 700, fontSize: "max(15px, var(--min-fs, 0px))" } }, tr("play.skunk.double", { list: fmt(dbl) })),
+        sk.length > 0 && React.createElement("div", { style: { fontWeight: 700, fontSize: "max(15px, var(--min-fs, 0px))", marginTop: dbl.length ? 4 : 0 } }, tr("play.skunk.single", { list: fmt(sk) }))));
 }
 function ConfirmButton({ label, enabled, onClick }) {
     return (React.createElement("button", { onClick: enabled ? onClick : undefined, disabled: !enabled, style: {
@@ -1741,7 +1747,7 @@ function ConfirmButton({ label, enabled, onClick }) {
             cursor: enabled ? "pointer" : "default",
             background: enabled ? `linear-gradient(180deg, ${T.good}, ${T.goodDeep})` : "rgba(0,0,0,0.25)",
             color: enabled ? T.ivory : T.muted, opacity: enabled ? 1 : 0.6,
-            fontSize: 15, fontWeight: 700, letterSpacing: 0.3,
+            fontSize: "max(15px, var(--min-fs, 0px))", fontWeight: 700, letterSpacing: 0.3,
             boxShadow: enabled ? "0 4px 12px rgba(0,0,0,0.35)" : "none",
         } }, label));
 }
@@ -1750,7 +1756,7 @@ function bigBtn(label, onClick, tone) {
     return (React.createElement("button", { onClick: onClick, style: {
             width: "100%", padding: "13px", borderRadius: 10, border: "none", cursor: "pointer",
             background: grad, color: tone === "wood" ? "#2A1B0E" : T.ivory,
-            fontSize: 16, fontWeight: 700, letterSpacing: 0.3, boxShadow: "0 4px 12px rgba(0,0,0,0.35)",
+            fontSize: "max(16px, var(--min-fs, 0px))", fontWeight: 700, letterSpacing: 0.3, boxShadow: "0 4px 12px rgba(0,0,0,0.35)",
         } }, label));
 }
 function dealBlurb(P) {
@@ -1940,7 +1946,7 @@ function CribbagePlay() {
     const turnNow = phase === "play" && peg ? peg.turn : phase === "over" ? winner : -1;
     return (React.createElement("div", { style: {
             minHeight: "100%", background: `radial-gradient(120% 90% at 50% 0%, ${T.baizeHi}, ${T.baize})`,
-            color: T.cream, fontFamily: serif, padding: "0 0 40px",
+            color: T.cream, fontFamily: serif, padding: "0 0 40px", "--min-fs": MIN_FS[settings.textSize] || "0px",
         } },
         React.createElement("style", null, `
         html,body{background:${T.baizeHi}}
@@ -1964,10 +1970,10 @@ function CribbagePlay() {
                     React.createElement("button", { onClick: goHome, "aria-label": "Home", title: "Home", style: {
                             flex: "0 0 auto", width: 34, height: 34, borderRadius: 8, background: T.baize, color: T.ivory, cursor: "pointer",
                             border: "none", padding: 0,
-                            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, lineHeight: 1,
+                            display: "flex", alignItems: "center", justifyContent: "center", fontSize: "max(19px, var(--min-fs, 0px))", lineHeight: 1,
                             boxShadow: "inset 0 1px 2px rgba(255,255,255,0.12), 0 2px 5px rgba(0,0,0,0.35)",
                         } }, "\u2663"),
-                    React.createElement("span", { style: { fontFamily: mono, fontSize: 12, color: "rgba(42,27,14,0.8)", lineHeight: 1.3 } },
+                    React.createElement("span", { style: { fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: "rgba(42,27,14,0.8)", lineHeight: 1.3 } },
                         headLine,
                         React.createElement("br", null),
                         tr("play.hdr.playTo", { target: targetFor(players) }),
@@ -1976,17 +1982,17 @@ function CribbagePlay() {
                     React.createElement("button", { onClick: goHome, "aria-label": "Home", style: {
                             width: 40, height: 40, borderRadius: 10, cursor: "pointer",
                             border: "1px solid rgba(0,0,0,0.28)", background: "rgba(42,27,14,0.14)",
-                            color: "#2A1B0E", fontSize: 19, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
+                            color: "#2A1B0E", fontSize: "max(19px, var(--min-fs, 0px))", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
                         } }, "\u2302"),
                     canPause && (React.createElement("button", { onClick: () => setPaused((p) => !p), "aria-label": paused ? "Resume" : "Pause", "aria-pressed": paused, style: {
                             width: 40, height: 40, borderRadius: 10, cursor: "pointer",
                             border: "1px solid rgba(0,0,0,0.28)", background: paused ? "rgba(200,65,43,0.32)" : "rgba(42,27,14,0.14)",
-                            color: "#2A1B0E", fontSize: 17, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
+                            color: "#2A1B0E", fontSize: "max(17px, var(--min-fs, 0px))", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
                         } }, paused ? "▶" : "⏸")),
                     React.createElement("button", { onClick: () => setSettingsOpen((o) => !o), "aria-label": "Settings", "aria-expanded": settingsOpen, style: {
                             width: 40, height: 40, borderRadius: 10, cursor: "pointer",
                             border: "1px solid rgba(0,0,0,0.28)", background: settingsOpen ? "rgba(42,27,14,0.28)" : "rgba(42,27,14,0.14)",
-                            color: "#2A1B0E", fontSize: 20, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
+                            color: "#2A1B0E", fontSize: "max(20px, var(--min-fs, 0px))", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
                         } }, "\u2699")))),
         React.createElement("main", { style: {
                 maxWidth: 560, margin: "0 auto", padding: "10px 16px 0",
@@ -1999,25 +2005,25 @@ function CribbagePlay() {
             historySeat !== null && React.createElement(HistoryPanel, { seatIdx: historySeat, seats: seats, onClose: () => setHistorySeat(null), P: players, teams: teams }),
             React.createElement("div", { onClick: () => { if (msgLog.length)
                     setMsgLogOpen(true); }, title: msgLog.length ? tr("play.log.tapHint") : undefined, role: msgLog.length ? "button" : undefined, style: { display: "flex", alignItems: "center", gap: 6, marginTop: 5, marginBottom: 3, marginLeft: 2, marginRight: "calc(50% - 50vw)", height: 18, cursor: msgLog.length ? "pointer" : "default" } },
-                msgLog.length > 0 && (React.createElement("span", { "aria-hidden": "true", style: { flex: "0 0 auto", fontFamily: mono, fontSize: 10, fontWeight: 700, color: T.selBlue, border: `1px solid ${T.selBlue}`, borderRadius: 5, padding: "1px 5px", lineHeight: 1 } },
+                msgLog.length > 0 && (React.createElement("span", { "aria-hidden": "true", style: { flex: "0 0 auto", fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", fontWeight: 700, color: T.selBlue, border: `1px solid ${T.selBlue}`, borderRadius: 5, padding: "1px 5px", lineHeight: 1 } },
                     "\u2630 ",
                     msgLog.length)),
-                React.createElement("span", { style: { flex: "1 1 auto", minWidth: 0, fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: "18px", whiteSpace: "nowrap", overflow: "hidden", textDecoration: msgLog.length ? "underline dotted rgba(236,224,182,0.45)" : "none", textUnderlineOffset: 3 } }, message)),
+                React.createElement("span", { style: { flex: "1 1 auto", minWidth: 0, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.cream, lineHeight: "18px", whiteSpace: "nowrap", overflow: "hidden", textDecoration: msgLog.length ? "underline dotted rgba(236,224,182,0.45)" : "none", textUnderlineOffset: 3 } }, message)),
             msgLogOpen && React.createElement(MessageLogModal, { log: msgLog, onClose: () => setMsgLogOpen(false) }),
             (phase === "cutdeal" || phase === "deal" || phase === "dealing" || phase === "discard" || phase === "cribbing" || phase === "cut" || (phase === "show" && show) || (phase === "play" && peg) || phase === "over") && (React.createElement(PlayScreen, { state: state, dispatch: dispatch, me: phase === "discard" ? ds : (phase === "cut" && multiHuman && humanCuts) ? cutterSeat : (phase === "play" && peg && multiHuman) ? peg.turn : (multiHuman && (phase === "cutdeal" || phase === "deal" || phase === "dealing")) ? dealerIdx : playMe, needHandoff: needHandoff, cribGliding: cribGliding, onView: setViewSeat, onSwap: setDealLocked }))),
         aboutOpen && React.createElement(AboutModal, { onClose: () => setAboutOpen(false) }),
         historyOpen && React.createElement(HistoryModal, { onClose: () => setHistoryOpen(false) }),
         confirmHome && (React.createElement(Modal, { onBackdrop: () => setConfirmHome(false), maxWidth: 360, padding: "18px", zIndex: 200 },
-            React.createElement("div", { style: { fontWeight: 700, fontSize: 16, marginBottom: 6 } }, tr("play.home.title")),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.muted, lineHeight: 1.5, marginBottom: 16 } }, tr("play.home.body")),
+            React.createElement("div", { style: { fontWeight: 700, fontSize: "max(16px, var(--min-fs, 0px))", marginBottom: 6 } }, tr("play.home.title")),
+            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.muted, lineHeight: 1.5, marginBottom: 16 } }, tr("play.home.body")),
             React.createElement("div", { style: { display: "flex", gap: 8 } },
                 React.createElement("button", { onClick: () => setConfirmHome(false), style: {
                         flex: 1, padding: "12px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer",
-                        background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: 13, fontWeight: 700,
+                        background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: "max(13px, var(--min-fs, 0px))", fontWeight: 700,
                     } }, tr("play.home.keep")),
                 React.createElement("a", { href: "index.html", style: {
                         flex: 1, padding: "12px", borderRadius: 9, cursor: "pointer", textDecoration: "none", textAlign: "center", boxSizing: "border-box",
-                        background: `linear-gradient(180deg, ${T.pegRed}, #9c3120)`, color: T.ivory, fontFamily: mono, fontSize: 13, fontWeight: 700,
+                        background: `linear-gradient(180deg, ${T.pegRed}, #9c3120)`, color: T.ivory, fontFamily: mono, fontSize: "max(13px, var(--min-fs, 0px))", fontWeight: 700,
                     } }, tr("play.home.leave")))))));
 }
 const STACK_VISIBLE = 0.3;
@@ -2098,7 +2104,7 @@ function CardSprite({ card, home, dur, delay, clickable, selected, raised, dim, 
             visibility: hidden ? "hidden" : "visible",
         } },
         (selected || raised) && (React.createElement("span", { style: { position: "absolute", bottom: "calc(100% + 2px)", left: 0, right: 0, textAlign: "center", backfaceVisibility: "hidden",
-                fontFamily: mono, fontSize: 9.5, letterSpacing: 0.4, fontWeight: 700, color: T.ivory, pointerEvents: "none" } },
+                fontFamily: mono, fontSize: "max(9.5px, var(--min-fs, 0px))", letterSpacing: 0.4, fontWeight: 700, color: T.ivory, pointerEvents: "none" } },
             React.createElement("span", { style: { background: T.selBlue, padding: "2px 6px", borderRadius: 4, whiteSpace: "nowrap" } }, selLabel || tr("play.sel.throw")))),
         React.createElement("div", { style: { position: "absolute", inset: 0, backfaceVisibility: "hidden" } },
             React.createElement(CardFace, { card: card, edge: edge })),
@@ -2117,8 +2123,8 @@ function SeatLabel({ i, dealerIdx, active, settings, me }) {
     const base = (i === me && named && seatIsHuman(i, settings)) ? `${tr("seat.youShort")} - ${named}` : seatShort(i);
     const text = `${base}${dealerIdx === i ? " 🔘" : ""}`;
     return (React.createElement("span", { style: active
-            ? { fontFamily: mono, fontSize: 10, fontWeight: 700, letterSpacing: 0.3, color: T.ivory, background: T.selBlue, padding: "2px 8px", borderRadius: 999, boxShadow: "0 1px 4px rgba(0,0,0,0.45)" }
-            : { fontFamily: mono, fontSize: 10, color: T.muted } }, text));
+            ? { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", fontWeight: 700, letterSpacing: 0.3, color: T.ivory, background: T.selBlue, padding: "2px 8px", borderRadius: 999, boxShadow: "0 1px 4px rgba(0,0,0,0.45)" }
+            : { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted } }, text));
 }
 function tableSeats(P) {
     if (P === 2)
@@ -2773,8 +2779,8 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
     return (React.createElement("div", { ref: tableRef, style: { position: "relative", marginTop: 6, display: "flex", flexDirection: "column", gap: 10 } },
         cribNote && (React.createElement("div", { onClick: () => setCribNote(false), role: "status", style: {
                 position: "fixed", left: "50%", top: 72, transform: "translateX(-50%)", zIndex: 215,
-                background: T.baize, border: `1px solid ${T.line}`, borderRadius: 10, padding: "10px 16px",
-                boxShadow: "0 8px 26px rgba(0,0,0,0.5)", fontWeight: 700, fontSize: 14, color: T.cream,
+                background: `linear-gradient(180deg, ${T.woodL}, ${T.woodM})`, border: `1px solid ${T.pegIvory}`, borderRadius: 10, padding: "10px 16px",
+                boxShadow: `0 8px 26px rgba(0,0,0,0.55), 0 0 0 3px ${T.baize}`, fontWeight: 700, fontSize: "max(14px, var(--min-fs, 0px))", color: T.ink,
                 cursor: "pointer", maxWidth: "90vw", textAlign: "center",
             } }, cribOwnerText)),
         React.createElement("div", { style: { position: "absolute", inset: 0, pointerEvents: "none", zIndex: 5 } },
@@ -2783,7 +2789,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
         React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 8, padding: "0 6px" } },
             React.createElement("div", { style: { minWidth: 0 } }, ts.left != null ? cell(ts.left) : null),
             React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", flex: "0 0 auto" } },
-                React.createElement("div", { style: { height: 18, marginBottom: 4, display: "flex", alignItems: "center", fontFamily: mono, fontSize: 10, color: T.muted } }, (phase === "play" || showPhase || overPhase) ? tr("play.starterCard") : tr("play.deck")),
+                React.createElement("div", { style: { height: 18, marginBottom: 4, display: "flex", alignItems: "center", fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted } }, (phase === "play" || showPhase || overPhase) ? tr("play.starterCard") : tr("play.deck")),
                 React.createElement("div", { "data-slot": "deck", style: { display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)" } }, deckSwap
                     ? (deckSwap.phase === "empty" ? null
                         : React.createElement(DeckSwapView, { key: deckSwap.phase, phase: deckSwap.phase, offX: deckSwap.offX, offY: deckSwap.offY, count: Math.max(1, deckShown) }))
@@ -2798,45 +2804,45 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
                 } },
                 React.createElement(SlotGhostV, { n: cribHomeN, vis: CRIB_HOME_VISIBLE }))),
             overPhase ? (React.createElement(Panel, { tone: "good" },
-                React.createElement("div", { style: { fontWeight: 700, fontSize: 18 } }, winner !== null && solo && teamOf(winner, P, teams) === teamOf(me, P, teams) ? tr("play.win.you") : tr("play.win.team", { team: teamLabel(teamsList(P, teams).find((m) => m.includes(winner)) || [winner]) })),
-                React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 } }, tr("play.win.final", { target: targetFor(P), scores: teamsList(P, teams).map((m) => `${teamLabel(m)} ${seats[m[0]].score}`).join(" · ") })))) : cutdealPhase ? (React.createElement(Panel, { tone: cutSettled && isDealer ? "good" : null },
-                React.createElement("div", { style: { fontWeight: 700, fontSize: 15 } }, tr("play.cutdeal.title")),
-                React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 } }, !cutSettled ? ((cutDeal && cutDeal.tie) ? tr("play.cutdeal.tie") : tr("play.cutdeal.cutting"))
+                React.createElement("div", { style: { fontWeight: 700, fontSize: "max(18px, var(--min-fs, 0px))" } }, winner !== null && solo && teamOf(winner, P, teams) === teamOf(me, P, teams) ? tr("play.win.you") : tr("play.win.team", { team: teamLabel(teamsList(P, teams).find((m) => m.includes(winner)) || [winner]) })),
+                React.createElement("div", { style: { fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", color: T.muted, marginTop: 3 } }, tr("play.win.final", { target: targetFor(P), scores: teamsList(P, teams).map((m) => `${teamLabel(m)} ${seats[m[0]].score}`).join(" · ") })))) : cutdealPhase ? (React.createElement(Panel, { tone: cutSettled && isDealer ? "good" : null },
+                React.createElement("div", { style: { fontWeight: 700, fontSize: "max(15px, var(--min-fs, 0px))" } }, tr("play.cutdeal.title")),
+                React.createElement("div", { style: { fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", color: T.muted, marginTop: 3 } }, !cutSettled ? ((cutDeal && cutDeal.tie) ? tr("play.cutdeal.tie") : tr("play.cutdeal.cutting"))
                     : (isDealer && solo) ? tr("play.cutdeal.subYou")
                         : tr("play.cutdeal.subSeat", { seat: seatName(dealerIdx) })))) : (dealPhase || dealingPhase) ? (React.createElement(Panel, { tone: cribOurs ? "good" : null },
-                React.createElement("div", { style: { fontWeight: 700, fontSize: 15 } }, (isDealer && solo) ? tr("play.deal.yours") : teammateDeals ? tr("play.deal.teammate", { seat: seatName(dealerIdx) }) : tr("play.deal.theirs", { seat: seatName(dealerIdx) })),
-                React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 } }, dealBlurb(P)))) : showPhase ? ((info.isCrib && mugCribClaim) ? null
+                React.createElement("div", { style: { fontWeight: 700, fontSize: "max(15px, var(--min-fs, 0px))" } }, (isDealer && solo) ? tr("play.deal.yours") : teammateDeals ? tr("play.deal.teammate", { seat: seatName(dealerIdx) }) : tr("play.deal.theirs", { seat: seatName(dealerIdx) })),
+                React.createElement("div", { style: { fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", color: T.muted, marginTop: 3 } }, dealBlurb(P)))) : showPhase ? ((info.isCrib && mugCribClaim) ? null
                 : info.isCrib ? (React.createElement("div", { style: { background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "12px", minHeight: 88, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 } },
-                    React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: T.muted } }, tr("play.show.entCounting", { ent: entText(info), step: stepLabel })),
+                    React.createElement("span", { style: { fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted } }, tr("play.show.entCounting", { ent: entText(info), step: stepLabel })),
                     React.createElement("div", { "data-slot": "showcrib", style: { display: "flex", alignItems: "flex-end", justifyContent: "center", height: "var(--ch)", visibility: "hidden" } },
                         React.createElement(SlotGhost, { n: Math.max(showcribN, (info.cards || []).length), vis: STACK_VISIBLE })))) : (React.createElement(Panel, null,
                     React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline" } },
-                        React.createElement("div", { style: { fontWeight: 700, fontSize: 15 } }, tr("play.show.title", { ent: entText(info) })),
-                        React.createElement("span", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted } }, tr("play.show.counting", { step: stepLabel }))),
-                    React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 3 } }, tr("play.show.order"))))) : (discardPhase || cribbingPhase) ? (React.createElement(Panel, { tone: cribOurs ? "good" : "red" },
+                        React.createElement("div", { style: { fontWeight: 700, fontSize: "max(15px, var(--min-fs, 0px))" } }, tr("play.show.title", { ent: entText(info) })),
+                        React.createElement("span", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted } }, tr("play.show.counting", { step: stepLabel }))),
+                    React.createElement("div", { style: { fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted, marginTop: 3 } }, tr("play.show.order"))))) : (discardPhase || cribbingPhase) ? (React.createElement(Panel, { tone: cribOurs ? "good" : "red" },
                 React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 } },
-                    React.createElement("div", { style: { fontWeight: 700, fontSize: 15, minWidth: 0 } },
+                    React.createElement("div", { style: { fontWeight: 700, fontSize: "max(15px, var(--min-fs, 0px))", minWidth: 0 } },
                         !solo ? tr("play.crib.seatPrefix", { seat: seatName(me) }) : "",
                         isDealer ? tr(solo ? "play.crib.greedy" : (multiHuman && !needHandoff) ? "play.crib.greedyMine" : "play.crib.greedyNamed") : teammateDeals ? tr((solo || (multiHuman && !needHandoff)) ? "play.crib.teamGreedy" : "play.crib.teamGreedyNamed", { seat: seatName(dealerIdx) }) : tr("play.crib.defend", { seat: seatName(dealerIdx) })),
                     cribSoFar > 0 && !cribGliding && (React.createElement("div", { "data-slot": "crib", style: { flex: "0 0 auto", display: "flex", alignItems: "flex-end", visibility: "hidden" } },
                         React.createElement(SlotGhost, { n: cribSoFar, vis: BACK_VISIBLE })))))) : cutPhase ? null : (React.createElement("div", { style: { background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "0 12px 0 0" } },
                 React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, minHeight: `calc(var(--ch) * ${PILE_VISIBLE})` } },
                     React.createElement("div", { style: { flex: "0 0 auto", display: "flex", flexDirection: "column", alignItems: "center", padding: "4px 12px", borderRadius: 9, background: "rgba(0,0,0,0.3)", border: `1px solid ${T.line}` } },
-                        React.createElement("span", { style: { fontFamily: mono, fontSize: 10, color: T.muted } }, tr("play.pile.count")),
-                        React.createElement("span", { style: { fontFamily: serif, fontWeight: 700, fontSize: 28, lineHeight: 1, color: peg.count === 31 ? T.good : T.ivory } }, peg.count)),
+                        React.createElement("span", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted } }, tr("play.pile.count")),
+                        React.createElement("span", { style: { fontFamily: serif, fontWeight: 700, fontSize: "max(28px, var(--min-fs, 0px))", lineHeight: 1, color: peg.count === 31 ? T.good : T.ivory } }, peg.count)),
                     React.createElement("div", { style: { flex: "1 1 auto", minWidth: 0, overflow: "hidden", display: "flex", justifyContent: "center" } }, peg.pileSuited.length
                         ? React.createElement(PileFan, { cards: peg.pileSuited })
-                        : React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: T.muted } }, tr("play.pile.cleared"))))))),
+                        : React.createElement("span", { style: { fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted } }, tr("play.pile.cleared"))))))),
         overPhase ? (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 16 } },
             React.createElement(SkunkPanel, { seats: seats, winner: winner, P: P, teams: teams }),
             bigBtn(tr("play.btn.playAgain"), () => dispatch({ type: "PLAY_AGAIN" }), "good"))) : showPhase ? (needClaim ? (React.createElement(MugginsClaim, { info: info, starter: starter, isCrib: info.isCrib, settings: settings, dispatch: dispatch })) : (React.createElement("div", { style: { background: "rgba(0,0,0,0.26)", borderRadius: 10, padding: "12px 14px 14px" } },
             React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 } },
-                React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: T.muted } }, tr("play.show.scoring")),
-                React.createElement("span", { style: { fontFamily: serif, fontWeight: 700, fontSize: 20, color: T.ivory } }, info.total)),
+                React.createElement("span", { style: { fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted } }, tr("play.show.scoring")),
+                React.createElement("span", { style: { fontFamily: serif, fontWeight: 700, fontSize: "max(20px, var(--min-fs, 0px))", color: T.ivory } }, info.total)),
             info.total > 0
                 ? React.createElement(CatBars, { cats: info.acc, scale: info.total, color: info.isCrib ? (seatIsHuman(info.owner, settings) ? T.good : T.pegRed) : T.good })
-                : React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.muted } }, tr("play.show.nineteen")),
-            muggins && state.show.claimSubmitted && (React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: state.show.claimValue >= info.total ? T.good : T.pegRed, marginTop: 10 } }, state.show.claimValue < info.total
+                : React.createElement("div", { style: { fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.muted } }, tr("play.show.nineteen")),
+            muggins && state.show.claimSubmitted && (React.createElement("div", { style: { fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", color: state.show.claimValue >= info.total ? T.good : T.pegRed, marginTop: 10 } }, state.show.claimValue < info.total
                 ? tr("play.show.claimedMissed", { n: state.show.claimValue, m: info.total - state.show.claimValue })
                 : state.show.claimValue > info.total
                     ? tr("play.show.claimedOver", { n: state.show.claimValue })
@@ -2844,9 +2850,9 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
             bigBtn(tr("play.btn.continue"), () => dispatch({ type: "SHOW_NEXT" }), "wood")))) : preDeal ? ((dealPhase && swapBusy) ? null
             : !cutSettled ? null
                 : settings.autoDeal
-                    ? React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" } }, tr("play.btn.dealing"))
+                    ? React.createElement("div", { style: { fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, tr("play.btn.dealing"))
                     : (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 } },
-                        dealPhase && (React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, lineHeight: 1.7, textAlign: "center" } },
+                        dealPhase && (React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, lineHeight: 1.7, textAlign: "center" } },
                             tr("play.cfg.counting"),
                             " ",
                             React.createElement("b", { style: { color: T.cream } }, mugginsActive(settings) ? tr("play.cfg.muggins") : tr("play.cfg.auto")),
@@ -2875,7 +2881,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
                     el = React.createElement("button", { onClick: () => dispatch({ type: "PASS_GO", seat: me }), style: {
                             width: "100%", padding: "12px", borderRadius: 10, border: "none", cursor: "pointer",
                             background: `linear-gradient(180deg, ${T.pegRed}, #9c3120)`, color: T.ivory,
-                            fontSize: 15, fontWeight: 700, letterSpacing: 0.3, boxShadow: "0 4px 12px rgba(0,0,0,0.35)",
+                            fontSize: "max(15px, var(--min-fs, 0px))", fontWeight: 700, letterSpacing: 0.3, boxShadow: "0 4px 12px rgba(0,0,0,0.35)",
                         } }, tr("play.go"));
                 }
                 else if (myTurn && meHuman && tapSelect) {
@@ -2892,19 +2898,19 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
                             ? (yourHand.length === 0 ? (isYou(me) ? tr("play.allPlayed.you") : tr("play.allPlayed.seat", { seat: seatName(me) })) : tr("play.toPlay", { seat: seatName(me) }))
                             : tr("play.toPlay", { seat: seatName(peg.turn) }))
                             : "";
-                    el = React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: (myTurn || stuck) ? T.selBlue : T.muted, textAlign: "center", lineHeight: 1.4 } }, txt);
+                    el = React.createElement("div", { style: { fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", color: (myTurn || stuck) ? T.selBlue : T.muted, textAlign: "center", lineHeight: 1.4 } }, txt);
                 }
                 return React.createElement("div", { style: { minHeight: 44, marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center" } }, el);
             })(),
             meHuman && (React.createElement("div", { "data-slot": "hand", className: discardPhase ? "dealwrap" : undefined, style: { display: "flex", gap: 6, justifyContent: "center", flexWrap: "nowrap", height: "var(--ch)", visibility: "hidden", "--deal-ms": spd(240) + "ms", "--deal-stg": spd(50) + "ms" } }, Array.from({ length: handLen }).map((_, i) => React.createElement("div", { key: i, style: { width: "var(--cw)", flex: "0 0 auto" } })))),
             meHuman && !discardPhase && yourHand.length === 0 && React.createElement("div", { style: { textAlign: "center", marginTop: -8 } },
-                React.createElement("span", { style: { fontFamily: mono, fontSize: 11, color: T.muted } }, tr("play.handEmpty")))))));
+                React.createElement("span", { style: { fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted } }, tr("play.handEmpty")))))));
 }
 function DiscardWarning({ pd, cribIsOurs, dispatch, onCancel }) {
     const { chosen, best, delta } = pd;
     const side = cribIsOurs ? tr("play.warn.forSide") : tr("play.warn.toOpp");
     const thrownTag = (o) => o.thrown.map(tag).join(" ");
-    const Line = ({ label, o, strong }) => (React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, lineHeight: 1.6, color: strong ? T.cream : T.muted } },
+    const Line = ({ label, o, strong }) => (React.createElement("div", { style: { fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", lineHeight: 1.6, color: strong ? T.cream : T.muted } },
         React.createElement("b", { style: { color: strong ? T.good : T.ivory } }, label),
         " ",
         tr("play.warn.line", { thrown: thrownTag(o), keep: o.four.map(tag).join(" "), hand: o.keptEV.toFixed(2), crib: o.cribSwing.toFixed(2), side }),
@@ -2913,23 +2919,23 @@ function DiscardWarning({ pd, cribIsOurs, dispatch, onCancel }) {
     const pickAgain = () => { dispatch({ type: "CANCEL_DISCARD" }); if (onCancel)
         onCancel(); };
     return (React.createElement(Modal, { onBackdrop: pickAgain },
-        React.createElement("div", { style: { fontWeight: 700, fontSize: 17, marginBottom: 12 } }, tr("play.warn.title", { delta: delta.toFixed(2) })),
+        React.createElement("div", { style: { fontWeight: 700, fontSize: "max(17px, var(--min-fs, 0px))", marginBottom: 12 } }, tr("play.warn.title", { delta: delta.toFixed(2) })),
         React.createElement("div", { style: { display: "grid", gap: 6, marginBottom: 10 } },
             React.createElement(Line, { label: tr("play.warn.best"), o: best, strong: true }),
             React.createElement(Line, { label: tr("play.warn.yours"), o: chosen })),
-        React.createElement("div", { style: { fontFamily: mono, fontSize: 12, lineHeight: 1.6, color: T.cream, marginBottom: 16 } }, tr("play.warn.explain", { dir: cribIsOurs ? tr("play.warn.dirOurs") : tr("play.warn.dirOpp") })),
+        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", lineHeight: 1.6, color: T.cream, marginBottom: 16 } }, tr("play.warn.explain", { dir: cribIsOurs ? tr("play.warn.dirOurs") : tr("play.warn.dirOpp") })),
         React.createElement("div", { style: { display: "flex", gap: 8 } },
             React.createElement("button", { onClick: () => dispatch({ type: "CONFIRM_DISCARD" }), style: {
                     flex: 1, padding: "12px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer",
-                    background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+                    background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
                 } }, tr("play.warn.throwAnyway", { thrown: thrownTag(chosen) })),
             React.createElement("button", { onClick: pickAgain, style: {
                     flex: 1, padding: "12px", borderRadius: 9, border: "none", cursor: "pointer",
-                    background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+                    background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
                 } }, tr("play.warn.pickAgain")))));
 }
 const segStyle = (on) => ({
-    flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: 11.5,
+    flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))",
     background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
     border: `1px solid ${on ? T.pegIvory : T.line}`, fontWeight: on ? 700 : 400,
 });
@@ -2939,24 +2945,25 @@ function SettingsSection({ title, defaultOpen, children }) {
         React.createElement("button", { onClick: () => setOpen((o) => !o), style: {
                 width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
                 background: "none", border: "none", cursor: "pointer", padding: "12px 0 10px",
-                color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase",
+                color: T.cream, fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase",
             } },
             React.createElement("span", null, title),
-            React.createElement("span", { style: { color: T.muted, fontSize: 13 } }, open ? "▾" : "▸")),
+            React.createElement("span", { style: { color: T.muted, fontSize: "max(13px, var(--min-fs, 0px))" } }, open ? "▾" : "▸")),
         open && React.createElement("div", null, children)));
 }
 function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
     const soloGame = nHumans(clampPlayers(settings.players), settings) === 1;
     const Row = ({ title, desc, k, options, disabled }) => (React.createElement("div", { style: { marginBottom: 14, opacity: disabled ? 0.5 : 1 } },
-        React.createElement("div", { style: { fontWeight: 700, fontSize: 13.5 } }, title),
-        React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, margin: "2px 0 7px", lineHeight: 1.45 } }, desc),
+        React.createElement("div", { style: { fontWeight: 700, fontSize: "max(13.5px, var(--min-fs, 0px))" } }, title),
+        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, margin: "2px 0 7px", lineHeight: 1.45 } }, desc),
         React.createElement("div", { style: { display: "flex", gap: 6 } }, options.map(([label, val]) => (React.createElement("button", { key: String(val), disabled: disabled, onClick: disabled ? undefined : () => dispatch({ type: "SET_SETTING", key: k, value: val }), style: { ...segStyle(settings[k] === val), cursor: disabled ? "default" : "pointer" } }, label))))));
     const off = tr("common.off"), on = tr("common.on"), manual = tr("common.manual"), auto = tr("common.auto");
     return (React.createElement(Modal, { onBackdrop: onClose, maxWidth: 420, padding: "14px 16px 4px", scroll: true, cardStyle: { maxHeight: "88vh" } },
         React.createElement(ModalHeader, { title: tr("settings.title"), onClose: onClose },
-            React.createElement("span", { style: { fontWeight: 700, fontSize: 16 } }, tr("settings.title"))),
+            React.createElement("span", { style: { fontWeight: 700, fontSize: "max(16px, var(--min-fs, 0px))" } }, tr("settings.title"))),
         React.createElement(SettingsSection, { title: tr("settings.group.controls"), defaultOpen: true },
             React.createElement(Row, { title: tr("settings.speed.title"), k: "speed", desc: tr("settings.speed.desc"), options: [[tr("settings.speed.optSlow"), "slow"], [tr("settings.speed.optNormal"), "normal"], [tr("settings.speed.optFast"), "fast"], [tr("settings.speed.optInstant"), "instant"]] }),
+            React.createElement(Row, { title: tr("settings.textSize.title"), k: "textSize", desc: tr("settings.textSize.desc"), options: [[tr("settings.textSize.optSmall"), "small"], [tr("settings.textSize.optMedium"), "medium"], [tr("settings.textSize.optLarge"), "large"]] }),
             React.createElement(Row, { title: tr("settings.tapToSelect.title"), k: "tapToSelect", desc: tr("settings.tapToSelect.desc"), options: [[off, false], [on, true]] }),
             React.createElement(Row, { title: tr("settings.warn.title"), k: "warn", desc: tr("settings.warn.desc"), options: [[on, true], [off, false]] })),
         React.createElement(SettingsSection, { title: tr("settings.group.automation") },
@@ -2972,13 +2979,13 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
             React.createElement(Row, { title: tr("settings.claimWarn.title"), k: "claimWarn", disabled: !(soloGame && settings.counting === "muggins"), desc: tr("settings.claimWarn.desc"), options: [[on, true], [off, false]] })),
         React.createElement(LanguageRow, null),
         React.createElement("div", { style: { borderTop: `1px solid ${T.line}`, margin: "2px -16px 0", padding: "12px 16px 0" } },
-            React.createElement("button", { onClick: onHistory, style: { width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12, fontWeight: 700 } }, tr("settings.history"))),
-        React.createElement("button", { onClick: () => dispatch({ type: "RESET_SETTINGS" }), style: { width: "100%", margin: "10px 0 0", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12, fontWeight: 700 } }, tr("settings.resetDefaults")),
+            React.createElement("button", { onClick: onHistory, style: { width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700 } }, tr("settings.history"))),
+        React.createElement("button", { onClick: () => dispatch({ type: "RESET_SETTINGS" }), style: { width: "100%", margin: "10px 0 0", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700 } }, tr("settings.resetDefaults")),
         React.createElement(AboutRow, { onAbout: onAbout }),
         React.createElement("button", { onClick: onClose, style: {
                 width: "100%", margin: "12px 0 10px", padding: "12px", borderRadius: 9, border: "none", cursor: "pointer",
                 background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory,
-                fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+                fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
             } }, tr("settings.continue"))));
 }
 function LanguageRow() {
@@ -2987,15 +2994,15 @@ function LanguageRow() {
     if (!i || langs.length <= 1)
         return null;
     return (React.createElement("div", { style: { marginBottom: 14 } },
-        React.createElement("div", { style: { fontWeight: 700, fontSize: 13.5 } }, window.t ? window.t("common.language") : "Language"),
-        React.createElement("select", { defaultValue: i.lang, onChange: (e) => i.choose(e.target.value), style: { marginTop: 7, fontFamily: mono, fontSize: 12, color: T.cream, background: "rgba(0,0,0,0.25)", border: `1px solid ${T.line}`, borderRadius: 8, padding: "8px 10px" } }, langs.map((l) => React.createElement("option", { key: l.code, value: l.code }, l.name)))));
+        React.createElement("div", { style: { fontWeight: 700, fontSize: "max(13.5px, var(--min-fs, 0px))" } }, window.t ? window.t("common.language") : "Language"),
+        React.createElement("select", { defaultValue: i.lang, onChange: (e) => i.choose(e.target.value), style: { marginTop: 7, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.cream, background: "rgba(0,0,0,0.25)", border: `1px solid ${T.line}`, borderRadius: 8, padding: "8px 10px" } }, langs.map((l) => React.createElement("option", { key: l.code, value: l.code }, l.name)))));
 }
 function AboutRow({ onAbout }) {
     return (React.createElement("div", { style: { margin: "0 -16px 0", padding: "8px 16px 4px" } },
         React.createElement("button", { onClick: onAbout, style: {
                 width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer",
                 border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream,
-                fontFamily: mono, fontSize: 12, fontWeight: 700,
+                fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700,
             } }, tr("settings.aboutFeedback"))));
 }
 function HistoryModal({ onClose }) {
@@ -3017,16 +3024,16 @@ function HistoryModal({ onClose }) {
     const winPct = games ? Math.round((won / games) * 100) : 0;
     const specific = sel !== "all";
     const chip = (key, label) => (React.createElement("button", { key: key, onClick: () => { setSel(key); setConfirmClear(false); }, style: {
-            padding: "6px 10px", borderRadius: 7, cursor: "pointer", fontFamily: mono, fontSize: 11, fontWeight: 700,
+            padding: "6px 10px", borderRadius: 7, cursor: "pointer", fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", fontWeight: 700,
             border: `1px solid ${sel === key ? T.pegIvory : T.line}`,
             background: sel === key ? T.pegIvory : "rgba(0,0,0,0.25)", color: sel === key ? "#2A1B0E" : T.cream,
         } }, label));
     const Stat = ({ label, value, accent }) => (React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "7px 0", borderBottom: `1px solid ${T.line}` } },
-        React.createElement("span", { style: { fontFamily: mono, fontSize: 12, color: T.muted } }, label),
-        React.createElement("span", { style: { fontFamily: serif, fontSize: 16, fontWeight: 700, color: accent || T.cream } }, value)));
+        React.createElement("span", { style: { fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.muted } }, label),
+        React.createElement("span", { style: { fontFamily: serif, fontSize: "max(16px, var(--min-fs, 0px))", fontWeight: 700, color: accent || T.cream } }, value)));
     return (React.createElement(Modal, { onBackdrop: onClose, scroll: true },
         React.createElement(ModalHeader, { title: tr("play.hist.title"), onClose: onClose, mb: 14 }),
-        all.length === 0 ? (React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.muted, lineHeight: 1.6 }, "data-tick": tick }, tr("play.hist.empty"))) : (React.createElement(React.Fragment, null,
+        all.length === 0 ? (React.createElement("div", { style: { fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.muted, lineHeight: 1.6 }, "data-tick": tick }, tr("play.hist.empty"))) : (React.createElement(React.Fragment, null,
             React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 } },
                 chip("all", tr("play.hist.all")),
                 configs.map((k) => { const [P, t] = k.split("/").map(Number); return chip(k, cfgLabel(P, t)); })),
@@ -3036,10 +3043,10 @@ function HistoryModal({ onClose }) {
             React.createElement(Stat, { label: tr("play.hist.skunked"), value: sk, accent: sk ? T.pegRed : T.cream }),
             React.createElement(Stat, { label: tr("play.hist.dblSkunked"), value: dsk, accent: dsk ? T.pegRed : T.cream }),
             specific ? (React.createElement(React.Fragment, null,
-                React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, margin: "14px 0 4px", letterSpacing: 0.3 } }, tr("play.hist.avgHeader")),
+                React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, margin: "14px 0 4px", letterSpacing: 0.3 } }, tr("play.hist.avgHeader")),
                 React.createElement(Stat, { label: tr("play.hist.pegging"), value: avg("peg").toFixed(1) }),
                 React.createElement(Stat, { label: tr("play.hist.hand"), value: avg("hand").toFixed(1) }),
-                React.createElement(Stat, { label: tr("play.hist.crib"), value: avg("crib").toFixed(1) }))) : (React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, marginTop: 12, lineHeight: 1.5 } }, tr("play.hist.pickHint"))),
+                React.createElement(Stat, { label: tr("play.hist.crib"), value: avg("crib").toFixed(1) }))) : (React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, marginTop: 12, lineHeight: 1.5 } }, tr("play.hist.pickHint"))),
             React.createElement("button", { onClick: () => { if (confirmClear) {
                     clearHistory();
                     setSel("all");
@@ -3050,7 +3057,7 @@ function HistoryModal({ onClose }) {
                     setConfirmClear(true); }, style: {
                     width: "100%", marginTop: 16, padding: "10px", borderRadius: 9, cursor: "pointer",
                     border: `1px solid ${confirmClear ? T.pegRed : T.line}`, background: "rgba(0,0,0,0.25)",
-                    color: confirmClear ? T.pegRed : T.muted, fontFamily: mono, fontSize: 11.5, fontWeight: 700,
+                    color: confirmClear ? T.pegRed : T.muted, fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", fontWeight: 700,
                 } }, confirmClear ? tr("play.hist.clearConfirm") : tr("play.hist.clear"))))));
 }
 function AboutModal({ onClose }) {
@@ -3058,16 +3065,16 @@ function AboutModal({ onClose }) {
     return (React.createElement(Modal, { onBackdrop: onClose },
         React.createElement(ModalHeader, { onClose: onClose },
             React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } },
-                React.createElement("span", { "aria-hidden": "true", style: { flex: "0 0 auto", width: 34, height: 34, borderRadius: 8, background: "rgba(0,0,0,0.25)", color: T.ivory, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, lineHeight: 1 } }, "\u2663"),
-                React.createElement("span", { style: { fontWeight: 700, fontSize: 17 } }, tr("about.title")))),
-        React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.6, marginBottom: 12 } }, tr("about.line1")),
-        React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.6, marginBottom: 16 } }, tr("about.line2")),
+                React.createElement("span", { "aria-hidden": "true", style: { flex: "0 0 auto", width: 34, height: 34, borderRadius: 8, background: "rgba(0,0,0,0.25)", color: T.ivory, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "max(19px, var(--min-fs, 0px))", lineHeight: 1 } }, "\u2663"),
+                React.createElement("span", { style: { fontWeight: 700, fontSize: "max(17px, var(--min-fs, 0px))" } }, tr("about.title")))),
+        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.cream, lineHeight: 1.6, marginBottom: 12 } }, tr("about.line1")),
+        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.cream, lineHeight: 1.6, marginBottom: 16 } }, tr("about.line2")),
         React.createElement("a", { href: REPO, target: "_blank", rel: "noopener noreferrer", style: {
                 display: "block", textAlign: "center", padding: "12px", borderRadius: 9, textDecoration: "none", boxSizing: "border-box",
-                background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+                background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
             } }, tr("about.sourceLink")),
-        React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-        React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.73")));
+        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
+        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.20-dev.74")));
 }
 function MessageLogModal({ log, onClose }) {
     const scrollRef = React.useRef(null);
@@ -3075,8 +3082,8 @@ function MessageLogModal({ log, onClose }) {
         scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, []);
     return (React.createElement(Modal, { onBackdrop: onClose, maxWidth: 420, padding: "18px", cardStyle: { maxHeight: "80vh", display: "flex", flexDirection: "column" } },
         React.createElement(ModalHeader, { title: tr("play.log.title"), onClose: onClose }),
-        React.createElement("div", { ref: scrollRef, style: { overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 } }, log.length === 0 ? React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.muted } }, tr("play.log.empty"))
-            : log.map((m, i) => (React.createElement("div", { key: i, style: { fontFamily: mono, fontSize: 12, lineHeight: 1.5, color: T.cream, paddingBottom: 6, borderBottom: i < log.length - 1 ? `1px solid ${T.line}` : "none" } },
+        React.createElement("div", { ref: scrollRef, style: { overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 } }, log.length === 0 ? React.createElement("div", { style: { fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.muted } }, tr("play.log.empty"))
+            : log.map((m, i) => (React.createElement("div", { key: i, style: { fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", lineHeight: 1.5, color: T.cream, paddingBottom: 6, borderBottom: i < log.length - 1 ? `1px solid ${T.line}` : "none" } },
                 React.createElement("span", { style: { color: T.muted, marginRight: 6 } },
                     i + 1,
                     "."),
@@ -3085,19 +3092,19 @@ function MessageLogModal({ log, onClose }) {
 function PlayWarning({ pp, dispatch }) {
     const pickAgain = () => dispatch({ type: "CANCEL_PLAY" });
     return (React.createElement(Modal, { onBackdrop: pickAgain },
-        React.createElement("div", { style: { fontWeight: 700, fontSize: 17, marginBottom: 12 } }, tr(pp.delta === 1 ? "play.warn.leavesOne" : "play.warn.leavesMany", { n: pp.delta })),
-        React.createElement("div", { style: { fontFamily: mono, fontSize: 12, lineHeight: 1.6, color: T.cream, marginBottom: 16 } },
+        React.createElement("div", { style: { fontWeight: 700, fontSize: "max(17px, var(--min-fs, 0px))", marginBottom: 12 } }, tr(pp.delta === 1 ? "play.warn.leavesOne" : "play.warn.leavesMany", { n: pp.delta })),
+        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", lineHeight: 1.6, color: T.cream, marginBottom: 16 } },
             tr("play.warn.playLineA", { card: tag(pp.card), pts: pp.chosenPts }),
             React.createElement("b", { style: { color: T.good } }, tag(pp.bestCard)),
             tr("play.warn.playLineB", { pts: pp.bestPts, delta: pp.delta })),
         React.createElement("div", { style: { display: "flex", gap: 8 } },
             React.createElement("button", { onClick: () => dispatch({ type: "CONFIRM_PLAY" }), style: {
                     flex: 1, padding: "12px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer",
-                    background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+                    background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
                 } }, tr("play.warn.playAnyway", { card: tag(pp.card) })),
             React.createElement("button", { onClick: pickAgain, style: {
                     flex: 1, padding: "12px", borderRadius: 9, border: "none", cursor: "pointer",
-                    background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+                    background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
                 } }, tr("play.warn.pickAgain")))));
 }
 const CAT_KEY = { fifteen: "play.show.cat15", pair: "play.show.catPair", run: "play.show.catRun", flush: "play.show.catFlush", nobs: "play.show.catNobs" };
@@ -3129,22 +3136,22 @@ function MugginsClaim({ info, starter, isCrib, settings, dispatch }) {
     const remaining = info.acc.map((v, i) => v - claims.filter((c) => CLAIM_CAT[c.type] === i).reduce((a, c) => a + c.pts, 0));
     const hintText = remaining.map((v, i) => v > 0 ? tr("play.show.hintItem", { n: v, unit: tr(v === 1 ? "play.show.hintPt" : "play.show.hintPts"), cat: catName(i) }) : null).filter(Boolean).join(" · ");
     return (React.createElement("div", { style: { background: "rgba(0,0,0,0.26)", borderRadius: 10, padding: "12px 14px 14px" } },
-        React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, lineHeight: 1.5, marginBottom: 10 } }, info.isCrib ? tr("play.show.claimInstrCrib") : tr("play.show.claimInstr")),
+        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", color: T.muted, lineHeight: 1.5, marginBottom: 10 } }, info.isCrib ? tr("play.show.claimInstrCrib") : tr("play.show.claimInstr")),
         React.createElement("div", { style: { display: "flex", gap: 5, justifyContent: "center", alignItems: "flex-start", marginBottom: 12 } }, five.map((c) => {
             const id = cardId(c), on = sel.includes(id), isStarter = sameCard(c, starter);
             return (React.createElement("button", { key: id, onClick: () => toggle(id), style: { border: "none", background: "none", padding: 0, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", marginLeft: isStarter ? 14 : 0, transform: on ? "translateY(-6px)" : "none", transition: "transform 120ms ease" } },
                 React.createElement(CardFace, { card: c, edge: on ? T.selBlue : null }),
-                React.createElement("span", { style: { height: 12, marginTop: 2, fontFamily: mono, fontSize: 9, fontWeight: 700, color: T.muted, whiteSpace: "nowrap" } }, isStarter ? tr("play.starterCard") : "")));
+                React.createElement("span", { style: { height: 12, marginTop: 2, fontFamily: mono, fontSize: "max(9px, var(--min-fs, 0px))", fontWeight: 700, color: T.muted, whiteSpace: "nowrap" } }, isStarter ? tr("play.starterCard") : "")));
         })),
         React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: claims.length ? 12 : 14 } }, Object.keys(CAT_KEY).map((type) => {
             const ok = claimValue(type, selCards, five, starter, isCrib, claims).ok;
             return React.createElement("button", { key: type, disabled: !ok, onClick: () => addClaim(type), style: {
                     flex: 1, padding: "9px 4px", borderRadius: 8, cursor: ok ? "pointer" : "default",
                     border: `1px solid ${T.line}`, background: ok ? T.selBlue : "rgba(0,0,0,0.25)",
-                    color: ok ? T.ivory : T.muted, fontFamily: mono, fontSize: 11.5, fontWeight: 700, opacity: ok ? 1 : 0.5,
+                    color: ok ? T.ivory : T.muted, fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", fontWeight: 700, opacity: ok ? 1 : 0.5,
                 } }, tr(CAT_KEY[type]));
         })),
-        claims.length > 0 && (React.createElement("div", { style: { display: "grid", gap: 4, marginBottom: 12 } }, claims.map((c, i) => (React.createElement("div", { key: i, onClick: () => setClaims((cs) => cs.filter((_, k) => k !== i)), title: tr("play.show.claimRemove"), style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, fontFamily: mono, fontSize: 11.5, color: T.cream, background: "rgba(0,0,0,0.22)", borderRadius: 7, padding: "6px 10px", cursor: "pointer" } },
+        claims.length > 0 && (React.createElement("div", { style: { display: "grid", gap: 4, marginBottom: 12 } }, claims.map((c, i) => (React.createElement("div", { key: i, onClick: () => setClaims((cs) => cs.filter((_, k) => k !== i)), title: tr("play.show.claimRemove"), style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", color: T.cream, background: "rgba(0,0,0,0.22)", borderRadius: 7, padding: "6px 10px", cursor: "pointer" } },
             React.createElement("span", { style: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
                 React.createElement("b", null, tr(CAT_KEY[c.type])),
                 " ",
@@ -3154,23 +3161,23 @@ function MugginsClaim({ info, starter, isCrib, settings, dispatch }) {
                 c.pts,
                 " ",
                 React.createElement("span", { style: { color: T.muted } }, "\u2715"))))))),
-        React.createElement("div", { style: { fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 10 } }, tr("play.show.claimedTotal", { n: claimed })),
+        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted, marginBottom: 10 } }, tr("play.show.claimedTotal", { n: claimed })),
         bigBtn(info.total === 0 ? tr("play.show.claimNone") : tr("play.show.claimDone", { n: claimed }), done, "good"),
         confirm && (React.createElement(Modal, { onBackdrop: () => setConfirm(false), maxWidth: 360 },
-            React.createElement("div", { style: { fontWeight: 700, fontSize: 16, marginBottom: 8 } }, tr("play.show.incompleteTitle", { m: info.total - claimed })),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.5, marginBottom: 12 } }, tr("play.show.incompleteBody", { n: claimed, total: info.total, m: info.total - claimed })),
+            React.createElement("div", { style: { fontWeight: 700, fontSize: "max(16px, var(--min-fs, 0px))", marginBottom: 8 } }, tr("play.show.incompleteTitle", { m: info.total - claimed })),
+            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.cream, lineHeight: 1.5, marginBottom: 12 } }, tr("play.show.incompleteBody", { n: claimed, total: info.total, m: info.total - claimed })),
             hint
-                ? React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, lineHeight: 1.5, marginBottom: 16, background: "rgba(0,0,0,0.22)", borderRadius: 7, padding: "8px 10px" } },
+                ? React.createElement("div", { style: { fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", color: T.muted, lineHeight: 1.5, marginBottom: 16, background: "rgba(0,0,0,0.22)", borderRadius: 7, padding: "8px 10px" } },
                     tr("play.show.hintLine"),
                     " ",
                     React.createElement("b", { style: { color: T.cream } }, hintText))
-                : React.createElement("button", { onClick: () => setHint(true), style: { width: "100%", marginBottom: 12, padding: "10px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer", background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12, fontWeight: 700 } }, tr("play.show.hintBtn")),
+                : React.createElement("button", { onClick: () => setHint(true), style: { width: "100%", marginBottom: 12, padding: "10px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer", background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700 } }, tr("play.show.hintBtn")),
             React.createElement("div", { style: { display: "flex", gap: 8 } },
-                React.createElement("button", { onClick: () => setConfirm(false), style: { flex: 1, padding: "12px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer", background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: 12.5, fontWeight: 700 } }, tr("play.show.keepCounting")),
-                React.createElement("button", { onClick: submit, style: { flex: 1, padding: "12px", borderRadius: 9, border: "none", cursor: "pointer", background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700 } }, tr("play.show.incompleteConfirm", { n: claimed })))))));
+                React.createElement("button", { onClick: () => setConfirm(false), style: { flex: 1, padding: "12px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer", background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700 } }, tr("play.show.keepCounting")),
+                React.createElement("button", { onClick: submit, style: { flex: 1, padding: "12px", borderRadius: 9, border: "none", cursor: "pointer", background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700 } }, tr("play.show.incompleteConfirm", { n: claimed })))))));
 }
 ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(CribbagePlay));
 
 </script>
-<script src="https://cdn.jsdelivr.net/npm/eruda"></script><script>if(window.eruda)eruda.init();</script></body>
+</body>
 </html>

@@ -1491,23 +1491,25 @@ function CardFace({ card, edge }) {
 function CardSprite({ card, home, dur, delay, clickable, selected, raised, dim, selLabel, onClick, hidden, noAnim }) {
   const lift = selected || raised ? 8 : 0;                 // selected/raised cards nudge up
   const edge = selected || raised ? T.selBlue : null;
-  // The transform transition is OFF while the card is idle, and turned ON only when its target
-  // actually changes (it's about to move) — then removed again the instant the move ends. So an idle
-  // card carries no transition and can't be animated by an incidental layout change. `noAnim` (a
-  // viewport resize) forces a SNAP: accept the new position with the transition off, never gliding.
-  const key = `${Math.round(home.x)},${Math.round(home.y - lift)},${home.up ? 1 : 0}`;
+  // The position (translate + flip) transition is OFF while idle and ON only for an actual move —
+  // and never when `noAnim` snaps it (a viewport resize, or a card placed into the clickable hand).
+  // The LIFT rides a SEPARATE `top` channel that ALWAYS eases, so a hand card can snap into place yet
+  // still lift smoothly when selected. The move key is position-only (lift lives on `top`, not the
+  // transform), so toggling the selection nudges `top` without retriggering a position move.
+  const key = `${Math.round(home.x)},${Math.round(home.y)},${home.up ? 1 : 0}`;
   const [moving, setMoving] = React.useState(false);
   const keyRef = React.useRef(key);
-  if (noAnim) { keyRef.current = key; if (moving) setMoving(false); }                    // resize → jump, don't animate
+  if (noAnim) { keyRef.current = key; if (moving) setMoving(false); }                    // resize / hand-row → jump, don't glide
   else if (keyRef.current !== key) { keyRef.current = key; if (!moving) setMoving(true); }   // target changed → animate this move
+  const moveTr = (moving && !noAnim) ? `transform ${dur}ms cubic-bezier(.2,.7,.3,1) ${delay || 0}ms` : null;
   return (
     <div onClick={clickable ? onClick : undefined}
       onTransitionEnd={(e) => { if (e.target === e.currentTarget && e.propertyName === "transform") setMoving(false); }}
       style={{
-        position: "absolute", left: 0, top: 0, width: "var(--cw)", height: "var(--ch)",
+        position: "absolute", left: 0, top: -lift, width: "var(--cw)", height: "var(--ch)",
         transformStyle: "preserve-3d", zIndex: home.z,
-        transform: `translate(${home.x}px, ${home.y - lift}px) rotateY(${home.up ? 0 : 180}deg)`,
-        transition: (moving && !noAnim) ? `transform ${dur}ms cubic-bezier(.2,.7,.3,1) ${delay || 0}ms` : "none",
+        transform: `translate(${home.x}px, ${home.y}px) rotateY(${home.up ? 0 : 180}deg)`,
+        transition: [moveTr, `top ${MOVE_DUR}ms cubic-bezier(.2,.7,.3,1)`].filter(Boolean).join(", "),
         cursor: clickable ? "pointer" : "default",
         pointerEvents: clickable ? "auto" : "none",
         opacity: hidden ? 0 : (dim ? 0.45 : 1),

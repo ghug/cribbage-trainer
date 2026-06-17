@@ -138,18 +138,42 @@ function cribSeed(a, b) {
 }
 const twoCombos = (n) => { const out = []; for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) out.push([i, j]); return out; };
 
+const RISK = 0.5; // weight on kept-hand volatility for the board-position discard tilt
+
+// A bot's board-position mood, mirroring the trainer's suggestMode but scaled to this game's target
+// (5/6-handed plays to 61, not 121). Compares the seat's team score to the leading OTHER team.
+function botSuggestMode(you, leader, target) {
+  const s = target / 121;
+  if (leader >= 106 * s && you < leader) return "need";        // a rival's about to peg out and you trail → chase
+  if (you >= leader + 15 * s && you >= 95 * s) return "protect"; // comfortable lead near the finish → play safe
+  return "ev";
+}
+function botBoardMode(seat, seats, P, teams) {
+  const myTeam = teamOf(seat, P, teams);
+  let leader = 0;
+  for (let i = 0; i < P; i++) if (teamOf(i, P, teams) !== myTeam) leader = Math.max(leader, seats[i].score);
+  return botSuggestMode(seats[seat].score, leader, targetFor(P));
+}
+
 // Bot discard: throw `n` cards (1 or 2) maximising kept-hand EV plus the crib swing
 // of the throw. The crib helps whoever's TEAM the dealer is on, so a throw is +EV
 // when this seat is on the dealer's team (the crib is "ours"), −EV otherwise.
+// `mode` adds a BOARD-POSITION tilt (mirrors the trainer): "need" (behind, late) chases volatility
+// (+RISK·sd) and eases off crib defense; "protect" (big lead, late) damps volatility (−RISK·sd) and
+// stiffens crib defense. "ev" (the whole early/mid game) is board-neutral, exactly as before.
 // Returns { discard: [cards], kept: [cards] } — discard is always an array.
-function aiDiscardN(dealt, seat, dealerIdx, n, P, teams) {
+function aiDiscardN(dealt, seat, dealerIdx, n, P, teams, mode = "ev") {
   const sign = teamOf(seat, P, teams) === teamOf(dealerIdx, P, teams) ? 1 : -1;
+  const cribOurs = sign === 1;
+  const cribW = (mode === "protect" && !cribOurs) ? 1.3 : (mode === "need" && !cribOurs) ? 0.9 : 1.0;
+  const riskSign = mode === "need" ? 1 : mode === "protect" ? -1 : 0;
+  const objective = (four, cribVal) => { const hd = handDetail(four, dealt); return hd.ev + sign * cribW * cribVal + riskSign * RISK * hd.sd; };
   if (n === 2) {
     let best = null, bv = -1e9;
     for (const idxs of twoCombos(dealt.length)) {
       const four = dealt.filter((_, j) => !idxs.includes(j));
       const thrown = idxs.map((i) => dealt[i]);
-      const val = handDetail(four, dealt).ev + sign * cribSeed(thrown[0], thrown[1]);
+      const val = objective(four, cribSeed(thrown[0], thrown[1]));
       if (val > bv) { bv = val; best = { discard: thrown, kept: four }; }
     }
     return best;
@@ -157,7 +181,7 @@ function aiDiscardN(dealt, seat, dealerIdx, n, P, teams) {
   let bi = 0, bv = -1e9;
   for (let idx = 0; idx < dealt.length; idx++) {
     const four = dealt.filter((_, j) => j !== idx);
-    const val = handDetail(four, dealt).ev + sign * CRIB_VALUE[dealt[idx].r - 1];
+    const val = objective(four, CRIB_VALUE[dealt[idx].r - 1]);
     if (val > bv) { bv = val; bi = idx; }
   }
   return { discard: [dealt[bi]], kept: dealt.filter((_, j) => j !== bi) };
@@ -674,7 +698,7 @@ function finalizeDeal(state) {
   // DEAL ORDER here — unsorted — and are sorted only when first shown face-up for a seat's turn.
   for (let i = 0; i < P; i++) {
     if (pl.throws[i] === 0) { seats[i].kept = seats[i].dealt; seats[i].discard = []; }
-    else if (!seatIsHuman(i, state.settings)) { const r = aiDiscardN(seats[i].dealt, i, d, pl.throws[i], P, teams); seats[i].discard = r.discard; seats[i].kept = r.kept; }
+    else if (!seatIsHuman(i, state.settings)) { const r = aiDiscardN(seats[i].dealt, i, d, pl.throws[i], P, teams, botBoardMode(i, seats, P, teams)); seats[i].discard = r.discard; seats[i].kept = r.kept; }
   }
   const humanThrowers = throwOrder(P, d, state.settings);   // pone first, clockwise, dealer last
   const firstThrower = humanThrowers.length ? humanThrowers[0] : null;

@@ -232,10 +232,17 @@ layout) is derived from the player count via `plan(P, dealerIdx)` / `tableSeats(
   (`{score, dealt, kept, discard, isAI}`, cards stay **suited** throughout), `crib`,
   `starter`, a `peg` sub-state during play, a `show` sub-state during counting, and
   `settings.counting`.
-- **Bot discard** (`aiDiscard`): for each of the 5 throws, `handDetail(keptFour).ev +
-  sign*CRIB_VALUE[rank]` (`sign=+1` if that seat deals, else `−1`); pick the best.
-  `CRIB_VALUE` is the **"your" crib-swing row** from the reference table above
-  (per rank A–K) — a fast stand-in for the trainer's Monte-Carlo `cribDetail`.
+- **Bot discard** (`aiDiscardN`): for each of the 5 throws, `handDetail(keptFour).ev +
+  sign*cribW*CRIB_VALUE[rank] + riskSign*RISK*sd` (`sign=+1` if that seat's team deals, else
+  `−1`); pick the best. `CRIB_VALUE` is the **"your" crib-swing row** from the reference table
+  above (per rank A–K) — a fast stand-in for the trainer's Monte-Carlo `cribDetail`. Bots are
+  **board-aware**: `botBoardMode(seat,seats,P,teams)` mirrors the trainer's `suggestMode`
+  (thresholds scaled to `targetFor(P)`, comparing the seat's team score to the leading other
+  team) → `need`/`protect`/`ev`. `need` (behind, late) chases volatility (`riskSign +1`) and
+  eases crib defense (`cribW 0.9`); `protect` (big lead, late) damps volatility (`−1`) and
+  stiffens defense (`cribW 1.3`); `ev` (the whole early/mid game) is **board-neutral, bit-for-bit
+  the old pure-EV pick**. `RISK = 0.5`, `cribW` adjusts on defense only — same constants as the
+  trainer's `analyze`.
 - **Interactive pegging**: a self-clocking `useEffect` keyed on the peg state. A
   human with a legal card blocks for a tap; bots move and all forced "go"s fire on a
   timer. The reducer mirrors the verified `playPegging` mechanics exactly (15/31/

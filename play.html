@@ -812,7 +812,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.56";
+const APP_VERSION = "1.1.20-dev.57";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -2629,7 +2629,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
         const legal = inHand && (discardPhase || (peg && turn === me)) ? isLegal(yourHand[handIdx]) : false;
         const chosen = inHand && (pending ? (pendIdxs && pendIdxs.includes(handIdx)) : sel.includes(handIdx));
         const clickable = inHand && (pending ? true : (myTurn && legal));
-        return React.createElement(CardSprite, { key: id, card: c, home: h, dur: dealingPhase ? DEAL_DUR : MOVE_DUR, delay: delayRef.current[id] || 0, clickable: clickable || inCribHome, selected: inHand && !tapSelect && chosen, raised: inHand && tapSelect && chosen, dim: inHand && !pending && !legal && (discardPhase ? false : turn === me), selLabel: inHand && !discardPhase ? tr("play.sel.play") : undefined, noAnim: resizing, onClick: inHand ? () => tapCard(handIdx) : inCribHome ? () => setCribNote(true) : undefined });
+        return React.createElement(CardSprite, { key: id, card: c, home: h, dur: dealingPhase ? DEAL_DUR : MOVE_DUR, delay: delayRef.current[id] || 0, clickable: clickable || inCribHome, selected: inHand && !tapSelect && chosen, raised: inHand && tapSelect && chosen, dim: inHand && !pending && !legal && (discardPhase ? false : turn === me), selLabel: inHand && !discardPhase ? tr("play.sel.play") : undefined, noAnim: resizing || inHand, onClick: inHand ? () => tapCard(handIdx) : inCribHome ? () => setCribNote(true) : undefined });
     });
     return (React.createElement("div", { ref: tableRef, style: { position: "relative", marginTop: 6, display: "flex", flexDirection: "column", gap: 10 } },
         cribNote && (React.createElement("div", { onClick: () => setCribNote(false), role: "status", style: {
@@ -2914,7 +2914,7 @@ function AboutModal({ onClose }) {
                 background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
             } }, tr("about.sourceLink")),
         React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-        React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.56")));
+        React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.57")));
 }
 function MessageLogModal({ log, onClose }) {
     const scrollRef = React.useRef(null);

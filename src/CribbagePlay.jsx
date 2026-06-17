@@ -2333,7 +2333,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
       raised={inHand && tapSelect && chosen}
       dim={inHand && !pending && !legal && (discardPhase ? false : turn === me)}
       selLabel={inHand && !discardPhase ? tr("play.sel.play") : undefined}
-      noAnim={resizing}
+      noAnim={resizing || inHand}
       onClick={inHand ? () => tapCard(handIdx) : inCribHome ? () => setCribNote(true) : undefined} />;
   });
 

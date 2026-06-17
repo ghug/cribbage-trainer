@@ -1696,7 +1696,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
   const pendIdxs = !pending ? null
     : discardPhase ? pending.idxs
     : [yourHand.findIndex((c) => sameCard(c, pending.card))];
-  const isLegal = (c) => discardPhase || legalSet.has(cardId(c));
+  const isLegal = (c) => discardPhase || (!!legalSet && legalSet.has(cardId(c)));   // no legality outside discard/play (e.g. while dealing, peg is null)
   // Drop the working selection whenever the actor / phase / turn moves on.
   useEffect(() => { setSel([]); }, [me, phase, turn]);
   // Muggins claim entry (solo only) resets each counting step.

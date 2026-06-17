@@ -566,32 +566,55 @@ function applyCut(state) {
   return { ...state, starter, hisHeels, seats, peg: initPeg(seats, state.dealerIdx, P), phase: "play", message };
 }
 
-function dealNewHand(state) {
-  const P = clampPlayers(state.settings.players);
-  const teams = clampTeams(P, state.settings.teams);
-  const deck = freshDeck();
-  const d = state.dealerIdx;
-  const pl = plan(P, d);
-  // Deal off the TOP of the shuffled deck, ONE CARD AT A TIME, pone-first and clockwise — the
-  // way cards actually leave a dealer's hand, never a block slice. Each pass drops one card on
-  // every seat still short of its size (the 5-/6-handed dealer stops at 4), so the deck is
-  // consumed strictly top-down and deck order IS deal order. Nothing reads the undealt rest:
-  // the crib filler and starter are simply the next cards off the top, taken later at their
-  // own phases (assembleCrib / applyCut). There is no precomputed, peek-ahead layout.
-  const pone = (d + 1) % P;
-  const handCards = Array.from({ length: P }, () => []);
-  let top = 0;
+// The deal is INCREMENTAL: the model pushes ONE card at a time into a hand, and the view gates the
+// next push on the previous card's transitionend (see PlayScreen's deal driver). `startDeal` shuffles,
+// plans the round-robin SEAT ORDER (pone-first, clockwise, skipping seats already at size), and empties
+// the hands; `dealStep` pushes deck[cursor] to seq[cursor] and, on the last card, runs `finalizeDeal`
+// (the bot throws / crib / discard-or-cut tail). Deck order IS deal order — card k off the top goes to
+// the k-th seat in the round-robin — so nothing peeks at the undealt rest.
+function dealSeq(P, dealerIdx, pl) {
+  const pone = (dealerIdx + 1) % P;
+  const seq = [], counts = Array.from({ length: P }, () => 0);
   for (let dealing = true; dealing; ) {
     dealing = false;
     for (let k = 0; k < P; k++) {
       const seat = (pone + k) % P;
-      if (handCards[seat].length < pl.sizes[seat]) { handCards[seat].push(deck[top++]); dealing = true; }
+      if (counts[seat] < pl.sizes[seat]) { seq.push(seat); counts[seat]++; dealing = true; }
     }
   }
-  const seats = [];
-  for (let i = 0; i < P; i++) {
-    seats.push({ score: state.seats[i].score, isAI: !seatIsHuman(i, state.settings), history: state.seats[i].history || [], dealt: sortHand(handCards[i]), kept: null, discard: null });
-  }
+  return seq;
+}
+function startDeal(state) {
+  const P = clampPlayers(state.settings.players);
+  const d = state.dealerIdx;
+  const pl = plan(P, d);
+  const deck = freshDeck();
+  const seq = dealSeq(P, d, pl);
+  const seats = state.seats.map((s, i) => ({ score: s.score, isAI: !seatIsHuman(i, state.settings), history: s.history || [], dealt: [], kept: null, discard: null }));
+  return {
+    ...state, seats, deck, starter: null, crib: [], hisHeels: false,
+    peg: null, show: null, winner: null, phase: "dealing", message: "", pendingDiscard: null, pendingPlay: null,
+    deal: { seq, cursor: 0 },
+    holder: nHumans(P, state.settings) > 1 ? d : firstHuman(P, state.settings), discardSeat: null,
+  };
+}
+function dealStep(state) {
+  const deal = state.deal;
+  if (!deal || deal.cursor >= deal.seq.length) return state;
+  const seat = deal.seq[deal.cursor];
+  const card = state.deck[deal.cursor];                      // deck order == deal order
+  const seats = state.seats.map((s, i) => i === seat ? { ...s, dealt: sortHand([...s.dealt, card]) } : s);
+  const cursor = deal.cursor + 1;
+  if (cursor < deal.seq.length) return { ...state, seats, deal: { ...deal, cursor } };
+  return finalizeDeal({ ...state, seats, deal: null });      // last card just landed
+}
+function finalizeDeal(state) {
+  const P = clampPlayers(state.settings.players);
+  const teams = clampTeams(P, state.settings.teams);
+  const d = state.dealerIdx;
+  const pl = plan(P, d);
+  const deck = state.deck;
+  const seats = state.seats.map((s) => ({ ...s }));
   // Non-throwers keep their hand; throwing BOTS throw now; throwing HUMANS throw
   // interactively during the discard phase (one at a time, passing the device).
   for (let i = 0; i < P; i++) {
@@ -599,11 +622,7 @@ function dealNewHand(state) {
     else if (!seatIsHuman(i, state.settings)) { const r = aiDiscardN(seats[i].dealt, i, d, pl.throws[i], P, teams); seats[i].discard = r.discard; seats[i].kept = sortHand(r.kept); }
   }
   const humanThrowers = throwOrder(P, d, state.settings);   // pone first, clockwise, dealer last
-  const base = {
-    ...state, seats, deck, starter: null, crib: [], hisHeels: false,
-    peg: null, show: null, winner: null, phase: "discard", message: "", pendingDiscard: null, pendingPlay: null,
-    holder: nHumans(P, state.settings) > 1 ? d : firstHuman(P, state.settings), discardSeat: humanThrowers.length ? humanThrowers[0] : null,
-  };
+  const base = { ...state, seats, phase: "discard", message: "", discardSeat: humanThrowers.length ? humanThrowers[0] : null };
   if (humanThrowers.length === 0) {
     // No human throws this hand — the crib is already complete, so skip to the cut. Frame
     // the note from the lone human's seat (if any); with no single human (all-bot spectate
@@ -666,7 +685,10 @@ function reduce(state, action) {
   const teams = clampTeams(P, state.settings.teams);
   switch (action.type) {
     case "DEAL":
-      return dealNewHand(state);
+      return startDeal(state);
+
+    case "DEAL_NEXT":           // push the next card off the deck into its hand (driven by the view's transitionend gate)
+      return dealStep(state);
 
     case "SET_SETTING": {
       const settings = { ...state.settings, [action.key]: action.value };
@@ -864,7 +886,7 @@ function newGameState(prev) {
     seats: Array.from({ length: P }, (_, i) => ({ score: 0, isAI: !seatIsHuman(i, settings), dealt: [], kept: null, discard: null, history: [] })),
     dealerIdx, dealDraw: draw,
     deck: [], starter: null, crib: [], hisHeels: false, pendingDiscard: null, pendingPlay: null,
-    peg: null, show: null, winner: null, phase: "cutdeal", message: "",
+    peg: null, show: null, winner: null, phase: "cutdeal", message: "", deal: null,
     holder: firstHuman(P, settings), discardSeat: null, settings,
   };
 }
@@ -1236,8 +1258,8 @@ export default function CribbagePlay() {
         </div>
 
 
-        {(phase === "cutdeal" || phase === "deal" || phase === "discard" || phase === "cribbing" || phase === "cut" || (phase === "show" && show) || (phase === "play" && peg) || phase === "over") && (
-          <PlayScreen state={state} dispatch={dispatch} me={phase === "discard" ? ds : (phase === "play" && peg && multiHuman) ? peg.turn : (multiHuman && (phase === "cutdeal" || phase === "deal")) ? dealerIdx : playMe} needHandoff={needHandoff} cribGliding={cribGliding} onView={setViewSeat} />
+        {(phase === "cutdeal" || phase === "deal" || phase === "dealing" || phase === "discard" || phase === "cribbing" || phase === "cut" || (phase === "show" && show) || (phase === "play" && peg) || phase === "over") && (
+          <PlayScreen state={state} dispatch={dispatch} me={phase === "discard" ? ds : (phase === "play" && peg && multiHuman) ? peg.turn : (multiHuman && (phase === "cutdeal" || phase === "deal" || phase === "dealing")) ? dealerIdx : playMe} needHandoff={needHandoff} cribGliding={cribGliding} onView={setViewSeat} />
         )}
       </main>
 
@@ -1371,11 +1393,12 @@ function CardFace({ card, edge }) {
 // up). `dur`/`delay` time the move to a new home. The element holds both faces (front +
 // back rotated 180°) so a face flip is the same rotateY tween as a move. Interactive props
 // (clickable/selected/raised/dim/onClick) apply only when it is the human's live hand card.
-function CardSprite({ card, home, dur, delay, clickable, selected, raised, dim, selLabel, onClick, hidden }) {
+function CardSprite({ card, home, dur, delay, clickable, selected, raised, dim, selLabel, onClick, hidden, onLanded }) {
   const lift = selected || raised ? 8 : 0;                 // selected/raised cards nudge up
   const edge = selected || raised ? T.selBlue : null;
   return (
     <div onClick={clickable ? onClick : undefined}
+      onTransitionEnd={onLanded ? (e) => { if (e.target === e.currentTarget && e.propertyName === "transform") onLanded(); } : undefined}
       style={{
         position: "absolute", left: 0, top: 0, width: "var(--cw)", height: "var(--ch)",
         transformStyle: "preserve-3d", zIndex: home.z,
@@ -1586,14 +1609,16 @@ const CARD_STAGGER = 210;                          // gap between successive car
 const SWAP_DUR = 520;                              // ms for the old deck to slide out / the new deck to slide in
 const EMPTY_DUR = 240;                             // empty beat between the old deck leaving and the new deck arriving
 function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, onView }) {
-  const { peg, starter, dealerIdx, crib, seats, settings, phase, dealDraw, winner } = state;
+  const { peg, starter, dealerIdx, crib, seats, settings, phase, dealDraw, winner, deal } = state;
   const discardPhase = phase === "discard";
   const cribbingPhase = phase === "cribbing";            // crib full, holding while it animates to its home
   const cutPhase = phase === "cut";
   const cutdealPhase = phase === "cutdeal";              // the opening cut-for-deal reveal
   const dealPhase = phase === "deal";                    // the between-hands "ready to deal" rest
+  const dealingPhase = phase === "dealing";              // cards leaving the deck one at a time
   const showPhase = phase === "show";                    // counting the hands + crib, one at a time
   const overPhase = phase === "over";                    // game won — final banner + play again
+  const dealCursor = deal ? deal.cursor : 0;             // how many cards have been dealt so far
   const preDeal = cutdealPhase || dealPhase;             // no live hand yet: seats hold no cards
   const P = peg ? peg.hands.length : seats.length;
   const teams = clampTeams(P, settings.teams);
@@ -1633,7 +1658,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
   // during the discard, its current hand — the kept four once it has thrown, else the full
   // dealt hand; the kept four at the cut; the live peg hand during play; through the show the
   // same finished peg state (everyone's cards played and face up).
-  const hands = peg ? peg.hands : seats.map((s) => (preDeal ? [] : discardPhase ? (s.kept || s.dealt) : (s.kept || [])));
+  const hands = peg ? peg.hands : seats.map((s) => (preDeal ? [] : (dealingPhase || discardPhase) ? (s.kept || s.dealt || []) : (s.kept || [])));
   const yourHand = hands[me];
   const turn = peg ? peg.turn : -1;
   const tapSelect = settings.tapToSelect;
@@ -1700,12 +1725,16 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
   // false from the deal until ~1s after it finishes; while false, each bot seat shows its full
   // dealt hand and the crib holds none of its cards. The human is unaffected (they throw by hand).
   const phaseTrackRef = React.useRef(phase);
-  const dealJustHappened = phase === "discard" && (phaseTrackRef.current === "deal" || phaseTrackRef.current === "cutdeal");
+  // The deal now finishes by going dealing -> discard (the last card pushed at finalize); the cut-for-deal
+  // first hand still comes straight from cutdeal. Either lands in discard and means "the deal just ended".
+  const dealJustHappened = phase === "discard" && (phaseTrackRef.current === "dealing" || phaseTrackRef.current === "cutdeal");
   const handEndJustHappened = phase === "deal" && phaseTrackRef.current === "show";   // the show just finished → swap the deck
   useEffect(() => { phaseTrackRef.current = phase; });
   const botThrowAtRef = React.useRef(0);
   const nowMs = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
-  if (dealJustHappened) botThrowAtRef.current = nowMs() + 1060 + Math.max(0, totalDealt - 1) * CARD_STAGGER + MOVE_DUR + 1000;   // estimate; the deal timeline refines it
+  // Only the LAST card is still in flight when we reach discard (the rest were dealt one-by-one during
+  // "dealing"), so the bots hold for that last card to land, then ~1s, then throw to the crib.
+  if (dealJustHappened) botThrowAtRef.current = nowMs() + MOVE_DUR + 120 + 1000;
   const [, setBotTick] = React.useState(0);
   const botThrowReady = !(discardPhase && nowMs() < botThrowAtRef.current);
 
@@ -1721,7 +1750,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
     for (let i = 0; i < P; i++) {
       const holding = discardPhase && !botThrowReady && seats[i].isAI;   // bot still holding its full hand
       const unplayed = (holding ? (seats[i].dealt || []) : (hands[i] || [])), played = peg ? peg.played[i] : [];
-      const gridActive = i === me && meHuman && !needHandoff && (discardPhase || (phase === "play" && peg));
+      const gridActive = i === me && meHuman && !needHandoff && (discardPhase || dealingPhase || (phase === "play" && peg));
       if (gridActive) {
         played.forEach((c, j) => { place[cardId(c)] = { group: "seat-" + i, idx: j, up: true }; });
         seatCounts[i] = played.length;
@@ -1771,8 +1800,39 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
   const [deckSwap, setDeckSwap] = React.useState(null);   // {offX,offY} while the old deck slides out / new slides in
   const dealPhaseRef = React.useRef(phase);               // previous phase, to spot the deal (preDeal → discard)
   const dealTimersRef = React.useRef([]);                 // the deal-timeline setTimeouts (cleared on re-trigger)
-  const dealingRef = React.useRef(false);                 // true while the deal timeline owns the card homes
+  const dealingRef = React.useRef(false);                 // true while the (legacy) deal timeline owns the card homes
   const swapUntilRef = React.useRef(0);                   // performance.now() when an in-flight post-show deck swap will have fully settled
+  const gatherDealRef = React.useRef(false);              // true while the first-hand cut-for-deal cards are gathering into the deck
+  const lastAdvancedRef = React.useRef(-1);               // the deal cursor we've already advanced from (so each push fires once)
+
+  // THE DEAL DRIVER. Advance the incremental deal by one card, at most once per cursor value (so the
+  // sprite's transitionend and the safety fallback can't double-fire). dispatch(DEAL_NEXT) pushes the
+  // next card off the deck into its hand.
+  const advanceDeal = (fromCursor) => {
+    if (lastAdvancedRef.current === fromCursor) return;
+    lastAdvancedRef.current = fromCursor;
+    dispatch({ type: "DEAL_NEXT" });
+  };
+  // Kickoff (cursor 0, after any cut-for-deal gather) + a per-card FALLBACK. The primary gate for
+  // cards after the first is the dealt sprite's onTransitionEnd (see the sprites below, which call
+  // advanceDeal when the card lands); this timer only fires if that transitionend never arrives.
+  React.useEffect(() => {
+    if (!dealingPhase || !deal || deal.cursor >= deal.seq.length) return;
+    const cursor = deal.cursor;
+    const wait = cursor === 0 ? (gatherDealRef.current ? MOVE_DUR + 140 : 110) : MOVE_DUR + 260;
+    const t = setTimeout(() => advanceDeal(cursor), wait);
+    return () => clearTimeout(t);
+  }, [dealingPhase, deal && deal.cursor]);
+
+  // When the bots' hold beat ends (set on the deal -> discard transition) re-render so botThrowReady
+  // flips true and their throws reach the crib.
+  React.useEffect(() => {
+    if (!discardPhase) return;
+    const wait = botThrowAtRef.current - nowMs();
+    if (wait <= 0) return;
+    const t = setTimeout(() => setBotTick((x) => x + 1), wait + 30);
+    return () => clearTimeout(t);
+  }, [discardPhase]);
 
   // Re-measure every anchor when the viewport changes size (window resize, device rotation, an
   // on-screen keyboard). The homes effect below runs on each render and reads live geometry, so a
@@ -1870,12 +1930,37 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
     (state.deck || []).forEach((c, i) => { deckOrder[cardId(c)] = i; });
     const dealRank = (id) => (deckOrder[id] != null ? deckOrder[id] : 9999);
 
+    // ============ THE INCREMENTAL DEAL ============
+    // The reducer pushes ONE card per DEAL_NEXT (the deal driver gates each push on the previous
+    // card's transitionend). Each render here: any leftover cards (the cut-for-deal draws, first hand
+    // only) gather back into the deck, the just-pushed card mounts on the deck and flies to its seat,
+    // and the deck thins by one. We own the homes and skip the default flow / the legacy timeline.
+    if (dealingPhase) {
+      for (const id in delayRef.current) delayRef.current[id] = 0;
+      const render = {};
+      for (const id in targets) render[id] = newCards.includes(id) ? { x: deckTop.x, y: deckTop.y, up: false, z: 60 } : targets[id];
+      for (const id of gatherGone) render[id] = { x: deckTop.x, y: deckTop.y, up: false, z: 60 };   // cut-for-deal cards sweep home
+      knownRef.current = nowKnown;
+      prevPlaceRef.current = { ...place };
+      homesRef.current = render; setHomes(render);
+      setDeckShown(Math.max(1, 52 - dealCursor));        // thins one per dealt card (starter/filler still inside)
+      gatherDealRef.current = gatherGone.length > 0;     // tell the driver whether a cut-for-deal gather is running
+      if (newCards.length) {                              // a frame later the new card flies off the deck to its seat
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          homesRef.current = { ...homesRef.current, ...targets };
+          setHomes(homesRef.current);
+        }));
+      }
+      if (gatherGone.length) {                            // drop the gathered cut-for-deal cards once they reach the deck
+        const drop = gatherGone.slice();
+        setTimeout(() => { const next = { ...homesRef.current }; drop.forEach((id) => delete next[id]); homesRef.current = next; setHomes(next); }, MOVE_DUR + 80);
+      }
+      return;
+    }
+
     // ============ THE DEAL: one explicit sequence — consolidate → deck swap → deal → rotate ============
-    // A real deal is the preDeal → discard transition (NOT the 1–2-card cut). When it happens we OWN
-    // the card homes here on a small timeline and skip the default flow below. The old (cut-for-deal)
-    // deck and the new shuffled deck are treated as SEPARATE: every card on the table consolidates
-    // and rides out, and the new hand is mounted fresh on the new deck only after the old cards are
-    // gone — so a rank+suit that happens to appear in both decks can't short-circuit the animation.
+    // (LEGACY — the all-at-once deal timeline. The incremental flow above now owns dealing; this stays
+    // inert because phase goes deal → dealing → discard, so phaseAtLast is never "deal"/"cutdeal" here.)
     const isDeal = (phaseAtLast === "deal" || phaseAtLast === "cutdeal") && phase === "discard" && newCards.length > 1;
     if (isDeal) {
       dealingRef.current = true;                                     // lock out every other effect run until the deal lands
@@ -2064,6 +2149,9 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
     );
   };
 
+  // The card currently in flight off the deck (the just-pushed one). When its move ends, the deal
+  // driver pushes the next card — this is the transitionend gate the whole incremental deal rides on.
+  const dealingCardId = (dealingPhase && deal && deal.cursor > 0 && state.deck[deal.cursor - 1]) ? cardId(state.deck[deal.cursor - 1]) : null;
   // the persistent sprites: one per card on the table, positioned/faced by `homes`
   const sprites = Object.keys(homes).map((id) => {
     const c = CARD_BY_ID[id]; if (!c) return null;
@@ -2080,6 +2168,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
       raised={inHand && tapSelect && chosen}
       dim={inHand && !pending && !legal && (discardPhase ? false : turn === me)}
       selLabel={inHand && !discardPhase ? tr("play.sel.play") : undefined}
+      onLanded={id === dealingCardId ? () => advanceDeal(deal.cursor) : undefined}
       onClick={inHand ? () => tapCard(handIdx) : undefined} />;
   });
 
@@ -2145,7 +2234,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
             {isDealer ? tr("play.cutdeal.subYou") : tr("play.cutdeal.subSeat", { seat: seatName(dealerIdx) })}
           </div>
         </Panel>
-      ) : dealPhase ? (
+      ) : (dealPhase || dealingPhase) ? (
         <Panel tone={cribOurs ? "good" : null}>
           <div style={{ fontWeight: 700, fontSize: 15 }}>{isDealer ? tr("play.deal.yours") : teammateDeals ? tr("play.deal.teammate", { seat: seatName(dealerIdx) }) : tr("play.deal.theirs", { seat: seatName(dealerIdx) })}</div>
           <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 3 }}>{dealBlurb(P)}</div>

@@ -81,9 +81,19 @@ function gameFor(P) {
   return reduce(reduce(initGame(), { type: "SET_SETTING", key: "autoCut", value: false }), { type: "SET_SETTING", key: "players", value: P });
 }
 
+// The deal is incremental: DEAL starts it (phase "dealing"), then each DEAL_NEXT pushes one card off
+// the deck until the hands are full and it finalizes (-> discard, or straight to cut). The live UI
+// gates each push on a transitionend; the harness just drains them in one go.
+function dealAll(state) {
+  state = reduce(state, { type: "DEAL" });
+  let guard = 0;
+  while (state.phase === "dealing" && guard++ < 80) state = reduce(state, { type: "DEAL_NEXT" });
+  return state;
+}
+
 function playHand(state, P) {
   const F = FACTS[P];
-  state = reduce(state, { type: "DEAL" });
+  state = dealAll(state);
   const d = state.dealerIdx;
   check(state.seats.length === P, `P=${P}: ${P} seats`);
   for (let i = 0; i < P; i++) {
@@ -174,7 +184,7 @@ for (const P of SUPPORTED) {
 /* ---- C. his heels = +2 at the cut, per P ---- */
 for (const P of SUPPORTED) {
   const F = FACTS[P];
-  let state = reduce(gameFor(P), { type: "DEAL" });
+  let state = dealAll(gameFor(P));
   if (state.phase === "discard") state = reduce(state, { type: "DISCARD", idxs: F.idxs });
   if (state.phase === "cribbing") state = reduce(state, { type: "CRIB_DONE" });
   const d = state.dealerIdx;
@@ -286,7 +296,7 @@ function mixedGame(P, roles, seed) {
   check(state.settings.seats === roles, `mixed P=${P}: seats stored`);
   let guard = 0, hands = 0;
   while (state.phase !== "over" && guard++ < 4000) {
-    if (state.phase === "cutdeal" || state.phase === "deal") { state = reduce(state, { type: "DEAL" }); }
+    if (state.phase === "cutdeal" || state.phase === "deal") { state = dealAll(state); }
     else if (state.phase === "cribbing") { state = reduce(state, { type: "CRIB_DONE" }); }
     else if (state.phase === "discard") {
       const seat = state.discardSeat;
@@ -323,7 +333,7 @@ mixedGame(4, ["bot", "bot", "bot", "bot"], 5);       // all bots — a spectated
 function autoCutSkips(P) {
   let state = reduce(reduce(initGame(), { type: "SET_SETTING", key: "autoCut", value: true }), { type: "SET_SETTING", key: "players", value: P });
   check(state.settings.autoCut === true, `autoCut P=${P}: enabled`);
-  state = reduce(state, { type: "DEAL" });
+  state = dealAll(state);
   // human (seat 0) throws unless it's a non-thrower seat; either way we should land on play
   if (state.phase === "discard") {
     const n = plan(P, state.dealerIdx).throws[0];

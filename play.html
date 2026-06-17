@@ -210,6 +210,9 @@ cribbageLocale("en", {
   "play.btn.playAgain": "Play again",
   "play.btn.continue": "Continue",
   "play.go": "Say “Go” — no legal card",
+  "play.log.title": "This game’s messages",
+  "play.log.tapHint": "Tap to review this game’s messages",
+  "play.log.empty": "No messages yet.",
   "play.throw": "Throw to crib",
   "play.tapOne": "Select a card to throw",
   "play.tapTwo": "Select two cards to throw",
@@ -806,7 +809,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.49";
+const APP_VERSION = "1.1.20-dev.50";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -1629,6 +1632,8 @@ function CribbagePlay() {
     const [confirmHome, setConfirmHome] = React.useState(false);
     const [aboutOpen, setAboutOpen] = React.useState(false);
     const [historyOpen, setHistoryOpen] = React.useState(false);
+    const [msgLogOpen, setMsgLogOpen] = React.useState(false);
+    const [msgLog, setMsgLog] = React.useState([]);
     const [, bumpLang] = React.useState(0);
     useEffect(() => {
         const i = (typeof window !== "undefined") ? window.i18n : null;
@@ -1636,6 +1641,10 @@ function CribbagePlay() {
             i.onChange(() => bumpLang((v) => v + 1));
     }, []);
     const { phase, seats, dealerIdx, peg, show, starter, winner, message, settings } = state;
+    useEffect(() => { if (phase === "cutdeal")
+        setMsgLog([]); }, [phase]);
+    useEffect(() => { if (message)
+        setMsgLog((log) => (log[log.length - 1] === message ? log : [...log, message])); }, [message]);
     const players = clampPlayers(settings.players);
     const teams = clampTeams(players, settings.teams);
     const multiHuman = nHumans(players, settings) > 1;
@@ -1680,7 +1689,7 @@ function CribbagePlay() {
     else
         setConfirmHome(true); };
     const canPause = settings.autoCut || settings.autoGo || settings.autoDeal || settings.autoContinue || settings.autoPlayOne || settings.autoPlayBest || settings.autoDiscardBest;
-    const autoPaused = paused || settingsOpen || historySeat !== null;
+    const autoPaused = paused || settingsOpen || historySeat !== null || msgLogOpen;
     useEffect(() => { if (!canPause && paused)
         setPaused(false); }, [canPause, paused]);
     useEffect(() => {
@@ -1836,7 +1845,9 @@ function CribbagePlay() {
             React.createElement("div", { style: { position: "relative", zIndex: 6, background: `radial-gradient(120% 200% at 50% -40%, ${T.baizeHi}, ${T.baize})` } },
                 React.createElement(ScoreRow, { seats: seats, dealerIdx: dealerIdx, turn: turnNow, winner: phase === "over" ? winner : null, onPick: (i) => setHistorySeat((cur) => (cur === i ? null : i)), P: players, teams: teams })),
             historySeat !== null && React.createElement(HistoryPanel, { seatIdx: historySeat, seats: seats, onClose: () => setHistorySeat(null), P: players, teams: teams }),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.cream, marginTop: 5, marginBottom: 3, marginLeft: 2, marginRight: "calc(50% - 50vw)", height: 18, lineHeight: "18px", whiteSpace: "nowrap", overflow: "hidden" } }, message),
+            React.createElement("div", { onClick: () => { if (msgLog.length)
+                    setMsgLogOpen(true); }, title: msgLog.length ? tr("play.log.tapHint") : undefined, style: { fontFamily: mono, fontSize: 12, color: T.cream, marginTop: 5, marginBottom: 3, marginLeft: 2, marginRight: "calc(50% - 50vw)", height: 18, lineHeight: "18px", whiteSpace: "nowrap", overflow: "hidden", cursor: msgLog.length ? "pointer" : "default" } }, message),
+            msgLogOpen && React.createElement(MessageLogModal, { log: msgLog, onClose: () => setMsgLogOpen(false) }),
             (phase === "cutdeal" || phase === "deal" || phase === "dealing" || phase === "discard" || phase === "cribbing" || phase === "cut" || (phase === "show" && show) || (phase === "play" && peg) || phase === "over") && (React.createElement(PlayScreen, { state: state, dispatch: dispatch, me: phase === "discard" ? ds : phase === "cut" ? (dealerIdx + players - 1) % players : (phase === "play" && peg && multiHuman) ? peg.turn : (multiHuman && (phase === "cutdeal" || phase === "deal" || phase === "dealing")) ? dealerIdx : playMe, needHandoff: needHandoff, cribGliding: cribGliding, onView: setViewSeat }))),
         aboutOpen && React.createElement(AboutModal, { onClose: () => setAboutOpen(false) }),
         historyOpen && React.createElement(HistoryModal, { onClose: () => setHistoryOpen(false) }),
@@ -2877,7 +2888,23 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.49"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.50"))));
+}
+function MessageLogModal({ log, onClose }) {
+    const scrollRef = React.useRef(null);
+    React.useEffect(() => { if (scrollRef.current)
+        scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, []);
+    return (React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 220, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }, onClick: onClose },
+        React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { maxWidth: 420, width: "100%", maxHeight: "80vh", display: "flex", flexDirection: "column", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "18px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" } },
+            React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12, flex: "0 0 auto" } },
+                React.createElement("span", { style: { fontWeight: 700, fontSize: 17 } }, tr("play.log.title")),
+                React.createElement("button", { onClick: onClose, style: { padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 } }, tr("common.done"))),
+            React.createElement("div", { ref: scrollRef, style: { overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 } }, log.length === 0 ? React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.muted } }, tr("play.log.empty"))
+                : log.map((m, i) => (React.createElement("div", { key: i, style: { fontFamily: mono, fontSize: 12, lineHeight: 1.5, color: T.cream, paddingBottom: 6, borderBottom: i < log.length - 1 ? `1px solid ${T.line}` : "none" } },
+                    React.createElement("span", { style: { color: T.muted, marginRight: 6 } },
+                        i + 1,
+                        "."),
+                    m)))))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

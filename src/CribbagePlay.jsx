@@ -1100,6 +1100,8 @@ export default function CribbagePlay() {
   const [confirmHome, setConfirmHome] = React.useState(false);
   const [aboutOpen, setAboutOpen] = React.useState(false);
   const [historyOpen, setHistoryOpen] = React.useState(false);
+  const [msgLogOpen, setMsgLogOpen] = React.useState(false);   // tap the status line to pause + review this game's messages
+  const [msgLog, setMsgLog] = React.useState([]);              // every non-empty status message so far this game
   // Live language switch: re-render the whole tree when i18n.choose() loads a new locale (the
   // game/reducer state is untouched — only the text from tr() changes). Render-only; no effect
   // on verify_play.js, which evals the reducer, not the React render.
@@ -1109,6 +1111,10 @@ export default function CribbagePlay() {
     if (i && i.onChange) i.onChange(() => bumpLang((v) => v + 1));
   }, []);
   const { phase, seats, dealerIdx, peg, show, starter, winner, message, settings } = state;
+  // Accumulate this game's status messages so the tap-to-review modal can show the whole run.
+  // A fresh game (back at the opening cut-for-deal) starts the log over.
+  useEffect(() => { if (phase === "cutdeal") setMsgLog([]); }, [phase]);
+  useEffect(() => { if (message) setMsgLog((log) => (log[log.length - 1] === message ? log : [...log, message])); }, [message]);
   const players = clampPlayers(settings.players);
   const teams = clampTeams(players, settings.teams);
   const multiHuman = nHumans(players, settings) > 1;            // 2+ humans → hot-seat hand-off
@@ -1151,7 +1157,7 @@ export default function CribbagePlay() {
 
   const goHome = () => { if (phase === "cutdeal") window.location.href = "index.html"; else setConfirmHome(true); };
   const canPause = settings.autoCut || settings.autoGo || settings.autoDeal || settings.autoContinue || settings.autoPlayOne || settings.autoPlayBest || settings.autoDiscardBest;
-  const autoPaused = paused || settingsOpen || historySeat !== null;
+  const autoPaused = paused || settingsOpen || historySeat !== null || msgLogOpen;
   useEffect(() => { if (!canPause && paused) setPaused(false); }, [canPause, paused]);
 
   // Self-clocking play loop: bots move and forced "go"s fire on a timer; a human with
@@ -1317,9 +1323,10 @@ export default function CribbagePlay() {
             shifts up/down as the message changes. `marginRight: 50% - 50vw` stretches the box's right
             edge out to the viewport edge (the table is centred), and overflow:hidden clips the bleed
             there — off-screen-right, with no horizontal scrollbar. */}
-        <div style={{ fontFamily: mono, fontSize: 12, color: T.cream, marginTop: 5, marginBottom: 3, marginLeft: 2, marginRight: "calc(50% - 50vw)", height: 18, lineHeight: "18px", whiteSpace: "nowrap", overflow: "hidden" }}>
+        <div onClick={() => { if (msgLog.length) setMsgLogOpen(true); }} title={msgLog.length ? tr("play.log.tapHint") : undefined} style={{ fontFamily: mono, fontSize: 12, color: T.cream, marginTop: 5, marginBottom: 3, marginLeft: 2, marginRight: "calc(50% - 50vw)", height: 18, lineHeight: "18px", whiteSpace: "nowrap", overflow: "hidden", cursor: msgLog.length ? "pointer" : "default" }}>
           {message}
         </div>
+        {msgLogOpen && <MessageLogModal log={msgLog} onClose={() => setMsgLogOpen(false)} />}
 
 
         {(phase === "cutdeal" || phase === "deal" || phase === "dealing" || phase === "discard" || phase === "cribbing" || phase === "cut" || (phase === "show" && show) || (phase === "play" && peg) || phase === "over") && (
@@ -2760,6 +2767,31 @@ function AboutModal({ onClose }) {
         }}>{tr("about.sourceLink")}</a>
         <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" }}>github.com/ghug/cribbage-trainer</div>
         <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" }}>v__APP_VERSION__</div>
+      </div>
+    </div>
+  );
+}
+
+// Tap-to-review: a scrolling list of every status message so far this game (latest at the
+// bottom). Same baize card styling as the About modal; opening it pauses the game (autoPaused).
+function MessageLogModal({ log, onClose }) {
+  const scrollRef = React.useRef(null);
+  React.useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, []);
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 220, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420, width: "100%", maxHeight: "80vh", display: "flex", flexDirection: "column", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "18px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12, flex: "0 0 auto" }}>
+          <span style={{ fontWeight: 700, fontSize: 17 }}>{tr("play.log.title")}</span>
+          <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 11.5, fontWeight: 700 }}>{tr("common.done")}</button>
+        </div>
+        <div ref={scrollRef} style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
+          {log.length === 0 ? <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>{tr("play.log.empty")}</div>
+            : log.map((m, i) => (
+              <div key={i} style={{ fontFamily: mono, fontSize: 12, lineHeight: 1.5, color: T.cream, paddingBottom: 6, borderBottom: i < log.length - 1 ? `1px solid ${T.line}` : "none" }}>
+                <span style={{ color: T.muted, marginRight: 6 }}>{i + 1}.</span>{m}
+              </div>
+            ))}
+        </div>
       </div>
     </div>
   );

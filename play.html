@@ -801,7 +801,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.22";
+const APP_VERSION = "1.1.20-dev.23";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -1102,7 +1102,7 @@ function commitDiscard(state, idxs) {
     const seat = state.discardSeat;
     const dealt = state.seats[seat].dealt;
     const discard = idxs.map((i) => dealt[i]);
-    const kept = sortHand(dealt.filter((_, j) => !idxs.includes(j)));
+    const kept = dealt.filter((_, j) => !idxs.includes(j));
     const seats = state.seats.map((s, i) => (i === seat ? { ...s, discard, kept } : s));
     const order = throwOrder(P, state.dealerIdx, state.settings);
     let next = null;
@@ -1111,8 +1111,10 @@ function commitDiscard(state, idxs) {
             next = order[k];
             break;
         }
-    if (next != null)
-        return { ...state, seats, discardSeat: next, pendingDiscard: null };
+    if (next != null) {
+        const ns = seats.map((s, i) => (i === next ? { ...s, dealt: sortHand(s.dealt) } : s));
+        return { ...state, seats: ns, discardSeat: next, pendingDiscard: null };
+    }
     return { ...state, seats, crib: assembleCrib(seats, state.deck, pl), pendingDiscard: null, phase: "cribbing", discardSeat: null };
 }
 function afterCrib(cutState) {
@@ -1124,7 +1126,7 @@ function applyCut(state) {
     const pl = plan(P, state.dealerIdx);
     const starter = state.deck[pl.starterIdx];
     const hisHeels = starter.r === 11;
-    let seats = state.seats, winner = null, message = tr("play.msg.cut", { card: tag(starter) });
+    let seats = state.seats.map((s) => (s.kept ? { ...s, kept: sortHand(s.kept) } : s)), winner = null, message = tr("play.msg.cut", { card: tag(starter) });
     if (hisHeels) {
         seats = addScore(seats, state.dealerIdx, 2, "his heels", P, teams);
         message = isYou(state.dealerIdx)
@@ -1173,7 +1175,7 @@ function dealStep(state) {
         return state;
     const seat = deal.seq[deal.cursor];
     const card = state.deck[deal.cursor];
-    const seats = state.seats.map((s, i) => i === seat ? { ...s, dealt: sortHand([...s.dealt, card]) } : s);
+    const seats = state.seats.map((s, i) => i === seat ? { ...s, dealt: [...s.dealt, card] } : s);
     const cursor = deal.cursor + 1;
     if (cursor < deal.seq.length)
         return { ...state, seats, deal: { ...deal, cursor } };
@@ -1188,17 +1190,20 @@ function finalizeDeal(state) {
     const seats = state.seats.map((s) => ({ ...s }));
     for (let i = 0; i < P; i++) {
         if (pl.throws[i] === 0) {
-            seats[i].kept = sortHand(seats[i].dealt);
+            seats[i].kept = seats[i].dealt;
             seats[i].discard = [];
         }
         else if (!seatIsHuman(i, state.settings)) {
             const r = aiDiscardN(seats[i].dealt, i, d, pl.throws[i], P, teams);
             seats[i].discard = r.discard;
-            seats[i].kept = sortHand(r.kept);
+            seats[i].kept = r.kept;
         }
     }
     const humanThrowers = throwOrder(P, d, state.settings);
-    const base = { ...state, seats, phase: "discard", message: "", discardSeat: humanThrowers.length ? humanThrowers[0] : null };
+    const firstThrower = humanThrowers.length ? humanThrowers[0] : null;
+    if (firstThrower != null)
+        seats[firstThrower] = { ...seats[firstThrower], dealt: sortHand(seats[firstThrower].dealt) };
+    const base = { ...state, seats, phase: "discard", message: "", discardSeat: firstThrower };
     if (humanThrowers.length === 0) {
         const you = soleHuman(P, state.settings);
         const msg = you < 0 ? tr("play.msg.dealsCut", { seat: seatName(d) })
@@ -2761,7 +2766,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.22"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.23"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

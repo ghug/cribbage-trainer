@@ -528,12 +528,16 @@ function commitDiscard(state, idxs) {
   const seat = state.discardSeat;
   const dealt = state.seats[seat].dealt;
   const discard = idxs.map((i) => dealt[i]);
-  const kept = sortHand(dealt.filter((_, j) => !idxs.includes(j)));
+  const kept = dealt.filter((_, j) => !idxs.includes(j));   // dealt was sorted at this seat's turn; filtering keeps that order
   const seats = state.seats.map((s, i) => (i === seat ? { ...s, discard, kept } : s));
   const order = throwOrder(P, state.dealerIdx, state.settings);
   let next = null;
   for (let k = order.indexOf(seat) + 1; k < order.length; k++) if (seats[order[k]].discard == null) { next = order[k]; break; }
-  if (next != null) return { ...state, seats, discardSeat: next, pendingDiscard: null };
+  if (next != null) {
+    // Sort the next thrower's hand as the device reaches them and their hand is shown face-up.
+    const ns = seats.map((s, i) => (i === next ? { ...s, dealt: sortHand(s.dealt) } : s));
+    return { ...state, seats: ns, discardSeat: next, pendingDiscard: null };
+  }
   // Last throw: the crib is now full, but the game HOLDS in "cribbing" while the render animates
   // the card arriving and the crib gliding to its home. CRIB_DONE (dispatched when the animation
   // finishes — or immediately, in the render-free verify harness) advances to the cut.
@@ -554,7 +558,10 @@ function applyCut(state) {
   const pl = plan(P, state.dealerIdx);
   const starter = state.deck[pl.starterIdx];
   const hisHeels = starter.r === 11;
-  let seats = state.seats, winner = null, message = tr("play.msg.cut", { card: tag(starter) });
+  // Play begins: the kept hands are now shown face-up for pegging (and the show), so sort them here
+  // — the last place a hand goes from deal order to sorted. (Throwers' hands are already sorted from
+  // their discard turn; this catches non-thrower hands and tidies every hand for the count.)
+  let seats = state.seats.map((s) => (s.kept ? { ...s, kept: sortHand(s.kept) } : s)), winner = null, message = tr("play.msg.cut", { card: tag(starter) });
   if (hisHeels) {
     seats = addScore(seats, state.dealerIdx, 2, "his heels", P, teams);
     message = isYou(state.dealerIdx)
@@ -603,7 +610,7 @@ function dealStep(state) {
   if (!deal || deal.cursor >= deal.seq.length) return state;
   const seat = deal.seq[deal.cursor];
   const card = state.deck[deal.cursor];                      // deck order == deal order
-  const seats = state.seats.map((s, i) => i === seat ? { ...s, dealt: sortHand([...s.dealt, card]) } : s);
+  const seats = state.seats.map((s, i) => i === seat ? { ...s, dealt: [...s.dealt, card] } : s);   // deal order — sorted later, at this seat's turn
   const cursor = deal.cursor + 1;
   if (cursor < deal.seq.length) return { ...state, seats, deal: { ...deal, cursor } };
   return finalizeDeal({ ...state, seats, deal: null });      // last card just landed
@@ -616,13 +623,18 @@ function finalizeDeal(state) {
   const deck = state.deck;
   const seats = state.seats.map((s) => ({ ...s }));
   // Non-throwers keep their hand; throwing BOTS throw now; throwing HUMANS throw
-  // interactively during the discard phase (one at a time, passing the device).
+  // interactively during the discard phase (one at a time, passing the device). Hands stay in
+  // DEAL ORDER here — unsorted — and are sorted only when first shown face-up for a seat's turn.
   for (let i = 0; i < P; i++) {
-    if (pl.throws[i] === 0) { seats[i].kept = sortHand(seats[i].dealt); seats[i].discard = []; }
-    else if (!seatIsHuman(i, state.settings)) { const r = aiDiscardN(seats[i].dealt, i, d, pl.throws[i], P, teams); seats[i].discard = r.discard; seats[i].kept = sortHand(r.kept); }
+    if (pl.throws[i] === 0) { seats[i].kept = seats[i].dealt; seats[i].discard = []; }
+    else if (!seatIsHuman(i, state.settings)) { const r = aiDiscardN(seats[i].dealt, i, d, pl.throws[i], P, teams); seats[i].discard = r.discard; seats[i].kept = r.kept; }
   }
   const humanThrowers = throwOrder(P, d, state.settings);   // pone first, clockwise, dealer last
-  const base = { ...state, seats, phase: "discard", message: "", discardSeat: humanThrowers.length ? humanThrowers[0] : null };
+  const firstThrower = humanThrowers.length ? humanThrowers[0] : null;
+  // Sort the first thrower's hand now, as the discard turn begins (the rest sort when the device
+  // reaches them, in commitDiscard; pegging/show hands sort at the cut, in applyCut).
+  if (firstThrower != null) seats[firstThrower] = { ...seats[firstThrower], dealt: sortHand(seats[firstThrower].dealt) };
+  const base = { ...state, seats, phase: "discard", message: "", discardSeat: firstThrower };
   if (humanThrowers.length === 0) {
     // No human throws this hand — the crib is already complete, so skip to the cut. Frame
     // the note from the lone human's seat (if any); with no single human (all-bot spectate

@@ -2895,7 +2895,8 @@ function MugginsClaim({ info, starter, isCrib, settings, dispatch }) {
   const [sel, setSel] = React.useState([]);                // selected card ids
   const [claims, setClaims] = React.useState([]);          // { type, key, rank?, pts, tags }
   const [confirm, setConfirm] = React.useState(false);
-  React.useEffect(() => { setSel([]); setClaims([]); setConfirm(false); }, [info.owner, info.isCrib]);
+  const [hint, setHint] = React.useState(false);
+  React.useEffect(() => { setSel([]); setClaims([]); setConfirm(false); setHint(false); }, [info.owner, info.isCrib]);
   const selCards = five.filter((c) => sel.includes(cardId(c)));
   const claimed = claims.reduce((a, c) => a + c.pts, 0);
   const toggle = (id) => setSel((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
@@ -2906,7 +2907,12 @@ function MugginsClaim({ info, starter, isCrib, settings, dispatch }) {
     setSel([]);
   };
   const submit = () => dispatch({ type: "SHOW_CLAIM", value: claimed });
-  const done = () => { if (claimed < info.total && settings.claimWarn) setConfirm(true); else submit(); };
+  const done = () => { if (claimed < info.total && settings.claimWarn) { setHint(false); setConfirm(true); } else submit(); };
+  // Points still unclaimed, by category — the hint in the missed-points warning names which kinds
+  // of combination are still on the table (not the exact cards) so the player can keep looking.
+  const CLAIM_CAT = { fifteen: 0, pair: 1, run: 2, flush: 3, nobs: 4 };
+  const remaining = info.acc.map((v, i) => v - claims.filter((c) => CLAIM_CAT[c.type] === i).reduce((a, c) => a + c.pts, 0));
+  const hintText = remaining.map((v, i) => v > 0 ? `${catName(i)} ${v}` : null).filter(Boolean).join(" · ");
   return (
     <div style={{ background: "rgba(0,0,0,0.26)", borderRadius: 10, padding: "12px 14px 14px" }}>
       <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, lineHeight: 1.5, marginBottom: 10 }}>
@@ -2949,7 +2955,10 @@ function MugginsClaim({ info, starter, isCrib, settings, dispatch }) {
       {confirm && (
         <Modal onBackdrop={() => setConfirm(false)} maxWidth={360}>
           <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>{tr("play.show.incompleteTitle", { m: info.total - claimed })}</div>
-          <div style={{ fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.5, marginBottom: 16 }}>{tr("play.show.incompleteBody", { n: claimed, total: info.total, m: info.total - claimed })}</div>
+          <div style={{ fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.5, marginBottom: 12 }}>{tr("play.show.incompleteBody", { n: claimed, total: info.total, m: info.total - claimed })}</div>
+          {hint
+            ? <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, lineHeight: 1.5, marginBottom: 16, background: "rgba(0,0,0,0.22)", borderRadius: 7, padding: "8px 10px" }}>{tr("play.show.hintLine")} <b style={{ color: T.cream }}>{hintText}</b></div>
+            : <button onClick={() => setHint(true)} style={{ width: "100%", marginBottom: 12, padding: "10px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer", background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12, fontWeight: 700 }}>{tr("play.show.hintBtn")}</button>}
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={() => setConfirm(false)} style={{ flex: 1, padding: "12px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer", background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: 12.5, fontWeight: 700 }}>{tr("play.show.keepCounting")}</button>
             <button onClick={submit} style={{ flex: 1, padding: "12px", borderRadius: 9, border: "none", cursor: "pointer", background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700 }}>{tr("play.show.incompleteConfirm", { n: claimed })}</button>

@@ -123,6 +123,8 @@ cribbageLocale("en", {
   "play.show.incompleteBody": "You’re claiming {n} of {total} — the next opponent takes the {m} you missed.",
   "play.show.incompleteConfirm": "Claim {n} anyway",
   "play.show.keepCounting": "Keep counting",
+  "play.show.hintBtn": "Show a hint",
+  "play.show.hintLine": "Still on the table —",
   "play.skunk.double": "Double skunk 🦨🦨 — {list}",
   "play.skunk.single": "Skunk 🦨 — {list}",
   // game history — the per-seat scoring popup + the aggregate stats modal

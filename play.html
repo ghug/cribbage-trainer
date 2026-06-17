@@ -286,6 +286,8 @@ cribbageLocale("en", {
   "play.show.incompleteBody": "You’re claiming {n} of {total} — the next opponent takes the {m} you missed.",
   "play.show.incompleteConfirm": "Claim {n} anyway",
   "play.show.keepCounting": "Keep counting",
+  "play.show.hintBtn": "Show a hint",
+  "play.show.hintLine": "Still on the table —",
   "play.skunk.double": "Double skunk 🦨🦨 — {list}",
   "play.skunk.single": "Skunk 🦨 — {list}",
   // game history — the per-seat scoring popup + the aggregate stats modal
@@ -829,7 +831,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.59";
+const APP_VERSION = "1.1.20-dev.60";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -2976,7 +2978,7 @@ function AboutModal({ onClose }) {
                 background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
             } }, tr("about.sourceLink")),
         React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-        React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.59")));
+        React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.60")));
 }
 function MessageLogModal({ log, onClose }) {
     const scrollRef = React.useRef(null);
@@ -3015,7 +3017,8 @@ function MugginsClaim({ info, starter, isCrib, settings, dispatch }) {
     const [sel, setSel] = React.useState([]);
     const [claims, setClaims] = React.useState([]);
     const [confirm, setConfirm] = React.useState(false);
-    React.useEffect(() => { setSel([]); setClaims([]); setConfirm(false); }, [info.owner, info.isCrib]);
+    const [hint, setHint] = React.useState(false);
+    React.useEffect(() => { setSel([]); setClaims([]); setConfirm(false); setHint(false); }, [info.owner, info.isCrib]);
     const selCards = five.filter((c) => sel.includes(cardId(c)));
     const claimed = claims.reduce((a, c) => a + c.pts, 0);
     const toggle = (id) => setSel((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
@@ -3027,10 +3030,15 @@ function MugginsClaim({ info, starter, isCrib, settings, dispatch }) {
         setSel([]);
     };
     const submit = () => dispatch({ type: "SHOW_CLAIM", value: claimed });
-    const done = () => { if (claimed < info.total && settings.claimWarn)
+    const done = () => { if (claimed < info.total && settings.claimWarn) {
+        setHint(false);
         setConfirm(true);
+    }
     else
         submit(); };
+    const CLAIM_CAT = { fifteen: 0, pair: 1, run: 2, flush: 3, nobs: 4 };
+    const remaining = info.acc.map((v, i) => v - claims.filter((c) => CLAIM_CAT[c.type] === i).reduce((a, c) => a + c.pts, 0));
+    const hintText = remaining.map((v, i) => v > 0 ? `${catName(i)} ${v}` : null).filter(Boolean).join(" · ");
     return (React.createElement("div", { style: { background: "rgba(0,0,0,0.26)", borderRadius: 10, padding: "12px 14px 14px" } },
         React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, lineHeight: 1.5, marginBottom: 10 } }, info.isCrib ? tr("play.show.claimInstrCrib") : tr("play.show.claimInstr")),
         React.createElement("div", { style: { display: "flex", gap: 5, justifyContent: "center", marginBottom: 12 } }, five.map((c) => {
@@ -3061,7 +3069,13 @@ function MugginsClaim({ info, starter, isCrib, settings, dispatch }) {
         bigBtn(info.total === 0 ? tr("play.show.claimNone") : tr("play.show.claimDone", { n: claimed }), done, "good"),
         confirm && (React.createElement(Modal, { onBackdrop: () => setConfirm(false), maxWidth: 360 },
             React.createElement("div", { style: { fontWeight: 700, fontSize: 16, marginBottom: 8 } }, tr("play.show.incompleteTitle", { m: info.total - claimed })),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.5, marginBottom: 16 } }, tr("play.show.incompleteBody", { n: claimed, total: info.total, m: info.total - claimed })),
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: 1.5, marginBottom: 12 } }, tr("play.show.incompleteBody", { n: claimed, total: info.total, m: info.total - claimed })),
+            hint
+                ? React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, color: T.muted, lineHeight: 1.5, marginBottom: 16, background: "rgba(0,0,0,0.22)", borderRadius: 7, padding: "8px 10px" } },
+                    tr("play.show.hintLine"),
+                    " ",
+                    React.createElement("b", { style: { color: T.cream } }, hintText))
+                : React.createElement("button", { onClick: () => setHint(true), style: { width: "100%", marginBottom: 12, padding: "10px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer", background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12, fontWeight: 700 } }, tr("play.show.hintBtn")),
             React.createElement("div", { style: { display: "flex", gap: 8 } },
                 React.createElement("button", { onClick: () => setConfirm(false), style: { flex: 1, padding: "12px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer", background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: 12.5, fontWeight: 700 } }, tr("play.show.keepCounting")),
                 React.createElement("button", { onClick: submit, style: { flex: 1, padding: "12px", borderRadius: 9, border: "none", cursor: "pointer", background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700 } }, tr("play.show.incompleteConfirm", { n: claimed })))))));

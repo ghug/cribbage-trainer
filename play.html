@@ -234,6 +234,7 @@ cribbageLocale("en", {
   "play.crib.seatPrefix": "{seat}: ",
   "play.crib.greedy": "Your crib",
   "play.crib.greedyNamed": "Their own crib",
+  "play.crib.greedyMine": "Your own crib",
   "play.crib.teamGreedy": "{seat}’s crib — your team’s",
   "play.crib.teamGreedyNamed": "{seat}’s crib — their team’s",
   "play.crib.defend": "Feeds {seat}’s crib",
@@ -805,7 +806,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.40";
+const APP_VERSION = "1.1.20-dev.41";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -1115,8 +1116,10 @@ function commitDiscard(state, idxs) {
             next = order[k];
             break;
         }
-    if (next != null)
-        return { ...state, seats, discardSeat: next, pendingDiscard: null };
+    if (next != null) {
+        const ns = seats.map((s, i) => (i === next ? { ...s, dealt: sortHand(s.dealt) } : s));
+        return { ...state, seats: ns, discardSeat: next, pendingDiscard: null };
+    }
     return { ...state, seats, crib: assembleCrib(seats, state.deck, pl), pendingDiscard: null, phase: "cribbing", discardSeat: null };
 }
 function afterCrib(cutState) {
@@ -1202,7 +1205,10 @@ function finalizeDeal(state) {
         }
     }
     const humanThrowers = throwOrder(P, d, state.settings);
-    const base = { ...state, seats, phase: "discard", message: "", discardSeat: humanThrowers.length ? humanThrowers[0] : null };
+    const firstThrower = humanThrowers.length ? humanThrowers[0] : null;
+    if (firstThrower != null)
+        seats[firstThrower] = { ...seats[firstThrower], dealt: sortHand(seats[firstThrower].dealt) };
+    const base = { ...state, seats, phase: "discard", message: "", discardSeat: firstThrower };
     if (humanThrowers.length === 0) {
         const you = soleHuman(P, state.settings);
         const msg = you < 0 ? tr("play.msg.dealsCut", { seat: seatName(d) })
@@ -1278,13 +1284,6 @@ function reduce(state, action) {
             return cutStep(state);
         case "CUT_REDRAW":
             return cutRedraw(state);
-        case "SORT_HAND": {
-            const seat = action.seat;
-            let st = { ...state, seats: state.seats.map((s, i) => (i === seat ? { ...s, dealt: sortHand(s.dealt || []), kept: s.kept ? sortHand(s.kept) : s.kept } : s)) };
-            if (st.peg)
-                st = { ...st, peg: { ...st.peg, hands: st.peg.hands.map((h, i) => (i === seat ? sortHand(h) : h)) } };
-            return st;
-        }
         case "SET_SETTING": {
             const settings = { ...state.settings, [action.key]: action.value };
             if (action.key === "players")
@@ -2260,18 +2259,6 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
         });
         return () => timers.forEach((t) => t && clearTimeout(t));
     }, [discardPhase]);
-    const discardClickable = discardPhase && meHuman && !needHandoff;
-    const handSortedRef = React.useRef(-1);
-    React.useEffect(() => {
-        if (!discardClickable) {
-            handSortedRef.current = -1;
-            return;
-        }
-        if (handSortedRef.current === me)
-            return;
-        const t = setTimeout(() => { handSortedRef.current = me; dispatch({ type: "SORT_HAND", seat: me }); }, MOVE_DUR + 120);
-        return () => clearTimeout(t);
-    }, [discardClickable, me]);
     const [, bumpViewport] = React.useState(0);
     const [resizing, setResizing] = React.useState(false);
     const resizeTimer = React.useRef(null);
@@ -2626,7 +2613,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
                 React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 } },
                     React.createElement("div", { style: { fontWeight: 700, fontSize: 15, minWidth: 0 } },
                         multiHuman ? tr("play.crib.seatPrefix", { seat: seatName(me) }) : "",
-                        isDealer ? tr(multiHuman ? "play.crib.greedyNamed" : "play.crib.greedy") : teammateDeals ? tr(multiHuman ? "play.crib.teamGreedyNamed" : "play.crib.teamGreedy", { seat: seatName(dealerIdx) }) : tr("play.crib.defend", { seat: seatName(dealerIdx) })),
+                        isDealer ? tr(!multiHuman ? "play.crib.greedy" : needHandoff ? "play.crib.greedyNamed" : "play.crib.greedyMine") : teammateDeals ? tr((!multiHuman || !needHandoff) ? "play.crib.teamGreedy" : "play.crib.teamGreedyNamed", { seat: seatName(dealerIdx) }) : tr("play.crib.defend", { seat: seatName(dealerIdx) })),
                     cribSoFar > 0 && !cribGliding && (React.createElement("div", { "data-slot": "crib", style: { flex: "0 0 auto", display: "flex", alignItems: "flex-end", visibility: "hidden" } },
                         React.createElement(SlotGhost, { n: cribSoFar, vis: BACK_VISIBLE })))))) : cutPhase ? null : (React.createElement("div", { style: { background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "0 12px 0 0" } },
                 React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, minHeight: `calc(var(--ch) * ${PILE_VISIBLE})` } },
@@ -2870,7 +2857,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.40"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.41"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

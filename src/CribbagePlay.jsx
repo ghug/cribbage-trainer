@@ -533,9 +533,11 @@ function commitDiscard(state, idxs) {
   const order = throwOrder(P, state.dealerIdx, state.settings);
   let next = null;
   for (let k = order.indexOf(seat) + 1; k < order.length; k++) if (seats[order[k]].discard == null) { next = order[k]; break; }
-  // The next thrower's hand stays in deal order; the render sorts it (SORT_HAND) when it becomes
-  // the interactive clickable hand row for them.
-  if (next != null) return { ...state, seats, discardSeat: next, pendingDiscard: null };
+  // Sort the next thrower's hand as it's assigned — just before it's shown/revealed to them.
+  if (next != null) {
+    const ns = seats.map((s, i) => (i === next ? { ...s, dealt: sortHand(s.dealt) } : s));
+    return { ...state, seats: ns, discardSeat: next, pendingDiscard: null };
+  }
   // Last throw: the crib is now full, but the game HOLDS in "cribbing" while the render animates
   // the card arriving and the crib gliding to its home. CRIB_DONE (dispatched when the animation
   // finishes — or immediately, in the render-free verify harness) advances to the cut.
@@ -628,9 +630,12 @@ function finalizeDeal(state) {
     else if (!seatIsHuman(i, state.settings)) { const r = aiDiscardN(seats[i].dealt, i, d, pl.throws[i], P, teams); seats[i].discard = r.discard; seats[i].kept = r.kept; }
   }
   const humanThrowers = throwOrder(P, d, state.settings);   // pone first, clockwise, dealer last
-  // Hands stay in DEAL ORDER. A thrower's hand is sorted only when it's about to become the
-  // interactive clickable hand row — dispatched (SORT_HAND) from the render once the deal has settled.
-  const base = { ...state, seats, phase: "discard", message: "", discardSeat: humanThrowers.length ? humanThrowers[0] : null };
+  const firstThrower = humanThrowers.length ? humanThrowers[0] : null;
+  // Hands are dealt in DEAL ORDER; sort a thrower's hand the moment it's assigned — JUST BEFORE it's
+  // shown in the clickable row (single-human) or revealed on hand-off (multi-human), so it's never
+  // seen reordering. (Later throwers sort as the device reaches them, in commitDiscard.)
+  if (firstThrower != null) seats[firstThrower] = { ...seats[firstThrower], dealt: sortHand(seats[firstThrower].dealt) };
+  const base = { ...state, seats, phase: "discard", message: "", discardSeat: firstThrower };
   if (humanThrowers.length === 0) {
     // No human throws this hand — the crib is already complete, so skip to the cut. Frame
     // the note from the lone human's seat (if any); with no single human (all-bot spectate
@@ -704,13 +709,6 @@ function reduce(state, action) {
 
     case "CUT_REDRAW":          // after the tie pause: fresh deck + restart the cut (view swaps the deck)
       return cutRedraw(state);
-
-    case "SORT_HAND": {         // sort one seat's hand into rank order — fired from the render when the
-      const seat = action.seat; // hand is about to become the interactive clickable row (settled, face-up)
-      let st = { ...state, seats: state.seats.map((s, i) => (i === seat ? { ...s, dealt: sortHand(s.dealt || []), kept: s.kept ? sortHand(s.kept) : s.kept } : s)) };
-      if (st.peg) st = { ...st, peg: { ...st.peg, hands: st.peg.hands.map((h, i) => (i === seat ? sortHand(h) : h)) } };
-      return st;
-    }
 
     case "SET_SETTING": {
       const settings = { ...state.settings, [action.key]: action.value };
@@ -1901,19 +1899,6 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
     return () => timers.forEach((t) => t && clearTimeout(t));
   }, [discardPhase]);
 
-  // Sort the human's hand into rank order the moment it's about to be acted on in the clickable hand
-  // row — i.e. once it's the active human discarder's hand and the deal has settled — NOT mid-deal and
-  // NOT at the reducer's turn-start. (The played/pegging hands are sorted at the cut; this is the
-  // discard hand presented for throwing.) me === the active discarder during the discard phase.
-  const discardClickable = discardPhase && meHuman && !needHandoff;
-  const handSortedRef = React.useRef(-1);
-  React.useEffect(() => {
-    if (!discardClickable) { handSortedRef.current = -1; return; }
-    if (handSortedRef.current === me) return;                 // already sorted this seat's discard hand
-    const t = setTimeout(() => { handSortedRef.current = me; dispatch({ type: "SORT_HAND", seat: me }); }, MOVE_DUR + 120);
-    return () => clearTimeout(t);
-  }, [discardClickable, me]);
-
   // Re-measure every anchor when the viewport changes size (window resize, device rotation, an
   // on-screen keyboard). The homes effect below runs on each render and reads live geometry, so a
   // forced re-render snaps all card sprites — and the viewport-pinned crib — to their new positions.
@@ -2373,7 +2358,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
         // cards leave the banner (to CribHome) once gliding, so the ghost shows only before then.
         <Panel tone={cribOurs ? "good" : "red"}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-            <div style={{ fontWeight: 700, fontSize: 15, minWidth: 0 }}>{multiHuman ? tr("play.crib.seatPrefix", { seat: seatName(me) }) : ""}{isDealer ? tr(multiHuman ? "play.crib.greedyNamed" : "play.crib.greedy") : teammateDeals ? tr(multiHuman ? "play.crib.teamGreedyNamed" : "play.crib.teamGreedy", { seat: seatName(dealerIdx) }) : tr("play.crib.defend", { seat: seatName(dealerIdx) })}</div>
+            <div style={{ fontWeight: 700, fontSize: 15, minWidth: 0 }}>{multiHuman ? tr("play.crib.seatPrefix", { seat: seatName(me) }) : ""}{isDealer ? tr(!multiHuman ? "play.crib.greedy" : needHandoff ? "play.crib.greedyNamed" : "play.crib.greedyMine") : teammateDeals ? tr((!multiHuman || !needHandoff) ? "play.crib.teamGreedy" : "play.crib.teamGreedyNamed", { seat: seatName(dealerIdx) }) : tr("play.crib.defend", { seat: seatName(dealerIdx) })}</div>
             {cribSoFar > 0 && !cribGliding && (
               <div data-slot="crib" style={{ flex: "0 0 auto", display: "flex", alignItems: "flex-end", visibility: "hidden" }}>
                 <SlotGhost n={cribSoFar} vis={BACK_VISIBLE} />

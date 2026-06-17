@@ -71,6 +71,7 @@ cribbageLocale("en", {
   "play.crib.seatPrefix": "{seat}: ",
   "play.crib.greedy": "Your crib",
   "play.crib.greedyNamed": "Their own crib",
+  "play.crib.greedyMine": "Your own crib",
   "play.crib.teamGreedy": "{seat}’s crib — your team’s",
   "play.crib.teamGreedyNamed": "{seat}’s crib — their team’s",
   "play.crib.defend": "Feeds {seat}’s crib",

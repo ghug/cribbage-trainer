@@ -1323,8 +1323,11 @@ export default function CribbagePlay() {
             shifts up/down as the message changes. `marginRight: 50% - 50vw` stretches the box's right
             edge out to the viewport edge (the table is centred), and overflow:hidden clips the bleed
             there — off-screen-right, with no horizontal scrollbar. */}
-        <div onClick={() => { if (msgLog.length) setMsgLogOpen(true); }} title={msgLog.length ? tr("play.log.tapHint") : undefined} style={{ fontFamily: mono, fontSize: 12, color: T.cream, marginTop: 5, marginBottom: 3, marginLeft: 2, marginRight: "calc(50% - 50vw)", height: 18, lineHeight: "18px", whiteSpace: "nowrap", overflow: "hidden", cursor: msgLog.length ? "pointer" : "default" }}>
-          {message}
+        <div onClick={() => { if (msgLog.length) setMsgLogOpen(true); }} title={msgLog.length ? tr("play.log.tapHint") : undefined} role={msgLog.length ? "button" : undefined} style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 5, marginBottom: 3, marginLeft: 2, marginRight: "calc(50% - 50vw)", height: 18, cursor: msgLog.length ? "pointer" : "default" }}>
+          {msgLog.length > 0 && (
+            <span aria-hidden="true" style={{ flex: "0 0 auto", fontFamily: mono, fontSize: 10, fontWeight: 700, color: T.selBlue, border: `1px solid ${T.selBlue}`, borderRadius: 5, padding: "1px 5px", lineHeight: 1 }}>☰ {msgLog.length}</span>
+          )}
+          <span style={{ flex: "1 1 auto", minWidth: 0, fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: "18px", whiteSpace: "nowrap", overflow: "hidden", textDecoration: msgLog.length ? "underline dotted rgba(236,224,182,0.45)" : "none", textUnderlineOffset: 3 }}>{message}</span>
         </div>
         {msgLogOpen && <MessageLogModal log={msgLog} onClose={() => setMsgLogOpen(false)} />}
 

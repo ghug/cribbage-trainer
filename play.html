@@ -809,7 +809,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.50";
+const APP_VERSION = "1.1.20-dev.51";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -1846,7 +1846,11 @@ function CribbagePlay() {
                 React.createElement(ScoreRow, { seats: seats, dealerIdx: dealerIdx, turn: turnNow, winner: phase === "over" ? winner : null, onPick: (i) => setHistorySeat((cur) => (cur === i ? null : i)), P: players, teams: teams })),
             historySeat !== null && React.createElement(HistoryPanel, { seatIdx: historySeat, seats: seats, onClose: () => setHistorySeat(null), P: players, teams: teams }),
             React.createElement("div", { onClick: () => { if (msgLog.length)
-                    setMsgLogOpen(true); }, title: msgLog.length ? tr("play.log.tapHint") : undefined, style: { fontFamily: mono, fontSize: 12, color: T.cream, marginTop: 5, marginBottom: 3, marginLeft: 2, marginRight: "calc(50% - 50vw)", height: 18, lineHeight: "18px", whiteSpace: "nowrap", overflow: "hidden", cursor: msgLog.length ? "pointer" : "default" } }, message),
+                    setMsgLogOpen(true); }, title: msgLog.length ? tr("play.log.tapHint") : undefined, role: msgLog.length ? "button" : undefined, style: { display: "flex", alignItems: "center", gap: 6, marginTop: 5, marginBottom: 3, marginLeft: 2, marginRight: "calc(50% - 50vw)", height: 18, cursor: msgLog.length ? "pointer" : "default" } },
+                msgLog.length > 0 && (React.createElement("span", { "aria-hidden": "true", style: { flex: "0 0 auto", fontFamily: mono, fontSize: 10, fontWeight: 700, color: T.selBlue, border: `1px solid ${T.selBlue}`, borderRadius: 5, padding: "1px 5px", lineHeight: 1 } },
+                    "\u2630 ",
+                    msgLog.length)),
+                React.createElement("span", { style: { flex: "1 1 auto", minWidth: 0, fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: "18px", whiteSpace: "nowrap", overflow: "hidden", textDecoration: msgLog.length ? "underline dotted rgba(236,224,182,0.45)" : "none", textUnderlineOffset: 3 } }, message)),
             msgLogOpen && React.createElement(MessageLogModal, { log: msgLog, onClose: () => setMsgLogOpen(false) }),
             (phase === "cutdeal" || phase === "deal" || phase === "dealing" || phase === "discard" || phase === "cribbing" || phase === "cut" || (phase === "show" && show) || (phase === "play" && peg) || phase === "over") && (React.createElement(PlayScreen, { state: state, dispatch: dispatch, me: phase === "discard" ? ds : phase === "cut" ? (dealerIdx + players - 1) % players : (phase === "play" && peg && multiHuman) ? peg.turn : (multiHuman && (phase === "cutdeal" || phase === "deal" || phase === "dealing")) ? dealerIdx : playMe, needHandoff: needHandoff, cribGliding: cribGliding, onView: setViewSeat }))),
         aboutOpen && React.createElement(AboutModal, { onClose: () => setAboutOpen(false) }),
@@ -2888,7 +2892,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.50"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.51"))));
 }
 function MessageLogModal({ log, onClose }) {
     const scrollRef = React.useRef(null);

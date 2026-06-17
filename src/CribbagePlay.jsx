@@ -1797,6 +1797,12 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
   const cribOurs = teamOf(dealerIdx, P, teams) === teamOf(me, P, teams);
   const isDealer = me === dealerIdx;
   const teammateDeals = cribOurs && !isDealer;
+  // Tap the stored crib to be told whose crib it is (a brief, self-dismissing note).
+  const [cribNote, setCribNote] = React.useState(false);
+  React.useEffect(() => { if (!cribNote) return; const t = setTimeout(() => setCribNote(false), 2800); return () => clearTimeout(t); }, [cribNote]);
+  const cribOwnerText = (solo && cribOurs)
+    ? (isDealer ? tr("play.cribNote.yours") : tr("play.cribNote.team"))
+    : tr("play.cribNote.seat", { seat: seatName(dealerIdx) });
 
   // Which seat is the active/lit one, by phase (same rule the labels use).
   const activeSeat = (i) => overPhase ? teamOf(i, P, teams) === teamOf(winner, P, teams)
@@ -2289,6 +2295,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
     const h = homes[id];
     const p = place[id];
     const inHand = p && p.group === "hand";
+    const inCribHome = p && p.group === "cribhome";   // the stored crib: tap to learn whose it is
     const handIdx = inHand ? p.idx : -1;
     // Evaluate legality ONLY when the hand is the interactive clickable row (your discard, or your
     // pegging turn) — never just because a card was added to a hand (e.g. while dealing).
@@ -2296,17 +2303,25 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
     const chosen = inHand && (pending ? (pendIdxs && pendIdxs.includes(handIdx)) : sel.includes(handIdx));
     const clickable = inHand && (pending ? true : (myTurn && legal));
     return <CardSprite key={id} card={c} home={h} dur={dealingPhase ? DEAL_DUR : MOVE_DUR} delay={delayRef.current[id] || 0}
-      clickable={clickable}
+      clickable={clickable || inCribHome}
       selected={inHand && !tapSelect && chosen}
       raised={inHand && tapSelect && chosen}
       dim={inHand && !pending && !legal && (discardPhase ? false : turn === me)}
       selLabel={inHand && !discardPhase ? tr("play.sel.play") : undefined}
       noAnim={resizing}
-      onClick={inHand ? () => tapCard(handIdx) : undefined} />;
+      onClick={inHand ? () => tapCard(handIdx) : inCribHome ? () => setCribNote(true) : undefined} />;
   });
 
   return (
     <div ref={tableRef} style={{ position: "relative", marginTop: 6, display: "flex", flexDirection: "column", gap: 10 }}>
+      {cribNote && (
+        <div onClick={() => setCribNote(false)} role="status" style={{
+          position: "fixed", left: "50%", top: 72, transform: "translateX(-50%)", zIndex: 215,
+          background: T.baize, border: `1px solid ${T.line}`, borderRadius: 10, padding: "10px 16px",
+          boxShadow: "0 8px 26px rgba(0,0,0,0.5)", fontWeight: 700, fontSize: 14, color: T.cream,
+          cursor: "pointer", maxWidth: "90vw", textAlign: "center",
+        }}>{cribOwnerText}</div>
+      )}
       {/* the persistent card layer floats above the (invisible) ghost slots */}
       <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 5 }}>
         <div style={{ position: "relative", width: "100%", height: "100%", pointerEvents: "none" }}>
@@ -2345,7 +2360,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
       <div style={{ position: "relative" }}>
       {cribStored && cribHomeN > 0 && (
         <div data-slot="cribhome" style={{
-          position: "absolute", bottom: "100%", left: "calc(50% - 50vw - var(--cw) * 0.75)",
+          position: "absolute", bottom: "100%", left: "calc(50% - 50vw - var(--cw) * 0.55)",
           width: "var(--cw)", height: `calc(var(--ch) * ${1 + (cribHomeN - 1) * CRIB_HOME_VISIBLE})`,
           visibility: "hidden", pointerEvents: "none",
         }}>

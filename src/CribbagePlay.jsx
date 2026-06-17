@@ -1617,6 +1617,7 @@ function DealFly({ from, legs, card }) {
 // The persistent card layer's per-card move/flip timing. One element per card lives from
 // the deal to the reshuffle; every phase just hands it a new home and the browser tweens it.
 const MOVE_DUR = 460;                              // base ms for a card to glide to a new home / flip
+const DEAL_DUR = 230;                              // a dealt card flies twice as fast as a normal move
 const CARD_STAGGER = 210;                          // gap between successive cards in a multi-card sweep (deal/gather)
 const SWAP_DUR = 520;                              // ms for the old deck to slide out / the new deck to slide in
 const EMPTY_DUR = 240;                             // empty beat between the old deck leaving and the new deck arriving
@@ -1761,7 +1762,10 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
   } else if (!dealPhase) {
     for (let i = 0; i < P; i++) {
       const holding = discardPhase && !botThrowReady && seats[i].isAI;   // bot still holding its full hand
-      const unplayed = (holding ? (seats[i].dealt || []) : (hands[i] || [])), played = peg ? peg.played[i] : [];
+      const unplayed = (holding ? (seats[i].dealt || []) : (hands[i] || []));
+      let played = peg ? peg.played[i] : [];
+      // During the show, a hand stays in play order until its owner's count turn arrives, then sorts.
+      if (showPhase && state.show && state.show.step >= state.show.order.indexOf(i)) played = sortHand(played);
       const gridActive = i === me && meHuman && !needHandoff && (discardPhase || dealingPhase || (phase === "play" && peg));
       if (gridActive) {
         played.forEach((c, j) => { place[cardId(c)] = { group: "seat-" + i, idx: j, up: true }; });
@@ -1789,7 +1793,8 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
         (seats[i].discard || []).forEach((c) => { place[cardId(c)] = { group: "crib", idx: k++, up: false }; });
       }
     } else if (cribbingPhase || cutPhase || phase === "play" || showPhase) {
-      const cribCards = cribbingPhase ? [].concat.apply([], seats.map(function (s) { return s.discard || []; })) : (crib || []);
+      const cribCards0 = cribbingPhase ? [].concat.apply([], seats.map(function (s) { return s.discard || []; })) : (crib || []);
+      const cribCards = showCribTurn ? sortHand(cribCards0) : cribCards0;   // sort the crib when it's shown for counting
       const g = showCribTurn ? "showcrib" : "cribhome";
       cribCards.forEach((c, k) => { place[cardId(c)] = { group: g, idx: k, up: !!showCribTurn }; });
     }
@@ -1831,7 +1836,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
   React.useEffect(() => {
     if (!dealingPhase || !deal || deal.cursor >= deal.seq.length) return;
     const cursor = deal.cursor;
-    const wait = cursor === 0 ? (gatherDealRef.current ? MOVE_DUR + 140 : 110) : MOVE_DUR + 260;
+    const wait = cursor === 0 ? (gatherDealRef.current ? DEAL_DUR + 100 : 90) : DEAL_DUR + 180;
     const t = setTimeout(() => advanceDeal(cursor), wait);
     return () => clearTimeout(t);
   }, [dealingPhase, deal && deal.cursor]);
@@ -1965,7 +1970,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
       }
       if (gatherGone.length) {                            // drop the gathered cut-for-deal cards once they reach the deck
         const drop = gatherGone.slice();
-        setTimeout(() => { const next = { ...homesRef.current }; drop.forEach((id) => delete next[id]); homesRef.current = next; setHomes(next); }, MOVE_DUR + 80);
+        setTimeout(() => { const next = { ...homesRef.current }; drop.forEach((id) => delete next[id]); homesRef.current = next; setHomes(next); }, DEAL_DUR + 80);
       }
       return;
     }
@@ -2174,7 +2179,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
     const legal = inHand ? isLegal(yourHand[handIdx]) : false;
     const chosen = inHand && (pending ? (pendIdxs && pendIdxs.includes(handIdx)) : sel.includes(handIdx));
     const clickable = inHand && (pending ? true : (myTurn && legal));
-    return <CardSprite key={id} card={c} home={h} dur={MOVE_DUR} delay={delayRef.current[id] || 0}
+    return <CardSprite key={id} card={c} home={h} dur={dealingPhase ? DEAL_DUR : MOVE_DUR} delay={delayRef.current[id] || 0}
       clickable={clickable}
       selected={inHand && !tapSelect && chosen}
       raised={inHand && tapSelect && chosen}

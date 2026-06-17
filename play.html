@@ -801,7 +801,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.23";
+const APP_VERSION = "1.1.20-dev.24";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -2001,6 +2001,7 @@ function DealFly({ from, legs, card }) {
         } }, card ? React.createElement(Card, { card: card }) : React.createElement(CardBack, null)));
 }
 const MOVE_DUR = 460;
+const DEAL_DUR = 230;
 const CARD_STAGGER = 210;
 const SWAP_DUR = 520;
 const EMPTY_DUR = 240;
@@ -2131,7 +2132,10 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
     else if (!dealPhase) {
         for (let i = 0; i < P; i++) {
             const holding = discardPhase && !botThrowReady && seats[i].isAI;
-            const unplayed = (holding ? (seats[i].dealt || []) : (hands[i] || [])), played = peg ? peg.played[i] : [];
+            const unplayed = (holding ? (seats[i].dealt || []) : (hands[i] || []));
+            let played = peg ? peg.played[i] : [];
+            if (showPhase && state.show && state.show.step >= state.show.order.indexOf(i))
+                played = sortHand(played);
             const gridActive = i === me && meHuman && !needHandoff && (discardPhase || dealingPhase || (phase === "play" && peg));
             if (gridActive) {
                 played.forEach((c, j) => { place[cardId(c)] = { group: "seat-" + i, idx: j, up: true }; });
@@ -2154,7 +2158,8 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
             }
         }
         else if (cribbingPhase || cutPhase || phase === "play" || showPhase) {
-            const cribCards = cribbingPhase ? [].concat.apply([], seats.map(function (s) { return s.discard || []; })) : (crib || []);
+            const cribCards0 = cribbingPhase ? [].concat.apply([], seats.map(function (s) { return s.discard || []; })) : (crib || []);
+            const cribCards = showCribTurn ? sortHand(cribCards0) : cribCards0;
             const g = showCribTurn ? "showcrib" : "cribhome";
             cribCards.forEach((c, k) => { place[cardId(c)] = { group: g, idx: k, up: !!showCribTurn }; });
         }
@@ -2189,7 +2194,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
         if (!dealingPhase || !deal || deal.cursor >= deal.seq.length)
             return;
         const cursor = deal.cursor;
-        const wait = cursor === 0 ? (gatherDealRef.current ? MOVE_DUR + 140 : 110) : MOVE_DUR + 260;
+        const wait = cursor === 0 ? (gatherDealRef.current ? DEAL_DUR + 100 : 90) : DEAL_DUR + 180;
         const t = setTimeout(() => advanceDeal(cursor), wait);
         return () => clearTimeout(t);
     }, [dealingPhase, deal && deal.cursor]);
@@ -2301,7 +2306,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
             }
             if (gatherGone.length) {
                 const drop = gatherGone.slice();
-                setTimeout(() => { const next = { ...homesRef.current }; drop.forEach((id) => delete next[id]); homesRef.current = next; setHomes(next); }, MOVE_DUR + 80);
+                setTimeout(() => { const next = { ...homesRef.current }; drop.forEach((id) => delete next[id]); homesRef.current = next; setHomes(next); }, DEAL_DUR + 80);
             }
             return;
         }
@@ -2484,7 +2489,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
         const legal = inHand ? isLegal(yourHand[handIdx]) : false;
         const chosen = inHand && (pending ? (pendIdxs && pendIdxs.includes(handIdx)) : sel.includes(handIdx));
         const clickable = inHand && (pending ? true : (myTurn && legal));
-        return React.createElement(CardSprite, { key: id, card: c, home: h, dur: MOVE_DUR, delay: delayRef.current[id] || 0, clickable: clickable, selected: inHand && !tapSelect && chosen, raised: inHand && tapSelect && chosen, dim: inHand && !pending && !legal && (discardPhase ? false : turn === me), selLabel: inHand && !discardPhase ? tr("play.sel.play") : undefined, onLanded: id === dealingCardId ? () => advanceDeal(deal.cursor) : undefined, onClick: inHand ? () => tapCard(handIdx) : undefined });
+        return React.createElement(CardSprite, { key: id, card: c, home: h, dur: dealingPhase ? DEAL_DUR : MOVE_DUR, delay: delayRef.current[id] || 0, clickable: clickable, selected: inHand && !tapSelect && chosen, raised: inHand && tapSelect && chosen, dim: inHand && !pending && !legal && (discardPhase ? false : turn === me), selLabel: inHand && !discardPhase ? tr("play.sel.play") : undefined, onLanded: id === dealingCardId ? () => advanceDeal(deal.cursor) : undefined, onClick: inHand ? () => tapCard(handIdx) : undefined });
     });
     return (React.createElement("div", { ref: tableRef, style: { position: "relative", marginTop: 6, display: "flex", flexDirection: "column", gap: 10 } },
         React.createElement("div", { style: { position: "absolute", inset: 0, pointerEvents: "none", zIndex: 5 } },
@@ -2766,7 +2771,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.23"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.24"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

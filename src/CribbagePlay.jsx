@@ -838,20 +838,13 @@ function reduce(state, action) {
     }
 
     case "RESET_SETTINGS": {
-      // Reset all gameplay toggles to defaults, keeping the per-seat human/bot roles + custom names.
-      // The table size/teams reset too — but NOT while a game is in progress (only once it's over),
-      // so an active game is never yanked to a different size mid-play. When the size/teams actually
-      // change, start a fresh game so the board matches; otherwise apply the reset toggles in place.
-      const inProgress = state.phase !== "over";
+      // Reset the gameplay toggles to defaults, but on the play page NEVER change the table size or
+      // teams (nor the per-seat roles / custom names) — a reset here leaves the table setup alone so
+      // the current/next game keeps its size. (Size/teams are reset from the landing page instead.)
       const settings = { ...state.settings };
-      for (const k in DEFAULT_SETTINGS) {
-        if (k === "seats" || k === "names") continue;
-        if (inProgress && (k === "players" || k === "teams")) continue;
-        settings[k] = DEFAULT_SETTINGS[k];
-      }
+      for (const k in DEFAULT_SETTINGS) if (k !== "players" && k !== "teams" && k !== "seats" && k !== "names") settings[k] = DEFAULT_SETTINGS[k];
       saveSettings(settings);
-      const sizeChanged = settings.players !== state.settings.players || settings.teams !== state.settings.teams;
-      return sizeChanged ? newGameState({ settings }) : { ...state, settings };
+      return { ...state, settings };
     }
 
     case "DISCARD": // commit straight away (programmatic / tests); action.idxs = [..]

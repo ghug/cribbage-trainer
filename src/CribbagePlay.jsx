@@ -13,10 +13,11 @@ import React, { useReducer, useEffect } from "react";
 // Global game speed. `SPEED` is assigned from settings.speed at the top of the root component's
 // render (so every descendant's render-time CSS and every effect timer in that pass sees it), and
 // `spd(ms)` scales any animation/pause/deal duration: slow 2×, normal 1× (unchanged), fast ½×,
-// instant a flat 32 ms. spd(0) passes through so intentional zero transitions/delays stay zero.
-const SPEED_MULT = { slow: 2, normal: 1, fast: 0.5, instant: 0 };
+// lightning a flat 32 ms, instant a flat 5 ms. spd(0) passes through so intentional zeros stay zero.
+const SPEED_MULT = { slow: 2, normal: 1, fast: 0.5 };
+const SPEED_FLAT = { lightning: 32, instant: 5 };   // a fixed duration regardless of the base value
 let SPEED = "normal";
-function spd(ms) { return ms <= 0 ? ms : SPEED === "instant" ? 32 : Math.round(ms * (SPEED_MULT[SPEED] ?? 1)); }
+function spd(ms) { if (ms <= 0) return ms; const flat = SPEED_FLAT[SPEED]; return flat != null ? flat : Math.round(ms * (SPEED_MULT[SPEED] ?? 1)); }
 
 // Global text-size floor. Every font-size is written `max(<px>px, var(--min-fs, 0px))`, so raising
 // `--min-fs` (set on the app root from settings.textSize) only grows text BELOW the floor — small is
@@ -2759,6 +2760,7 @@ function SettingsSection({ title, defaultOpen, children }) {
 
 function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
   const soloGame = nHumans(clampPlayers(settings.players), settings) === 1;
+  const [confirmReset, setConfirmReset] = React.useState(false);
   const Row = ({ title, desc, k, options, disabled }) => (
     <div style={{ marginBottom: 14, opacity: disabled ? 0.5 : 1 }}>
       <div style={{ fontWeight: 700, fontSize: "max(13.5px, var(--min-fs, 0px))" }}>{title}</div>
@@ -2772,6 +2774,7 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
   );
   const off = tr("common.off"), on = tr("common.on"), manual = tr("common.manual"), auto = tr("common.auto");
   return (
+    <>
     <Modal onBackdrop={onClose} maxWidth={420} padding="14px 16px 4px" scroll cardStyle={{ maxHeight: "88vh" }}>
       <ModalHeader title={tr("settings.title")} onClose={onClose}>
         <span style={{ fontWeight: 700, fontSize: "max(16px, var(--min-fs, 0px))" }}>{tr("settings.title")}</span>
@@ -2779,7 +2782,7 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
       <SettingsSection title={tr("settings.group.controls")}>
         <Row title={tr("settings.speed.title")} k="speed"
           desc={tr("settings.speed.desc")}
-          options={[[tr("settings.speed.optSlow"), "slow"], [tr("settings.speed.optNormal"), "normal"], [tr("settings.speed.optFast"), "fast"], [tr("settings.speed.optInstant"), "instant"]]} />
+          options={[[tr("settings.speed.optSlow"), "slow"], [tr("settings.speed.optNormal"), "normal"], [tr("settings.speed.optFast"), "fast"], [tr("settings.speed.optLightning"), "lightning"], [tr("settings.speed.optInstant"), "instant"]]} />
         <Row title={tr("settings.textSize.title")} k="textSize"
           desc={tr("settings.textSize.desc")}
           options={[[tr("settings.textSize.optSmall"), "small"], [tr("settings.textSize.optMedium"), "medium"], [tr("settings.textSize.optLarge"), "large"], [tr("settings.textSize.optXLarge"), "xlarge"]]} />
@@ -2825,7 +2828,7 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
       <div style={{ borderTop: `1px solid ${T.line}`, margin: "2px -16px 0", padding: "12px 16px 0" }}>
         <button onClick={onHistory} style={{ width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700 }}>{tr("settings.history")}</button>
       </div>
-      <button onClick={() => dispatch({ type: "RESET_SETTINGS" })} style={{ width: "100%", margin: "10px 0 0", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700 }}>{tr("settings.resetDefaults")}</button>
+      <button onClick={() => setConfirmReset(true)} style={{ width: "100%", margin: "10px 0 0", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700 }}>{tr("settings.resetDefaults")}</button>
       <AboutRow onAbout={onAbout} />
       <button onClick={onClose} style={{
         width: "100%", margin: "12px 0 10px", padding: "12px", borderRadius: 9, border: "none", cursor: "pointer",
@@ -2833,6 +2836,17 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
         fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
       }}>{tr("settings.continue")}</button>
     </Modal>
+    {confirmReset && (
+      <Modal onBackdrop={() => setConfirmReset(false)} maxWidth={360} padding="18px" zIndex={230}>
+        <div style={{ fontWeight: 700, fontSize: "max(16px, var(--min-fs, 0px))", marginBottom: 6 }}>{tr("settings.reset.title")}</div>
+        <div style={{ fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.muted, lineHeight: 1.5, marginBottom: 16 }}>{tr("settings.reset.body")}</div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={() => setConfirmReset(false)} style={{ flex: 1, padding: "12px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer", background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: "max(13px, var(--min-fs, 0px))", fontWeight: 700 }}>{tr("common.cancel")}</button>
+          <button onClick={() => { setConfirmReset(false); dispatch({ type: "RESET_SETTINGS" }); }} style={{ flex: 1, padding: "12px", borderRadius: 9, border: "none", cursor: "pointer", background: `linear-gradient(180deg, ${T.pegRed}, #9c3120)`, color: T.ivory, fontFamily: mono, fontSize: "max(13px, var(--min-fs, 0px))", fontWeight: 700 }}>{tr("settings.reset.confirm")}</button>
+        </div>
+      </Modal>
+    )}
+    </>
   );
 }
 

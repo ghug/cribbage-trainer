@@ -298,10 +298,22 @@
     </div>
   </div>
 
+  <div class="overlay" id="confirmResetOverlay" style="z-index:110" role="dialog" aria-modal="true" aria-label="Reset settings" data-i18n-aria="settings.reset.title">
+    <div class="modal" style="max-width:340px">
+      <h2 style="margin:0 0 6px" data-i18n="settings.reset.title">Reset settings?</h2>
+      <p data-i18n="settings.reset.body">This restores all game settings to their defaults.</p>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button class="btn btn-ghost" id="resetCancel" type="button" style="flex:1" data-i18n="common.cancel">Cancel</button>
+        <button class="btn" id="resetConfirm" type="button" style="flex:1;background:linear-gradient(180deg,var(--pegRed),#9c3120);color:var(--ivory);border:none" data-i18n="settings.reset.confirm">Reset</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     (function () {
       var s = document.getElementById('settingsOverlay');
       var a = document.getElementById('aboutOverlay');
+      var c = document.getElementById('confirmResetOverlay');
       function open(el) { el.classList.add('open'); }
       function close(el) { el.classList.remove('open'); }
 
@@ -339,7 +351,7 @@
       // SAME global game settings every page (landing/trainer/play) reads & writes, so the menu is
       // identical everywhere. title/desc/option labels are i18n keys, translated via tr() at render.
       var ROWS = [
-        { k: "speed", title: "settings.speed.title", desc: "settings.speed.desc", opts: [["settings.speed.optSlow", "slow"], ["settings.speed.optNormal", "normal"], ["settings.speed.optFast", "fast"], ["settings.speed.optInstant", "instant"]] },
+        { k: "speed", title: "settings.speed.title", desc: "settings.speed.desc", opts: [["settings.speed.optSlow", "slow"], ["settings.speed.optNormal", "normal"], ["settings.speed.optFast", "fast"], ["settings.speed.optLightning", "lightning"], ["settings.speed.optInstant", "instant"]] },
         { k: "textSize", title: "settings.textSize.title", desc: "settings.textSize.desc", opts: [["settings.textSize.optSmall", "small"], ["settings.textSize.optMedium", "medium"], ["settings.textSize.optLarge", "large"], ["settings.textSize.optXLarge", "xlarge"]] },
         { k: "tapToSelect", title: "settings.tapToSelect.title", desc: "settings.tapToSelect.desc", opts: [["common.off", false], ["common.on", true]] },
         { k: "warn", title: "settings.warn.title", desc: "settings.warn.desc", opts: [["common.on", true], ["common.off", false]] },
@@ -617,21 +629,23 @@
       document.getElementById('settingsDone').addEventListener('click', function () { close(s); });
       document.getElementById('settingsContinue').addEventListener('click', function () { close(s); });
       document.getElementById('openAbout').addEventListener('click', function () { close(s); open(a); });
-      // Reset the gameplay preference toggles to defaults; keep the table setup (players/teams/seats).
-      document.getElementById('resetSettings').addEventListener('click', function () {
-        // Reset everything to defaults EXCEPT the per-seat roles + custom names (the "who's playing"
-        // setup): the table size and teams reset too, so re-render the home controls + diagram.
+      // Reset asks for confirmation first (a popup), then resets everything to defaults EXCEPT the
+      // per-seat roles + custom names (the "who's playing" setup) — table size and teams reset too.
+      document.getElementById('resetSettings').addEventListener('click', function () { open(c); });
+      document.getElementById('resetCancel').addEventListener('click', function () { close(c); });
+      document.getElementById('resetConfirm').addEventListener('click', function () {
         for (var rk in DEFAULTS) { if (rk !== 'seats' && rk !== 'names') settings[rk] = DEFAULTS[rk]; }
         saveSettings(settings); editingNames = false; applyTextSize();
         renderSettings(); renderPlayers(); renderTeams(); renderSeatDiagram(); renderNamesButton(); renderSeatHint();
+        close(c);
       });
       document.getElementById('footerAbout').addEventListener('click', function () { open(a); });
       document.getElementById('aboutDone').addEventListener('click', function () { close(a); });
-      [s, a].forEach(function (el) {
+      [s, a, c].forEach(function (el) {
         el.addEventListener('click', function (e) { if (e.target === el) close(el); });
       });
       document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') { close(s); close(a); }
+        if (e.key === 'Escape') { close(s); close(a); close(c); }
       });
     })();
   </script>

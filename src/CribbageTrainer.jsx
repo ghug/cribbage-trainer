@@ -7,10 +7,11 @@ import React, { useState, useMemo, useCallback, useEffect, useRef } from "react"
    ============================================================ */
 // Global game speed (shared with the Play game via settings.speed). `SPEED` is set from the setting
 // at the top of the root component's render; `spd(ms)` scales any animation duration: slow 2×,
-// normal 1× (unchanged), fast ½×, instant a flat 32 ms (spd(0) passes through).
-const SPEED_MULT = { slow: 2, normal: 1, fast: 0.5, instant: 0 };
+// normal 1× (unchanged), fast ½×, lightning a flat 32 ms, instant a flat 5 ms (spd(0) passes through).
+const SPEED_MULT = { slow: 2, normal: 1, fast: 0.5 };
+const SPEED_FLAT = { lightning: 32, instant: 5 };
 let SPEED = "normal";
-function spd(ms) { return ms <= 0 ? ms : SPEED === "instant" ? 32 : Math.round(ms * (SPEED_MULT[SPEED] ?? 1)); }
+function spd(ms) { if (ms <= 0) return ms; const flat = SPEED_FLAT[SPEED]; return flat != null ? flat : Math.round(ms * (SPEED_MULT[SPEED] ?? 1)); }
 
 // Global text-size floor (shared with landing + Play): every font-size is `max(<px>px, var(--min-fs,
 // 0px))`, so raising `--min-fs` (set on the app root from settings.textSize) grows only sub-floor
@@ -560,6 +561,7 @@ function SettingsSection({ title, defaultOpen, children }) {
 // (InlineSetup), above the board-position item, alongside the analysis it drives.
 function SettingsPanel({ settings, onSet, onReset, onClose, onAbout }) {
   const soloGame = humanCountT(settings) === 1;
+  const [confirmReset, setConfirmReset] = React.useState(false);
   const Row = ({ title, desc, k, options, disabled }) => (
     <div style={{ marginBottom: 14, opacity: disabled ? 0.5 : 1 }}>
       <div style={{ fontWeight: 700, fontSize: "max(13.5px, var(--min-fs, 0px))" }}>{title}</div>
@@ -573,13 +575,14 @@ function SettingsPanel({ settings, onSet, onReset, onClose, onAbout }) {
   );
   const off = tr("common.off"), on = tr("common.on"), manual = tr("common.manual"), auto = tr("common.auto");
   return (
+    <>
     <Modal onBackdrop={onClose} maxWidth={420} padding="14px 16px 4px" scroll cardStyle={{ maxHeight: "88vh" }}>
       <ModalHeader title={tr("settings.title")} onClose={onClose}>
         <span style={{ fontWeight: 700, fontSize: "max(16px, var(--min-fs, 0px))" }}>{tr("settings.title")}</span>
       </ModalHeader>
       <SettingsSection title={tr("settings.group.controls")}>
         <Row title={tr("settings.speed.title")} k="speed" desc={tr("settings.speed.desc")}
-          options={[[tr("settings.speed.optSlow"), "slow"], [tr("settings.speed.optNormal"), "normal"], [tr("settings.speed.optFast"), "fast"], [tr("settings.speed.optInstant"), "instant"]]} />
+          options={[[tr("settings.speed.optSlow"), "slow"], [tr("settings.speed.optNormal"), "normal"], [tr("settings.speed.optFast"), "fast"], [tr("settings.speed.optLightning"), "lightning"], [tr("settings.speed.optInstant"), "instant"]]} />
         <Row title={tr("settings.textSize.title")} k="textSize" desc={tr("settings.textSize.desc")}
           options={[[tr("settings.textSize.optSmall"), "small"], [tr("settings.textSize.optMedium"), "medium"], [tr("settings.textSize.optLarge"), "large"], [tr("settings.textSize.optXLarge"), "xlarge"]]} />
         <Row title={tr("settings.tapToSelect.title")} k="tapToSelect" desc={tr("settings.tapToSelect.desc")} options={[[off, false], [on, true]]} />
@@ -602,7 +605,7 @@ function SettingsPanel({ settings, onSet, onReset, onClose, onAbout }) {
           desc={tr("settings.claimWarn.desc")} options={[[on, true], [off, false]]} />
       </SettingsSection>
       <LanguageRow />
-      <button onClick={onReset} style={{ width: "100%", margin: "2px 0 0", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700 }}>{tr("settings.resetDefaults")}</button>
+      <button onClick={() => setConfirmReset(true)} style={{ width: "100%", margin: "2px 0 0", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700 }}>{tr("settings.resetDefaults")}</button>
       <AboutRow onAbout={onAbout} />
       <button onClick={onClose} style={{
         width: "100%", margin: "12px 0 10px", padding: "12px", borderRadius: 9, border: "none", cursor: "pointer",
@@ -610,6 +613,17 @@ function SettingsPanel({ settings, onSet, onReset, onClose, onAbout }) {
         fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
       }}>{tr("common.done")}</button>
     </Modal>
+    {confirmReset && (
+      <Modal onBackdrop={() => setConfirmReset(false)} maxWidth={360} padding="18px" zIndex={230}>
+        <div style={{ fontWeight: 700, fontSize: "max(16px, var(--min-fs, 0px))", marginBottom: 6 }}>{tr("settings.reset.title")}</div>
+        <div style={{ fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.muted, lineHeight: 1.5, marginBottom: 16 }}>{tr("settings.reset.body")}</div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={() => setConfirmReset(false)} style={{ flex: 1, padding: "12px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer", background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: "max(13px, var(--min-fs, 0px))", fontWeight: 700 }}>{tr("common.cancel")}</button>
+          <button onClick={() => { setConfirmReset(false); onReset(); }} style={{ flex: 1, padding: "12px", borderRadius: 9, border: "none", cursor: "pointer", background: `linear-gradient(180deg, ${T.pegRed}, #9c3120)`, color: T.ivory, fontFamily: mono, fontSize: "max(13px, var(--min-fs, 0px))", fontWeight: 700 }}>{tr("settings.reset.confirm")}</button>
+        </div>
+      </Modal>
+    )}
+    </>
   );
 }
 

@@ -1766,18 +1766,14 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
       let played = peg ? peg.played[i] : [];
       // During the show, a hand stays in play order until its owner's count turn arrives, then sorts.
       if (showPhase && state.show && state.show.step >= state.show.order.indexOf(i)) played = sortHand(played);
-      // The clickable hand row is for the human's turn to ACT (discard / play) — NOT the deal. During
-      // dealing your cards arrive face-up at your seat instead; they tidy into the sorted hand row only
-      // when it's your turn (so the sort reads as "the hand entering the clickable row").
-      const gridActive = i === me && meHuman && !needHandoff && (discardPhase || (phase === "play" && peg));
+      const gridActive = i === me && meHuman && !needHandoff && (discardPhase || dealingPhase || (phase === "play" && peg));
       if (gridActive) {
         played.forEach((c, j) => { place[cardId(c)] = { group: "seat-" + i, idx: j, up: true }; });
         seatCounts[i] = played.length;
         // me's unplayed live in the interactive hand row (face up)
         unplayed.forEach((c, j) => { place[cardId(c)] = { group: "hand", idx: j, up: true }; });
       } else {
-        const faceUp = i === me && meHuman && dealingPhase;   // your own cards arrive face up at your seat as they're dealt
-        unplayed.forEach((c, j) => { place[cardId(c)] = { group: "seat-" + i, idx: j, up: faceUp }; });
+        unplayed.forEach((c, j) => { place[cardId(c)] = { group: "seat-" + i, idx: j, up: false }; });
         played.forEach((c, j) => { place[cardId(c)] = { group: "seat-" + i, idx: unplayed.length + j, up: true }; });
         seatCounts[i] = unplayed.length + played.length;
       }

@@ -850,7 +850,7 @@ const SETTINGS_KEY = "cribbage:settings";
 // The full GLOBAL settings object, shared (same localStorage key) with the landing page and the
 // Play game, so the gear menu here is the identical global game-settings menu. The trainer itself
 // only acts on players/teams; the gameplay toggles (counting/automation/...) are carried & synced.
-const DEFAULT_SETTINGS = { players: 2, teams: 2, seats: [], names: [], speed: "normal", textSize: "small", counting: "auto", tapToSelect: true, autoCut: false, autoGo: false, warn: true, claimWarn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
+const DEFAULT_SETTINGS = { players: 2, teams: 2, seats: [], names: [], speed: "normal", textSize: "large", counting: "auto", tapToSelect: true, autoCut: false, autoGo: false, warn: true, claimWarn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
 function loadSettings() { try { const raw = localStorage.getItem(SETTINGS_KEY); if (raw) return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) }; } catch (e) {} return { ...DEFAULT_SETTINGS }; }
 function saveSettings(s) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (e) {} }
 // Solo iff exactly one human seat (seat 0 human by default) — gates the muggins counting rows,

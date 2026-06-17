@@ -358,7 +358,7 @@
       // Game settings, shared across every page via localStorage (same key the games
       // read/write), so a toggle here — or in any game — sticks everywhere.
       var SETTINGS_KEY = "cribbage:settings";
-      var DEFAULTS = { players: 2, teams: 2, seats: [], names: [], speed: "normal", textSize: "small", counting: "auto", tapToSelect: true, autoCut: false, autoGo: false, warn: true, claimWarn: true, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false, autoContinue: false, autoDeal: false };
+      var DEFAULTS = { players: 2, teams: 2, seats: [], names: [], speed: "normal", textSize: "large", counting: "auto", tapToSelect: true, autoCut: false, autoGo: false, warn: true, claimWarn: true, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false, autoContinue: false, autoDeal: false };
       // "Players" lives on the main page (above Play); the rest are in this popup. These are the
       // SAME global game settings every page (landing/trainer/play) reads & writes, so the menu is
       // identical everywhere. title/desc/option labels are i18n keys, translated via tr() at render.

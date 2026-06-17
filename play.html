@@ -812,7 +812,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.52";
+const APP_VERSION = "1.1.20-dev.53";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -1635,6 +1635,7 @@ function CribbagePlay() {
     const [confirmHome, setConfirmHome] = React.useState(false);
     const [aboutOpen, setAboutOpen] = React.useState(false);
     const [historyOpen, setHistoryOpen] = React.useState(false);
+    const [dealLocked, setDealLocked] = React.useState(false);
     const [msgLogOpen, setMsgLogOpen] = React.useState(false);
     const [msgLog, setMsgLog] = React.useState([]);
     const [, bumpLang] = React.useState(0);
@@ -1753,10 +1754,12 @@ function CribbagePlay() {
             return () => clearTimeout(t);
         }
         if (phase === "deal") {
+            if (dealLocked)
+                return;
             const t = setTimeout(() => dispatch({ type: "DEAL" }), 650);
             return () => clearTimeout(t);
         }
-    }, [phase, settings.autoDeal, autoPaused, cutSettled, allBot]);
+    }, [phase, settings.autoDeal, autoPaused, cutSettled, allBot, dealLocked]);
     useEffect(() => {
         if (phase !== "discard" || autoPaused || !settings.autoDiscardBest || state.pendingDiscard || needHandoff)
             return;
@@ -1855,7 +1858,7 @@ function CribbagePlay() {
                     msgLog.length)),
                 React.createElement("span", { style: { flex: "1 1 auto", minWidth: 0, fontFamily: mono, fontSize: 12, color: T.cream, lineHeight: "18px", whiteSpace: "nowrap", overflow: "hidden", textDecoration: msgLog.length ? "underline dotted rgba(236,224,182,0.45)" : "none", textUnderlineOffset: 3 } }, message)),
             msgLogOpen && React.createElement(MessageLogModal, { log: msgLog, onClose: () => setMsgLogOpen(false) }),
-            (phase === "cutdeal" || phase === "deal" || phase === "dealing" || phase === "discard" || phase === "cribbing" || phase === "cut" || (phase === "show" && show) || (phase === "play" && peg) || phase === "over") && (React.createElement(PlayScreen, { state: state, dispatch: dispatch, me: phase === "discard" ? ds : phase === "cut" ? (dealerIdx + players - 1) % players : (phase === "play" && peg && multiHuman) ? peg.turn : (multiHuman && (phase === "cutdeal" || phase === "deal" || phase === "dealing")) ? dealerIdx : playMe, needHandoff: needHandoff, cribGliding: cribGliding, onView: setViewSeat }))),
+            (phase === "cutdeal" || phase === "deal" || phase === "dealing" || phase === "discard" || phase === "cribbing" || phase === "cut" || (phase === "show" && show) || (phase === "play" && peg) || phase === "over") && (React.createElement(PlayScreen, { state: state, dispatch: dispatch, me: phase === "discard" ? ds : phase === "cut" ? (dealerIdx + players - 1) % players : (phase === "play" && peg && multiHuman) ? peg.turn : (multiHuman && (phase === "cutdeal" || phase === "deal" || phase === "dealing")) ? dealerIdx : playMe, needHandoff: needHandoff, cribGliding: cribGliding, onView: setViewSeat, onSwap: setDealLocked }))),
         aboutOpen && React.createElement(AboutModal, { onClose: () => setAboutOpen(false) }),
         historyOpen && React.createElement(HistoryModal, { onClose: () => setHistoryOpen(false) }),
         confirmHome && (React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }, onClick: () => setConfirmHome(false) },
@@ -2079,7 +2082,7 @@ const DEAL_DUR = 115;
 const CARD_STAGGER = 210;
 const SWAP_DUR = 520;
 const EMPTY_DUR = 240;
-function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, onView }) {
+function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, onView, onSwap }) {
     const { peg, starter, dealerIdx, crib, seats, settings, phase, dealDraw, winner, deal, cutDeal } = state;
     const discardPhase = phase === "discard";
     const cribbingPhase = phase === "cribbing";
@@ -2264,6 +2267,9 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
     const dealTimersRef = React.useRef([]);
     const dealingRef = React.useRef(false);
     const swapUntilRef = React.useRef(0);
+    const [swapBusy, setSwapBusy] = React.useState(false);
+    React.useEffect(() => { if (onSwap)
+        onSwap(swapBusy); }, [swapBusy, onSwap]);
     const gatherDealRef = React.useRef(false);
     const lastAdvancedRef = React.useRef(-1);
     const advanceDeal = (fromCursor) => {
@@ -2484,6 +2490,8 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
             dealTimersRef.current = [];
             const settleAt = scheduleDeckSwap(oldCards, GATHER_DUR);
             swapUntilRef.current = (typeof performance !== "undefined" ? performance.now() : Date.now()) + settleAt;
+            setSwapBusy(true);
+            dealTimersRef.current.push(setTimeout(() => setSwapBusy(false), settleAt));
             dealTimersRef.current.push(setTimeout(() => setDeckShown(deckCount), settleAt));
             animUntilRef.current = (typeof performance !== "undefined" ? performance.now() : Date.now()) + settleAt + 120;
             return;
@@ -2693,28 +2701,29 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
                 : state.show.claimValue > info.total
                     ? tr("play.show.claimedOver", { n: state.show.claimValue })
                     : tr("play.show.claimedSpot", { n: state.show.claimValue }))),
-            bigBtn(tr("play.btn.continue"), () => dispatch({ type: "SHOW_NEXT" }), "wood")))) : preDeal ? (!cutSettled ? null
-            : settings.autoDeal
-                ? React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" } }, tr("play.btn.dealing"))
-                : (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 } },
-                    dealPhase && (React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, lineHeight: 1.7, textAlign: "center" } },
-                        tr("play.cfg.counting"),
-                        " ",
-                        React.createElement("b", { style: { color: T.cream } }, mugginsActive(settings) ? tr("play.cfg.muggins") : tr("play.cfg.auto")),
-                        " \u00B7",
-                        " ",
-                        tr("play.cfg.goNoCard"),
-                        " ",
-                        React.createElement("b", { style: { color: T.cream } }, settings.autoGo ? tr("play.cfg.auto") : tr("play.cfg.manual")),
-                        " \u00B7",
-                        " ",
-                        tr("play.cfg.warn"),
-                        " ",
-                        React.createElement("b", { style: { color: T.cream } }, settings.warn ? tr("play.cfg.on") : tr("play.cfg.off")),
-                        React.createElement("span", null,
+            bigBtn(tr("play.btn.continue"), () => dispatch({ type: "SHOW_NEXT" }), "wood")))) : preDeal ? ((dealPhase && swapBusy) ? null
+            : !cutSettled ? null
+                : settings.autoDeal
+                    ? React.createElement("div", { style: { fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" } }, tr("play.btn.dealing"))
+                    : (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 } },
+                        dealPhase && (React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, lineHeight: 1.7, textAlign: "center" } },
+                            tr("play.cfg.counting"),
                             " ",
-                            tr("play.cfg.tapChange")))),
-                    bigBtn(multiHuman ? tr("play.dealAs", { seat: seatName(dealerIdx) }) : isDealer ? tr("play.deal") : tr("play.dealCrib", { seat: seatName(dealerIdx) }), () => dispatch({ type: "DEAL" }), "wood")))) : cutPhase ? (bigBtn(seatIsHuman(cutter, settings) ? tr("play.btn.cutFor", { seat: seatName(cutter) }) : tr("play.cutMsg", { seat: seatName(cutter) }), () => dispatch({ type: "CUT" }), "wood")) : cribbingPhase ? null : (transitioning || rotating) ? null : needHandoff ? React.createElement(PassPanel, { to: discardPhase ? me : peg.turn, dispatch: dispatch, locked: rotating }) : (React.createElement("div", null,
+                            React.createElement("b", { style: { color: T.cream } }, mugginsActive(settings) ? tr("play.cfg.muggins") : tr("play.cfg.auto")),
+                            " \u00B7",
+                            " ",
+                            tr("play.cfg.goNoCard"),
+                            " ",
+                            React.createElement("b", { style: { color: T.cream } }, settings.autoGo ? tr("play.cfg.auto") : tr("play.cfg.manual")),
+                            " \u00B7",
+                            " ",
+                            tr("play.cfg.warn"),
+                            " ",
+                            React.createElement("b", { style: { color: T.cream } }, settings.warn ? tr("play.cfg.on") : tr("play.cfg.off")),
+                            React.createElement("span", null,
+                                " ",
+                                tr("play.cfg.tapChange")))),
+                        bigBtn(multiHuman ? tr("play.dealAs", { seat: seatName(dealerIdx) }) : isDealer ? tr("play.deal") : tr("play.dealCrib", { seat: seatName(dealerIdx) }), () => dispatch({ type: "DEAL" }), "wood")))) : cutPhase ? (bigBtn(seatIsHuman(cutter, settings) ? tr("play.btn.cutFor", { seat: seatName(cutter) }) : tr("play.cutMsg", { seat: seatName(cutter) }), () => dispatch({ type: "CUT" }), "wood")) : cribbingPhase ? null : (transitioning || rotating) ? null : needHandoff ? React.createElement(PassPanel, { to: discardPhase ? me : peg.turn, dispatch: dispatch, locked: rotating }) : (React.createElement("div", null,
             pending && (discardPhase
                 ? React.createElement(DiscardWarning, { pd: pending, cribIsOurs: cribOurs, dispatch: dispatch, onCancel: () => setSel([]) })
                 : React.createElement("div", { style: { marginBottom: 10 } },
@@ -2908,7 +2917,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.52"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.53"))));
 }
 function MessageLogModal({ log, onClose }) {
     const scrollRef = React.useRef(null);

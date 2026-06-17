@@ -1100,6 +1100,7 @@ export default function CribbagePlay() {
   const [confirmHome, setConfirmHome] = React.useState(false);
   const [aboutOpen, setAboutOpen] = React.useState(false);
   const [historyOpen, setHistoryOpen] = React.useState(false);
+  const [dealLocked, setDealLocked] = React.useState(false);   // true while the post-show deck swap runs: no auto-deal yet
   const [msgLogOpen, setMsgLogOpen] = React.useState(false);   // tap the status line to pause + review this game's messages
   const [msgLog, setMsgLog] = React.useState([]);              // every non-empty status message so far this game
   // Live language switch: re-render the whole tree when i18n.choose() loads a new locale (the
@@ -1212,8 +1213,8 @@ export default function CribbagePlay() {
   useEffect(() => {
     if (autoPaused || (!settings.autoDeal && !allBot)) return;   // an all-bot table always auto-deals
     if (phase === "cutdeal") { if (!cutSettled) return; const t = setTimeout(() => dispatch({ type: "DEAL" }), 900); return () => clearTimeout(t); }   // wait for the cut to finish, then a beat to see the winner
-    if (phase === "deal") { const t = setTimeout(() => dispatch({ type: "DEAL" }), 650); return () => clearTimeout(t); }
-  }, [phase, settings.autoDeal, autoPaused, cutSettled, allBot]);
+    if (phase === "deal") { if (dealLocked) return; const t = setTimeout(() => dispatch({ type: "DEAL" }), 650); return () => clearTimeout(t); }   // hold until the post-show deck swap settles
+  }, [phase, settings.autoDeal, autoPaused, cutSettled, allBot, dealLocked]);
   // Auto-discard the best throw for the active human discarder, when enabled (and once
   // they've taken the device in a hot-seat game).
   useEffect(() => {
@@ -1333,7 +1334,7 @@ export default function CribbagePlay() {
 
 
         {(phase === "cutdeal" || phase === "deal" || phase === "dealing" || phase === "discard" || phase === "cribbing" || phase === "cut" || (phase === "show" && show) || (phase === "play" && peg) || phase === "over") && (
-          <PlayScreen state={state} dispatch={dispatch} me={phase === "discard" ? ds : phase === "cut" ? (dealerIdx + players - 1) % players : (phase === "play" && peg && multiHuman) ? peg.turn : (multiHuman && (phase === "cutdeal" || phase === "deal" || phase === "dealing")) ? dealerIdx : playMe} needHandoff={needHandoff} cribGliding={cribGliding} onView={setViewSeat} />
+          <PlayScreen state={state} dispatch={dispatch} me={phase === "discard" ? ds : phase === "cut" ? (dealerIdx + players - 1) % players : (phase === "play" && peg && multiHuman) ? peg.turn : (multiHuman && (phase === "cutdeal" || phase === "deal" || phase === "dealing")) ? dealerIdx : playMe} needHandoff={needHandoff} cribGliding={cribGliding} onView={setViewSeat} onSwap={setDealLocked} />
         )}
       </main>
 
@@ -1691,7 +1692,7 @@ const DEAL_DUR = 115;                              // ms a dealt card takes to f
 const CARD_STAGGER = 210;                          // gap between successive cards in a multi-card sweep (deal/gather)
 const SWAP_DUR = 520;                              // ms for the old deck to slide out / the new deck to slide in
 const EMPTY_DUR = 240;                             // empty beat between the old deck leaving and the new deck arriving
-function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, onView }) {
+function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, onView, onSwap }) {
   const { peg, starter, dealerIdx, crib, seats, settings, phase, dealDraw, winner, deal, cutDeal } = state;
   const discardPhase = phase === "discard";
   const cribbingPhase = phase === "cribbing";            // crib full, holding while it animates to its home
@@ -1897,6 +1898,8 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
   const dealTimersRef = React.useRef([]);                 // the deal-timeline setTimeouts (cleared on re-trigger)
   const dealingRef = React.useRef(false);                 // true while the (legacy) deal timeline owns the card homes
   const swapUntilRef = React.useRef(0);                   // performance.now() when an in-flight post-show deck swap will have fully settled
+  const [swapBusy, setSwapBusy] = React.useState(false);  // true from the post-show gather until the new deck has fully swapped in
+  React.useEffect(() => { if (onSwap) onSwap(swapBusy); }, [swapBusy, onSwap]);   // report up so PlayApp can hold the auto-deal
   const gatherDealRef = React.useRef(false);              // true while the first-hand cut-for-deal cards are gathering into the deck
   const lastAdvancedRef = React.useRef(-1);               // the deal cursor we've already advanced from (so each push fires once)
 
@@ -2162,6 +2165,8 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
       // sequential swap: old deck out → empty beat → new deck in. Restore the deck thickness when it settles.
       const settleAt = scheduleDeckSwap(oldCards, GATHER_DUR);
       swapUntilRef.current = (typeof performance !== "undefined" ? performance.now() : Date.now()) + settleAt;   // a deal pressed before this finishes waits for the new deck
+      setSwapBusy(true);                                     // hold the deal button / auto-deal until the new deck is in
+      dealTimersRef.current.push(setTimeout(() => setSwapBusy(false), settleAt));
       dealTimersRef.current.push(setTimeout(() => setDeckShown(deckCount), settleAt));
       animUntilRef.current = (typeof performance !== "undefined" ? performance.now() : Date.now()) + settleAt + 120;
       return;
@@ -2476,7 +2481,8 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
           </div>
         )
       ) : preDeal ? (
-        !cutSettled ? null   // cut-for-deal still revealing — no deal button until the dealer is decided
+        (dealPhase && swapBusy) ? null   // post-show deck swap still running — no deal UI until the new deck is in
+        : !cutSettled ? null   // cut-for-deal still revealing — no deal button until the dealer is decided
         : settings.autoDeal
           ? <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, textAlign: "center" }}>{tr("play.btn.dealing")}</div>
           : (<div style={{ display: "flex", flexDirection: "column", gap: 12 }}>

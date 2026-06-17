@@ -801,7 +801,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.32";
+const APP_VERSION = "1.1.20-dev.33";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -1954,7 +1954,7 @@ function RevealFly({ from, to, card, delay, r0 = -180, r1 = 0 }) {
         React.createElement("div", { style: { position: "absolute", top: 0, left: 0, width: "var(--cw)", backfaceVisibility: "hidden", transform: "rotateY(180deg)" } },
             React.createElement(CardBack, null))));
 }
-const DEAL_STAGGER = 210;
+const DEAL_STAGGER = 90;
 const DEAL_MOVE = 460;
 const GATHER_STAGGER = 60;
 const SEAT_ROTATE = 920;
@@ -2003,7 +2003,7 @@ function DealFly({ from, legs, card }) {
         } }, card ? React.createElement(Card, { card: card }) : React.createElement(CardBack, null)));
 }
 const MOVE_DUR = 460;
-const DEAL_DUR = 38;
+const DEAL_DUR = 115;
 const CARD_STAGGER = 210;
 const SWAP_DUR = 520;
 const EMPTY_DUR = 240;
@@ -2196,7 +2196,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
         if (!dealingPhase || !deal || deal.cursor >= deal.seq.length)
             return;
         const cursor = deal.cursor;
-        const wait = cursor === 0 ? (gatherDealRef.current ? DEAL_DUR + 100 : 90) : DEAL_DUR + 180;
+        const wait = cursor === 0 ? (gatherDealRef.current ? DEAL_DUR + 100 : 90) : DEAL_STAGGER;
         const t = setTimeout(() => advanceDeal(cursor), wait);
         return () => clearTimeout(t);
     }, [dealingPhase, deal && deal.cursor]);
@@ -2491,7 +2491,6 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
             React.createElement("div", { "data-slot": "seat-" + i, style: { display: "flex", justifyContent: "center", alignItems: "flex-end", height: "var(--ch)", visibility: "hidden" } },
                 React.createElement(SlotGhost, { n: n, vis: BACK_VISIBLE }))));
     };
-    const dealingCardId = (dealingPhase && deal && deal.cursor > 0 && state.deck[deal.cursor - 1]) ? cardId(state.deck[deal.cursor - 1]) : null;
     const sprites = Object.keys(homes).map((id) => {
         const c = CARD_BY_ID[id];
         if (!c)
@@ -2503,7 +2502,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
         const legal = inHand && (discardPhase || (peg && turn === me)) ? isLegal(yourHand[handIdx]) : false;
         const chosen = inHand && (pending ? (pendIdxs && pendIdxs.includes(handIdx)) : sel.includes(handIdx));
         const clickable = inHand && (pending ? true : (myTurn && legal));
-        return React.createElement(CardSprite, { key: id, card: c, home: h, dur: dealingPhase ? DEAL_DUR : MOVE_DUR, delay: delayRef.current[id] || 0, clickable: clickable, selected: inHand && !tapSelect && chosen, raised: inHand && tapSelect && chosen, dim: inHand && !pending && !legal && (discardPhase ? false : turn === me), selLabel: inHand && !discardPhase ? tr("play.sel.play") : undefined, onLanded: id === dealingCardId ? () => advanceDeal(deal.cursor) : undefined, onClick: inHand ? () => tapCard(handIdx) : undefined });
+        return React.createElement(CardSprite, { key: id, card: c, home: h, dur: dealingPhase ? DEAL_DUR : MOVE_DUR, delay: delayRef.current[id] || 0, clickable: clickable, selected: inHand && !tapSelect && chosen, raised: inHand && tapSelect && chosen, dim: inHand && !pending && !legal && (discardPhase ? false : turn === me), selLabel: inHand && !discardPhase ? tr("play.sel.play") : undefined, onClick: inHand ? () => tapCard(handIdx) : undefined });
     });
     return (React.createElement("div", { ref: tableRef, style: { position: "relative", marginTop: 6, display: "flex", flexDirection: "column", gap: 10 } },
         React.createElement("div", { style: { position: "absolute", inset: 0, pointerEvents: "none", zIndex: 5 } },
@@ -2785,7 +2784,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.32"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.33"))));
 }
 function PlayWarning({ pp, dispatch }) {
     return (React.createElement(Panel, { tone: "red" },

@@ -1555,10 +1555,9 @@ function RevealFly({ from, to, card, delay, r0 = -180, r1 = 0 }) {
   );
 }
 
-// Deal animation timing — one tunable knob (snappy by default). DEAL_STAGGER is the gap
-// between successive cards leaving the deck; DEAL_MOVE is one card's deck→seat travel time.
-// Set DEAL_STAGGER to 0 to deal the whole hand at once.
-const DEAL_STAGGER = 210;
+// DEAL_STAGGER: ms between dealing one card and the next — the deal is timer-paced (it does NOT
+// wait for a card to finish flying before dealing the next).
+const DEAL_STAGGER = 90;
 const DEAL_MOVE = 460;
 const GATHER_STAGGER = 60;                        // gap between cards sweeping back into the deck at hand end
 const SEAT_ROTATE = 920;                          // ms for a seat to glide to its new spot as the ring rotates (hot-seat)
@@ -1620,7 +1619,7 @@ function DealFly({ from, legs, card }) {
 // The persistent card layer's per-card move/flip timing. One element per card lives from
 // the deal to the reshuffle; every phase just hands it a new home and the browser tweens it.
 const MOVE_DUR = 460;                              // base ms for a card to glide to a new home / flip
-const DEAL_DUR = 38;                               // a dealt card flies very fast (3x faster again)
+const DEAL_DUR = 115;                              // ms a dealt card takes to fly to its seat
 const CARD_STAGGER = 210;                          // gap between successive cards in a multi-card sweep (deal/gather)
 const SWAP_DUR = 520;                              // ms for the old deck to slide out / the new deck to slide in
 const EMPTY_DUR = 240;                             // empty beat between the old deck leaving and the new deck arriving
@@ -1833,13 +1832,12 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
     lastAdvancedRef.current = fromCursor;
     dispatch({ type: "DEAL_NEXT" });
   };
-  // Kickoff (cursor 0, after any cut-for-deal gather) + a per-card FALLBACK. The primary gate for
-  // cards after the first is the dealt sprite's onTransitionEnd (see the sprites below, which call
-  // advanceDeal when the card lands); this timer only fires if that transitionend never arrives.
+  // The deal is TIMER-paced: each card is dealt a fixed DEAL_STAGGER after the previous one, WITHOUT
+  // waiting for the previous card to finish flying in. (cursor 0 kicks off after any cut-for-deal gather.)
   React.useEffect(() => {
     if (!dealingPhase || !deal || deal.cursor >= deal.seq.length) return;
     const cursor = deal.cursor;
-    const wait = cursor === 0 ? (gatherDealRef.current ? DEAL_DUR + 100 : 90) : DEAL_DUR + 180;
+    const wait = cursor === 0 ? (gatherDealRef.current ? DEAL_DUR + 100 : 90) : DEAL_STAGGER;
     const t = setTimeout(() => advanceDeal(cursor), wait);
     return () => clearTimeout(t);
   }, [dealingPhase, deal && deal.cursor]);
@@ -2182,10 +2180,8 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
     );
   };
 
-  // The card currently in flight off the deck (the just-pushed one). When its move ends, the deal
-  // driver pushes the next card — this is the transitionend gate the whole incremental deal rides on.
-  const dealingCardId = (dealingPhase && deal && deal.cursor > 0 && state.deck[deal.cursor - 1]) ? cardId(state.deck[deal.cursor - 1]) : null;
-  // the persistent sprites: one per card on the table, positioned/faced by `homes`
+  // the persistent sprites: one per card on the table, positioned/faced by `homes`. (The deal is
+  // timer-paced now, so no sprite reports its landing back to the deal driver.)
   const sprites = Object.keys(homes).map((id) => {
     const c = CARD_BY_ID[id]; if (!c) return null;
     const h = homes[id];
@@ -2203,7 +2199,6 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
       raised={inHand && tapSelect && chosen}
       dim={inHand && !pending && !legal && (discardPhase ? false : turn === me)}
       selLabel={inHand && !discardPhase ? tr("play.sel.play") : undefined}
-      onLanded={id === dealingCardId ? () => advanceDeal(deal.cursor) : undefined}
       onClick={inHand ? () => tapCard(handIdx) : undefined} />;
   });
 

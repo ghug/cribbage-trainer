@@ -21,7 +21,10 @@ function spd(ms) { return ms <= 0 ? ms : SPEED === "instant" ? 32 : Math.round(m
 // Global text-size floor. Every font-size is written `max(<px>px, var(--min-fs, 0px))`, so raising
 // `--min-fs` (set on the app root from settings.textSize) only grows text BELOW the floor — small is
 // the current sizing (0 floor), medium/large lift the minimum. Shared with the landing + trainer.
-const MIN_FS = { small: "0px", medium: "12px", large: "14px" };
+const MIN_FS = { small: "0px", medium: "12px", large: "14px", xlarge: "16px" };
+// Current text size (set from settings.textSize at the root render, like SPEED). Seat-ring labels show
+// full names normally but abbreviate at large/xlarge, where the bigger text would overflow the cells.
+let TEXT_SIZE = "small";
 
 const fifteenVal = (r) => Math.min(r, 10);
 
@@ -1252,6 +1255,7 @@ export default function CribbagePlay() {
   }, []);
   const { phase, seats, dealerIdx, peg, show, starter, winner, message, settings } = state;
   SPEED = settings.speed || "normal";   // root render runs before any descendant render/effect this pass
+  TEXT_SIZE = settings.textSize || "small";
   // Accumulate this game's status messages so the tap-to-review modal can show the whole run.
   // A fresh game (back at the opening cut-for-deal) starts the log over.
   useEffect(() => { if (phase === "cutdeal") setMsgLog([]); }, [phase]);
@@ -1674,7 +1678,9 @@ function Seat({ i, dealerIdx, active, dim, items, settings, me, hideFrom }) {
 // when it's a named human; every other seat keeps its plain compass short-name.
 function SeatLabel({ i, dealerIdx, active, settings, me }) {
   const named = customName(i);
-  const base = (i === me && named && seatIsHuman(i, settings)) ? `${tr("seat.youShort")} - ${named}` : seatShort(i);
+  // Full names normally; abbreviate only at large/xlarge text (where full names overflow the cells).
+  const big = TEXT_SIZE === "large" || TEXT_SIZE === "xlarge";
+  const base = (i === me && named && seatIsHuman(i, settings)) ? `${tr("seat.youShort")} - ${named}` : (big ? seatShort(i) : seatName(i));
   const text = `${base}${dealerIdx === i ? " 🔘" : ""}`;
   return (
     <span style={active
@@ -2776,7 +2782,7 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
           options={[[tr("settings.speed.optSlow"), "slow"], [tr("settings.speed.optNormal"), "normal"], [tr("settings.speed.optFast"), "fast"], [tr("settings.speed.optInstant"), "instant"]]} />
         <Row title={tr("settings.textSize.title")} k="textSize"
           desc={tr("settings.textSize.desc")}
-          options={[[tr("settings.textSize.optSmall"), "small"], [tr("settings.textSize.optMedium"), "medium"], [tr("settings.textSize.optLarge"), "large"]]} />
+          options={[[tr("settings.textSize.optSmall"), "small"], [tr("settings.textSize.optMedium"), "medium"], [tr("settings.textSize.optLarge"), "large"], [tr("settings.textSize.optXLarge"), "xlarge"]]} />
         <Row title={tr("settings.tapToSelect.title")} k="tapToSelect"
           desc={tr("settings.tapToSelect.desc")}
           options={[[off, false], [on, true]]} />

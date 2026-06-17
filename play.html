@@ -446,6 +446,7 @@ cribbageLocale("en", {
   "settings.textSize.optSmall": "Small",
   "settings.textSize.optMedium": "Medium",
   "settings.textSize.optLarge": "Large",
+  "settings.textSize.optXLarge": "X-Large",
   "settings.tapToSelect.title": "Tap to select, then confirm",
   "settings.tapToSelect.desc": "Tapping a card lifts it to select (tap again to drop it); a Play or Throw-to-crib button above your hand commits the choice. Off: a tap plays or throws immediately.",
   "settings.autoCut.title": "Cut for the starter",
@@ -637,7 +638,8 @@ const { useReducer, useEffect } = React;
 const SPEED_MULT = { slow: 2, normal: 1, fast: 0.5, instant: 0 };
 let SPEED = "normal";
 function spd(ms) { return ms <= 0 ? ms : SPEED === "instant" ? 32 : Math.round(ms * (SPEED_MULT[SPEED] ?? 1)); }
-const MIN_FS = { small: "0px", medium: "12px", large: "14px" };
+const MIN_FS = { small: "0px", medium: "12px", large: "14px", xlarge: "16px" };
+let TEXT_SIZE = "small";
 const fifteenVal = (r) => Math.min(r, 10);
 function scoreInto(four, starter, isCrib, acc) {
     const all = [...four, starter];
@@ -891,7 +893,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.79";
+const APP_VERSION = "1.1.20-dev.80";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -1797,6 +1799,7 @@ function CribbagePlay() {
     }, []);
     const { phase, seats, dealerIdx, peg, show, starter, winner, message, settings } = state;
     SPEED = settings.speed || "normal";
+    TEXT_SIZE = settings.textSize || "small";
     useEffect(() => { if (phase === "cutdeal")
         setMsgLog([]); }, [phase]);
     useEffect(() => { if (message)
@@ -2128,7 +2131,8 @@ function Seat({ i, dealerIdx, active, dim, items, settings, me, hideFrom }) {
 }
 function SeatLabel({ i, dealerIdx, active, settings, me }) {
     const named = customName(i);
-    const base = (i === me && named && seatIsHuman(i, settings)) ? `${tr("seat.youShort")} - ${named}` : seatShort(i);
+    const big = TEXT_SIZE === "large" || TEXT_SIZE === "xlarge";
+    const base = (i === me && named && seatIsHuman(i, settings)) ? `${tr("seat.youShort")} - ${named}` : (big ? seatShort(i) : seatName(i));
     const text = `${base}${dealerIdx === i ? " 🔘" : ""}`;
     return (React.createElement("span", { style: active
             ? { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", fontWeight: 700, letterSpacing: 0.3, color: T.ivory, background: T.selBlue, padding: "2px 8px", borderRadius: 999, boxShadow: "0 1px 4px rgba(0,0,0,0.45)" }
@@ -2971,7 +2975,7 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
             React.createElement("span", { style: { fontWeight: 700, fontSize: "max(16px, var(--min-fs, 0px))" } }, tr("settings.title"))),
         React.createElement(SettingsSection, { title: tr("settings.group.controls") },
             React.createElement(Row, { title: tr("settings.speed.title"), k: "speed", desc: tr("settings.speed.desc"), options: [[tr("settings.speed.optSlow"), "slow"], [tr("settings.speed.optNormal"), "normal"], [tr("settings.speed.optFast"), "fast"], [tr("settings.speed.optInstant"), "instant"]] }),
-            React.createElement(Row, { title: tr("settings.textSize.title"), k: "textSize", desc: tr("settings.textSize.desc"), options: [[tr("settings.textSize.optSmall"), "small"], [tr("settings.textSize.optMedium"), "medium"], [tr("settings.textSize.optLarge"), "large"]] }),
+            React.createElement(Row, { title: tr("settings.textSize.title"), k: "textSize", desc: tr("settings.textSize.desc"), options: [[tr("settings.textSize.optSmall"), "small"], [tr("settings.textSize.optMedium"), "medium"], [tr("settings.textSize.optLarge"), "large"], [tr("settings.textSize.optXLarge"), "xlarge"]] }),
             React.createElement(Row, { title: tr("settings.tapToSelect.title"), k: "tapToSelect", desc: tr("settings.tapToSelect.desc"), options: [[off, false], [on, true]] }),
             React.createElement(Row, { title: tr("settings.warn.title"), k: "warn", desc: tr("settings.warn.desc"), options: [[on, true], [off, false]] })),
         React.createElement(SettingsSection, { title: tr("settings.group.automation") },
@@ -3082,7 +3086,7 @@ function AboutModal({ onClose }) {
                 background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
             } }, tr("about.sourceLink")),
         React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.20-dev.79")));
+        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.20-dev.80")));
 }
 function MessageLogModal({ log, onClose }) {
     const scrollRef = React.useRef(null);

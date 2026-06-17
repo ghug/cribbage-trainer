@@ -15,7 +15,7 @@ function spd(ms) { return ms <= 0 ? ms : SPEED === "instant" ? 32 : Math.round(m
 // Global text-size floor (shared with landing + Play): every font-size is `max(<px>px, var(--min-fs,
 // 0px))`, so raising `--min-fs` (set on the app root from settings.textSize) grows only sub-floor
 // text. small = current sizing (0 floor); medium/large lift the minimum.
-const MIN_FS = { small: "0px", medium: "12px", large: "14px" };
+const MIN_FS = { small: "0px", medium: "12px", large: "14px", xlarge: "16px" };
 
 const fifteenVal = (r) => Math.min(r, 10);
 
@@ -581,7 +581,7 @@ function SettingsPanel({ settings, onSet, onReset, onClose, onAbout }) {
         <Row title={tr("settings.speed.title")} k="speed" desc={tr("settings.speed.desc")}
           options={[[tr("settings.speed.optSlow"), "slow"], [tr("settings.speed.optNormal"), "normal"], [tr("settings.speed.optFast"), "fast"], [tr("settings.speed.optInstant"), "instant"]]} />
         <Row title={tr("settings.textSize.title")} k="textSize" desc={tr("settings.textSize.desc")}
-          options={[[tr("settings.textSize.optSmall"), "small"], [tr("settings.textSize.optMedium"), "medium"], [tr("settings.textSize.optLarge"), "large"]]} />
+          options={[[tr("settings.textSize.optSmall"), "small"], [tr("settings.textSize.optMedium"), "medium"], [tr("settings.textSize.optLarge"), "large"], [tr("settings.textSize.optXLarge"), "xlarge"]]} />
         <Row title={tr("settings.tapToSelect.title")} k="tapToSelect" desc={tr("settings.tapToSelect.desc")} options={[[off, false], [on, true]]} />
         <Row title={tr("settings.warn.title")} k="warn" desc={tr("settings.warn.desc")} options={[[on, true], [off, false]]} />
       </SettingsSection>

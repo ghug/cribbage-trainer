@@ -586,6 +586,7 @@ cribbageLocale("en", {
   "settings.textSize.optSmall": "Small",
   "settings.textSize.optMedium": "Medium",
   "settings.textSize.optLarge": "Large",
+  "settings.textSize.optXLarge": "X-Large",
   "settings.tapToSelect.title": "Tap to select, then confirm",
   "settings.tapToSelect.desc": "Tapping a card lifts it to select (tap again to drop it); a Play or Throw-to-crib button above your hand commits the choice. Off: a tap plays or throws immediately.",
   "settings.autoCut.title": "Cut for the starter",
@@ -909,7 +910,7 @@ cribbageLocale("en", {
       <a class="btn btn-primary" href="https://github.com/ghug/cribbage-trainer/"
          target="_blank" rel="noopener noreferrer" data-i18n="about.sourceLink">Source, bugs &amp; feedback ↗</a>
       <div class="repo-url" style="margin-bottom:4px">github.com/ghug/cribbage-trainer</div>
-      <div class="repo-url">v1.1.20-dev.79</div>
+      <div class="repo-url">v1.1.20-dev.80</div>
     </div>
   </div>
 
@@ -955,7 +956,7 @@ cribbageLocale("en", {
       // identical everywhere. title/desc/option labels are i18n keys, translated via tr() at render.
       var ROWS = [
         { k: "speed", title: "settings.speed.title", desc: "settings.speed.desc", opts: [["settings.speed.optSlow", "slow"], ["settings.speed.optNormal", "normal"], ["settings.speed.optFast", "fast"], ["settings.speed.optInstant", "instant"]] },
-        { k: "textSize", title: "settings.textSize.title", desc: "settings.textSize.desc", opts: [["settings.textSize.optSmall", "small"], ["settings.textSize.optMedium", "medium"], ["settings.textSize.optLarge", "large"]] },
+        { k: "textSize", title: "settings.textSize.title", desc: "settings.textSize.desc", opts: [["settings.textSize.optSmall", "small"], ["settings.textSize.optMedium", "medium"], ["settings.textSize.optLarge", "large"], ["settings.textSize.optXLarge", "xlarge"]] },
         { k: "tapToSelect", title: "settings.tapToSelect.title", desc: "settings.tapToSelect.desc", opts: [["common.off", false], ["common.on", true]] },
         { k: "warn", title: "settings.warn.title", desc: "settings.warn.desc", opts: [["common.on", true], ["common.off", false]] },
         { k: "autoDeal", title: "settings.autoDeal.title", desc: "settings.autoDeal.desc", opts: [["common.off", false], ["common.on", true]] },
@@ -974,7 +975,7 @@ cribbageLocale("en", {
       function saveSettings(o) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(o)); } catch (e) {} }
       // Global text-size floor: every font-size in the stylesheet is max(<px>, var(--min-fs,0px)),
       // so raising --min-fs only grows sub-floor text. small = current sizing; medium/large lift it.
-      var MIN_FS = { small: "0px", medium: "12px", large: "14px" };
+      var MIN_FS = { small: "0px", medium: "12px", large: "14px", xlarge: "16px" };
       function applyTextSize() { document.documentElement.style.setProperty("--min-fs", MIN_FS[settings.textSize] || "0px"); }
       var settings = loadSettings();
       applyTextSize();

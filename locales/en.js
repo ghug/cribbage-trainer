@@ -283,6 +283,7 @@ cribbageLocale("en", {
   "settings.textSize.optSmall": "Small",
   "settings.textSize.optMedium": "Medium",
   "settings.textSize.optLarge": "Large",
+  "settings.textSize.optXLarge": "X-Large",
   "settings.tapToSelect.title": "Tap to select, then confirm",
   "settings.tapToSelect.desc": "Tapping a card lifts it to select (tap again to drop it); a Play or Throw-to-crib button above your hand commits the choice. Off: a tap plays or throws immediately.",
   "settings.autoCut.title": "Cut for the starter",

@@ -509,6 +509,9 @@
       function renderSeatDiagram() {
         var host = document.getElementById('seatDiagram');
         var P = settings.players, teams = settings.teams;
+        // Crowded tables (5/6) stack seats on the flanks; give them more height so a seat's name
+        // label never reaches the seat below it.
+        host.style.height = (P === 6 ? 210 : P === 5 ? 190 : 170) + 'px';
         var pos = seatLayout(P), names = seatNames(P), roles = seatRoles(P);
         var humans = roles.filter(function (r) { return r === 'human'; }).length;
         // Okabe–Ito colour-blind-safe palette (sky blue / orange / reddish-purple / bluish green /

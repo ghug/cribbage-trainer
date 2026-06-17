@@ -2505,7 +2505,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
       <div>
         {pending && (discardPhase
           ? <DiscardWarning pd={pending} cribIsOurs={cribOurs} dispatch={dispatch} onCancel={() => setSel([])} />
-          : <div style={{ marginBottom: 10 }}><PlayWarning pp={pending} dispatch={dispatch} /></div>)}
+          : <PlayWarning pp={pending} dispatch={dispatch} />)}
         {!pending && (() => {
           // One fixed-height slot below the table: an action button when there's something to
           // do, otherwise the status line in the very same place — no separate prompt above.
@@ -2823,23 +2823,26 @@ function MessageLogModal({ log, onClose }) {
 }
 
 function PlayWarning({ pp, dispatch }) {
+  const pickAgain = () => dispatch({ type: "CANCEL_PLAY" });
   return (
-    <Panel tone="red">
-      <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>{tr(pp.delta === 1 ? "play.warn.leavesOne" : "play.warn.leavesMany", { n: pp.delta })}</div>
-      <div style={{ fontFamily: mono, fontSize: 11.5, lineHeight: 1.6, color: T.cream, marginBottom: 12 }}>
-        {tr("play.warn.playLineA", { card: tag(pp.card), pts: pp.chosenPts })}<b style={{ color: T.good }}>{tag(pp.bestCard)}</b>{tr("play.warn.playLineB", { pts: pp.bestPts, delta: pp.delta })}
+    <div style={{ position: "fixed", inset: 0, zIndex: 220, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={pickAgain}>
+      <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 380, width: "100%", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "20px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" }}>
+        <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 12 }}>{tr(pp.delta === 1 ? "play.warn.leavesOne" : "play.warn.leavesMany", { n: pp.delta })}</div>
+        <div style={{ fontFamily: mono, fontSize: 12, lineHeight: 1.6, color: T.cream, marginBottom: 16 }}>
+          {tr("play.warn.playLineA", { card: tag(pp.card), pts: pp.chosenPts })}<b style={{ color: T.good }}>{tag(pp.bestCard)}</b>{tr("play.warn.playLineB", { pts: pp.bestPts, delta: pp.delta })}
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={() => dispatch({ type: "CONFIRM_PLAY" })} style={{
+            flex: 1, padding: "12px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer",
+            background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+          }}>{tr("play.warn.playAnyway", { card: tag(pp.card) })}</button>
+          <button onClick={pickAgain} style={{
+            flex: 1, padding: "12px", borderRadius: 9, border: "none", cursor: "pointer",
+            background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+          }}>{tr("play.warn.pickAgain")}</button>
+        </div>
       </div>
-      <div style={{ display: "flex", gap: 8 }}>
-        <button onClick={() => dispatch({ type: "CONFIRM_PLAY" })} style={{
-          flex: 1, padding: "11px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer",
-          background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
-        }}>{tr("play.warn.playAnyway", { card: tag(pp.card) })}</button>
-        <button onClick={() => dispatch({ type: "CANCEL_PLAY" })} style={{
-          flex: 1, padding: "11px", borderRadius: 9, border: "none", cursor: "pointer",
-          background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
-        }}>{tr("play.warn.pickAgain")}</button>
-      </div>
-    </Panel>
+    </div>
   );
 }
 

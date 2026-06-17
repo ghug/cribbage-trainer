@@ -812,7 +812,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20-dev.54";
+const APP_VERSION = "1.1.20-dev.55";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -2726,8 +2726,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
                         bigBtn(multiHuman ? tr("play.dealAs", { seat: seatName(dealerIdx) }) : isDealer ? tr("play.deal") : tr("play.dealCrib", { seat: seatName(dealerIdx) }), () => dispatch({ type: "DEAL" }), "wood")))) : cutPhase ? (bigBtn(seatIsHuman(cutter, settings) ? tr("play.btn.cutFor", { seat: seatName(cutter) }) : tr("play.cutMsg", { seat: seatName(cutter) }), () => dispatch({ type: "CUT" }), "wood")) : cribbingPhase ? null : (transitioning || rotating) ? null : needHandoff ? React.createElement(PassPanel, { to: discardPhase ? me : peg.turn, dispatch: dispatch, locked: rotating }) : (React.createElement("div", null,
             pending && (discardPhase
                 ? React.createElement(DiscardWarning, { pd: pending, cribIsOurs: cribOurs, dispatch: dispatch, onCancel: () => setSel([]) })
-                : React.createElement("div", { style: { marginBottom: 10 } },
-                    React.createElement(PlayWarning, { pp: pending, dispatch: dispatch }))),
+                : React.createElement(PlayWarning, { pp: pending, dispatch: dispatch })),
             !pending && (() => {
                 let el = null;
                 if (stuck && !settings.autoGo && meHuman) {
@@ -2917,7 +2916,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: 10.5, color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.54"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 10, color: T.muted, textAlign: "center" } }, "v1.1.20-dev.55"))));
 }
 function MessageLogModal({ log, onClose }) {
     const scrollRef = React.useRef(null);
@@ -2936,21 +2935,23 @@ function MessageLogModal({ log, onClose }) {
                     m)))))));
 }
 function PlayWarning({ pp, dispatch }) {
-    return (React.createElement(Panel, { tone: "red" },
-        React.createElement("div", { style: { fontWeight: 700, fontSize: 15, marginBottom: 6 } }, tr(pp.delta === 1 ? "play.warn.leavesOne" : "play.warn.leavesMany", { n: pp.delta })),
-        React.createElement("div", { style: { fontFamily: mono, fontSize: 11.5, lineHeight: 1.6, color: T.cream, marginBottom: 12 } },
-            tr("play.warn.playLineA", { card: tag(pp.card), pts: pp.chosenPts }),
-            React.createElement("b", { style: { color: T.good } }, tag(pp.bestCard)),
-            tr("play.warn.playLineB", { pts: pp.bestPts, delta: pp.delta })),
-        React.createElement("div", { style: { display: "flex", gap: 8 } },
-            React.createElement("button", { onClick: () => dispatch({ type: "CONFIRM_PLAY" }), style: {
-                    flex: 1, padding: "11px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer",
-                    background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
-                } }, tr("play.warn.playAnyway", { card: tag(pp.card) })),
-            React.createElement("button", { onClick: () => dispatch({ type: "CANCEL_PLAY" }), style: {
-                    flex: 1, padding: "11px", borderRadius: 9, border: "none", cursor: "pointer",
-                    background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
-                } }, tr("play.warn.pickAgain")))));
+    const pickAgain = () => dispatch({ type: "CANCEL_PLAY" });
+    return (React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 220, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }, onClick: pickAgain },
+        React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { maxWidth: 380, width: "100%", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "20px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" } },
+            React.createElement("div", { style: { fontWeight: 700, fontSize: 17, marginBottom: 12 } }, tr(pp.delta === 1 ? "play.warn.leavesOne" : "play.warn.leavesMany", { n: pp.delta })),
+            React.createElement("div", { style: { fontFamily: mono, fontSize: 12, lineHeight: 1.6, color: T.cream, marginBottom: 16 } },
+                tr("play.warn.playLineA", { card: tag(pp.card), pts: pp.chosenPts }),
+                React.createElement("b", { style: { color: T.good } }, tag(pp.bestCard)),
+                tr("play.warn.playLineB", { pts: pp.bestPts, delta: pp.delta })),
+            React.createElement("div", { style: { display: "flex", gap: 8 } },
+                React.createElement("button", { onClick: () => dispatch({ type: "CONFIRM_PLAY" }), style: {
+                        flex: 1, padding: "12px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer",
+                        background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+                    } }, tr("play.warn.playAnyway", { card: tag(pp.card) })),
+                React.createElement("button", { onClick: pickAgain, style: {
+                        flex: 1, padding: "12px", borderRadius: 9, border: "none", cursor: "pointer",
+                        background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: 12.5, fontWeight: 700,
+                    } }, tr("play.warn.pickAgain"))))));
 }
 function StepBtn({ children, onClick }) {
     return (React.createElement("button", { onClick: onClick, style: {

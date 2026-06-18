@@ -853,7 +853,7 @@ const serif = "'Hoefler Text', 'Iowan Old Style', Georgia, 'Times New Roman', se
 const tr = (k, v) => (typeof window !== "undefined" && window.t) ? window.t(k, v) : k;
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
-const APP_VERSION = "1.1.21-dev.19";
+const APP_VERSION = "1.1.21-dev.20";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const SPEED_MULT = { slow: 2, normal: 1, fast: 0.5 };
 const SPEED_FLAT = { lightning: 32, instant: 0 };
@@ -967,7 +967,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.21-dev.19"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.21-dev.20"))));
 }
 function HistoryModal({ onClose }) {
     const [tick, setTick] = React.useState(0);
@@ -3050,11 +3050,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
                 : info.isCrib ? (React.createElement("div", { style: { background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "12px", minHeight: 88, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 } },
                     React.createElement("span", { style: { fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted } }, tr("play.show.entCounting", { ent: entText(info), step: stepLabel })),
                     React.createElement("div", { "data-slot": "showcrib", style: { display: "flex", alignItems: "flex-end", justifyContent: "center", height: "var(--ch)", visibility: "hidden" } },
-                        React.createElement(SlotGhost, { n: Math.max(showcribN, (info.cards || []).length), vis: STACK_VISIBLE })))) : (React.createElement(Panel, null,
-                    React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline" } },
-                        React.createElement("div", { style: { fontWeight: 700, fontSize: "max(15px, var(--min-fs, 0px))" } }, tr("play.show.title", { ent: entText(info) })),
-                        React.createElement("span", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted } }, tr("play.show.counting", { step: stepLabel }))),
-                    React.createElement("div", { style: { fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted, marginTop: 3 } }, tr("play.show.order"))))) : (discardPhase || cribbingPhase) ? (React.createElement(Panel, { tone: cribOurs ? "good" : "red" },
+                        React.createElement(SlotGhost, { n: Math.max(showcribN, (info.cards || []).length), vis: STACK_VISIBLE })))) : null) : (discardPhase || cribbingPhase) ? (React.createElement(Panel, { tone: cribOurs ? "good" : "red" },
                 React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 } },
                     React.createElement("div", { style: { fontWeight: 700, fontSize: "max(15px, var(--min-fs, 0px))", minWidth: 0 } },
                         !solo ? tr("play.crib.seatPrefix", { seat: seatName(me) }) : "",
@@ -3072,7 +3068,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
             React.createElement(SkunkPanel, { seats: seats, winner: winner, P: P, teams: teams }),
             bigBtn(tr("play.btn.playAgain"), () => dispatch({ type: "PLAY_AGAIN" }), "good"))) : showPhase ? (needHandoff ? (React.createElement(PassPanel, { to: info.owner, dispatch: dispatch, locked: rotating })) : needClaim ? (React.createElement(MugginsClaim, { info: info, starter: starter, isCrib: info.isCrib, settings: settings, dispatch: dispatch })) : (React.createElement("div", { style: { background: "rgba(0,0,0,0.26)", borderRadius: 10, padding: "12px 14px 14px" } },
             React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 } },
-                React.createElement("span", { style: { fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted } }, tr("play.show.scoring")),
+                React.createElement("span", { style: { fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted } }, entText(info)),
                 React.createElement("span", { style: { fontFamily: serif, fontWeight: 700, fontSize: "max(20px, var(--min-fs, 0px))", color: T.ivory } }, info.total)),
             info.total > 0
                 ? React.createElement(CatBars, { cats: info.acc, scale: info.total, color: info.isCrib ? (seatIsHuman(info.owner, settings) ? T.good : T.pegRed) : T.good })
@@ -3229,7 +3225,10 @@ function MugginsClaim({ info, starter, isCrib, settings, dispatch }) {
     const remaining = info.acc.map((v, i) => v - claims.filter((c) => CLAIM_CAT[c.type] === i).reduce((a, c) => a + c.pts, 0));
     const hintText = remaining.map((v, i) => v > 0 ? tr("play.show.hintItem", { n: v, unit: tr(v === 1 ? "play.show.hintPt" : "play.show.hintPts"), cat: catName(i) }) : null).filter(Boolean).join(" · ");
     return (React.createElement("div", { style: { background: "rgba(0,0,0,0.26)", borderRadius: 10, padding: "12px 14px 14px" } },
-        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", color: T.muted, lineHeight: 1.5, marginBottom: 10 } }, info.isCrib ? tr("play.show.claimInstrCrib") : tr("play.show.claimInstr")),
+        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", color: T.muted, lineHeight: 1.5, marginBottom: 10 } },
+            entText(info),
+            ": ",
+            info.isCrib ? tr("play.show.claimInstrCrib") : tr("play.show.claimInstr")),
         React.createElement("div", { style: { display: "flex", gap: 5, justifyContent: "center", alignItems: "flex-start", marginBottom: 12 } }, five.map((c) => {
             const id = cardId(c), on = sel.includes(id), isStarter = sameCard(c, starter);
             return (React.createElement("button", { key: id, onClick: () => toggle(id), style: { border: "none", background: "none", padding: 0, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", marginLeft: isStarter ? 14 : 0, transform: on ? "translateY(-6px)" : "none", transition: "transform 120ms ease" } },

@@ -2355,15 +2355,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
               <SlotGhost n={Math.max(showcribN, (info.cards || []).length)} vis={STACK_VISIBLE} />
             </div>
           </div>
-        ) : (
-          <Panel>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-              <div style={{ fontWeight: 700, fontSize: "max(15px, var(--min-fs, 0px))" }}>{tr("play.show.title", { ent: entText(info) })}</div>
-              <span style={{ fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted }}>{tr("play.show.counting", { step: stepLabel })}</span>
-            </div>
-            <div style={{ fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted, marginTop: 3 }}>{tr("play.show.order")}</div>
-          </Panel>
-        )
+        ) : null
       ) : (discardPhase || cribbingPhase) ? (
         // The crib banner stays up through the whole cribbing phase, INCLUDING the glide to its
         // tucked home — it clears only once the crib is actually stored (the cut phase). The crib
@@ -2408,7 +2400,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
         ) : (
           <div style={{ background: "rgba(0,0,0,0.26)", borderRadius: 10, padding: "12px 14px 14px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
-              <span style={{ fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted }}>{tr("play.show.scoring")}</span>
+              <span style={{ fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted }}>{entText(info)}</span>
               <span style={{ fontFamily: serif, fontWeight: 700, fontSize: "max(20px, var(--min-fs, 0px))", color: T.ivory }}>{info.total}</span>
             </div>
             {info.total > 0
@@ -2613,7 +2605,7 @@ function MugginsClaim({ info, starter, isCrib, settings, dispatch }) {
   return (
     <div style={{ background: "rgba(0,0,0,0.26)", borderRadius: 10, padding: "12px 14px 14px" }}>
       <div style={{ fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", color: T.muted, lineHeight: 1.5, marginBottom: 10 }}>
-        {info.isCrib ? tr("play.show.claimInstrCrib") : tr("play.show.claimInstr")}
+        {entText(info)}: {info.isCrib ? tr("play.show.claimInstrCrib") : tr("play.show.claimInstr")}
       </div>
       <div style={{ display: "flex", gap: 5, justifyContent: "center", alignItems: "flex-start", marginBottom: 12 }}>
         {five.map((c) => {

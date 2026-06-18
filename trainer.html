@@ -448,6 +448,7 @@ cribbageLocale("en", {
   "settings.reset.title": "Reset settings?",
   "settings.reset.body": "This restores all game settings to their defaults.",
   "settings.reset.confirm": "Reset",
+  "settings.reset.alreadyDefault": "Settings are already at their defaults.",
   "settings.textSize.title": "Text size",
   "settings.textSize.desc": "Raises the minimum text size across the app.",
   "settings.textSize.optSmall": "Small",
@@ -1212,6 +1213,13 @@ function SettingsSection({ title, defaultOpen, children }) {
 function SettingsPanel({ settings, onSet, onReset, onClose, onAbout, onHistory }) {
     const hasHumans = humanCountT(settings) >= 1;
     const [confirmReset, setConfirmReset] = React.useState(false);
+    const [resetMsg, setResetMsg] = React.useState(false);
+    React.useEffect(() => { if (!resetMsg)
+        return; const t = setTimeout(() => setResetMsg(false), 2600); return () => clearTimeout(t); }, [resetMsg]);
+    const tapReset = () => { if (settingsAtDefaults(settings, ["seats", "names"]))
+        setResetMsg(true);
+    else
+        setConfirmReset(true); };
     const Row = ({ title, desc, k, options, disabled }) => (React.createElement("div", { style: { marginBottom: 14, opacity: disabled ? 0.5 : 1 } },
         React.createElement("div", { style: { fontWeight: 700, fontSize: "max(13.5px, var(--min-fs, 0px))" } }, title),
         React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, margin: "2px 0 7px", lineHeight: 1.45 } }, desc),
@@ -1240,7 +1248,8 @@ function SettingsPanel({ settings, onSet, onReset, onClose, onAbout, onHistory }
             React.createElement(LanguageRow, null),
             React.createElement("div", { style: { borderTop: `1px solid ${T.line}`, margin: "2px -16px 0", padding: "12px 16px 0" } },
                 React.createElement("button", { onClick: onHistory, style: { width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700 } }, tr("settings.history"))),
-            React.createElement("button", { onClick: () => setConfirmReset(true), style: { width: "100%", margin: "10px 0 0", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700 } }, tr("settings.resetDefaults")),
+            React.createElement("button", { onClick: tapReset, style: { width: "100%", margin: "10px 0 0", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700 } }, tr("settings.resetDefaults")),
+            resetMsg && React.createElement("div", { style: { fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted, textAlign: "center", marginTop: 6 } }, tr("settings.reset.alreadyDefault")),
             React.createElement(AboutRow, { onAbout: onAbout }),
             React.createElement("button", { onClick: onClose, style: {
                     width: "100%", margin: "12px 0 10px", padding: "12px", borderRadius: 9, border: "none", cursor: "pointer",
@@ -1382,7 +1391,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.21-dev.4"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.21-dev.5"))));
 }
 function MiniCard({ card, selected, disabled, onClick }) {
     return (React.createElement("button", { onClick: onClick, disabled: disabled, "aria-pressed": selected, "aria-label": `${rankLabel(card.r)} of ${["spades", "hearts", "diamonds", "clubs"][card.s]}`, style: {
@@ -1444,6 +1453,12 @@ function CardPicker({ count, onPick, onClose, dealerInit, canDeal }) {
 const teamOptionsT = (p) => (p === 4 ? [4, 2] : p === 6 ? [6, 3, 2] : [p]);
 const SETTINGS_KEY = "cribbage:settings";
 const DEFAULT_SETTINGS = { players: 2, teams: 2, seats: [], names: [], speed: "normal", textSize: "large", counting: "auto", tapToSelect: true, autoCut: false, autoGo: false, warn: true, claimWarn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
+function settingsAtDefaults(settings, skip) {
+    for (const k in DEFAULT_SETTINGS)
+        if (skip.indexOf(k) < 0 && settings[k] !== DEFAULT_SETTINGS[k])
+            return false;
+    return true;
+}
 function loadSettings() { try {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (raw)

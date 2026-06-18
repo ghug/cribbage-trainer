@@ -285,6 +285,7 @@ cribbageLocale("en", {
   "settings.reset.title": "Reset settings?",
   "settings.reset.body": "This restores all game settings to their defaults.",
   "settings.reset.confirm": "Reset",
+  "settings.reset.alreadyDefault": "Settings are already at their defaults.",
   "settings.textSize.title": "Text size",
   "settings.textSize.desc": "Raises the minimum text size across the app.",
   "settings.textSize.optSmall": "Small",

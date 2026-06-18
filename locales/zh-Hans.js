@@ -59,6 +59,7 @@ cribbageLocale("zh-Hans", {
   "settings.reset.title": "重置设置？",
   "settings.reset.body": "这会将所有游戏设置恢复为默认值。",
   "settings.reset.confirm": "重置",
+  "settings.reset.alreadyDefault": "设置已是默认值。",
   "settings.textSize.title": "文字大小",
   "settings.textSize.desc": "提高全应用的最小文字大小。",
   "settings.textSize.optSmall": "小",

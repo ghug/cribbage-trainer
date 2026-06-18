@@ -562,6 +562,10 @@ function SettingsSection({ title, defaultOpen, children }) {
 function SettingsPanel({ settings, onSet, onReset, onClose, onAbout, onHistory }) {
   const hasHumans = humanCountT(settings) >= 1;   // muggins needs at least one human
   const [confirmReset, setConfirmReset] = React.useState(false);
+  const [resetMsg, setResetMsg] = React.useState(false);   // "already at defaults" toast
+  React.useEffect(() => { if (!resetMsg) return; const t = setTimeout(() => setResetMsg(false), 2600); return () => clearTimeout(t); }, [resetMsg]);
+  // The trainer reset returns everything (incl. table size/teams) to default except seats/names.
+  const tapReset = () => { if (settingsAtDefaults(settings, ["seats", "names"])) setResetMsg(true); else setConfirmReset(true); };
   const Row = ({ title, desc, k, options, disabled }) => (
     <div style={{ marginBottom: 14, opacity: disabled ? 0.5 : 1 }}>
       <div style={{ fontWeight: 700, fontSize: "max(13.5px, var(--min-fs, 0px))" }}>{title}</div>
@@ -608,7 +612,8 @@ function SettingsPanel({ settings, onSet, onReset, onClose, onAbout, onHistory }
       <div style={{ borderTop: `1px solid ${T.line}`, margin: "2px -16px 0", padding: "12px 16px 0" }}>
         <button onClick={onHistory} style={{ width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700 }}>{tr("settings.history")}</button>
       </div>
-      <button onClick={() => setConfirmReset(true)} style={{ width: "100%", margin: "10px 0 0", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700 }}>{tr("settings.resetDefaults")}</button>
+      <button onClick={tapReset} style={{ width: "100%", margin: "10px 0 0", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700 }}>{tr("settings.resetDefaults")}</button>
+      {resetMsg && <div style={{ fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted, textAlign: "center", marginTop: 6 }}>{tr("settings.reset.alreadyDefault")}</div>}
       <AboutRow onAbout={onAbout} />
       <button onClick={onClose} style={{
         width: "100%", margin: "12px 0 10px", padding: "12px", borderRadius: 9, border: "none", cursor: "pointer",
@@ -927,6 +932,11 @@ const SETTINGS_KEY = "cribbage:settings";
 // Play game, so the gear menu here is the identical global game-settings menu. The trainer itself
 // only acts on players/teams; the gameplay toggles (counting/automation/...) are carried & synced.
 const DEFAULT_SETTINGS = { players: 2, teams: 2, seats: [], names: [], speed: "normal", textSize: "large", counting: "auto", tapToSelect: true, autoCut: false, autoGo: false, warn: true, claimWarn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
+// True when every setting the reset would touch (all but `skip`) already equals its default.
+function settingsAtDefaults(settings, skip) {
+  for (const k in DEFAULT_SETTINGS) if (skip.indexOf(k) < 0 && settings[k] !== DEFAULT_SETTINGS[k]) return false;
+  return true;
+}
 function loadSettings() { try { const raw = localStorage.getItem(SETTINGS_KEY); if (raw) return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) }; } catch (e) {} return { ...DEFAULT_SETTINGS }; }
 function saveSettings(s) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (e) {} }
 // Solo iff exactly one human seat (seat 0 human by default) — gates the muggins counting rows,

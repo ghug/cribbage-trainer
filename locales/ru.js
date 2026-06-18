@@ -59,6 +59,7 @@ cribbageLocale("ru", {
   "settings.reset.title": "Сбросить настройки?",
   "settings.reset.body": "Все игровые настройки вернутся к значениям по умолчанию.",
   "settings.reset.confirm": "Сбросить",
+  "settings.reset.alreadyDefault": "Настройки уже сброшены к значениям по умолчанию.",
   "settings.textSize.title": "Размер текста",
   "settings.textSize.desc": "Увеличивает минимальный размер текста во всём приложении.",
   "settings.textSize.optSmall": "Мелкий",

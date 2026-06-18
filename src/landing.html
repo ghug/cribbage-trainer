@@ -290,6 +290,7 @@
         <div class="lang-row" style="justify-content:flex-start;margin-top:7px"><select id="langPick"></select></div></div>
       <button class="btn btn-ghost" id="openHistory" type="button" style="margin-top:6px" data-i18n="settings.history">Game history</button>
       <button class="btn btn-ghost" id="resetSettings" type="button" style="margin-top:6px" data-i18n="settings.resetDefaults">Reset game settings to defaults</button>
+      <div id="resetMsg" data-i18n="settings.reset.alreadyDefault" style="display:none;text-align:center;font-family:var(--mono);font-size:max(11px, var(--min-fs, 0px));color:var(--muted);margin-top:4px">Settings are already at their defaults.</div>
       <button class="btn btn-ghost" id="openAbout" type="button" style="margin-top:6px" data-i18n="settings.aboutFeedback">About &amp; feedback</button>
       <button class="btn btn-primary" id="settingsContinue" type="button" style="margin:12px 0 10px" data-i18n="settings.continue">Continue game</button>
     </div>
@@ -725,7 +726,16 @@
       document.getElementById('historyDone').addEventListener('click', function () { close(h); });
       // Reset asks for confirmation first (a popup), then resets everything to defaults EXCEPT the
       // per-seat roles + custom names (the "who's playing" setup) — table size and teams reset too.
-      document.getElementById('resetSettings').addEventListener('click', function () { open(c); });
+      // The landing reset returns everything (incl. table size/teams) to default except seats/names.
+      function settingsAtDefaults() { for (var k in DEFAULTS) { if (k === 'seats' || k === 'names') continue; if (settings[k] !== DEFAULTS[k]) return false; } return true; }
+      var resetMsgTimer = null;
+      document.getElementById('resetSettings').addEventListener('click', function () {
+        if (settingsAtDefaults()) {
+          var m = document.getElementById('resetMsg'); m.style.display = 'block';
+          if (resetMsgTimer) clearTimeout(resetMsgTimer);
+          resetMsgTimer = setTimeout(function () { m.style.display = 'none'; }, 2600);
+        } else { open(c); }
+      });
       document.getElementById('resetCancel').addEventListener('click', function () { close(c); });
       document.getElementById('resetConfirm').addEventListener('click', function () {
         for (var rk in DEFAULTS) { if (rk !== 'seats' && rk !== 'names') settings[rk] = DEFAULTS[rk]; }

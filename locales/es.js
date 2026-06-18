@@ -58,6 +58,7 @@ cribbageLocale("es", {
   "settings.reset.title": "¿Restablecer ajustes?",
   "settings.reset.body": "Esto restaura todos los ajustes del juego a sus valores predeterminados.",
   "settings.reset.confirm": "Restablecer",
+  "settings.reset.alreadyDefault": "Los ajustes ya están en sus valores predeterminados.",
   "settings.textSize.title": "Tamaño del texto",
   "settings.textSize.desc": "Aumenta el tamaño mínimo del texto en toda la app.",
   "settings.textSize.optSmall": "Pequeño",

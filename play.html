@@ -431,7 +431,7 @@ cribbageLocale("en", {
   // settings popup
   "settings.title": "Settings",
   "settings.intro": "These apply to the Play game and are saved on this device. (The number of players is set above, on the home page.)",
-  "settings.group.controls": "Controls & help",
+  "settings.group.controls": "Gameplay",
   "settings.group.automation": "Automation",
   "settings.group.counting": "Counting",
   "settings.aboutFeedback": "About & feedback",
@@ -460,8 +460,8 @@ cribbageLocale("en", {
   "settings.autoCut.desc": "Auto (default) turns the starter in the background and goes straight to the play; Manual waits for you to tap when you’re the one cutting.",
   "settings.history": "Game history",
   "settings.counting.title": "Counting",
-  "settings.counting.desc": "Auto tallies every hand. Muggins: you claim your own hand (and crib when you deal) — miss points and the next opponent takes them.",
-  "settings.counting.disabledDesc": "Muggins is only available in a solo (one-human) game; hot-seat tables auto-count.",
+  "settings.counting.desc": "Auto tallies every hand for you. Muggins: each player must claim their own hand (and crib, when they deal) by hand — any points you don’t claim go to the player on your left.",
+  "settings.counting.disabledDesc": "Muggins needs at least one human player.",
   "settings.counting.optAuto": "Auto-count",
   "settings.counting.optMuggins": "Muggins",
   "settings.claimWarn.title": "Warn on an incomplete claim",
@@ -902,7 +902,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.21-dev.1";
+const APP_VERSION = "1.1.21-dev.2";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -1245,7 +1245,7 @@ function soleHuman(P, settings) { let found = -1; for (let i = 0; i < P; i++)
 function firstHuman(P, settings) { for (let i = 0; i < P; i++)
     if (seatIsHuman(i, settings))
         return i; return 0; }
-const mugginsActive = (settings) => settings.counting === "muggins" && nHumans(clampPlayers(settings.players), settings) === 1;
+const mugginsActive = (settings) => settings.counting === "muggins" && nHumans(clampPlayers(settings.players), settings) >= 1;
 function throwOrder(P, dealerIdx, settings) {
     const pl = plan(P, dealerIdx);
     const order = [];
@@ -1498,7 +1498,7 @@ function reduce(state, action) {
         case "CRIB_DONE":
             return state.phase === "cribbing" ? afterCrib({ ...state, phase: "cut" }) : state;
         case "TAKE_DEVICE":
-            return { ...state, holder: state.phase === "discard" ? state.discardSeat : (state.peg ? state.peg.turn : state.holder) };
+            return { ...state, holder: state.phase === "discard" ? state.discardSeat : state.phase === "show" ? computeShow(state).owner : (state.peg ? state.peg.turn : state.holder) };
         case "CONFIRM_PLAY":
             return playCard({ ...state, pendingPlay: null }, state.peg.turn, state.pendingPlay.card);
         case "CANCEL_PLAY":
@@ -1818,9 +1818,12 @@ function CribbagePlay() {
     const ds = state.discardSeat != null ? state.discardSeat : 0;
     const playMe = state.holder == null ? firstHuman(players, settings) : state.holder;
     const [viewSeat, setViewSeat] = React.useState(-1);
+    const showOwner = (phase === "show" && show) ? computeShow(state).owner : -1;
+    const showClaimSeat = (phase === "show" && mugginsActive(settings) && showOwner >= 0 && seatIsHuman(showOwner, settings) && !show.claimSubmitted) ? showOwner : playMe;
     const needHandoff = multiHuman && (phase === "discard" ? (state.discardSeat != null && state.holder !== state.discardSeat)
         : (phase === "play" && peg) ? (seatIsHuman(peg.turn, settings) && state.holder !== peg.turn && peg.hands[peg.turn].length > 0)
-            : false);
+            : phase === "show" ? (mugginsActive(settings) && showOwner >= 0 && seatIsHuman(showOwner, settings) && state.holder !== showOwner && !show.claimSubmitted)
+                : false);
     const nB = players - nHumans(players, settings);
     const teamCounted = teamOptions(players).filter((t) => t < players).length > 1;
     const teamStr = teams < players ? (teamCounted ? tr("play.hdr.teamsN", { teams }) : tr("play.hdr.teams")) : "";
@@ -2024,7 +2027,7 @@ function CribbagePlay() {
                     msgLog.length)),
                 React.createElement("span", { style: { flex: "1 1 auto", minWidth: 0, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.cream, lineHeight: "18px", whiteSpace: "nowrap", overflow: "hidden", textDecoration: msgLog.length ? "underline dotted rgba(236,224,182,0.45)" : "none", textUnderlineOffset: 3 } }, message)),
             msgLogOpen && React.createElement(MessageLogModal, { log: msgLog, onClose: () => setMsgLogOpen(false) }),
-            (phase === "cutdeal" || phase === "deal" || phase === "dealing" || phase === "discard" || phase === "cribbing" || phase === "cut" || (phase === "show" && show) || (phase === "play" && peg) || phase === "over") && (React.createElement(PlayScreen, { state: state, dispatch: dispatch, me: phase === "discard" ? ds : (phase === "cut" && multiHuman && humanCuts) ? cutterSeat : (phase === "play" && peg && multiHuman) ? peg.turn : (multiHuman && (phase === "cutdeal" || phase === "deal" || phase === "dealing")) ? dealerIdx : playMe, needHandoff: needHandoff, cribGliding: cribGliding, onView: setViewSeat, onSwap: setDealLocked }))),
+            (phase === "cutdeal" || phase === "deal" || phase === "dealing" || phase === "discard" || phase === "cribbing" || phase === "cut" || (phase === "show" && show) || (phase === "play" && peg) || phase === "over") && (React.createElement(PlayScreen, { state: state, dispatch: dispatch, me: phase === "discard" ? ds : (phase === "cut" && multiHuman && humanCuts) ? cutterSeat : (phase === "play" && peg && multiHuman) ? peg.turn : (multiHuman && (phase === "cutdeal" || phase === "deal" || phase === "dealing")) ? dealerIdx : phase === "show" ? showClaimSeat : playMe, needHandoff: needHandoff, cribGliding: cribGliding, onView: setViewSeat, onSwap: setDealLocked }))),
         aboutOpen && React.createElement(AboutModal, { onClose: () => setAboutOpen(false) }),
         historyOpen && React.createElement(HistoryModal, { onClose: () => setHistoryOpen(false) }),
         confirmHome && (React.createElement(Modal, { onBackdrop: () => setConfirmHome(false), maxWidth: 360, padding: "18px", zIndex: 200 },
@@ -2312,7 +2315,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
             : [yourHand.findIndex((c) => sameCard(c, pending.card))];
     const isLegal = (c) => discardPhase || (!!legalSet && legalSet.has(cardId(c)));
     useEffect(() => { setSel([]); }, [me, phase, turn]);
-    const muggins = showPhase && mugginsActive(settings) && seatIsHuman(info.owner, settings);
+    const muggins = showPhase && mugginsActive(settings) && seatIsHuman(info.owner, settings) && !needHandoff;
     const needClaim = muggins && !state.show.claimSubmitted;
     const mugCribClaim = needClaim && !!info && info.isCrib;
     const commit = (idxs) => dispatch(discardPhase
@@ -2853,7 +2856,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
                         : React.createElement("span", { style: { fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted } }, tr("play.pile.cleared"))))))),
         overPhase ? (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 16 } },
             React.createElement(SkunkPanel, { seats: seats, winner: winner, P: P, teams: teams }),
-            bigBtn(tr("play.btn.playAgain"), () => dispatch({ type: "PLAY_AGAIN" }), "good"))) : showPhase ? (needClaim ? (React.createElement(MugginsClaim, { info: info, starter: starter, isCrib: info.isCrib, settings: settings, dispatch: dispatch })) : (React.createElement("div", { style: { background: "rgba(0,0,0,0.26)", borderRadius: 10, padding: "12px 14px 14px" } },
+            bigBtn(tr("play.btn.playAgain"), () => dispatch({ type: "PLAY_AGAIN" }), "good"))) : showPhase ? (needHandoff ? (React.createElement(PassPanel, { to: info.owner, dispatch: dispatch, locked: rotating })) : needClaim ? (React.createElement(MugginsClaim, { info: info, starter: starter, isCrib: info.isCrib, settings: settings, dispatch: dispatch })) : (React.createElement("div", { style: { background: "rgba(0,0,0,0.26)", borderRadius: 10, padding: "12px 14px 14px" } },
             React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 } },
                 React.createElement("span", { style: { fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted } }, tr("play.show.scoring")),
                 React.createElement("span", { style: { fontFamily: serif, fontWeight: 700, fontSize: "max(20px, var(--min-fs, 0px))", color: T.ivory } }, info.total)),
@@ -2970,7 +2973,7 @@ function SettingsSection({ title, defaultOpen, children }) {
         open && React.createElement("div", null, children)));
 }
 function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
-    const soloGame = nHumans(clampPlayers(settings.players), settings) === 1;
+    const hasHumans = nHumans(clampPlayers(settings.players), settings) >= 1;
     const [confirmReset, setConfirmReset] = React.useState(false);
     const Row = ({ title, desc, k, options, disabled }) => (React.createElement("div", { style: { marginBottom: 14, opacity: disabled ? 0.5 : 1 } },
         React.createElement("div", { style: { fontWeight: 700, fontSize: "max(13.5px, var(--min-fs, 0px))" } }, title),
@@ -2983,7 +2986,6 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
                 React.createElement("span", { style: { fontWeight: 700, fontSize: "max(16px, var(--min-fs, 0px))" } }, tr("settings.title"))),
             React.createElement(SettingsSection, { title: tr("settings.group.controls") },
                 React.createElement(Row, { title: tr("settings.speed.title"), k: "speed", desc: tr("settings.speed.desc"), options: [[tr("settings.speed.optSlow"), "slow"], [tr("settings.speed.optNormal"), "normal"], [tr("settings.speed.optFast"), "fast"], [tr("settings.speed.optLightning"), "lightning"], [tr("settings.speed.optInstant"), "instant"]] }),
-                React.createElement(Row, { title: tr("settings.textSize.title"), k: "textSize", desc: tr("settings.textSize.desc"), options: [[tr("settings.textSize.optSmall"), "small"], [tr("settings.textSize.optMedium"), "medium"], [tr("settings.textSize.optLarge"), "large"], [tr("settings.textSize.optXLarge"), "xlarge"]] }),
                 React.createElement(Row, { title: tr("settings.tapToSelect.title"), k: "tapToSelect", desc: tr("settings.tapToSelect.desc"), options: [[off, false], [on, true]] }),
                 React.createElement(Row, { title: tr("settings.warn.title"), k: "warn", desc: tr("settings.warn.desc"), options: [[on, true], [off, false]] })),
             React.createElement(SettingsSection, { title: tr("settings.group.automation") },
@@ -2995,8 +2997,9 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
                 React.createElement(Row, { title: tr("settings.autoGo.title"), k: "autoGo", desc: tr("settings.autoGo.desc"), options: [[manual, false], [auto, true]] }),
                 React.createElement(Row, { title: tr("settings.autoContinue.title"), k: "autoContinue", desc: tr("settings.autoContinue.desc"), options: [[off, false], [on, true]] })),
             React.createElement(SettingsSection, { title: tr("settings.group.counting") },
-                React.createElement(Row, { title: tr("settings.counting.title"), k: "counting", disabled: !soloGame, desc: tr(soloGame ? "settings.counting.desc" : "settings.counting.disabledDesc"), options: [[tr("settings.counting.optAuto"), "auto"], [tr("settings.counting.optMuggins"), "muggins"]] }),
-                React.createElement(Row, { title: tr("settings.claimWarn.title"), k: "claimWarn", disabled: !(soloGame && settings.counting === "muggins"), desc: tr("settings.claimWarn.desc"), options: [[on, true], [off, false]] })),
+                React.createElement(Row, { title: tr("settings.counting.title"), k: "counting", disabled: !hasHumans, desc: tr(hasHumans ? "settings.counting.desc" : "settings.counting.disabledDesc"), options: [[tr("settings.counting.optAuto"), "auto"], [tr("settings.counting.optMuggins"), "muggins"]] }),
+                React.createElement(Row, { title: tr("settings.claimWarn.title"), k: "claimWarn", disabled: !(hasHumans && settings.counting === "muggins"), desc: tr("settings.claimWarn.desc"), options: [[on, true], [off, false]] })),
+            React.createElement(Row, { title: tr("settings.textSize.title"), k: "textSize", desc: tr("settings.textSize.desc"), options: [[tr("settings.textSize.optSmall"), "small"], [tr("settings.textSize.optMedium"), "medium"], [tr("settings.textSize.optLarge"), "large"], [tr("settings.textSize.optXLarge"), "xlarge"]] }),
             React.createElement(LanguageRow, null),
             React.createElement("div", { style: { borderTop: `1px solid ${T.line}`, margin: "2px -16px 0", padding: "12px 16px 0" } },
                 React.createElement("button", { onClick: onHistory, style: { width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700 } }, tr("settings.history"))),
@@ -3100,7 +3103,7 @@ function AboutModal({ onClose }) {
                 background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
             } }, tr("about.sourceLink")),
         React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.21-dev.1")));
+        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.21-dev.2")));
 }
 function MessageLogModal({ log, onClose }) {
     const scrollRef = React.useRef(null);

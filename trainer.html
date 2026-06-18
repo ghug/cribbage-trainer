@@ -431,7 +431,7 @@ cribbageLocale("en", {
   // settings popup
   "settings.title": "Settings",
   "settings.intro": "These apply to the Play game and are saved on this device. (The number of players is set above, on the home page.)",
-  "settings.group.controls": "Controls & help",
+  "settings.group.controls": "Gameplay",
   "settings.group.automation": "Automation",
   "settings.group.counting": "Counting",
   "settings.aboutFeedback": "About & feedback",
@@ -460,8 +460,8 @@ cribbageLocale("en", {
   "settings.autoCut.desc": "Auto (default) turns the starter in the background and goes straight to the play; Manual waits for you to tap when you’re the one cutting.",
   "settings.history": "Game history",
   "settings.counting.title": "Counting",
-  "settings.counting.desc": "Auto tallies every hand. Muggins: you claim your own hand (and crib when you deal) — miss points and the next opponent takes them.",
-  "settings.counting.disabledDesc": "Muggins is only available in a solo (one-human) game; hot-seat tables auto-count.",
+  "settings.counting.desc": "Auto tallies every hand for you. Muggins: each player must claim their own hand (and crib, when they deal) by hand — any points you don’t claim go to the player on your left.",
+  "settings.counting.disabledDesc": "Muggins needs at least one human player.",
   "settings.counting.optAuto": "Auto-count",
   "settings.counting.optMuggins": "Muggins",
   "settings.claimWarn.title": "Warn on an incomplete claim",
@@ -1210,7 +1210,7 @@ function SettingsSection({ title, defaultOpen, children }) {
         open && React.createElement("div", null, children)));
 }
 function SettingsPanel({ settings, onSet, onReset, onClose, onAbout, onHistory }) {
-    const soloGame = humanCountT(settings) === 1;
+    const hasHumans = humanCountT(settings) >= 1;
     const [confirmReset, setConfirmReset] = React.useState(false);
     const Row = ({ title, desc, k, options, disabled }) => (React.createElement("div", { style: { marginBottom: 14, opacity: disabled ? 0.5 : 1 } },
         React.createElement("div", { style: { fontWeight: 700, fontSize: "max(13.5px, var(--min-fs, 0px))" } }, title),
@@ -1223,7 +1223,6 @@ function SettingsPanel({ settings, onSet, onReset, onClose, onAbout, onHistory }
                 React.createElement("span", { style: { fontWeight: 700, fontSize: "max(16px, var(--min-fs, 0px))" } }, tr("settings.title"))),
             React.createElement(SettingsSection, { title: tr("settings.group.controls") },
                 React.createElement(Row, { title: tr("settings.speed.title"), k: "speed", desc: tr("settings.speed.desc"), options: [[tr("settings.speed.optSlow"), "slow"], [tr("settings.speed.optNormal"), "normal"], [tr("settings.speed.optFast"), "fast"], [tr("settings.speed.optLightning"), "lightning"], [tr("settings.speed.optInstant"), "instant"]] }),
-                React.createElement(Row, { title: tr("settings.textSize.title"), k: "textSize", desc: tr("settings.textSize.desc"), options: [[tr("settings.textSize.optSmall"), "small"], [tr("settings.textSize.optMedium"), "medium"], [tr("settings.textSize.optLarge"), "large"], [tr("settings.textSize.optXLarge"), "xlarge"]] }),
                 React.createElement(Row, { title: tr("settings.tapToSelect.title"), k: "tapToSelect", desc: tr("settings.tapToSelect.desc"), options: [[off, false], [on, true]] }),
                 React.createElement(Row, { title: tr("settings.warn.title"), k: "warn", desc: tr("settings.warn.desc"), options: [[on, true], [off, false]] })),
             React.createElement(SettingsSection, { title: tr("settings.group.automation") },
@@ -1235,8 +1234,9 @@ function SettingsPanel({ settings, onSet, onReset, onClose, onAbout, onHistory }
                 React.createElement(Row, { title: tr("settings.autoGo.title"), k: "autoGo", desc: tr("settings.autoGo.desc"), options: [[manual, false], [auto, true]] }),
                 React.createElement(Row, { title: tr("settings.autoContinue.title"), k: "autoContinue", desc: tr("settings.autoContinue.desc"), options: [[off, false], [on, true]] })),
             React.createElement(SettingsSection, { title: tr("settings.group.counting") },
-                React.createElement(Row, { title: tr("settings.counting.title"), k: "counting", disabled: !soloGame, desc: tr(soloGame ? "settings.counting.desc" : "settings.counting.disabledDesc"), options: [[tr("settings.counting.optAuto"), "auto"], [tr("settings.counting.optMuggins"), "muggins"]] }),
-                React.createElement(Row, { title: tr("settings.claimWarn.title"), k: "claimWarn", disabled: !(soloGame && settings.counting === "muggins"), desc: tr("settings.claimWarn.desc"), options: [[on, true], [off, false]] })),
+                React.createElement(Row, { title: tr("settings.counting.title"), k: "counting", disabled: !hasHumans, desc: tr(hasHumans ? "settings.counting.desc" : "settings.counting.disabledDesc"), options: [[tr("settings.counting.optAuto"), "auto"], [tr("settings.counting.optMuggins"), "muggins"]] }),
+                React.createElement(Row, { title: tr("settings.claimWarn.title"), k: "claimWarn", disabled: !(hasHumans && settings.counting === "muggins"), desc: tr("settings.claimWarn.desc"), options: [[on, true], [off, false]] })),
+            React.createElement(Row, { title: tr("settings.textSize.title"), k: "textSize", desc: tr("settings.textSize.desc"), options: [[tr("settings.textSize.optSmall"), "small"], [tr("settings.textSize.optMedium"), "medium"], [tr("settings.textSize.optLarge"), "large"], [tr("settings.textSize.optXLarge"), "xlarge"]] }),
             React.createElement(LanguageRow, null),
             React.createElement("div", { style: { borderTop: `1px solid ${T.line}`, margin: "2px -16px 0", padding: "12px 16px 0" } },
                 React.createElement("button", { onClick: onHistory, style: { width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700 } }, tr("settings.history"))),
@@ -1382,7 +1382,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.21-dev.1"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.21-dev.2"))));
 }
 function MiniCard({ card, selected, disabled, onClick }) {
     return (React.createElement("button", { onClick: onClick, disabled: disabled, "aria-pressed": selected, "aria-label": `${rankLabel(card.r)} of ${["spades", "hearts", "diamonds", "clubs"][card.s]}`, style: {

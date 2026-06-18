@@ -585,7 +585,7 @@ cribbageLocale("en", {
   // settings popup
   "settings.title": "Settings",
   "settings.intro": "These apply to the Play game and are saved on this device. (The number of players is set above, on the home page.)",
-  "settings.group.controls": "Controls & help",
+  "settings.group.controls": "Gameplay",
   "settings.group.automation": "Automation",
   "settings.group.counting": "Counting",
   "settings.aboutFeedback": "About & feedback",
@@ -614,8 +614,8 @@ cribbageLocale("en", {
   "settings.autoCut.desc": "Auto (default) turns the starter in the background and goes straight to the play; Manual waits for you to tap when you’re the one cutting.",
   "settings.history": "Game history",
   "settings.counting.title": "Counting",
-  "settings.counting.desc": "Auto tallies every hand. Muggins: you claim your own hand (and crib when you deal) — miss points and the next opponent takes them.",
-  "settings.counting.disabledDesc": "Muggins is only available in a solo (one-human) game; hot-seat tables auto-count.",
+  "settings.counting.desc": "Auto tallies every hand for you. Muggins: each player must claim their own hand (and crib, when they deal) by hand — any points you don’t claim go to the player on your left.",
+  "settings.counting.disabledDesc": "Muggins needs at least one human player.",
   "settings.counting.optAuto": "Auto-count",
   "settings.counting.optMuggins": "Muggins",
   "settings.claimWarn.title": "Warn on an incomplete claim",
@@ -908,6 +908,7 @@ cribbageLocale("en", {
         <button class="btn btn-ghost btn-sm" id="settingsDone" type="button" data-i18n="common.done">Done</button>
       </div>
       <div id="settingsList"></div>
+      <div id="textSizeRow"></div>
       <div class="set-row"><div class="set-title" data-i18n="common.language">Language</div>
         <div class="lang-row" style="justify-content:flex-start;margin-top:7px"><select id="langPick"></select></div></div>
       <button class="btn btn-ghost" id="openHistory" type="button" style="margin-top:6px" data-i18n="settings.history">Game history</button>
@@ -930,7 +931,7 @@ cribbageLocale("en", {
       <a class="btn btn-primary" href="https://github.com/ghug/cribbage-trainer/"
          target="_blank" rel="noopener noreferrer" data-i18n="about.sourceLink">Source, bugs &amp; feedback ↗</a>
       <div class="repo-url" style="margin-bottom:4px">github.com/ghug/cribbage-trainer</div>
-      <div class="repo-url">v1.1.21-dev.1</div>
+      <div class="repo-url">v1.1.21-dev.2</div>
     </div>
   </div>
 
@@ -1082,50 +1083,52 @@ cribbageLocale("en", {
       applyTextSize();
       // The toggle rows are grouped into collapsible sections (the menu was a long flat list).
       var GROUPS = [
-        { title: "settings.group.controls", open: false, keys: ["speed", "textSize", "tapToSelect", "warn"] },
+        { title: "settings.group.controls", open: false, keys: ["speed", "tapToSelect", "warn"] },
         { title: "settings.group.automation", open: false, keys: ["autoDeal", "autoCut", "autoDiscardBest", "autoPlayOne", "autoPlayBest", "autoGo", "autoContinue"] },
         { title: "settings.group.counting", open: false, keys: ["counting", "claimWarn"] }
       ];
       function rowByKey(k) { for (var i = 0; i < ROWS.length; i++) if (ROWS[i].k === k) return ROWS[i]; return null; }
+      // Accurate human-seat count (seat 0 is human by default; a configured value wins).
+      function humanCount() { var n = 0; for (var i = 0; i < settings.players; i++) { var v = settings.seats && settings.seats[i]; if (v === 'human' || (v == null && i === 0)) n++; } return n; }
+      // Muggins needs at least one human; the claim-warning needs muggins to be the active mode.
+      function rowDisabled(k, hasHumans) { return (k === 'counting' && !hasHumans) || (k === 'claimWarn' && !(hasHumans && settings.counting === 'muggins')); }
+      function appendRow(host, row, disabled) {
+        var wrap = document.createElement('div'); wrap.className = 'set-row' + (disabled ? ' disabled' : '');
+        var titleEl = document.createElement('div'); titleEl.className = 'set-title'; titleEl.textContent = tr(row.title); wrap.appendChild(titleEl);
+        var d = document.createElement('div'); d.className = 'set-desc';
+        d.textContent = tr((disabled && row.disabledDesc) ? row.disabledDesc : row.desc);
+        wrap.appendChild(d);
+        var segs = document.createElement('div'); segs.className = 'set-segs';
+        row.opts.forEach(function (opt) {
+          var b = document.createElement('button'); b.type = 'button'; b.textContent = tr(opt[0]);
+          b.className = 'seg' + (settings[row.k] === opt[1] ? ' on' : '');
+          if (disabled) { b.disabled = true; }
+          else { b.addEventListener('click', (function (segsEl, btn, k, val) { return function () {
+            settings[k] = val; saveSettings(settings);
+            if (k === 'textSize') applyTextSize();   // live text-size floor
+            // Counting gates claimWarn's enabled state, so re-render the whole list for it;
+            // every other row updates its highlight in place (rebuilding collapses open sections).
+            if (k === 'counting') { renderSettings(); return; }
+            var sibs = segsEl.querySelectorAll('.seg');
+            for (var s = 0; s < sibs.length; s++) sibs[s].className = 'seg';
+            btn.className = 'seg on';
+          }; })(segs, b, row.k, opt[1])); }
+          segs.appendChild(b);
+        });
+        wrap.appendChild(segs); host.appendChild(wrap);
+      }
       function renderSettings() {
         var host = document.getElementById('settingsList');
         host.innerHTML = '';
-        var humans = 1; for (var i = 1; i < settings.players; i++) if (settings.seats && settings.seats[i] === 'human') humans++;
-        var solo = humans === 1;
+        var hasHumans = humanCount() >= 1;
         GROUPS.forEach(function (g) {
           var det = document.createElement('details'); det.className = 'set-group'; det.open = g.open;
           var sum = document.createElement('summary'); sum.textContent = tr(g.title); det.appendChild(sum);
-          g.keys.forEach(function (key) {
-            var row = rowByKey(key); if (!row) return;
-            // Muggins is solo-only — disable Counting at a 2+ human table, and the muggins-claim
-            // warning unless muggins is actually the active solo counting mode.
-            var disabled = (row.k === 'counting' && !solo) || (row.k === 'claimWarn' && !(solo && settings.counting === 'muggins'));
-            var wrap = document.createElement('div'); wrap.className = 'set-row' + (disabled ? ' disabled' : '');
-            var titleEl = document.createElement('div'); titleEl.className = 'set-title'; titleEl.textContent = tr(row.title); wrap.appendChild(titleEl);
-            var d = document.createElement('div'); d.className = 'set-desc';
-            d.textContent = tr((disabled && row.disabledDesc) ? row.disabledDesc : row.desc);
-            wrap.appendChild(d);
-            var segs = document.createElement('div'); segs.className = 'set-segs';
-            row.opts.forEach(function (opt) {
-              var b = document.createElement('button'); b.type = 'button'; b.textContent = tr(opt[0]);
-              b.className = 'seg' + (settings[row.k] === opt[1] ? ' on' : '');
-              if (disabled) { b.disabled = true; }
-              else { b.addEventListener('click', (function (segsEl, btn, k, val) { return function () {
-                settings[k] = val; saveSettings(settings);
-                if (k === 'textSize') applyTextSize();   // live text-size floor
-                // Counting gates claimWarn's enabled state, so re-render the whole list for it;
-                // every other row updates its highlight in place (rebuilding collapses open sections).
-                if (k === 'counting') { renderSettings(); return; }
-                var sibs = segsEl.querySelectorAll('.seg');
-                for (var s = 0; s < sibs.length; s++) sibs[s].className = 'seg';
-                btn.className = 'seg on';
-              }; })(segs, b, row.k, opt[1])); }
-              segs.appendChild(b);
-            });
-            wrap.appendChild(segs); det.appendChild(wrap);
-          });
+          g.keys.forEach(function (key) { var row = rowByKey(key); if (row) appendRow(det, row, rowDisabled(row.k, hasHumans)); });
           host.appendChild(det);
         });
+        // Text size sits on its own, just above the Language picker.
+        var ts = document.getElementById('textSizeRow'); if (ts) { ts.innerHTML = ''; appendRow(ts, rowByKey('textSize'), false); }
       }
       renderSettings();
 

@@ -620,7 +620,7 @@ function soleHuman(P, settings) { let found = -1; for (let i = 0; i < P; i++) if
 function firstHuman(P, settings) { for (let i = 0; i < P; i++) if (seatIsHuman(i, settings)) return i; return 0; }
 // Muggins is only offered/active in a one-human (solo vs bots) game; a hot-seat table with
 // 2+ humans always auto-counts.
-const mugginsActive = (settings) => settings.counting === "muggins" && nHumans(clampPlayers(settings.players), settings) === 1;
+const mugginsActive = (settings) => settings.counting === "muggins" && nHumans(clampPlayers(settings.players), settings) >= 1;
 
 // The throw/play turn order: the pone (the seat to the dealer's left) acts first, then
 // clockwise around the table, the dealer last — standard cribbage order, matching pegging.
@@ -897,7 +897,7 @@ function reduce(state, action) {
       return state.phase === "cribbing" ? afterCrib({ ...state, phase: "cut" }) : state;
 
     case "TAKE_DEVICE":
-      return { ...state, holder: state.phase === "discard" ? state.discardSeat : (state.peg ? state.peg.turn : state.holder) };
+      return { ...state, holder: state.phase === "discard" ? state.discardSeat : state.phase === "show" ? computeShow(state).owner : (state.peg ? state.peg.turn : state.holder) };
 
     case "CONFIRM_PLAY":
       return playCard({ ...state, pendingPlay: null }, state.peg.turn, state.pendingPlay.card);
@@ -1265,9 +1265,13 @@ export default function CribbagePlay() {
   const ds = state.discardSeat != null ? state.discardSeat : 0; // active discarder
   const playMe = state.holder == null ? firstHuman(players, settings) : state.holder; // device-holder perspective in play
   const [viewSeat, setViewSeat] = React.useState(-1);          // the seat currently shown at the bottom — reported up by PlayScreen as the ring rotates
+  // During the muggins show, the seat whose hand/crib is being counted must claim it on this device.
+  const showOwner = (phase === "show" && show) ? computeShow(state).owner : -1;
+  const showClaimSeat = (phase === "show" && mugginsActive(settings) && showOwner >= 0 && seatIsHuman(showOwner, settings) && !show.claimSubmitted) ? showOwner : playMe;
   const needHandoff = multiHuman && (
     phase === "discard" ? (state.discardSeat != null && state.holder !== state.discardSeat)
     : (phase === "play" && peg) ? (seatIsHuman(peg.turn, settings) && state.holder !== peg.turn && peg.hands[peg.turn].length > 0)
+    : phase === "show" ? (mugginsActive(settings) && showOwner >= 0 && seatIsHuman(showOwner, settings) && state.holder !== showOwner && !show.claimSubmitted)
     : false);
   // Header descriptor: "<P>-handed[, <teams>][, <N> bot(s)]" — teams shown only when
   // partnered, and with a count ("2 teams") only at sizes that allow more than one team
@@ -1480,7 +1484,7 @@ export default function CribbagePlay() {
 
 
         {(phase === "cutdeal" || phase === "deal" || phase === "dealing" || phase === "discard" || phase === "cribbing" || phase === "cut" || (phase === "show" && show) || (phase === "play" && peg) || phase === "over") && (
-          <PlayScreen state={state} dispatch={dispatch} me={phase === "discard" ? ds : (phase === "cut" && multiHuman && humanCuts) ? cutterSeat : (phase === "play" && peg && multiHuman) ? peg.turn : (multiHuman && (phase === "cutdeal" || phase === "deal" || phase === "dealing")) ? dealerIdx : playMe} needHandoff={needHandoff} cribGliding={cribGliding} onView={setViewSeat} onSwap={setDealLocked} />
+          <PlayScreen state={state} dispatch={dispatch} me={phase === "discard" ? ds : (phase === "cut" && multiHuman && humanCuts) ? cutterSeat : (phase === "play" && peg && multiHuman) ? peg.turn : (multiHuman && (phase === "cutdeal" || phase === "deal" || phase === "dealing")) ? dealerIdx : phase === "show" ? showClaimSeat : playMe} needHandoff={needHandoff} cribGliding={cribGliding} onView={setViewSeat} onSwap={setDealLocked} />
         )}
       </main>
 
@@ -1920,7 +1924,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
   // Drop the working selection whenever the actor / phase / turn moves on.
   useEffect(() => { setSel([]); }, [me, phase, turn]);
   // Muggins claim entry (solo only) resets each counting step.
-  const muggins = showPhase && mugginsActive(settings) && seatIsHuman(info.owner, settings);
+  const muggins = showPhase && mugginsActive(settings) && seatIsHuman(info.owner, settings) && !needHandoff;
   const needClaim = muggins && !state.show.claimSubmitted;
   // While the human claims their crib in the interactive muggins panel (which shows the crib cards
   // itself), hide the duplicate crib banner + the crib sprites so the crib isn't shown twice.
@@ -2604,7 +2608,9 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
           {bigBtn(tr("play.btn.playAgain"), () => dispatch({ type: "PLAY_AGAIN" }), "good")}
         </div>
       ) : showPhase ? (
-        needClaim ? (
+        needHandoff ? (
+          <PassPanel to={info.owner} dispatch={dispatch} locked={rotating} />
+        ) : needClaim ? (
           <MugginsClaim info={info} starter={starter} isCrib={info.isCrib} settings={settings} dispatch={dispatch} />
         ) : (
           <div style={{ background: "rgba(0,0,0,0.26)", borderRadius: 10, padding: "12px 14px 14px" }}>
@@ -2759,7 +2765,7 @@ function SettingsSection({ title, defaultOpen, children }) {
 }
 
 function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
-  const soloGame = nHumans(clampPlayers(settings.players), settings) === 1;
+  const hasHumans = nHumans(clampPlayers(settings.players), settings) >= 1;   // muggins needs at least one human
   const [confirmReset, setConfirmReset] = React.useState(false);
   const Row = ({ title, desc, k, options, disabled }) => (
     <div style={{ marginBottom: 14, opacity: disabled ? 0.5 : 1 }}>
@@ -2783,9 +2789,6 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
         <Row title={tr("settings.speed.title")} k="speed"
           desc={tr("settings.speed.desc")}
           options={[[tr("settings.speed.optSlow"), "slow"], [tr("settings.speed.optNormal"), "normal"], [tr("settings.speed.optFast"), "fast"], [tr("settings.speed.optLightning"), "lightning"], [tr("settings.speed.optInstant"), "instant"]]} />
-        <Row title={tr("settings.textSize.title")} k="textSize"
-          desc={tr("settings.textSize.desc")}
-          options={[[tr("settings.textSize.optSmall"), "small"], [tr("settings.textSize.optMedium"), "medium"], [tr("settings.textSize.optLarge"), "large"], [tr("settings.textSize.optXLarge"), "xlarge"]]} />
         <Row title={tr("settings.tapToSelect.title")} k="tapToSelect"
           desc={tr("settings.tapToSelect.desc")}
           options={[[off, false], [on, true]]} />
@@ -2817,13 +2820,16 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
           options={[[off, false], [on, true]]} />
       </SettingsSection>
       <SettingsSection title={tr("settings.group.counting")}>
-        <Row title={tr("settings.counting.title")} k="counting" disabled={!soloGame}
-          desc={tr(soloGame ? "settings.counting.desc" : "settings.counting.disabledDesc")}
+        <Row title={tr("settings.counting.title")} k="counting" disabled={!hasHumans}
+          desc={tr(hasHumans ? "settings.counting.desc" : "settings.counting.disabledDesc")}
           options={[[tr("settings.counting.optAuto"), "auto"], [tr("settings.counting.optMuggins"), "muggins"]]} />
-        <Row title={tr("settings.claimWarn.title")} k="claimWarn" disabled={!(soloGame && settings.counting === "muggins")}
+        <Row title={tr("settings.claimWarn.title")} k="claimWarn" disabled={!(hasHumans && settings.counting === "muggins")}
           desc={tr("settings.claimWarn.desc")}
           options={[[on, true], [off, false]]} />
       </SettingsSection>
+      <Row title={tr("settings.textSize.title")} k="textSize"
+        desc={tr("settings.textSize.desc")}
+        options={[[tr("settings.textSize.optSmall"), "small"], [tr("settings.textSize.optMedium"), "medium"], [tr("settings.textSize.optLarge"), "large"], [tr("settings.textSize.optXLarge"), "xlarge"]]} />
       <LanguageRow />
       <div style={{ borderTop: `1px solid ${T.line}`, margin: "2px -16px 0", padding: "12px 16px 0" }}>
         <button onClick={onHistory} style={{ width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700 }}>{tr("settings.history")}</button>

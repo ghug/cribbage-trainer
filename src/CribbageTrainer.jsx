@@ -560,7 +560,7 @@ function SettingsSection({ title, defaultOpen, children }) {
 // (table size, practice-as role, new-hand mode) is NOT here — it lives inline on the main screen
 // (InlineSetup), above the board-position item, alongside the analysis it drives.
 function SettingsPanel({ settings, onSet, onReset, onClose, onAbout, onHistory }) {
-  const soloGame = humanCountT(settings) === 1;
+  const hasHumans = humanCountT(settings) >= 1;   // muggins needs at least one human
   const [confirmReset, setConfirmReset] = React.useState(false);
   const Row = ({ title, desc, k, options, disabled }) => (
     <div style={{ marginBottom: 14, opacity: disabled ? 0.5 : 1 }}>
@@ -583,8 +583,6 @@ function SettingsPanel({ settings, onSet, onReset, onClose, onAbout, onHistory }
       <SettingsSection title={tr("settings.group.controls")}>
         <Row title={tr("settings.speed.title")} k="speed" desc={tr("settings.speed.desc")}
           options={[[tr("settings.speed.optSlow"), "slow"], [tr("settings.speed.optNormal"), "normal"], [tr("settings.speed.optFast"), "fast"], [tr("settings.speed.optLightning"), "lightning"], [tr("settings.speed.optInstant"), "instant"]]} />
-        <Row title={tr("settings.textSize.title")} k="textSize" desc={tr("settings.textSize.desc")}
-          options={[[tr("settings.textSize.optSmall"), "small"], [tr("settings.textSize.optMedium"), "medium"], [tr("settings.textSize.optLarge"), "large"], [tr("settings.textSize.optXLarge"), "xlarge"]]} />
         <Row title={tr("settings.tapToSelect.title")} k="tapToSelect" desc={tr("settings.tapToSelect.desc")} options={[[off, false], [on, true]]} />
         <Row title={tr("settings.warn.title")} k="warn" desc={tr("settings.warn.desc")} options={[[on, true], [off, false]]} />
       </SettingsSection>
@@ -598,12 +596,14 @@ function SettingsPanel({ settings, onSet, onReset, onClose, onAbout, onHistory }
         <Row title={tr("settings.autoContinue.title")} k="autoContinue" desc={tr("settings.autoContinue.desc")} options={[[off, false], [on, true]]} />
       </SettingsSection>
       <SettingsSection title={tr("settings.group.counting")}>
-        <Row title={tr("settings.counting.title")} k="counting" disabled={!soloGame}
-          desc={tr(soloGame ? "settings.counting.desc" : "settings.counting.disabledDesc")}
+        <Row title={tr("settings.counting.title")} k="counting" disabled={!hasHumans}
+          desc={tr(hasHumans ? "settings.counting.desc" : "settings.counting.disabledDesc")}
           options={[[tr("settings.counting.optAuto"), "auto"], [tr("settings.counting.optMuggins"), "muggins"]]} />
-        <Row title={tr("settings.claimWarn.title")} k="claimWarn" disabled={!(soloGame && settings.counting === "muggins")}
+        <Row title={tr("settings.claimWarn.title")} k="claimWarn" disabled={!(hasHumans && settings.counting === "muggins")}
           desc={tr("settings.claimWarn.desc")} options={[[on, true], [off, false]]} />
       </SettingsSection>
+      <Row title={tr("settings.textSize.title")} k="textSize" desc={tr("settings.textSize.desc")}
+        options={[[tr("settings.textSize.optSmall"), "small"], [tr("settings.textSize.optMedium"), "medium"], [tr("settings.textSize.optLarge"), "large"], [tr("settings.textSize.optXLarge"), "xlarge"]]} />
       <LanguageRow />
       <div style={{ borderTop: `1px solid ${T.line}`, margin: "2px -16px 0", padding: "12px 16px 0" }}>
         <button onClick={onHistory} style={{ width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700 }}>{tr("settings.history")}</button>

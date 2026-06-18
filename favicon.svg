@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Cribbage">
+  <rect width="64" height="64" rx="14" fill="#1F423A"/>
+  <g fill="#F6EFDE">
+    <circle cx="32" cy="23" r="9"/>
+    <circle cx="22" cy="36" r="9"/>
+    <circle cx="42" cy="36" r="9"/>
+    <path d="M29 37 h6 l4 15 h-14 z"/>
+  </g>
+</svg>

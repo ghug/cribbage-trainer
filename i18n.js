@@ -59,6 +59,11 @@
     if (m) { current = m[1]; explicit = true; try { localStorage.setItem(LANG_KEY, current); } catch (e2) {} }
   } catch (e) {}
   if (!explicit) current = detectLang();
+  // Keep <html lang> in sync with the active language (a11y: screen-reader voice, hyphenation).
+  // Called at resolve time and on every live switch. The served HTML ships lang="en"; this updates
+  // it to the detected/chosen language at runtime.
+  function applyHtmlLang(code) { try { if (document.documentElement) document.documentElement.setAttribute("lang", code || "en"); } catch (e) {} }
+  applyHtmlLang(current);
   // Mirror an EXPLICIT language in the URL bar (non-English carries ?lang=, English strips it) so
   // it's copy/shareable — without a history entry. Skip on file:// (no URL bar in the APK) and for
   // auto-detect (a browser-default visitor keeps a clean URL).
@@ -112,7 +117,7 @@
   window.i18n = {
     get lang() { return current; },
     languages: function () { return LANGS.slice(); },
-    set: function (code) { try { localStorage.setItem(LANG_KEY, code); } catch (e) {} current = code; },
+    set: function (code) { try { localStorage.setItem(LANG_KEY, code); } catch (e) {} current = code; applyHtmlLang(code); },
     // Register a re-render callback, fired (with the new code) after a live switch loads the locale.
     onChange: function (fn) { if (typeof fn === "function") listeners.push(fn); },
     // Pick a language LIVE — no page reload. Persist it, mirror it in the URL bar (replaceState,
@@ -125,6 +130,7 @@
       } catch (e) {}
       loadLocale(code, function () {
         current = code;
+        applyHtmlLang(code);
         for (var i = 0; i < listeners.length; i++) { try { listeners[i](code); } catch (e2) {} }
       });
     }

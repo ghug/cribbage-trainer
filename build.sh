@@ -25,10 +25,10 @@ i18n_head() {
   printf '<script>window.i18nBootstrap&&i18nBootstrap();</script>\n'
 }
 
-# build_one <src.jsx> <out.html> <title> <ComponentName>
+# build_one <src.jsx> <out.html> <title> <ComponentName> <homeLink> <description>
 # Transpiles a single self-contained React component into a standalone HTML page.
 build_one() {
-  local SRC="$1" OUT="$2" TITLE="$3" COMPONENT="$4" HOMELINK="${5:-yes}"
+  local SRC="$1" OUT="$2" TITLE="$3" COMPONENT="$4" HOMELINK="${5:-yes}" DESC="${6:-}"
   local TMP; TMP="$(mktemp -d)"
   # The fixed shell "Home" link (pages that render their own in-app home button pass "no").
   local HOMEHTML=""
@@ -78,6 +78,12 @@ build_one() {
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#0f2417" />
+<meta name="description" content="${DESC}" />
+<link rel="icon" href="favicon.svg" type="image/svg+xml" />
+<link rel="manifest" href="manifest.webmanifest" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="${TITLE}" />
+<meta property="og:description" content="${DESC}" />
 <title>${TITLE}</title>
 <style>html,body{margin:0;background:#0f2417;min-height:100%;-webkit-user-select:none;user-select:none}#root{min-height:100vh}input,textarea{-webkit-user-select:text;user-select:text}</style>
 <script src="vendor/react.production.min.js"></script>
@@ -118,8 +124,8 @@ rm -f "$I18N_TMP"
 echo "built index.html (landing, primary-language i18n head inlined)"
 
 # Both apps render their own Home button in their header, so neither uses the shell link.
-build_one "src/CribbageTrainer.jsx" "trainer.html" "Cribbage Discard Trainer" "CribbageTrainer" "no"
-build_one "src/CribbagePlay.jsx"    "play.html"    "Cribbage — Play"          "CribbagePlay"   "no"
+build_one "src/CribbageTrainer.jsx" "trainer.html" "Cribbage Discard Trainer" "CribbageTrainer" "no" "Practice optimal cribbage discarding with a ranked, fully-explained analysis of every possible throw. Free and open-source."
+build_one "src/CribbagePlay.jsx"    "play.html"    "Cribbage — Play"          "CribbagePlay"   "no" "Play a full game of cribbage, 2 to 6 players, against bots or pass-and-play with friends. Free, open-source, works offline."
 
 # Stamp the version (read from the VERSION file) into each page's About popup, which
 # carries the __APP_VERSION__ placeholder. VERSION is the single source of truth:

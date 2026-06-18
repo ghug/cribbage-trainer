@@ -1,0 +1,14 @@
+{
+  "name": "Cribbage Trainer",
+  "short_name": "Cribbage",
+  "description": "Practice optimal cribbage discards and play full 2-6 player games vs bots or friends. Free, open-source, works offline.",
+  "start_url": "./",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f2417",
+  "theme_color": "#0f2417",
+  "icons": [
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

@@ -4,6 +4,12 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#0f2417" />
+<meta name="description" content="Play a full game of cribbage, 2 to 6 players, against bots or pass-and-play with friends. Free, open-source, works offline." />
+<link rel="icon" href="favicon.svg" type="image/svg+xml" />
+<link rel="manifest" href="manifest.webmanifest" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Cribbage — Play" />
+<meta property="og:description" content="Play a full game of cribbage, 2 to 6 players, against bots or pass-and-play with friends. Free, open-source, works offline." />
 <title>Cribbage — Play</title>
 <style>html,body{margin:0;background:#0f2417;min-height:100%;-webkit-user-select:none;user-select:none}#root{min-height:100vh}input,textarea{-webkit-user-select:text;user-select:text}</style>
 <script src="vendor/react.production.min.js"></script>
@@ -70,6 +76,11 @@
     if (m) { current = m[1]; explicit = true; try { localStorage.setItem(LANG_KEY, current); } catch (e2) {} }
   } catch (e) {}
   if (!explicit) current = detectLang();
+  // Keep <html lang> in sync with the active language (a11y: screen-reader voice, hyphenation).
+  // Called at resolve time and on every live switch. The served HTML ships lang="en"; this updates
+  // it to the detected/chosen language at runtime.
+  function applyHtmlLang(code) { try { if (document.documentElement) document.documentElement.setAttribute("lang", code || "en"); } catch (e) {} }
+  applyHtmlLang(current);
   // Mirror an EXPLICIT language in the URL bar (non-English carries ?lang=, English strips it) so
   // it's copy/shareable — without a history entry. Skip on file:// (no URL bar in the APK) and for
   // auto-detect (a browser-default visitor keeps a clean URL).
@@ -123,7 +134,7 @@
   window.i18n = {
     get lang() { return current; },
     languages: function () { return LANGS.slice(); },
-    set: function (code) { try { localStorage.setItem(LANG_KEY, code); } catch (e) {} current = code; },
+    set: function (code) { try { localStorage.setItem(LANG_KEY, code); } catch (e) {} current = code; applyHtmlLang(code); },
     // Register a re-render callback, fired (with the new code) after a live switch loads the locale.
     onChange: function (fn) { if (typeof fn === "function") listeners.push(fn); },
     // Pick a language LIVE — no page reload. Persist it, mirror it in the URL bar (replaceState,
@@ -136,6 +147,7 @@
       } catch (e) {}
       loadLocale(code, function () {
         current = code;
+        applyHtmlLang(code);
         for (var i = 0; i < listeners.length; i++) { try { listeners[i](code); } catch (e2) {} }
       });
     }
@@ -904,7 +916,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.21-dev.10";
+const APP_VERSION = "1.1.21-dev.11";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -3160,7 +3172,7 @@ function AboutModal({ onClose }) {
                 background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
             } }, tr("about.sourceLink")),
         React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.21-dev.10")));
+        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.21-dev.11")));
 }
 function MessageLogModal({ log, onClose }) {
     const scrollRef = React.useRef(null);

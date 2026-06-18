@@ -32,72 +32,12 @@ const MIN_FS = { small: "0px", medium: "12px", large: "14px", xlarge: "16px" };
 // full names normally but abbreviate at large/xlarge, where the bigger text would overflow the cells.
 let TEXT_SIZE = "small";
 
-const fifteenVal = (r) => Math.min(r, 10);
 
-function scoreInto(four, starter, isCrib, acc) {
-  const all = [...four, starter];
-  let f = 0, p = 0, ru = 0, fl = 0, no = 0;
-  for (let m = 1; m < 32; m++) {
-    let s = 0;
-    for (let i = 0; i < 5; i++) if (m & (1 << i)) s += fifteenVal(all[i].r);
-    if (s === 15) f += 2;
-  }
-  for (let i = 0; i < 5; i++)
-    for (let j = i + 1; j < 5; j++) if (all[i].r === all[j].r) p += 2;
-  const c = new Array(14).fill(0);
-  for (const x of all) c[x.r]++;
-  let r = 1;
-  while (r <= 13) {
-    if (!c[r]) { r++; continue; }
-    let len = 0, pr = 1, rr = r;
-    while (rr <= 13 && c[rr] > 0) { len++; pr *= c[rr]; rr++; }
-    if (len >= 3) ru += len * pr;
-    r = rr;
-  }
-  const s0 = four[0].s;
-  if (four.every((x) => x.s === s0)) {
-    if (starter.s === s0) fl += 5;
-    else if (!isCrib) fl += 4;
-  }
-  for (const x of four) if (x.r === 11 && x.s === starter.s) no += 1;
-  acc[0] += f; acc[1] += p; acc[2] += ru; acc[3] += fl; acc[4] += no;
-  return f + p + ru + fl + no;
-}
 
-function lockedFour(four) {
-  let f = 0, p = 0, ru = 0, fl = 0;
-  for (let m = 1; m < 16; m++) {
-    let s = 0;
-    for (let i = 0; i < 4; i++) if (m & (1 << i)) s += fifteenVal(four[i].r);
-    if (s === 15) f += 2;
-  }
-  for (let i = 0; i < 4; i++)
-    for (let j = i + 1; j < 4; j++) if (four[i].r === four[j].r) p += 2;
-  const c = new Array(14).fill(0);
-  for (const x of four) c[x.r]++;
-  let r = 1;
-  while (r <= 13) {
-    if (!c[r]) { r++; continue; }
-    let len = 0, pr = 1, rr = r;
-    while (rr <= 13 && c[rr] > 0) { len++; pr *= c[rr]; rr++; }
-    if (len >= 3) ru += len * pr;
-    r = rr;
-  }
-  if (four.every((x) => x.s === four[0].s)) fl += 4;
-  return f + p + ru + fl;
-}
 
-const cardId = (c) => (c.r - 1) * 4 + c.s;
 // cardId → the card it identifies, so the persistent card layer can render a sprite from a
 // bare id (the homes map is keyed by id). 0..51, the inverse of cardId.
 const CARD_BY_ID = (() => { const a = []; for (let r = 1; r <= 13; r++) for (let s = 0; s < 4; s++) a[(r - 1) * 4 + s] = { r, s }; return a; })();
-function deckExcluding(cards) {
-  const used = new Set(cards.map(cardId));
-  const d = [];
-  for (let r = 1; r <= 13; r++)
-    for (let s = 0; s < 4; s++) { const c = { r, s }; if (!used.has(cardId(c))) d.push(c); }
-  return d;
-}
 
 function handDetail(four, dealt) {
   const deck = deckExcluding(dealt);
@@ -118,33 +58,6 @@ function handDetail(four, dealt) {
    pile / hand arrays handed to pegScore & pegChoose are ranks 1..13. Scoring
    mechanics unit-tested in engine/pegging.js. The bots play a greedy
    point-grabbing policy with light defense. */
-const pval = (r) => Math.min(r, 10);
-function pegScore(pile, count) {
-  let pts = 0;
-  if (count === 15) pts += 2;
-  if (count === 31) pts += 2;
-  const n = pile.length, last = pile[n - 1];
-  let k = 1; for (let i = n - 2; i >= 0; i--) { if (pile[i] === last) k++; else break; }
-  if (k >= 2) pts += k * (k - 1);
-  for (let m = Math.min(n, 7); m >= 3; m--) {
-    const tail = pile.slice(n - m);
-    if (new Set(tail).size === m && Math.max(...tail) - Math.min(...tail) === m - 1) { pts += m; break; }
-  }
-  return pts;
-}
-function pegChoose(legal, count, pile, hand) {
-  let best = null, bestKey = -1e9;
-  for (const c of legal) {
-    const nc = count + pval(c);
-    const key0 = pegScore(pile.concat(c), nc) * 10;
-    let key = key0;
-    if (nc === 5 || nc === 21) key -= 2;
-    if (count === 0) { if (c === 5) key -= 2; key -= pval(c) * 0.1; if (hand.filter((x) => x === c).length >= 2) key += 0.5; }
-    else key -= pval(c) * 0.02;
-    if (key > bestKey) { bestKey = key; best = c; }
-  }
-  return best;
-}
 
 /* Per-rank crib value ("crib swing"), the "your" row from CLAUDE.md (index 0=A .. 12=K). */
 const CRIB_VALUE = [3.96, 3.95, 4.05, 4.06, 6.38, 4.10, 4.21, 4.34, 4.09, 3.74, 4.19, 3.73, 3.85];
@@ -160,7 +73,6 @@ function cribSeed(a, b) {
 }
 const twoCombos = (n) => { const out = []; for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) out.push([i, j]); return out; };
 
-const RISK = 0.5; // weight on kept-hand volatility for the board-position discard tilt
 
 // Per-bot difficulty knobs (set per seat on the landing diagram). `discardNoise` = uniform ± points
 // of noise added to each candidate throw's objective before argmax (a weaker bot wanders off the

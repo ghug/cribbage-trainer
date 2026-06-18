@@ -655,16 +655,10 @@ cribbageLocale("en", {
 <div id="root"></div>
 <script>
 "use strict";
-const { useReducer, useEffect } = React;
-const SPEED_MULT = { slow: 2, normal: 1, fast: 0.5 };
-const SPEED_FLAT = { lightning: 32, instant: 0 };
-let SPEED = "normal";
-function spd(ms) { if (ms <= 0)
-    return ms; const flat = SPEED_FLAT[SPEED]; return flat != null ? flat : Math.round(ms * (SPEED_MULT[SPEED] ?? 1)); }
-const instantAnim = () => spd(MOVE_DUR) === 0;
-const MIN_FS = { small: "0px", medium: "12px", large: "14px", xlarge: "16px" };
-let TEXT_SIZE = "small";
 const fifteenVal = (r) => Math.min(r, 10);
+const pval = (r) => Math.min(r, 10);
+const cardId = (c) => (c.r - 1) * 4 + c.s;
+const RISK = 0.5;
 function scoreInto(four, starter, isCrib, acc) {
     const all = [...four, starter];
     let f = 0, p = 0, ru = 0, fl = 0, no = 0;
@@ -753,10 +747,6 @@ function lockedFour(four) {
         fl += 4;
     return f + p + ru + fl;
 }
-const cardId = (c) => (c.r - 1) * 4 + c.s;
-const CARD_BY_ID = (() => { const a = []; for (let r = 1; r <= 13; r++)
-    for (let s = 0; s < 4; s++)
-        a[(r - 1) * 4 + s] = { r, s }; return a; })();
 function deckExcluding(cards) {
     const used = new Set(cards.map(cardId));
     const d = [];
@@ -768,26 +758,6 @@ function deckExcluding(cards) {
         }
     return d;
 }
-function handDetail(four, dealt) {
-    const deck = deckExcluding(dealt);
-    const acc = [0, 0, 0, 0, 0];
-    let total = 0, sq = 0, mn = 99, mx = 0;
-    for (const st of deck) {
-        const t = scoreInto(four, st, false, acc);
-        total += t;
-        sq += t * t;
-        if (t < mn)
-            mn = t;
-        if (t > mx)
-            mx = t;
-    }
-    const n = deck.length;
-    const ev = total / n;
-    const sd = Math.sqrt(Math.max(0, sq / n - ev * ev));
-    const locked = lockedFour(four);
-    return { ev, sd, mn, mx, cats: acc.map((x) => x / n), locked, fromCut: ev - locked };
-}
-const pval = (r) => Math.min(r, 10);
 function pegScore(pile, count) {
     let pts = 0;
     if (count === 15)
@@ -837,6 +807,37 @@ function pegChoose(legal, count, pile, hand) {
     }
     return best;
 }
+const { useReducer, useEffect } = React;
+const SPEED_MULT = { slow: 2, normal: 1, fast: 0.5 };
+const SPEED_FLAT = { lightning: 32, instant: 0 };
+let SPEED = "normal";
+function spd(ms) { if (ms <= 0)
+    return ms; const flat = SPEED_FLAT[SPEED]; return flat != null ? flat : Math.round(ms * (SPEED_MULT[SPEED] ?? 1)); }
+const instantAnim = () => spd(MOVE_DUR) === 0;
+const MIN_FS = { small: "0px", medium: "12px", large: "14px", xlarge: "16px" };
+let TEXT_SIZE = "small";
+const CARD_BY_ID = (() => { const a = []; for (let r = 1; r <= 13; r++)
+    for (let s = 0; s < 4; s++)
+        a[(r - 1) * 4 + s] = { r, s }; return a; })();
+function handDetail(four, dealt) {
+    const deck = deckExcluding(dealt);
+    const acc = [0, 0, 0, 0, 0];
+    let total = 0, sq = 0, mn = 99, mx = 0;
+    for (const st of deck) {
+        const t = scoreInto(four, st, false, acc);
+        total += t;
+        sq += t * t;
+        if (t < mn)
+            mn = t;
+        if (t > mx)
+            mx = t;
+    }
+    const n = deck.length;
+    const ev = total / n;
+    const sd = Math.sqrt(Math.max(0, sq / n - ev * ev));
+    const locked = lockedFour(four);
+    return { ev, sd, mn, mx, cats: acc.map((x) => x / n), locked, fromCut: ev - locked };
+}
 const CRIB_VALUE = [3.96, 3.95, 4.05, 4.06, 6.38, 4.10, 4.21, 4.34, 4.09, 3.74, 4.19, 3.73, 3.85];
 function cribSeed(a, b) {
     let v = (CRIB_VALUE[a.r - 1] + CRIB_VALUE[b.r - 1]) * 0.5;
@@ -851,7 +852,6 @@ function cribSeed(a, b) {
 const twoCombos = (n) => { const out = []; for (let i = 0; i < n; i++)
     for (let j = i + 1; j < n; j++)
         out.push([i, j]); return out; };
-const RISK = 0.5;
 const BOT_SKILL = {
     easy: { discardNoise: 2.0, pegSkill: 0.35 },
     medium: { discardNoise: 0.8, pegSkill: 0.65 },
@@ -917,7 +917,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.21-dev.12";
+const APP_VERSION = "1.1.21-dev.13";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -3173,7 +3173,7 @@ function AboutModal({ onClose }) {
                 background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
             } }, tr("about.sourceLink")),
         React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.21-dev.12")));
+        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.21-dev.13")));
 }
 function MessageLogModal({ log, onClose }) {
     const scrollRef = React.useRef(null);

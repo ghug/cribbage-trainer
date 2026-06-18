@@ -164,7 +164,7 @@ function LanguageRow() {
 // "About & feedback" entry at the bottom of Settings.
 function AboutRow({ onAbout }) {
   return (
-    <div style={{ borderTop: `1px solid ${T.line}`, margin: "2px -16px 0", padding: "12px 16px 4px" }}>
+    <div style={{ marginTop: 10 }}>
       <button onClick={onAbout} style={{
         width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer",
         border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream,

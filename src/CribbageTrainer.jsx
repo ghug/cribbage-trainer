@@ -423,12 +423,7 @@ function MiniCard({ card, selected, disabled, onClick }) {
         opacity: disabled ? 0.4 : 1, transition: "opacity 120ms, box-shadow 120ms",
       }}>
       <span style={{ display: "block", paddingBottom: "141.18%" }} />
-      <svg viewBox="0 0 68 96" preserveAspectRatio="xMidYMid meet" aria-hidden="true"
-        style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}>
-        <text x="13" y="15" textAnchor="middle" dominantBaseline="central" fontFamily={serif} fontWeight="700" fontSize="17" fill={isRed(card.s) ? T.suitRed : T.ink}>{rankLabel(card.r)}</text>
-        <text x="13" y="30" textAnchor="middle" dominantBaseline="central" fontFamily={serif} fontWeight="700" fontSize="13" fill={isRed(card.s) ? T.suitRed : T.ink}>{SUIT[card.s]}</text>
-        <text x="34" y="49" textAnchor="middle" dominantBaseline="central" fontFamily={serif} fontSize="34" fill={isRed(card.s) ? T.suitRed : T.ink}>{SUIT[card.s]}</text>
-      </svg>
+      <CardGlyph card={card} />
     </button>
   );
 }

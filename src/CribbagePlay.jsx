@@ -208,40 +208,6 @@ const sortHand = (cs) => cs.slice().sort((a, b) => a.r - b.r || a.s - b.s);
 // Every card on the page — face up or down, in hand, stacked, the starter, the deck — is
 // the same width: `--cw`, a CSS variable set on <main> and sized so six cards span the
 // column (the heads-up hand). So one knob drives the whole table's card scale.
-function Card({ card, onClick, clickable, badge, dim, selected, raised, selLabel }) {
-  const [hover, setHover] = React.useState(false);
-  const lift = badge || selected ? -8 : hover && clickable ? -6 : 0;
-  const edge = badge ? badge.color : (selected || raised) ? T.selBlue : null;
-  // `raised` (tap-to-select mode) lifts the card by 10% of its own height — a translateY
-  // percentage is relative to the element, so it scales with the card automatically.
-  const elevated = badge || selected || raised;
-  return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, width: "var(--cw)", flex: "0 0 auto" }}>
-      {(badge || selected) && (
-        <span style={{
-          fontFamily: mono, fontSize: "max(9.5px, var(--min-fs, 0px))", letterSpacing: 0.4, fontWeight: 700,
-          color: T.ivory, background: badge ? badge.color : T.selBlue, padding: "2px 6px", borderRadius: 4, whiteSpace: "nowrap",
-        }}>{badge ? badge.text : (selLabel || tr("play.sel.throw"))}</span>
-      )}
-      <button
-        onClick={clickable ? onClick : undefined}
-        onPointerEnter={() => setHover(true)} onPointerLeave={() => setHover(false)}
-        aria-label={`${rankLabel(card.r)} of ${["spades", "hearts", "diamonds", "clubs"][card.s]}`}
-        style={{
-          width: "100%", borderRadius: 8, padding: 0, background: T.ivory, position: "relative",
-          cursor: clickable ? "pointer" : "default",
-          border: edge ? `2px solid ${edge}` : "1px solid rgba(0,0,0,0.25)",
-          boxShadow: elevated ? "0 8px 18px rgba(0,0,0,0.45)" : "0 4px 10px rgba(0,0,0,0.35)",
-          transform: raised ? "translateY(-10%)" : `translateY(${lift}px)`, transition: "transform 140ms ease, box-shadow 140ms ease",
-          opacity: dim ? 0.42 : 1, outlineOffset: 3,
-        }}
-      >
-        <span style={{ display: "block", paddingBottom: "141.18%" }} />
-        <CardGlyph card={card} />
-      </button>
-    </div>
-  );
-}
 
 function CardBack() {
   return (
@@ -1316,7 +1282,7 @@ const BACK_VISIBLE = 0.3;
 // The pegging pile shows only the top of each card face (the rank/suit index lives in the
 // top-left corner), so the whole pile reads at a glance while taking far less vertical room.
 const PILE_VISIBLE = 0.38;                       // keep the top 38% of each card; clip the bottom 62%
-const cardItems = (cards, vis = STACK_VISIBLE) => (cards || []).map((c) => ({ key: cardId(c), vis, el: <Card card={c} /> }));
+const cardItems = (cards, vis = STACK_VISIBLE) => (cards || []).map((c) => ({ key: cardId(c), vis, el: <CardFace card={c} /> }));
 // An invisible run of card-SIZED boxes used purely as measurement anchors for the sprite layer.
 // These are NOT cards — no face, no back, no graphics — just empty footprints that reserve each
 // card's landing spot so a flying sprite knows where to go. The persistent sprites are the one and
@@ -1508,7 +1474,7 @@ function StarterCard({ card }) {
   React.useEffect(() => { const id = requestAnimationFrame(() => requestAnimationFrame(() => setShown(true))); return () => cancelAnimationFrame(id); }, []);
   return (
     <div style={{ position: "relative", width: "var(--cw)", height: "var(--ch)", transformStyle: "preserve-3d", transition: `transform ${spd(920)}ms cubic-bezier(.2,.7,.3,1)`, transform: shown ? "rotateY(0deg)" : "rotateY(-180deg)" }}>
-      <div style={{ position: "absolute", top: 0, left: 0, width: "var(--cw)", backfaceVisibility: "hidden" }}><Card card={card} /></div>
+      <div style={{ position: "absolute", top: 0, left: 0, width: "var(--cw)", backfaceVisibility: "hidden" }}><CardFace card={card} /></div>
       <div style={{ position: "absolute", top: 0, left: 0, width: "var(--cw)", backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}><CardBack /></div>
     </div>
   );
@@ -1562,7 +1528,7 @@ function RevealFly({ from, to, card, delay, r0 = -180, r1 = 0 }) {
       transform: `translate(${p.x}px, ${p.y}px) rotateY(${shown ? r1 : r0}deg)`,
       transition: `transform ${spd(DEAL_MOVE)}ms cubic-bezier(.2,.7,.3,1)`,
     }}>
-      <div style={{ backfaceVisibility: "hidden" }}><Card card={card} /></div>
+      <div style={{ backfaceVisibility: "hidden" }}><CardFace card={card} /></div>
       <div style={{ position: "absolute", top: 0, left: 0, width: "var(--cw)", backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}><CardBack /></div>
     </div>
   );
@@ -1621,7 +1587,7 @@ function DealFly({ from, legs, card }) {
       transform: `translate(${p.x}px, ${p.y}px)`,
       transition: `transform ${idx < 0 ? 0 : spd(legs[idx].dur)}ms cubic-bezier(.2,.7,.3,1)`,
       zIndex: 6, pointerEvents: "none",
-    }}>{card ? <Card card={card} /> : <CardBack />}</div>
+    }}>{card ? <CardFace card={card} /> : <CardBack />}</div>
   );
 }
 

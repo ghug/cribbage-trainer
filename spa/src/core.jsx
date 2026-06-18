@@ -1,4 +1,4 @@
-/* Shared SPA chrome for index2.html — ONE settings menu for all three views.
+/* Shared SPA chrome for index.html — ONE settings menu for all three views.
  *
  * The landing, play and trainer pages each ship their own copy of the global settings menu
  * (Modal + SettingsPanel + History/About). In the combined single-page app we host ONE live
@@ -9,7 +9,7 @@
  *
  * This file is self-contained (no imports): build.sh transpiles it with --jsx react and inlines
  * it in the SPA's global scope ahead of the per-app IIFEs. The two React apps keep their own
- * copies of this chrome for their standalone builds; those copies just go unused inside index2.
+ * copies of this chrome for their standalone builds; those copies just go unused inside the SPA.
  *
  * The components below are lifted verbatim from CribbageTrainer.jsx (which itself shares them
  * "identically/verbatim" with CribbagePlay.jsx, per their source comments) so the menu looks and

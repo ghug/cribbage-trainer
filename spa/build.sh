@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds spa/index2.html — the self-contained combined single-page app (Home + Play + Trainer).
+# Builds spa/index.html — the self-contained combined single-page app (Home + Play + Trainer).
 #
 # Everything this needs lives under spa/: forked app sources in spa/src/, the shared shell menu
 # (spa/src/core.jsx), and copied runtime deps (spa/vendor, spa/i18n.js, spa/locales). It is
@@ -40,5 +40,5 @@ transpile_view "src/CribbagePlay.jsx"    "CribbagePlay"    "$TMP/play.js"
 i18n_head > "$TMP/i18nhead.html"
 V="$(tr -d '[:space:]' < "$ROOT/../VERSION" 2>/dev/null || echo dev)"
 node "$ROOT/build_spa.js" "$TMP/play.js" "$TMP/trainer.js" "$TMP/i18nhead.html" \
-     "$ROOT/src/landing.html" "$ROOT/index2.html" "$V" "$TMP/core.js"
+     "$ROOT/src/landing.html" "$ROOT/index.html" "$V" "$TMP/core.js"
 rm -rf "$TMP"

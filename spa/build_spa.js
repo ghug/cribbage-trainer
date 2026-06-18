@@ -1,4 +1,4 @@
-/* Assembles index2.html — the combined single-page app (Home + Play + Trainer).
+/* Assembles index.html — the combined single-page app (Home + Play + Trainer).
  *
  * Invoked by build.sh AFTER it has transpiled the two React apps to plain JS:
  *   node engine/build_spa.js <play.js> <trainer.js> <i18nHead.html> <landing.html> <out> <version>

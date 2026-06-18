@@ -5,21 +5,7 @@ import React, { useState, useMemo, useCallback, useEffect, useRef } from "react"
    scoreInto: accumulates category points [15s,pairs,runs,flush,nobs]
    (unit-tested: perfect 29 -> 16/12/0/0/1; locked 4556 -> 12)
    ============================================================ */
-// Global game speed (shared with the Play game via settings.speed). `SPEED` is set from the setting
-// at the top of the root component's render; `spd(ms)` scales any animation duration: slow 2×,
-// normal 1× (unchanged), fast ½×, lightning a flat 32 ms, instant a flat 0 ms (spd(0) passes through).
-const SPEED_MULT = { slow: 2, normal: 1, fast: 0.5 };
-const SPEED_FLAT = { lightning: 32, instant: 0 };
-let SPEED = "normal";
-function spd(ms) { if (ms <= 0) return ms; const flat = SPEED_FLAT[SPEED]; return flat != null ? flat : Math.round(ms * (SPEED_MULT[SPEED] ?? 1)); }
-
-// Global text-size floor (shared with landing + Play): every font-size is `max(<px>px, var(--min-fs,
-// 0px))`, so raising `--min-fs` (set on the app root from settings.textSize) grows only sub-floor
-// text. small = current sizing (0 floor); medium/large lift the minimum.
-const MIN_FS = { small: "0px", medium: "12px", large: "14px", xlarge: "16px" };
 // Build-stamped version; shown in the header only on dev builds (a release strips the -dev suffix).
-const APP_VERSION = "__APP_VERSION__";
-const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 
 function mulberry32(a) {
   return function () {
@@ -184,28 +170,6 @@ function suggestMode(you, leader) {
   if (you >= leader + 15 && you >= 95) return "protect";   // comfortable lead near the finish
   return "ev";
 }
-
-/* ============================ THEME ============================ */
-const T = {
-  baize: "#1F423A", baizeHi: "#28534A",
-  woodD: "#5E3F26", woodM: "#8A5E37", woodL: "#B9824B",
-  pegRed: "#C8412B", pegIvory: "#ECDCB4",
-  ivory: "#F6EFDE", ink: "#241D14", suitRed: "#A8362A",
-  cream: "#ECE0C6", muted: "#C9BC9A", line: "rgba(236,224,182,0.16)",
-  good: "#5FA47C", goodDeep: "#3F7E5E", selBlue: "#5B95C2",
-};
-const SUIT = ["♠", "♥", "♦", "♣"];
-const isRed = (s) => s === 1 || s === 2;
-const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
-const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
-const mono = "ui-monospace, 'SF Mono', Menlo, Consolas, monospace";
-const serif = "'Hoefler Text', 'Iowan Old Style', Georgia, 'Times New Roman', serif";
-// Render-only i18n helper (= window.t with key-fallback). Safe when window is absent
-// (the engine/verify_*.js harnesses run the pure functions in Node) — returns the key.
-const tr = (k, v) => (typeof window !== "undefined" && window.t) ? window.t(k, v) : k;
-// Scoring-category display names, in scoreInto's acc order: 15s/pairs/runs/flush/nobs.
-const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
-const catName = (i) => tr(CAT_KEYS[i]);
 
 function randomHand(count = 5) {
   const deck = deckExcluding([]);
@@ -398,52 +362,6 @@ function buildNote(cribIsOurs, best, chosen) {
   return tr("trainer.note.close", { phrase, delta: delta.toFixed(2) });
 }
 
-// A centered overlay modal (backdrop + card), identical to the Play game's, so the settings menu
-// looks the same across pages.
-function Modal({ onBackdrop, maxWidth = 380, padding = "20px", scroll = false, zIndex = 220, cardStyle, children }) {
-  return (
-    <div onClick={onBackdrop} style={{ position: "fixed", inset: 0, zIndex, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ maxWidth, width: "100%", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding, boxShadow: "0 14px 44px rgba(0,0,0,0.55)", ...(scroll ? { maxHeight: "86vh", overflowY: "auto" } : null), ...cardStyle }}>
-        {children}
-      </div>
-    </div>
-  );
-}
-// The title-left / Done-button-right header the modals share.
-function ModalHeader({ title, onClose, closeLabel, mb = 12, children }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: mb, flex: "0 0 auto" }}>
-      {children != null ? children : <span style={{ fontWeight: 700, fontSize: "max(17px, var(--min-fs, 0px))" }}>{title}</span>}
-      <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", fontWeight: 700 }}>{closeLabel || tr("common.done")}</button>
-    </div>
-  );
-}
-
-// Shared segmented-button style (selected vs not), matching the Play game's settings rows.
-const segStyle = (on) => ({
-  flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))",
-  background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
-  border: `1px solid ${on ? T.pegIvory : T.line}`, fontWeight: on ? 700 : 400,
-});
-
-// A collapsible settings section (header + chevron). Open state is local, so toggling a setting
-// inside it (which re-renders the panel) never collapses the section. Mirrors the Play game.
-function SettingsSection({ title, defaultOpen, children }) {
-  const [open, setOpen] = React.useState(!!defaultOpen);
-  return (
-    <div style={{ borderTop: `1px solid ${T.line}`, marginBottom: open ? 12 : 0 }}>
-      <button onClick={() => setOpen((o) => !o)} style={{
-        width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
-        background: "none", border: "none", cursor: "pointer", padding: "12px 0 10px",
-        color: T.cream, fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase",
-      }}>
-        <span>{title}</span><span style={{ color: T.muted, fontSize: "max(13px, var(--min-fs, 0px))" }}>{open ? "▾" : "▸"}</span>
-      </button>
-      {open && <div>{children}</div>}
-    </div>
-  );
-}
-
 // Settings menu — the IDENTICAL global game-settings menu shared by the landing page and the Play
 // game (one localStorage object), so any toggle here sticks everywhere. The trainer's own setup
 // (table size, practice-as role, new-hand mode) is NOT here — it lives inline on the main screen
@@ -533,9 +451,6 @@ function SettingsPanel({ settings, onSet, onReset, onClose, onAbout, onHistory }
 
 // Game history — the same cribbage:history store the Play game writes (this trainer only reads/clears
 // it). Ported verbatim from the Play game's HistoryModal so the settings menus match across pages.
-const HISTORY_KEY = "cribbage:history";
-function loadHistory() { try { const r = localStorage.getItem(HISTORY_KEY); return r ? JSON.parse(r) : []; } catch (e) { return []; } }
-function clearHistory() { try { localStorage.removeItem(HISTORY_KEY); } catch (e) {} }
 function HistoryModal({ onClose }) {
   const [tick, setTick] = React.useState(0);
   const all = loadHistory();
@@ -823,18 +738,10 @@ function CardPicker({ count, onPick, onClose, dealerInit, canDeal }) {
 // four and throws none, so the human is always a non-dealer thrower (role "defend")
 // feeding the dealer's all-defender crib. try/catch keeps it safe with no storage.
 const teamOptionsT = (p) => (p === 4 ? [4, 2] : p === 6 ? [6, 3, 2] : [p]);
-const SETTINGS_KEY = "cribbage:settings";
 // The full GLOBAL settings object, shared (same localStorage key) with the landing page and the
 // Play game, so the gear menu here is the identical global game-settings menu. The trainer itself
 // only acts on players/teams; the gameplay toggles (counting/automation/...) are carried & synced.
-const DEFAULT_SETTINGS = { players: 2, teams: 2, seats: [], names: [], speed: "normal", textSize: "large", counting: "auto", tapToSelect: true, autoCut: false, autoGo: false, warn: true, claimWarn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
 // True when every setting the reset would touch (all but `skip`) already equals its default.
-function settingsAtDefaults(settings, skip) {
-  for (const k in DEFAULT_SETTINGS) if (skip.indexOf(k) < 0 && settings[k] !== DEFAULT_SETTINGS[k]) return false;
-  return true;
-}
-function loadSettings() { try { const raw = localStorage.getItem(SETTINGS_KEY); if (raw) return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) }; } catch (e) {} return { ...DEFAULT_SETTINGS }; }
-function saveSettings(s) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (e) {} }
 // Solo iff exactly one human seat (seat 0 human by default) — gates the muggins counting rows,
 // mirroring the Play game so the shared menu reads identically.
 function humanCountT(settings) { const P = settings.players; let c = 0; for (let i = 0; i < P; i++) { const v = settings.seats && settings.seats[i]; if (v === "human" || (v == null && i === 0)) c++; } return c; }

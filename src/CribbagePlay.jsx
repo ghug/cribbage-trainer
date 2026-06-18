@@ -10,24 +10,12 @@ import React, { useReducer, useEffect } from "react";
    self-contained; the pages never share a module). scoreInto is unit-tested:
    perfect 29 -> 16/12/0/0/1.
    ============================================================ */
-// Global game speed. `SPEED` is assigned from settings.speed at the top of the root component's
-// render (so every descendant's render-time CSS and every effect timer in that pass sees it), and
-// `spd(ms)` scales any animation/pause/deal duration: slow 2×, normal 1× (unchanged), fast ½×,
-// lightning a flat 32 ms, instant a flat 0 ms. spd(0) passes through so intentional zeros stay zero.
-const SPEED_MULT = { slow: 2, normal: 1, fast: 0.5 };
-const SPEED_FLAT = { lightning: 32, instant: 0 };   // a fixed duration regardless of the base value
-let SPEED = "normal";
-function spd(ms) { if (ms <= 0) return ms; const flat = SPEED_FLAT[SPEED]; return flat != null ? flat : Math.round(ms * (SPEED_MULT[SPEED] ?? 1)); }
 // True when the active speed collapses every duration to 0 (the "instant" flat). At 0 ms the sprite
 // layer's rAF / setTimeout / transitionend choreography breaks (0 ms CSS transitions never fire a
 // transitionend, and a 0 ms timeout runs before the next animation frame), so those paths snap
 // synchronously instead — every card placed at its final home in one layout pass, no races.
 const instantAnim = () => spd(MOVE_DUR) === 0;
 
-// Global text-size floor. Every font-size is written `max(<px>px, var(--min-fs, 0px))`, so raising
-// `--min-fs` (set on the app root from settings.textSize) only grows text BELOW the floor — small is
-// the current sizing (0 floor), medium/large lift the minimum. Shared with the landing + trainer.
-const MIN_FS = { small: "0px", medium: "12px", large: "14px", xlarge: "16px" };
 // Current text size (set from settings.textSize at the root render, like SPEED). Seat-ring labels show
 // full names normally but abbreviate at large/xlarge, where the bigger text would overflow the cells.
 let TEXT_SIZE = "small";
@@ -107,34 +95,6 @@ function aiDiscardN(dealt, seat, dealerIdx, n, P, teams, mode = "ev", level = "h
   }
   return { discard: [dealt[bi]], kept: dealt.filter((_, j) => j !== bi) };
 }
-
-/* ============================ THEME ============================ */
-const T = {
-  baize: "#1F423A", baizeHi: "#28534A",
-  woodD: "#5E3F26", woodM: "#8A5E37", woodL: "#B9824B",
-  pegRed: "#C8412B", pegIvory: "#ECDCB4",
-  ivory: "#F6EFDE", ink: "#241D14", suitRed: "#A8362A",
-  cream: "#ECE0C6", muted: "#C9BC9A", line: "rgba(236,224,182,0.16)",
-  good: "#5FA47C", goodDeep: "#3F7E5E", selBlue: "#5B95C2",
-};
-// Render-only i18n: window.t (from i18n.js) with a key fallback. Used in the JSX (never in
-// the reducer), so engine/verify_play.js — which exercises the reducer, not the render — is
-// unaffected and needs no window shim.
-const tr = (k, v) => (typeof window !== "undefined" && window.t) ? window.t(k, v) : k;
-const SUIT = ["♠", "♥", "♦", "♣"];
-// Scoring-category display names for the show panel's CatBars — reuses the trainer's
-// shared category keys (fifteens/pairs/runs/flush/nobs) so all locales cover them.
-const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
-const catName = (i) => tr(CAT_KEYS[i]);
-const isRed = (s) => s === 1 || s === 2;
-// Build-time version (build.sh swaps __APP_VERSION__ for the VERSION file's value). On a dev
-// build it's like "1.1.19-dev.51"; shown in the play header so a dev build is identifiable.
-const APP_VERSION = "__APP_VERSION__";
-const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
-const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
-const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
-const mono = "ui-monospace, 'SF Mono', Menlo, Consolas, monospace";
-const serif = "'Hoefler Text', 'Iowan Old Style', Georgia, 'Times New Roman', serif";
 
 // Seat names adapt to the table size. Heads-up calls the bot "Opponent"; larger
 // tables use compass seats with the human at seat 0. SEAT_NAMES is set per game.
@@ -867,26 +827,12 @@ function reduce(state, action) {
   }
 }
 
-const DEFAULT_SETTINGS = { players: 2, teams: 2, seats: [], names: [], speed: "normal", textSize: "large", counting: "auto", tapToSelect: true, autoCut: false, autoGo: false, warn: true, claimWarn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
 // True when every setting the reset would touch (all but `skip`) already equals its default.
-function settingsAtDefaults(settings, skip) {
-  for (const k in DEFAULT_SETTINGS) if (skip.indexOf(k) < 0 && settings[k] !== DEFAULT_SETTINGS[k]) return false;
-  return true;
-}
 // Settings persist across pages in localStorage under a shared key. try/catch keeps
 // the verification harness (no localStorage) and private-mode browsers happy.
-const SETTINGS_KEY = "cribbage:settings";
-function loadSettings() {
-  try { const raw = localStorage.getItem(SETTINGS_KEY); if (raw) return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) }; } catch (e) {}
-  return { ...DEFAULT_SETTINGS };
-}
-function saveSettings(s) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (e) {} }
 
 // ---- Finished-game history (per device) ----
-const HISTORY_KEY = "cribbage:history";
-function loadHistory() { try { const r = localStorage.getItem(HISTORY_KEY); return r ? JSON.parse(r) : []; } catch (e) { return []; } }
 function saveHistory(h) { try { localStorage.setItem(HISTORY_KEY, JSON.stringify(h)); } catch (e) {} }
-function clearHistory() { try { localStorage.removeItem(HISTORY_KEY); } catch (e) {} }
 
 // Summarize a finished game from your (team's) side: the outcome bucket plus the team's
 // pegging / hand / crib point totals. A team's points are the sum of its members' own
@@ -988,31 +934,6 @@ function ScoreRow({ seats, dealerIdx, turn, winner, onPick, P, teams }) {
           </button>
         );
       })}
-    </div>
-  );
-}
-
-// Shared modal shell: the dimmed backdrop + the centred baize card. `onBackdrop` fires on a
-// backdrop tap (dismiss, or — for the play/discard warnings — cancel the pending action). `scroll`
-// caps the height and scrolls the card; `cardStyle` lets a modal tweak it (e.g. a flex column for a
-// sticky header + scrolling body). `zIndex` defaults to 220 (confirm-home intentionally sits under
-// at 200). Every modal renders the same overlay/card through this, so the look lives in one place.
-function Modal({ onBackdrop, maxWidth = 380, padding = "20px", scroll = false, zIndex = 220, cardStyle, children }) {
-  return (
-    <div onClick={onBackdrop} style={{ position: "fixed", inset: 0, zIndex, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ maxWidth, width: "100%", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding, boxShadow: "0 14px 44px rgba(0,0,0,0.55)", ...(scroll ? { maxHeight: "86vh", overflowY: "auto" } : null), ...cardStyle }}>
-        {children}
-      </div>
-    </div>
-  );
-}
-// The title-left / Done-button-right header several modals share. Pass `title` for the default
-// 17px heading, or pass children for a custom left side (e.g. the About modal's icon + title).
-function ModalHeader({ title, onClose, closeLabel, mb = 12, children }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: mb, flex: "0 0 auto" }}>
-      {children != null ? children : <span style={{ fontWeight: 700, fontSize: "max(17px, var(--min-fs, 0px))" }}>{title}</span>}
-      <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", fontWeight: 700 }}>{closeLabel || tr("common.done")}</button>
     </div>
   );
 }
@@ -2670,31 +2591,6 @@ function DiscardWarning({ pd, cribIsOurs, dispatch, onCancel }) {
         }}>{tr("play.warn.pickAgain")}</button>
       </div>
     </Modal>
-  );
-}
-
-const segStyle = (on) => ({
-  flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))",
-  background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
-  border: `1px solid ${on ? T.pegIvory : T.line}`, fontWeight: on ? 700 : 400,
-});
-
-// A collapsible settings section: a tappable header (title + chevron) that shows/hides its rows.
-// Its open state lives in local useState, so toggling a setting inside it (which re-renders the
-// panel) never collapses the section.
-function SettingsSection({ title, defaultOpen, children }) {
-  const [open, setOpen] = React.useState(!!defaultOpen);
-  return (
-    <div style={{ borderTop: `1px solid ${T.line}`, marginBottom: open ? 12 : 0 }}>
-      <button onClick={() => setOpen((o) => !o)} style={{
-        width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
-        background: "none", border: "none", cursor: "pointer", padding: "12px 0 10px",
-        color: T.cream, fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase",
-      }}>
-        <span>{title}</span><span style={{ color: T.muted, fontSize: "max(13px, var(--min-fs, 0px))" }}>{open ? "▾" : "▸"}</span>
-      </button>
-      {open && <div>{children}</div>}
-    </div>
   );
 }
 

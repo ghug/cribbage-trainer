@@ -38,9 +38,9 @@ build_one() {
 
   # 1) Swap the ESM import/export for browser-global CDN React, and mount the app.
   #    The import sed captures whatever hooks the file imports, so it is component-agnostic.
-  #    The shared engine (src/engine.js) is PREPENDED so each built page still ships one
-  #    self-contained copy of the pure scoring/pegging math (deduped from the two app sources).
-  cat "$ROOT/src/engine.js" > "$TMP/app.tsx"
+  #    The shared engine (src/engine.js) and UI chrome (src/chrome.jsx) are PREPENDED so each built
+  #    page still ships one self-contained copy of the deduped math + theme/modal/storage chrome.
+  cat "$ROOT/src/engine.js" "$ROOT/src/chrome.jsx" > "$TMP/app.tsx"
   sed -e 's#^import React, { \(.*\) } from "react";#const { \1 } = React;#' \
       -e "s#^export default function ${COMPONENT}(#function ${COMPONENT}(#" \
       "$ROOT/$SRC" >> "$TMP/app.tsx"
@@ -55,7 +55,7 @@ build_one() {
   #      Prepend the shared engine too, so the names it now provides (scoreInto, pegScore, …)
   #      that $SRC references but no longer declares are resolved.
   local NAMEERR
-  cat "$ROOT/src/engine.js" "$ROOT/$SRC" > "$TMP/guard.tsx"
+  cat "$ROOT/src/engine.js" "$ROOT/src/chrome.jsx" "$ROOT/$SRC" > "$TMP/guard.tsx"
   NAMEERR="$(npx --no-install tsc "$TMP/guard.tsx" \
       --jsx react --target es2020 --module none --removeComments \
       --ignoreDeprecations 6.0 --skipLibCheck --noEmit 2>&1 \

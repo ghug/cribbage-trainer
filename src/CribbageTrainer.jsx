@@ -17,6 +17,9 @@ function spd(ms) { if (ms <= 0) return ms; const flat = SPEED_FLAT[SPEED]; retur
 // 0px))`, so raising `--min-fs` (set on the app root from settings.textSize) grows only sub-floor
 // text. small = current sizing (0 floor); medium/large lift the minimum.
 const MIN_FS = { small: "0px", medium: "12px", large: "14px", xlarge: "16px" };
+// Build-stamped version; shown in the header only on dev builds (a release strips the -dev suffix).
+const APP_VERSION = "__APP_VERSION__";
+const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 
 function mulberry32(a) {
   return function () {
@@ -1024,6 +1027,7 @@ export default function CribbageTrainer() {
               boxShadow: "inset 0 1px 2px rgba(255,255,255,0.12), 0 2px 5px rgba(0,0,0,0.35)",
             }}>♣</a>
             <span style={{ fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: "rgba(42,27,14,0.8)", lineHeight: 1.3 }}>{players === 2 ? tr("trainer.hdr.heads") : teams < players ? tr("trainer.hdr.teams", { p: players, teams, size: players / teams }) : tr("trainer.hdr.solo", { p: players })}</span>
+            {IS_DEV_VERSION && <span style={{ fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: "rgba(42,27,14,0.55)", whiteSpace: "nowrap" }}>v{APP_VERSION}</span>}
           </div>
           <div style={{ display: "flex", gap: 8, flex: "0 0 auto" }}>
             <a href="index.html" aria-label={tr("trainer.home")} style={{

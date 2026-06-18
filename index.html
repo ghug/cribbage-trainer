@@ -35,6 +35,7 @@
   }
   header h1{ margin:0; font-size:max(24px, var(--min-fs, 0px)); color:#2A1B0E; letter-spacing:.3px; font-weight:700 }
   header p{ margin:6px 0 0; font-family:var(--mono); font-size:max(12px, var(--min-fs, 0px)); color:rgba(42,27,14,0.78) }
+  .ver{ display:none; margin-top:4px; font-family:var(--mono); font-size:max(10px, var(--min-fs, 0px)); color:rgba(42,27,14,0.55) }  /* dev-only version badge (shown by JS) */
   main{ flex:1; max-width:560px; width:100%; margin:0 auto; padding:26px 16px 40px; box-sizing:border-box }
   .lead{ font-size:max(15px, var(--min-fs, 0px)); line-height:1.55; color:var(--cream); margin:0 0 22px }
   .cards{ display:grid; gap:16px }
@@ -812,6 +813,7 @@ cribbageLocale("en", {
         <div>
           <h1 data-i18n="app.title">Cribbage Trainer</h1>
           <p data-i18n="landing.tagline">play vs bots or friends and sharpen your discards</p>
+          <span class="ver" id="verBadge">v1.1.21-dev.15</span>
         </div>
       </div>
       <button id="gear" class="gear" type="button" aria-label="Settings" aria-haspopup="dialog" data-i18n-aria="settings.title">⚙</button>
@@ -945,7 +947,7 @@ cribbageLocale("en", {
       <a class="btn btn-primary" href="https://github.com/ghug/cribbage-trainer/"
          target="_blank" rel="noopener noreferrer" data-i18n="about.sourceLink">Source, bugs &amp; feedback ↗</a>
       <div class="repo-url" style="margin-bottom:4px">github.com/ghug/cribbage-trainer</div>
-      <div class="repo-url">v1.1.21-dev.14</div>
+      <div class="repo-url">v1.1.21-dev.15</div>
     </div>
   </div>
 
@@ -985,6 +987,8 @@ cribbageLocale("en", {
 
   <script>
     (function () {
+      // Show the version badge in the header only on dev builds (a release strips the -dev suffix).
+      if (/-dev/.test("1.1.21-dev.15")) { var _vb = document.getElementById('verBadge'); if (_vb) _vb.style.display = 'block'; }
       var s = document.getElementById('settingsOverlay');
       var a = document.getElementById('aboutOverlay');
       var c = document.getElementById('confirmResetOverlay');

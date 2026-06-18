@@ -32,32 +32,9 @@ const MIN_FS = { small: "0px", medium: "12px", large: "14px", xlarge: "16px" };
 // full names normally but abbreviate at large/xlarge, where the bigger text would overflow the cells.
 let TEXT_SIZE = "small";
 
-
-
-
 // cardId → the card it identifies, so the persistent card layer can render a sprite from a
 // bare id (the homes map is keyed by id). 0..51, the inverse of cardId.
 const CARD_BY_ID = (() => { const a = []; for (let r = 1; r <= 13; r++) for (let s = 0; s < 4; s++) a[(r - 1) * 4 + s] = { r, s }; return a; })();
-
-function handDetail(four, dealt) {
-  const deck = deckExcluding(dealt);
-  const acc = [0, 0, 0, 0, 0];
-  let total = 0, sq = 0, mn = 99, mx = 0;
-  for (const st of deck) {
-    const t = scoreInto(four, st, false, acc);
-    total += t; sq += t * t; if (t < mn) mn = t; if (t > mx) mx = t;
-  }
-  const n = deck.length;
-  const ev = total / n;
-  const sd = Math.sqrt(Math.max(0, sq / n - ev * ev));
-  const locked = lockedFour(four);
-  return { ev, sd, mn, mx, cats: acc.map((x) => x / n), locked, fromCut: ev - locked };
-}
-
-/* ===== Pegging (play phase) ===== suits are irrelevant to pegging, so the
-   pile / hand arrays handed to pegScore & pegChoose are ranks 1..13. Scoring
-   mechanics unit-tested in engine/pegging.js. The bots play a greedy
-   point-grabbing policy with light defense. */
 
 /* Per-rank crib value ("crib swing"), the "your" row from CLAUDE.md (index 0=A .. 12=K). */
 const CRIB_VALUE = [3.96, 3.95, 4.05, 4.06, 6.38, 4.10, 4.21, 4.34, 4.09, 3.74, 4.19, 3.73, 3.85];
@@ -72,7 +49,6 @@ function cribSeed(a, b) {
   return v;
 }
 const twoCombos = (n) => { const out = []; for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) out.push([i, j]); return out; };
-
 
 // Per-bot difficulty knobs (set per seat on the landing diagram). `discardNoise` = uniform ± points
 // of noise added to each candidate throw's objective before argmax (a weaker bot wanders off the

@@ -18,9 +18,6 @@ function spd(ms) { if (ms <= 0) return ms; const flat = SPEED_FLAT[SPEED]; retur
 // text. small = current sizing (0 floor); medium/large lift the minimum.
 const MIN_FS = { small: "0px", medium: "12px", large: "14px", xlarge: "16px" };
 
-
-
-
 function mulberry32(a) {
   return function () {
     a |= 0; a = (a + 0x6d2b79f5) | 0;
@@ -28,29 +25,6 @@ function mulberry32(a) {
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
-}
-
-function handDetail(four, dealt5) {
-  const deck = deckExcluding(dealt5);
-  const acc = [0, 0, 0, 0, 0];
-  let total = 0, sq = 0, mn = 99, mx = 0;
-  const byRank = {};
-  const vals = [];
-  for (const st of deck) {
-    const t = scoreInto(four, st, false, acc);
-    total += t; sq += t * t; if (t < mn) mn = t; if (t > mx) mx = t; vals.push(t);
-    const b = byRank[st.r] || (byRank[st.r] = { sum: 0, n: 0 });
-    b.sum += t; b.n++;
-  }
-  const n = deck.length;
-  const ev = total / n;
-  const sd = Math.sqrt(Math.max(0, sq / n - ev * ev));
-  vals.sort((a, b) => a - b);
-  const locked = lockedFour(four);
-  const top = Object.keys(byRank)
-    .map((r) => ({ r: +r, avg: byRank[r].sum / byRank[r].n, p: byRank[r].n / n }))
-    .sort((a, b) => b.avg - a.avg).slice(0, 3);
-  return { ev, sd, mn, mx, p10: vals[(n * 0.1) | 0], p90: vals[(n * 0.9) | 0], cats: acc.map((x) => x / n), locked, fromCut: ev - locked, top };
 }
 
 /* Role-split empirical discard distributions from a fixed-point self-play

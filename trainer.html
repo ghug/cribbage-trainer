@@ -758,6 +758,35 @@ function deckExcluding(cards) {
         }
     return d;
 }
+function handDetail(four, dealt) {
+    const deck = deckExcluding(dealt);
+    const acc = [0, 0, 0, 0, 0];
+    let total = 0, sq = 0, mn = 99, mx = 0;
+    const byRank = {};
+    const vals = [];
+    for (const st of deck) {
+        const t = scoreInto(four, st, false, acc);
+        total += t;
+        sq += t * t;
+        if (t < mn)
+            mn = t;
+        if (t > mx)
+            mx = t;
+        vals.push(t);
+        const b = byRank[st.r] || (byRank[st.r] = { sum: 0, n: 0 });
+        b.sum += t;
+        b.n++;
+    }
+    const n = deck.length;
+    const ev = total / n;
+    const sd = Math.sqrt(Math.max(0, sq / n - ev * ev));
+    vals.sort((a, b) => a - b);
+    const locked = lockedFour(four);
+    const top = Object.keys(byRank)
+        .map((r) => ({ r: +r, avg: byRank[r].sum / byRank[r].n, p: byRank[r].n / n }))
+        .sort((a, b) => b.avg - a.avg).slice(0, 3);
+    return { ev, sd, mn, mx, p10: vals[(n * 0.1) | 0], p90: vals[(n * 0.9) | 0], cats: acc.map((x) => x / n), locked, fromCut: ev - locked, top };
+}
 function pegScore(pile, count) {
     let pts = 0;
     if (count === 15)
@@ -822,35 +851,6 @@ function mulberry32(a) {
         t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
         return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
-}
-function handDetail(four, dealt5) {
-    const deck = deckExcluding(dealt5);
-    const acc = [0, 0, 0, 0, 0];
-    let total = 0, sq = 0, mn = 99, mx = 0;
-    const byRank = {};
-    const vals = [];
-    for (const st of deck) {
-        const t = scoreInto(four, st, false, acc);
-        total += t;
-        sq += t * t;
-        if (t < mn)
-            mn = t;
-        if (t > mx)
-            mx = t;
-        vals.push(t);
-        const b = byRank[st.r] || (byRank[st.r] = { sum: 0, n: 0 });
-        b.sum += t;
-        b.n++;
-    }
-    const n = deck.length;
-    const ev = total / n;
-    const sd = Math.sqrt(Math.max(0, sq / n - ev * ev));
-    vals.sort((a, b) => a - b);
-    const locked = lockedFour(four);
-    const top = Object.keys(byRank)
-        .map((r) => ({ r: +r, avg: byRank[r].sum / byRank[r].n, p: byRank[r].n / n }))
-        .sort((a, b) => b.avg - a.avg).slice(0, 3);
-    return { ev, sd, mn, mx, p10: vals[(n * 0.1) | 0], p90: vals[(n * 0.9) | 0], cats: acc.map((x) => x / n), locked, fromCut: ev - locked, top };
 }
 const DEALER_DISCARD_PROBS = [0.0639, 0.08325, 0.09032, 0.05659, 0.07681, 0.06226, 0.08103, 0.0937, 0.06772, 0.04889, 0.09511, 0.07993, 0.10046];
 const DEFENDER_DISCARD_PROBS = [0.09388, 0.06719, 0.04547, 0.04428, 0.00398, 0.06537, 0.0818, 0.08531, 0.08712, 0.09632, 0.0411, 0.11445, 0.17376];
@@ -1409,7 +1409,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.21-dev.13"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.21-dev.14"))));
 }
 function MiniCard({ card, selected, disabled, onClick }) {
     return (React.createElement("button", { onClick: onClick, disabled: disabled, "aria-pressed": selected, "aria-label": `${rankLabel(card.r)} of ${["spades", "hearts", "diamonds", "clubs"][card.s]}`, style: {

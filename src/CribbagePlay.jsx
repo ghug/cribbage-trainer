@@ -3086,10 +3086,10 @@ function MugginsClaim({ info, starter, isCrib, settings, dispatch }) {
       {claims.length > 0 && (
         <div style={{ display: "grid", gap: 4, marginBottom: 12 }}>
           {claims.map((c, i) => (
-            <div key={i} onClick={() => setClaims((cs) => cs.filter((_, k) => k !== i))} title={tr("play.show.claimRemove")}
-              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", color: T.cream, background: "rgba(0,0,0,0.22)", borderRadius: 7, padding: "6px 10px", cursor: "pointer" }}>
+            <div key={i}
+              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", color: T.cream, background: "rgba(0,0,0,0.22)", borderRadius: 7, padding: "6px 10px" }}>
               <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><b>{tr(CAT_KEY[c.type])}</b> {c.tags.join(" ")}</span>
-              <span style={{ flex: "0 0 auto", color: T.good }}>+{c.pts} <span style={{ color: T.muted }}>✕</span></span>
+              <span style={{ flex: "0 0 auto", color: T.good }}>+{c.pts}</span>
             </div>
           ))}
         </div>

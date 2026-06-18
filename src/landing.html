@@ -290,7 +290,6 @@
         <div class="lang-row" style="justify-content:flex-start;margin-top:7px"><select id="langPick"></select></div></div>
       <button class="btn btn-ghost" id="openHistory" type="button" style="margin-top:6px" data-i18n="settings.history">Game history</button>
       <button class="btn btn-ghost" id="resetSettings" type="button" style="margin-top:6px" data-i18n="settings.resetDefaults">Reset game settings to defaults</button>
-      <div id="resetMsg" data-i18n="settings.reset.alreadyDefault" style="display:none;text-align:center;font-family:var(--mono);font-size:max(11px, var(--min-fs, 0px));color:var(--muted);margin-top:4px">Settings are already at their defaults.</div>
       <button class="btn btn-ghost" id="openAbout" type="button" style="margin-top:6px" data-i18n="settings.aboutFeedback">About &amp; feedback</button>
       <button class="btn btn-primary" id="settingsContinue" type="button" style="margin:12px 0 10px" data-i18n="settings.continue">Continue game</button>
     </div>
@@ -312,6 +311,8 @@
       <div class="repo-url">v__APP_VERSION__</div>
     </div>
   </div>
+
+  <div id="resetMsg" role="status" data-i18n="settings.reset.alreadyDefault" onclick="this.style.display='none'" style="display:none;position:fixed;left:50%;top:72px;transform:translateX(-50%);z-index:240;background:linear-gradient(180deg,var(--woodL),var(--woodM));border:1px solid #ECDCB4;border-radius:10px;padding:10px 16px;box-shadow:0 8px 26px rgba(0,0,0,0.55),0 0 0 3px var(--baize);font-weight:700;font-size:max(14px, var(--min-fs, 0px));color:#241D14;cursor:pointer;max-width:90vw;text-align:center">Settings are already at their defaults.</div>
 
   <div class="overlay" id="confirmResetOverlay" style="z-index:110" role="dialog" aria-modal="true" aria-label="Reset settings" data-i18n-aria="settings.reset.title">
     <div class="modal" style="max-width:340px">

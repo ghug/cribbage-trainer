@@ -2885,7 +2885,14 @@ function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
         <button onClick={onHistory} style={{ width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700 }}>{tr("settings.history")}</button>
       </div>
       <button onClick={tapReset} style={{ width: "100%", margin: "10px 0 0", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700 }}>{tr("settings.resetDefaults")}</button>
-      {resetMsg && <div style={{ fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted, textAlign: "center", marginTop: 6 }}>{tr("settings.reset.alreadyDefault")}</div>}
+      {resetMsg && (
+        <div onClick={() => setResetMsg(false)} role="status" style={{
+          position: "fixed", left: "50%", top: 72, transform: "translateX(-50%)", zIndex: 240,
+          background: `linear-gradient(180deg, ${T.woodL}, ${T.woodM})`, border: `1px solid ${T.pegIvory}`, borderRadius: 10, padding: "10px 16px",
+          boxShadow: `0 8px 26px rgba(0,0,0,0.55), 0 0 0 3px ${T.baize}`, fontWeight: 700, fontSize: "max(14px, var(--min-fs, 0px))", color: T.ink,
+          cursor: "pointer", maxWidth: "90vw", textAlign: "center",
+        }}>{tr("settings.reset.alreadyDefault")}</div>
+      )}
       <AboutRow onAbout={onAbout} />
       <button onClick={onClose} style={{
         width: "100%", margin: "12px 0 10px", padding: "12px", borderRadius: 9, border: "none", cursor: "pointer",

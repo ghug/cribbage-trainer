@@ -237,12 +237,7 @@ function Card({ card, onClick, clickable, badge, dim, selected, raised, selLabel
         }}
       >
         <span style={{ display: "block", paddingBottom: "141.18%" }} />
-        <svg viewBox="0 0 68 96" preserveAspectRatio="xMidYMid meet" aria-hidden="true"
-          style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", display: "block" }}>
-          <text x="13" y="15" textAnchor="middle" dominantBaseline="central" fontFamily={serif} fontWeight="700" fontSize="17" fill={isRed(card.s) ? T.suitRed : T.ink}>{rankLabel(card.r)}</text>
-          <text x="13" y="30" textAnchor="middle" dominantBaseline="central" fontFamily={serif} fontWeight="700" fontSize="13" fill={isRed(card.s) ? T.suitRed : T.ink}>{SUIT[card.s]}</text>
-          <text x="34" y="49" textAnchor="middle" dominantBaseline="central" fontFamily={serif} fontSize="34" fill={isRed(card.s) ? T.suitRed : T.ink}>{SUIT[card.s]}</text>
-        </svg>
+        <CardGlyph card={card} />
       </button>
     </div>
   );
@@ -274,24 +269,6 @@ function PegTrack({ pct }) {
   );
 }
 
-function CatBars({ cats, scale, color }) {
-  const max = Math.max(scale, ...cats, 0.001);
-  return (
-    <div style={{ display: "grid", gap: 4 }}>
-      {cats.map((v, i) =>
-        v < 0.005 ? null : (
-          <div key={i} style={{ display: "grid", gridTemplateColumns: "58px 1fr 30px", gap: 8, alignItems: "center" }}>
-            <span style={{ fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted }}>{catName(i)}</span>
-            <span style={{ height: 7, background: "rgba(0,0,0,0.28)", borderRadius: 4, overflow: "hidden" }}>
-              <span style={{ display: "block", height: "100%", width: `${(v / max) * 100}%`, background: color }} />
-            </span>
-            <span style={{ fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", textAlign: "right" }}>{v}</span>
-          </div>
-        )
-      )}
-    </div>
-  );
-}
 /* ============================ GAME STATE ============================ */
 // 5- and 6-handed are short games to 61 (the skunk/double-skunk lines halve to
 // match: 30 and 15); everyone else plays the full 121.
@@ -1281,7 +1258,7 @@ export default function CribbagePlay() {
         "--cw": "min(68px, calc((min(100vw, 560px) - 62px) / 6))",
         "--ch": "calc(var(--cw) * 1.41176)",
       }}>
-        {settingsOpen && <SettingsPanel settings={settings} dispatch={dispatch} onClose={() => setSettingsOpen(false)} onAbout={() => { setSettingsOpen(false); setAboutOpen(true); }} onHistory={() => { setSettingsOpen(false); setHistoryOpen(true); }} />}
+        {settingsOpen && <SettingsPanel settings={settings} dispatch={dispatch} hasHumans={nHumans(clampPlayers(settings.players), settings) >= 1} onClose={() => setSettingsOpen(false)} onAbout={() => { setSettingsOpen(false); setAboutOpen(true); }} onHistory={() => { setSettingsOpen(false); setHistoryOpen(true); }} />}
         {/* Score banner. (The crib's stored home now hangs off the LEFT edge of the play area —
             see PlayScreen's data-slot "cribhome" — rather than tucking behind this banner.) */}
         <div style={{ position: "relative", zIndex: 6, background: `radial-gradient(120% 200% at 50% -40%, ${T.baizeHi}, ${T.baize})` }}>
@@ -1422,12 +1399,7 @@ function CardFace({ card, edge }) {
       border: edge ? `2px solid ${edge}` : "1px solid rgba(0,0,0,0.25)",
       boxShadow: edge ? "0 8px 18px rgba(0,0,0,0.45)" : "0 4px 10px rgba(0,0,0,0.35)",
     }}>
-      <svg viewBox="0 0 68 96" preserveAspectRatio="xMidYMid meet" aria-hidden="true"
-        style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", display: "block" }}>
-        <text x="13" y="15" textAnchor="middle" dominantBaseline="central" fontFamily={serif} fontWeight="700" fontSize="17" fill={isRed(card.s) ? T.suitRed : T.ink}>{rankLabel(card.r)}</text>
-        <text x="13" y="30" textAnchor="middle" dominantBaseline="central" fontFamily={serif} fontWeight="700" fontSize="13" fill={isRed(card.s) ? T.suitRed : T.ink}>{SUIT[card.s]}</text>
-        <text x="34" y="49" textAnchor="middle" dominantBaseline="central" fontFamily={serif} fontSize="34" fill={isRed(card.s) ? T.suitRed : T.ink}>{SUIT[card.s]}</text>
-      </svg>
+      <CardGlyph card={card} />
     </div>
   );
 }
@@ -2594,238 +2566,12 @@ function DiscardWarning({ pd, cribIsOurs, dispatch, onCancel }) {
   );
 }
 
-function SettingsPanel({ settings, dispatch, onClose, onAbout, onHistory }) {
-  const hasHumans = nHumans(clampPlayers(settings.players), settings) >= 1;   // muggins needs at least one human
-  const [confirmReset, setConfirmReset] = React.useState(false);
-  const [resetMsg, setResetMsg] = React.useState(false);   // "already at defaults" toast
-  React.useEffect(() => { if (!resetMsg) return; const t = setTimeout(() => setResetMsg(false), 2600); return () => clearTimeout(t); }, [resetMsg]);
-  // The play-page reset keeps the table size/teams + seats/names; everything else returns to default.
-  const tapReset = () => { if (settingsAtDefaults(settings, ["players", "teams", "seats", "names"])) setResetMsg(true); else setConfirmReset(true); };
-  const Row = ({ title, desc, k, options, disabled }) => (
-    <div style={{ marginBottom: 14, opacity: disabled ? 0.5 : 1 }}>
-      <div style={{ fontWeight: 700, fontSize: "max(13.5px, var(--min-fs, 0px))" }}>{title}</div>
-      <div style={{ fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, margin: "2px 0 7px", lineHeight: 1.45 }}>{desc}</div>
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        {options.map(([label, val]) => (
-          <button key={String(val)} disabled={disabled} onClick={disabled ? undefined : () => dispatch({ type: "SET_SETTING", key: k, value: val })} style={{ ...segStyle(settings[k] === val), cursor: disabled ? "default" : "pointer" }}>{label}</button>
-        ))}
-      </div>
-    </div>
-  );
-  const off = tr("common.off"), on = tr("common.on"), manual = tr("common.manual"), auto = tr("common.auto");
-  return (
-    <>
-    <Modal onBackdrop={onClose} maxWidth={420} padding="14px 16px 4px" scroll cardStyle={{ maxHeight: "88vh" }}>
-      <ModalHeader title={tr("settings.title")} onClose={onClose}>
-        <span style={{ fontWeight: 700, fontSize: "max(16px, var(--min-fs, 0px))" }}>{tr("settings.title")}</span>
-      </ModalHeader>
-      <SettingsSection title={tr("settings.group.controls")}>
-        <Row title={tr("settings.speed.title")} k="speed"
-          desc={tr("settings.speed.desc")}
-          options={[[tr("settings.speed.optSlow"), "slow"], [tr("settings.speed.optNormal"), "normal"], [tr("settings.speed.optFast"), "fast"], [tr("settings.speed.optLightning"), "lightning"], [tr("settings.speed.optInstant"), "instant"]]} />
-        <Row title={tr("settings.tapToSelect.title")} k="tapToSelect"
-          desc={tr("settings.tapToSelect.desc")}
-          options={[[off, false], [on, true]]} />
-        <Row title={tr("settings.warn.title")} k="warn"
-          desc={tr("settings.warn.desc")}
-          options={[[on, true], [off, false]]} />
-      </SettingsSection>
-      <SettingsSection title={tr("settings.group.automation")}>
-        <Row title={tr("settings.autoDeal.title")} k="autoDeal"
-          desc={tr("settings.autoDeal.desc")}
-          options={[[off, false], [on, true]]} />
-        <Row title={tr("settings.autoCut.title")} k="autoCut"
-          desc={tr("settings.autoCut.desc")}
-          options={[[manual, false], [auto, true]]} />
-        <Row title={tr("settings.autoDiscardBest.title")} k="autoDiscardBest"
-          desc={tr("settings.autoDiscardBest.desc")}
-          options={[[off, false], [on, true]]} />
-        <Row title={tr("settings.autoPlayOne.title")} k="autoPlayOne"
-          desc={tr("settings.autoPlayOne.desc")}
-          options={[[off, false], [on, true]]} />
-        <Row title={tr("settings.autoPlayBest.title")} k="autoPlayBest"
-          desc={tr("settings.autoPlayBest.desc")}
-          options={[[off, false], [on, true]]} />
-        <Row title={tr("settings.autoGo.title")} k="autoGo"
-          desc={tr("settings.autoGo.desc")}
-          options={[[manual, false], [auto, true]]} />
-        <Row title={tr("settings.autoContinue.title")} k="autoContinue"
-          desc={tr("settings.autoContinue.desc")}
-          options={[[off, false], [on, true]]} />
-      </SettingsSection>
-      <SettingsSection title={tr("settings.group.counting")}>
-        <Row title={tr("settings.counting.title")} k="counting" disabled={!hasHumans}
-          desc={tr(hasHumans ? "settings.counting.desc" : "settings.counting.disabledDesc")}
-          options={[[tr("settings.counting.optAuto"), "auto"], [tr("settings.counting.optMuggins"), "muggins"]]} />
-        <Row title={tr("settings.claimWarn.title")} k="claimWarn" disabled={!(hasHumans && settings.counting === "muggins")}
-          desc={tr("settings.claimWarn.desc")}
-          options={[[on, true], [off, false]]} />
-      </SettingsSection>
-      <Row title={tr("settings.textSize.title")} k="textSize"
-        desc={tr("settings.textSize.desc")}
-        options={[[tr("settings.textSize.optSmall"), "small"], [tr("settings.textSize.optMedium"), "medium"], [tr("settings.textSize.optLarge"), "large"], [tr("settings.textSize.optXLarge"), "xlarge"]]} />
-      <LanguageRow />
-      <div style={{ borderTop: `1px solid ${T.line}`, margin: "2px -16px 0", padding: "12px 16px 0" }}>
-        <button onClick={onHistory} style={{ width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700 }}>{tr("settings.history")}</button>
-      </div>
-      <button onClick={tapReset} style={{ width: "100%", margin: "10px 0 0", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700 }}>{tr("settings.resetDefaults")}</button>
-      {resetMsg && (
-        <div onClick={() => setResetMsg(false)} role="status" style={{
-          position: "fixed", left: "50%", top: 72, transform: "translateX(-50%)", zIndex: 240,
-          background: `linear-gradient(180deg, ${T.woodL}, ${T.woodM})`, border: `1px solid ${T.pegIvory}`, borderRadius: 10, padding: "10px 16px",
-          boxShadow: `0 8px 26px rgba(0,0,0,0.55), 0 0 0 3px ${T.baize}`, fontWeight: 700, fontSize: "max(14px, var(--min-fs, 0px))", color: T.ink,
-          cursor: "pointer", maxWidth: "90vw", textAlign: "center",
-        }}>{tr("settings.reset.alreadyDefault")}</div>
-      )}
-      <AboutRow onAbout={onAbout} />
-      <button onClick={onClose} style={{
-        width: "100%", margin: "12px 0 10px", padding: "12px", borderRadius: 9, border: "none", cursor: "pointer",
-        background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory,
-        fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
-      }}>{tr("settings.continue")}</button>
-    </Modal>
-    {confirmReset && (
-      <Modal onBackdrop={() => setConfirmReset(false)} maxWidth={360} padding="18px" zIndex={230}>
-        <div style={{ fontWeight: 700, fontSize: "max(16px, var(--min-fs, 0px))", marginBottom: 6 }}>{tr("settings.reset.title")}</div>
-        <div style={{ fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.muted, lineHeight: 1.5, marginBottom: 16 }}>{tr("settings.reset.body")}</div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={() => setConfirmReset(false)} style={{ flex: 1, padding: "12px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer", background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: "max(13px, var(--min-fs, 0px))", fontWeight: 700 }}>{tr("common.cancel")}</button>
-          <button onClick={() => { setConfirmReset(false); dispatch({ type: "RESET_SETTINGS" }); }} style={{ flex: 1, padding: "12px", borderRadius: 9, border: "none", cursor: "pointer", background: `linear-gradient(180deg, ${T.pegRed}, #9c3120)`, color: T.ivory, fontFamily: mono, fontSize: "max(13px, var(--min-fs, 0px))", fontWeight: 700 }}>{tr("settings.reset.confirm")}</button>
-        </div>
-      </Modal>
-    )}
-    </>
-  );
-}
 
 // Global language chooser (shared via window.i18n / localStorage; reloads to apply). Only
 // shown when more than one language is registered.
-function LanguageRow() {
-  const i = (typeof window !== "undefined") ? window.i18n : null;
-  const langs = i ? i.languages() : [];
-  if (!i || langs.length <= 1) return null;
-  return (
-    <div style={{ marginBottom: 14 }}>
-      <div style={{ fontWeight: 700, fontSize: "max(13.5px, var(--min-fs, 0px))" }}>{window.t ? window.t("common.language") : "Language"}</div>
-      <select defaultValue={i.lang} onChange={(e) => i.choose(e.target.value)}
-        style={{ marginTop: 7, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.cream, background: "rgba(0,0,0,0.25)", border: `1px solid ${T.line}`, borderRadius: 8, padding: "8px 10px" }}>
-        {langs.map((l) => <option key={l.code} value={l.code}>{l.name}</option>)}
-      </select>
-    </div>
-  );
-}
 
-function AboutRow({ onAbout }) {
-  return (
-    <div style={{ margin: "0 -16px 0", padding: "8px 16px 4px" }}>
-      <button onClick={onAbout} style={{
-        width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer",
-        border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream,
-        fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700,
-      }}>{tr("settings.aboutFeedback")}</button>
-    </div>
-  );
-}
 
-function HistoryModal({ onClose }) {
-  const [tick, setTick] = React.useState(0);
-  const all = loadHistory();
-  const [sel, setSel] = React.useState("all");
-  const [confirmClear, setConfirmClear] = React.useState(false);
-  const keyOf = (r) => `${r.P}/${r.teams}`;
-  const cfgLabel = (P, t) => (t < P ? tr("play.hist.cfgTeams", { p: P, teams: t }) : tr("play.hist.cfgHanded", { p: P }));
-  const configs = Array.from(new Set(all.map(keyOf))).sort((a, b) => {
-    const [pa, ta] = a.split("/").map(Number), [pb, tb] = b.split("/").map(Number);
-    return pa - pb || tb - ta;
-  });
-  const filtered = sel === "all" ? all : all.filter((r) => keyOf(r) === sel);
-  const games = filtered.length;
-  const cnt = (o) => filtered.filter((r) => r.outcome === o).length;
-  const won = cnt("won"), lost = cnt("lost"), sk = cnt("skunked"), dsk = cnt("doubleSkunked");
-  const avg = (k) => (games ? filtered.reduce((a, r) => a + (r[k] || 0), 0) / games : 0);
-  const winPct = games ? Math.round((won / games) * 100) : 0;
-  const specific = sel !== "all";
 
-  const chip = (key, label) => (
-    <button key={key} onClick={() => { setSel(key); setConfirmClear(false); }} style={{
-      padding: "6px 10px", borderRadius: 7, cursor: "pointer", fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", fontWeight: 700,
-      border: `1px solid ${sel === key ? T.pegIvory : T.line}`,
-      background: sel === key ? T.pegIvory : "rgba(0,0,0,0.25)", color: sel === key ? "#2A1B0E" : T.cream,
-    }}>{label}</button>
-  );
-  const Stat = ({ label, value, accent }) => (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "7px 0", borderBottom: `1px solid ${T.line}` }}>
-      <span style={{ fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.muted }}>{label}</span>
-      <span style={{ fontFamily: serif, fontSize: "max(16px, var(--min-fs, 0px))", fontWeight: 700, color: accent || T.cream }}>{value}</span>
-    </div>
-  );
-
-  return (
-    <Modal onBackdrop={onClose} scroll>
-      <ModalHeader title={tr("play.hist.title")} onClose={onClose} mb={14} />
-
-        {all.length === 0 ? (
-          <div style={{ fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.muted, lineHeight: 1.6 }} data-tick={tick}>{tr("play.hist.empty")}</div>
-        ) : (
-          <React.Fragment>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
-              {chip("all", tr("play.hist.all"))}
-              {configs.map((k) => { const [P, t] = k.split("/").map(Number); return chip(k, cfgLabel(P, t)); })}
-            </div>
-
-            <Stat label={tr("play.hist.games")} value={games} />
-            <Stat label={tr("play.hist.won")} value={tr("play.hist.wonValue", { n: won, pct: winPct })} accent={T.good} />
-            <Stat label={tr("play.hist.lost")} value={lost} />
-            <Stat label={tr("play.hist.skunked")} value={sk} accent={sk ? T.pegRed : T.cream} />
-            <Stat label={tr("play.hist.dblSkunked")} value={dsk} accent={dsk ? T.pegRed : T.cream} />
-
-            {specific ? (
-              <React.Fragment>
-                <div style={{ fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, margin: "14px 0 4px", letterSpacing: 0.3 }}>{tr("play.hist.avgHeader")}</div>
-                <Stat label={tr("play.hist.pegging")} value={avg("peg").toFixed(1)} />
-                <Stat label={tr("play.hist.hand")} value={avg("hand").toFixed(1)} />
-                <Stat label={tr("play.hist.crib")} value={avg("crib").toFixed(1)} />
-              </React.Fragment>
-            ) : (
-              <div style={{ fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, marginTop: 12, lineHeight: 1.5 }}>{tr("play.hist.pickHint")}</div>
-            )}
-
-            <button onClick={() => { if (confirmClear) { clearHistory(); setSel("all"); setConfirmClear(false); setTick(tick + 1); } else setConfirmClear(true); }} style={{
-              width: "100%", marginTop: 16, padding: "10px", borderRadius: 9, cursor: "pointer",
-              border: `1px solid ${confirmClear ? T.pegRed : T.line}`, background: "rgba(0,0,0,0.25)",
-              color: confirmClear ? T.pegRed : T.muted, fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", fontWeight: 700,
-            }}>{confirmClear ? tr("play.hist.clearConfirm") : tr("play.hist.clear")}</button>
-          </React.Fragment>
-        )}
-    </Modal>
-  );
-}
-
-function AboutModal({ onClose }) {
-  const REPO = "https://github.com/ghug/cribbage-trainer/";
-  return (
-    <Modal onBackdrop={onClose}>
-      <ModalHeader onClose={onClose}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span aria-hidden="true" style={{ flex: "0 0 auto", width: 34, height: 34, borderRadius: 8, background: "rgba(0,0,0,0.25)", color: T.ivory, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "max(19px, var(--min-fs, 0px))", lineHeight: 1 }}>♣</span>
-          <span style={{ fontWeight: 700, fontSize: "max(17px, var(--min-fs, 0px))" }}>{tr("about.title")}</span>
-        </div>
-      </ModalHeader>
-      <div style={{ fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.cream, lineHeight: 1.6, marginBottom: 12 }}>
-        {tr("about.line1")}
-      </div>
-      <div style={{ fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.cream, lineHeight: 1.6, marginBottom: 16 }}>
-        {tr("about.line2")}
-      </div>
-      <a href={REPO} target="_blank" rel="noopener noreferrer" style={{
-        display: "block", textAlign: "center", padding: "12px", borderRadius: 9, textDecoration: "none", boxSizing: "border-box",
-        background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
-      }}>{tr("about.sourceLink")}</a>
-      <div style={{ fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" }}>github.com/ghug/cribbage-trainer</div>
-      <div style={{ fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" }}>v__APP_VERSION__</div>
-    </Modal>
-  );
-}
 
 // Tap-to-review: a scrolling list of every status message so far this game (latest at the
 // bottom). Same baize card styling as the About modal; opening it pauses the game (autoPaused).

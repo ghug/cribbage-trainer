@@ -36,7 +36,7 @@ langs.forEach((l) => { if (!cats[l.code]) fail(`index.js lists "${l.code}" but l
 if (!cats.en) fail("locales/en.js registered no keys (it is the required source of truth)");
 
 // 3) Every key referenced in the app (data-i18n attrs, t()/tr() calls) must exist in en.js.
-const SRC = ["src/landing.html", "src/CribbagePlay.jsx", "src/CribbageTrainer.jsx"];
+const SRC = ["src/landing.html", "src/CribbagePlay.jsx", "src/CribbageTrainer.jsx", "src/chrome.jsx"];
 const PATTERNS = [
   /data-i18n(?:-html|-aria)?="([a-zA-Z0-9._]+)"/g,   // static HTML attributes
   /window\.t\(\s*["']([a-zA-Z0-9._]+)["']/g,          // React/JS: window.t("key")

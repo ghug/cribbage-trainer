@@ -238,7 +238,7 @@ cribbageLocale("en", {
   "landing.tagline": "play vs bots or friends and sharpen your discards",
   "landing.playersAtTable": "Players at the table",
   "landing.seatHint": "Tap a seat to cycle: 🧑 human, then 🤖 easy / medium / hard bot.",
-  "landing.seatHintEdit": "Edit and lock-in player names if you need to adjust any from bot/human",
+  "landing.seatHintEdit": "Tap and type custom names, and then lock-in below if you need to adjust any from bot/human",
   "landing.setNames": "Edit player names",
   "landing.saveNames": "Lock-in player names",
   "landing.resetNames": "Reset names",

@@ -902,7 +902,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.20";
+const APP_VERSION = "1.1.21-dev.1";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -2348,7 +2348,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
     const teammateDeals = cribOurs && !isDealer;
     const [cribNote, setCribNote] = React.useState(false);
     React.useEffect(() => { if (!cribNote)
-        return; const t = setTimeout(() => setCribNote(false), spd(2800)); return () => clearTimeout(t); }, [cribNote]);
+        return; const t = setTimeout(() => setCribNote(false), 2800); return () => clearTimeout(t); }, [cribNote]);
     const cribOwnerText = (solo && cribOurs)
         ? (isDealer ? tr("play.cribNote.yours") : tr("play.cribNote.team"))
         : tr("play.cribNote.seat", { seat: seatName(dealerIdx) });
@@ -3100,7 +3100,7 @@ function AboutModal({ onClose }) {
                 background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
             } }, tr("about.sourceLink")),
         React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.20")));
+        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.21-dev.1")));
 }
 function MessageLogModal({ log, onClose }) {
     const scrollRef = React.useRef(null);

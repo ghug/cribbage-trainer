@@ -559,7 +559,7 @@ function SettingsSection({ title, defaultOpen, children }) {
 // game (one localStorage object), so any toggle here sticks everywhere. The trainer's own setup
 // (table size, practice-as role, new-hand mode) is NOT here — it lives inline on the main screen
 // (InlineSetup), above the board-position item, alongside the analysis it drives.
-function SettingsPanel({ settings, onSet, onReset, onClose, onAbout }) {
+function SettingsPanel({ settings, onSet, onReset, onClose, onAbout, onHistory }) {
   const soloGame = humanCountT(settings) === 1;
   const [confirmReset, setConfirmReset] = React.useState(false);
   const Row = ({ title, desc, k, options, disabled }) => (
@@ -605,7 +605,10 @@ function SettingsPanel({ settings, onSet, onReset, onClose, onAbout }) {
           desc={tr("settings.claimWarn.desc")} options={[[on, true], [off, false]]} />
       </SettingsSection>
       <LanguageRow />
-      <button onClick={() => setConfirmReset(true)} style={{ width: "100%", margin: "2px 0 0", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700 }}>{tr("settings.resetDefaults")}</button>
+      <div style={{ borderTop: `1px solid ${T.line}`, margin: "2px -16px 0", padding: "12px 16px 0" }}>
+        <button onClick={onHistory} style={{ width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700 }}>{tr("settings.history")}</button>
+      </div>
+      <button onClick={() => setConfirmReset(true)} style={{ width: "100%", margin: "10px 0 0", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700 }}>{tr("settings.resetDefaults")}</button>
       <AboutRow onAbout={onAbout} />
       <button onClick={onClose} style={{
         width: "100%", margin: "12px 0 10px", padding: "12px", borderRadius: 9, border: "none", cursor: "pointer",
@@ -624,6 +627,79 @@ function SettingsPanel({ settings, onSet, onReset, onClose, onAbout }) {
       </Modal>
     )}
     </>
+  );
+}
+
+// Game history — the same cribbage:history store the Play game writes (this trainer only reads/clears
+// it). Ported verbatim from the Play game's HistoryModal so the settings menus match across pages.
+const HISTORY_KEY = "cribbage:history";
+function loadHistory() { try { const r = localStorage.getItem(HISTORY_KEY); return r ? JSON.parse(r) : []; } catch (e) { return []; } }
+function clearHistory() { try { localStorage.removeItem(HISTORY_KEY); } catch (e) {} }
+function HistoryModal({ onClose }) {
+  const [tick, setTick] = React.useState(0);
+  const all = loadHistory();
+  const [sel, setSel] = React.useState("all");
+  const [confirmClear, setConfirmClear] = React.useState(false);
+  const keyOf = (r) => `${r.P}/${r.teams}`;
+  const cfgLabel = (P, t) => (t < P ? tr("play.hist.cfgTeams", { p: P, teams: t }) : tr("play.hist.cfgHanded", { p: P }));
+  const configs = Array.from(new Set(all.map(keyOf))).sort((a, b) => {
+    const [pa, ta] = a.split("/").map(Number), [pb, tb] = b.split("/").map(Number);
+    return pa - pb || tb - ta;
+  });
+  const filtered = sel === "all" ? all : all.filter((r) => keyOf(r) === sel);
+  const games = filtered.length;
+  const cnt = (o) => filtered.filter((r) => r.outcome === o).length;
+  const won = cnt("won"), lost = cnt("lost"), sk = cnt("skunked"), dsk = cnt("doubleSkunked");
+  const avg = (k) => (games ? filtered.reduce((a, r) => a + (r[k] || 0), 0) / games : 0);
+  const winPct = games ? Math.round((won / games) * 100) : 0;
+  const specific = sel !== "all";
+  const chip = (key, label) => (
+    <button key={key} onClick={() => { setSel(key); setConfirmClear(false); }} style={{
+      padding: "6px 10px", borderRadius: 7, cursor: "pointer", fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", fontWeight: 700,
+      border: `1px solid ${sel === key ? T.pegIvory : T.line}`,
+      background: sel === key ? T.pegIvory : "rgba(0,0,0,0.25)", color: sel === key ? "#2A1B0E" : T.cream,
+    }}>{label}</button>
+  );
+  const Stat = ({ label, value, accent }) => (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "7px 0", borderBottom: `1px solid ${T.line}` }}>
+      <span style={{ fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.muted }}>{label}</span>
+      <span style={{ fontFamily: serif, fontSize: "max(16px, var(--min-fs, 0px))", fontWeight: 700, color: accent || T.cream }}>{value}</span>
+    </div>
+  );
+  return (
+    <Modal onBackdrop={onClose} scroll>
+      <ModalHeader title={tr("play.hist.title")} onClose={onClose} mb={14} />
+        {all.length === 0 ? (
+          <div style={{ fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.muted, lineHeight: 1.6 }} data-tick={tick}>{tr("play.hist.empty")}</div>
+        ) : (
+          <React.Fragment>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+              {chip("all", tr("play.hist.all"))}
+              {configs.map((k) => { const [P, t] = k.split("/").map(Number); return chip(k, cfgLabel(P, t)); })}
+            </div>
+            <Stat label={tr("play.hist.games")} value={games} />
+            <Stat label={tr("play.hist.won")} value={tr("play.hist.wonValue", { n: won, pct: winPct })} accent={T.good} />
+            <Stat label={tr("play.hist.lost")} value={lost} />
+            <Stat label={tr("play.hist.skunked")} value={sk} accent={sk ? T.pegRed : T.cream} />
+            <Stat label={tr("play.hist.dblSkunked")} value={dsk} accent={dsk ? T.pegRed : T.cream} />
+            {specific ? (
+              <React.Fragment>
+                <div style={{ fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, margin: "14px 0 4px", letterSpacing: 0.3 }}>{tr("play.hist.avgHeader")}</div>
+                <Stat label={tr("play.hist.pegging")} value={avg("peg").toFixed(1)} />
+                <Stat label={tr("play.hist.hand")} value={avg("hand").toFixed(1)} />
+                <Stat label={tr("play.hist.crib")} value={avg("crib").toFixed(1)} />
+              </React.Fragment>
+            ) : (
+              <div style={{ fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, marginTop: 12, lineHeight: 1.5 }}>{tr("play.hist.pickHint")}</div>
+            )}
+            <button onClick={() => { if (confirmClear) { clearHistory(); setSel("all"); setConfirmClear(false); setTick(tick + 1); } else setConfirmClear(true); }} style={{
+              width: "100%", marginTop: 16, padding: "10px", borderRadius: 9, cursor: "pointer",
+              border: `1px solid ${confirmClear ? T.pegRed : T.line}`, background: "rgba(0,0,0,0.25)",
+              color: confirmClear ? T.pegRed : T.muted, fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", fontWeight: 700,
+            }}>{confirmClear ? tr("play.hist.clearConfirm") : tr("play.hist.clear")}</button>
+          </React.Fragment>
+        )}
+    </Modal>
   );
 }
 
@@ -893,6 +969,7 @@ export default function CribbageTrainer() {
   const [showModel, setShowModel] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);   // the "Deal custom" deck picker
   const [showBoard, setShowBoard] = useState(false);
   const [yourPips, setYourPips] = useState(0);
@@ -913,8 +990,12 @@ export default function CribbageTrainer() {
 
   const opts = useMemo(() => (phase === "revealed" ? analyze(hand, scenario, mode, players, teams) : null), [phase, hand, scenario, mode, players, teams]);
 
+  // customHandRef marks the current hand as a "Deal custom" one, so it can be excluded from the
+  // header hand stats (those track your random-deal practice, not hands you set up yourself).
+  const customHandRef = useRef(false);
   const dealHand = useCallback((p) => {
     const sc = trainerScenario(roleMode, p, teams);
+    customHandRef.current = false;
     setHand(randomHand(p === 2 ? 6 : 5)); setScenario(sc);
     setSelected([]); setChosenId(null); setExpanded(null); setPhase("choose");
   }, [roleMode, teams]);
@@ -928,6 +1009,7 @@ export default function CribbageTrainer() {
     // defend into someone else's. (Forced-defend solo 5/6 passes asDealer=false — the toggle is hidden.)
     const sc = asDealer ? { youDeal: true, cribIsOurs: true } : { youDeal: false, cribIsOurs: false };
     forcePickRef.current = true;                          // a custom hand always reveals the best
+    customHandRef.current = true;                          // …but it's excluded from the hand stats
     setHand(cards.slice().sort((a, b) => a.r - b.r || a.s - b.s)); setScenario(sc);
     setSelected([]); setChosenId(null); setExpanded(null); setPhase("choose");
     setPickerOpen(false);
@@ -942,6 +1024,7 @@ export default function CribbageTrainer() {
     if (p === players) return;
     setSettings((prev) => { const next = { ...prev, players: p, teams: p }; saveSettings(next); return next; });
     setRoleMode("random");
+    customHandRef.current = false;
     setHand(randomHand(p === 2 ? 6 : 5));
     setScenario(trainerScenario("random", p, p));
     setSelected([]); setChosenId(null); setExpanded(null); setPhase("choose");
@@ -960,6 +1043,7 @@ export default function CribbageTrainer() {
       saveSettings(next); return next;
     });
     setRoleMode("random");
+    customHandRef.current = false;
     setHand(randomHand(dp === 2 ? 6 : 5));
     setScenario(trainerScenario("random", dp, dt));
     setSelected([]); setChosenId(null); setExpanded(null); setPhase("choose");
@@ -972,7 +1056,8 @@ export default function CribbageTrainer() {
     const chosen = res.find((o) => o.id === id);
     const delta = best.adj - chosen.adj;
     setChosenId(id); setExpanded(null); setPhase("revealed");
-    setStats((s) => ({ hands: s.hands + 1, optimal: s.optimal + (delta < 0.1 ? 1 : 0), lost: s.lost + delta }));
+    if (!customHandRef.current)   // custom ("Deal custom") hands don't count toward the header stats
+      setStats((s) => ({ hands: s.hands + 1, optimal: s.optimal + (delta < 0.1 ? 1 : 0), lost: s.lost + delta }));
   }, [hand, scenario, mode, players, teams]);
 
   // Auto-pick the optimal discard once a hand is in the choose phase — when the setting is
@@ -1059,8 +1144,9 @@ export default function CribbageTrainer() {
       </header>
 
       <main style={{ maxWidth: 560, margin: "0 auto", padding: "18px 16px 0" }}>
-        {showSettings && <SettingsPanel settings={settings} onSet={setSetting} onReset={resetSettings} onClose={() => setShowSettings(false)} onAbout={() => { setShowSettings(false); setAboutOpen(true); }} />}
+        {showSettings && <SettingsPanel settings={settings} onSet={setSetting} onReset={resetSettings} onClose={() => setShowSettings(false)} onAbout={() => { setShowSettings(false); setAboutOpen(true); }} onHistory={() => { setShowSettings(false); setHistoryOpen(true); }} />}
         {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
+        {historyOpen && <HistoryModal onClose={() => setHistoryOpen(false)} />}
         {pickerOpen && <CardPicker count={handSize} onPick={dealCustom} onClose={() => setPickerOpen(false)} dealerInit={scenario.youDeal} canDeal={!(teams === players && players >= 5)} />}
         <div style={{
           display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", borderRadius: 10,

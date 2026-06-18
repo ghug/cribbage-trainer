@@ -64,7 +64,6 @@
   .modal{ max-width:380px; width:100%; box-sizing:border-box; background:var(--baize);
     border:1px solid var(--line); border-radius:14px; padding:20px; box-shadow:0 14px 44px rgba(0,0,0,0.55);
     max-height:85vh; overflow:auto }
-  .set-intro{ font-family:var(--mono); font-size:max(11px, var(--min-fs, 0px)); color:var(--muted); line-height:1.5; margin:0 0 14px }
   .set-row{ margin-bottom:14px }
   .set-title{ font-weight:700; font-size:max(13.5px, var(--min-fs, 0px)); color:var(--ivory) }
   .set-desc{ font-family:var(--mono); font-size:max(10.5px, var(--min-fs, 0px)); color:var(--muted); margin:2px 0 7px; line-height:1.45 }
@@ -100,6 +99,21 @@
   .link-btn{ background:none; border:none; padding:0; cursor:pointer; font:inherit;
     color:var(--cream); text-decoration:underline; text-underline-offset:2px }
   .link-btn:hover{ color:var(--ivory) }
+  .hist-chips{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px }
+  .hist-chip{ padding:6px 10px; border-radius:7px; cursor:pointer; font-family:var(--mono); font-weight:700;
+    font-size:max(11px, var(--min-fs, 0px)); background:rgba(0,0,0,0.25); color:var(--cream); border:1px solid var(--line) }
+  .hist-chip.on{ background:#ECDCB4; color:#2A1B0E; border-color:#ECDCB4 }
+  .hist-stat{ display:flex; justify-content:space-between; align-items:baseline; padding:7px 0; border-bottom:1px solid var(--line) }
+  .hist-stat .lbl{ font-family:var(--mono); font-size:max(12px, var(--min-fs, 0px)); color:var(--muted) }
+  .hist-stat .val{ font-family:var(--serif); font-size:max(16px, var(--min-fs, 0px)); font-weight:700; color:var(--cream) }
+  .hist-stat .val.good{ color:var(--good) }
+  .hist-stat .val.red{ color:var(--pegRed) }
+  .hist-sub{ font-family:var(--mono); font-size:max(10.5px, var(--min-fs, 0px)); color:var(--muted); margin:14px 0 4px; letter-spacing:0.3px }
+  .hist-hint{ font-family:var(--mono); font-size:max(10.5px, var(--min-fs, 0px)); color:var(--muted); margin-top:12px; line-height:1.5 }
+  .hist-empty{ font-family:var(--mono); font-size:max(12px, var(--min-fs, 0px)); color:var(--muted); line-height:1.6 }
+  .hist-clear{ width:100%; margin-top:16px; padding:10px; border-radius:9px; cursor:pointer; font-weight:700;
+    border:1px solid var(--line); background:rgba(0,0,0,0.25); color:var(--muted); font-family:var(--mono); font-size:max(11.5px, var(--min-fs, 0px)) }
+  .hist-clear.confirm{ border-color:var(--pegRed); color:var(--pegRed) }
   .rules{ margin:0 0 16px; background:rgba(0,0,0,0.22); border:1px solid var(--line);
     border-radius:14px; overflow:hidden }
   .rules > summary{ cursor:pointer; list-style:none; padding:18px 20px; font-size:max(18px, var(--min-fs, 0px));
@@ -270,11 +284,10 @@
         <h2 data-i18n="settings.title">Settings</h2>
         <button class="btn btn-ghost btn-sm" id="settingsDone" type="button" data-i18n="common.done">Done</button>
       </div>
-      <p class="set-intro" data-i18n="settings.intro">These apply to the Play game and are saved on this device. (The
-        number of players is set above, on the home page.)</p>
       <div id="settingsList"></div>
       <div class="set-row"><div class="set-title" data-i18n="common.language">Language</div>
         <div class="lang-row" style="justify-content:flex-start;margin-top:7px"><select id="langPick"></select></div></div>
+      <button class="btn btn-ghost" id="openHistory" type="button" style="margin-top:6px" data-i18n="settings.history">Game history</button>
       <button class="btn btn-ghost" id="resetSettings" type="button" style="margin-top:6px" data-i18n="settings.resetDefaults">Reset game settings to defaults</button>
       <button class="btn btn-ghost" id="openAbout" type="button" style="margin-top:6px" data-i18n="settings.aboutFeedback">About &amp; feedback</button>
       <button class="btn btn-primary" id="settingsContinue" type="button" style="margin:12px 0 10px" data-i18n="settings.continue">Continue game</button>
@@ -320,14 +333,71 @@
     </div>
   </div>
 
+  <div class="overlay" id="historyOverlay" role="dialog" aria-modal="true" aria-label="Game history" data-i18n-aria="play.hist.title">
+    <div class="modal">
+      <div class="modal-head">
+        <h2 data-i18n="play.hist.title">Game history</h2>
+        <button class="btn btn-ghost btn-sm" id="historyDone" type="button" data-i18n="common.done">Done</button>
+      </div>
+      <div id="historyBody"></div>
+    </div>
+  </div>
+
   <script>
     (function () {
       var s = document.getElementById('settingsOverlay');
       var a = document.getElementById('aboutOverlay');
       var c = document.getElementById('confirmResetOverlay');
       var cn = document.getElementById('confirmResetNamesOverlay');
+      var h = document.getElementById('historyOverlay');
       function open(el) { el.classList.add('open'); }
       function close(el) { el.classList.remove('open'); }
+
+      // Game history (same cribbage:history store the Play game writes; this view mirrors the Play
+      // game's HistoryModal — the settings menus are identical across all three pages).
+      var HISTORY_KEY = 'cribbage:history';
+      function loadHistory() { try { var r = localStorage.getItem(HISTORY_KEY); return r ? JSON.parse(r) : []; } catch (e) { return []; } }
+      function clearHistory() { try { localStorage.removeItem(HISTORY_KEY); } catch (e) {} }
+      var histSel = 'all', histConfirmClear = false;
+      function histChip(key, label) { return '<button class="hist-chip' + (histSel === key ? ' on' : '') + '" type="button" data-key="' + esc(key) + '">' + esc(label) + '</button>'; }
+      function histStat(label, value, accent) { return '<div class="hist-stat"><span class="lbl">' + esc(label) + '</span><span class="val' + (accent ? ' ' + accent : '') + '">' + esc(value) + '</span></div>'; }
+      function renderHistory() {
+        var body = document.getElementById('historyBody');
+        var all = loadHistory();
+        if (!all.length) { body.innerHTML = '<div class="hist-empty">' + esc(tr('play.hist.empty')) + '</div>'; return; }
+        var keyOf = function (r) { return r.P + '/' + r.teams; };
+        var cfgLabel = function (P, t) { return t < P ? tr('play.hist.cfgTeams', { p: P, teams: t }) : tr('play.hist.cfgHanded', { p: P }); };
+        var configs = []; all.forEach(function (r) { var k = keyOf(r); if (configs.indexOf(k) < 0) configs.push(k); });
+        configs.sort(function (a, b) { var pa = a.split('/').map(Number), pb = b.split('/').map(Number); return pa[0] - pb[0] || pb[1] - pa[1]; });
+        if (histSel !== 'all' && configs.indexOf(histSel) < 0) histSel = 'all';
+        var filtered = histSel === 'all' ? all : all.filter(function (r) { return keyOf(r) === histSel; });
+        var games = filtered.length;
+        var cnt = function (o) { return filtered.filter(function (r) { return r.outcome === o; }).length; };
+        var won = cnt('won'), lost = cnt('lost'), sk = cnt('skunked'), dsk = cnt('doubleSkunked');
+        var avg = function (k) { return games ? filtered.reduce(function (a, r) { return a + (r[k] || 0); }, 0) / games : 0; };
+        var winPct = games ? Math.round(won / games * 100) : 0;
+        var html = '<div class="hist-chips">' + histChip('all', tr('play.hist.all'));
+        configs.forEach(function (k) { var pt = k.split('/').map(Number); html += histChip(k, cfgLabel(pt[0], pt[1])); });
+        html += '</div>';
+        html += histStat(tr('play.hist.games'), games);
+        html += histStat(tr('play.hist.won'), tr('play.hist.wonValue', { n: won, pct: winPct }), 'good');
+        html += histStat(tr('play.hist.lost'), lost);
+        html += histStat(tr('play.hist.skunked'), sk, sk ? 'red' : '');
+        html += histStat(tr('play.hist.dblSkunked'), dsk, dsk ? 'red' : '');
+        if (histSel !== 'all') {
+          html += '<div class="hist-sub">' + esc(tr('play.hist.avgHeader')) + '</div>';
+          html += histStat(tr('play.hist.pegging'), avg('peg').toFixed(1));
+          html += histStat(tr('play.hist.hand'), avg('hand').toFixed(1));
+          html += histStat(tr('play.hist.crib'), avg('crib').toFixed(1));
+        } else {
+          html += '<div class="hist-hint">' + esc(tr('play.hist.pickHint')) + '</div>';
+        }
+        html += '<button class="hist-clear' + (histConfirmClear ? ' confirm' : '') + '" id="histClear" type="button">' + esc(histConfirmClear ? tr('play.hist.clearConfirm') : tr('play.hist.clear')) + '</button>';
+        body.innerHTML = html;
+        body.querySelectorAll('.hist-chip').forEach(function (b) { b.addEventListener('click', function () { histSel = b.getAttribute('data-key'); histConfirmClear = false; renderHistory(); }); });
+        var cl = document.getElementById('histClear');
+        if (cl) cl.addEventListener('click', function () { if (histConfirmClear) { clearHistory(); histSel = 'all'; histConfirmClear = false; } else histConfirmClear = true; renderHistory(); });
+      }
 
       // ---- i18n: a safe translate alias, the static-text pass, and the language picker ----
       var tr = (window.t) ? window.t : function (k) { return k; };  // falls back to the key
@@ -640,7 +710,7 @@
       // controls (settings rows, players, teams + seat diagram) in the new language, and sync
       // both <select>s (a switch from one shouldn't leave the other showing the old value).
       if (window.i18n && i18n.onChange) i18n.onChange(function () {
-        applyI18n(); renderSettings(); renderPlayers(); renderTeams(); renderNamesButton(); renderSeatHint();
+        applyI18n(); renderSettings(); renderPlayers(); renderTeams(); renderNamesButton(); renderSeatHint(); renderHistory();
         ['langPick', 'footerLangPick'].forEach(function (id) { var el = document.getElementById(id); if (el) el.value = i18n.lang; });
       });
 
@@ -648,6 +718,8 @@
       document.getElementById('settingsDone').addEventListener('click', function () { close(s); });
       document.getElementById('settingsContinue').addEventListener('click', function () { close(s); });
       document.getElementById('openAbout').addEventListener('click', function () { close(s); open(a); });
+      document.getElementById('openHistory').addEventListener('click', function () { histSel = 'all'; histConfirmClear = false; renderHistory(); open(h); });
+      document.getElementById('historyDone').addEventListener('click', function () { close(h); });
       // Reset asks for confirmation first (a popup), then resets everything to defaults EXCEPT the
       // per-seat roles + custom names (the "who's playing" setup) — table size and teams reset too.
       document.getElementById('resetSettings').addEventListener('click', function () { open(c); });
@@ -660,11 +732,11 @@
       });
       document.getElementById('footerAbout').addEventListener('click', function () { open(a); });
       document.getElementById('aboutDone').addEventListener('click', function () { close(a); });
-      [s, a, c, cn].forEach(function (el) {
+      [s, a, c, cn, h].forEach(function (el) {
         el.addEventListener('click', function (e) { if (e.target === el) close(el); });
       });
       document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') { close(s); close(a); close(c); close(cn); }
+        if (e.key === 'Escape') { close(s); close(a); close(c); close(cn); close(h); }
       });
     })();
   </script>

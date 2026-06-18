@@ -1948,7 +1948,7 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
   const teammateDeals = cribOurs && !isDealer;
   // Tap the stored crib to be told whose crib it is (a brief, self-dismissing note).
   const [cribNote, setCribNote] = React.useState(false);
-  React.useEffect(() => { if (!cribNote) return; const t = setTimeout(() => setCribNote(false), spd(2800)); return () => clearTimeout(t); }, [cribNote]);
+  React.useEffect(() => { if (!cribNote) return; const t = setTimeout(() => setCribNote(false), 2800); return () => clearTimeout(t); }, [cribNote]);   // fixed 2.8s — NOT scaled by game speed
   const cribOwnerText = (solo && cribOurs)
     ? (isDealer ? tr("play.cribNote.yours") : tr("play.cribNote.team"))
     : tr("play.cribNote.seat", { seat: seatName(dealerIdx) });

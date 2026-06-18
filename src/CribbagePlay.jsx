@@ -18,6 +18,11 @@ const SPEED_MULT = { slow: 2, normal: 1, fast: 0.5 };
 const SPEED_FLAT = { lightning: 32, instant: 0 };   // a fixed duration regardless of the base value
 let SPEED = "normal";
 function spd(ms) { if (ms <= 0) return ms; const flat = SPEED_FLAT[SPEED]; return flat != null ? flat : Math.round(ms * (SPEED_MULT[SPEED] ?? 1)); }
+// True when the active speed collapses every duration to 0 (the "instant" flat). At 0 ms the sprite
+// layer's rAF / setTimeout / transitionend choreography breaks (0 ms CSS transitions never fire a
+// transitionend, and a 0 ms timeout runs before the next animation frame), so those paths snap
+// synchronously instead — every card placed at its final home in one layout pass, no races.
+const instantAnim = () => spd(MOVE_DUR) === 0;
 
 // Global text-size floor. Every font-size is written `max(<px>px, var(--min-fs, 0px))`, so raising
 // `--min-fs` (set on the app root from settings.textSize) only grows text BELOW the floor — small is
@@ -1633,7 +1638,7 @@ function CardSprite({ card, home, dur, delay, clickable, selected, raised, dim, 
   const key = `${Math.round(home.x)},${Math.round(home.y)},${home.up ? 1 : 0}`;
   const [moving, setMoving] = React.useState(false);
   const keyRef = React.useRef(key);
-  if (noAnim) { keyRef.current = key; if (moving) setMoving(false); }                    // resize / hand-row → jump, don't glide
+  if (noAnim || dur === 0) { keyRef.current = key; if (moving) setMoving(false); }        // resize / hand-row / instant → jump, don't glide
   else if (keyRef.current !== key) { keyRef.current = key; if (!moving) setMoving(true); }   // target changed → animate this move
   const moveTr = (moving && !noAnim) ? `transform ${dur}ms cubic-bezier(.2,.7,.3,1) ${delay || 0}ms` : null;
   return (
@@ -2151,6 +2156,13 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
     // slides fully off to the upper-left and is deleted; then an empty beat with nothing on screen;
     // then a fresh deck slides in from the upper-right. Returns when the new deck has settled.
     const scheduleDeckSwap = (oldCards, startAt) => {
+      if (instantAnim()) {                                          // instant: no slide-out/in — drop the old deck's cards at once
+        const r = { ...homesRef.current };
+        oldCards.forEach((id) => { delete r[id]; delete delayRef.current[id]; });
+        homesRef.current = r; setHomes(r);
+        setDeckSwap(null);
+        return startAt;
+      }
       dealTimersRef.current.push(setTimeout(() => {                 // OUT: old deck + its cards slide off upper-left
         setDeckSwap({ phase: "out", offX: swapOffX, offY: swapOffY });
         const r = { ...homesRef.current };
@@ -2216,6 +2228,17 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
     // and the deck thins by one. We own the homes and skip the default flow / the legacy timeline.
     if (dealingPhase) {
       for (const id in delayRef.current) delayRef.current[id] = 0;
+      if (instantAnim()) {                                 // instant: each dealt card lands at its seat at once, no deck-mount tween
+        const render = {};
+        for (const id in targets) render[id] = targets[id];
+        for (const id of gatherGone) delete delayRef.current[id];
+        knownRef.current = nowKnown;
+        prevPlaceRef.current = { ...place };
+        homesRef.current = render; setHomes(render);
+        setDeckShown(Math.max(1, 52 - dealCursor));
+        gatherDealRef.current = gatherGone.length > 0;
+        return;
+      }
       const render = {};
       for (const id in targets) render[id] = newCards.includes(id) ? { x: deckTop.x, y: deckTop.y, up: false, z: 60 } : targets[id];
       for (const id of gatherGone) render[id] = { x: deckTop.x, y: deckTop.y, up: false, z: 60 };   // cut-for-deal cards sweep home
@@ -2366,6 +2389,22 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
       ordered.forEach((id, k) => { delayRef.current[id] = k * CARD_STAGGER; });
     }
     if (gatherGone.length > 1) gatherGone.forEach((id, k) => { delayRef.current[id] = k * CARD_STAGGER; });
+
+    // Instant speed: no animation. Place every card directly at its final home and drop the gone
+    // cards in this single synchronous pass — skip the deck-staging, rAF deferral and setTimeout
+    // cleanups below, which all race when their durations collapse to 0 ms (and strand a sprite).
+    if (instantAnim()) {
+      const render = {};
+      for (const id in targets) render[id] = targets[id];
+      for (const id of gatherGone) delete delayRef.current[id];
+      knownRef.current = nowKnown;
+      prevPlaceRef.current = { ...place };
+      homesRef.current = render;
+      setHomes(render);
+      clearDeckTimers();
+      setDeckShown(deckCount);
+      return;
+    }
 
     const render = {};
     for (const id in targets) {

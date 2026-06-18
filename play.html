@@ -648,6 +648,7 @@ const SPEED_FLAT = { lightning: 32, instant: 0 };
 let SPEED = "normal";
 function spd(ms) { if (ms <= 0)
     return ms; const flat = SPEED_FLAT[SPEED]; return flat != null ? flat : Math.round(ms * (SPEED_MULT[SPEED] ?? 1)); }
+const instantAnim = () => spd(MOVE_DUR) === 0;
 const MIN_FS = { small: "0px", medium: "12px", large: "14px", xlarge: "16px" };
 let TEXT_SIZE = "small";
 const fifteenVal = (r) => Math.min(r, 10);
@@ -903,7 +904,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.21-dev.5";
+const APP_VERSION = "1.1.21-dev.6";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -2105,7 +2106,7 @@ function CardSprite({ card, home, dur, delay, clickable, selected, raised, dim, 
     const key = `${Math.round(home.x)},${Math.round(home.y)},${home.up ? 1 : 0}`;
     const [moving, setMoving] = React.useState(false);
     const keyRef = React.useRef(key);
-    if (noAnim) {
+    if (noAnim || dur === 0) {
         keyRef.current = key;
         if (moving)
             setMoving(false);
@@ -2517,6 +2518,14 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
         const swapOffX = rootR.width, swapOffY = Math.max(20, deckTop.y - 8);
         const swapDeckOut = { x: deckTop.x - swapOffX, y: deckTop.y - swapOffY };
         const scheduleDeckSwap = (oldCards, startAt) => {
+            if (instantAnim()) {
+                const r = { ...homesRef.current };
+                oldCards.forEach((id) => { delete r[id]; delete delayRef.current[id]; });
+                homesRef.current = r;
+                setHomes(r);
+                setDeckSwap(null);
+                return startAt;
+            }
             dealTimersRef.current.push(setTimeout(() => {
                 setDeckSwap({ phase: "out", offX: swapOffX, offY: swapOffY });
                 const r = { ...homesRef.current };
@@ -2573,6 +2582,20 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
         if (dealingPhase) {
             for (const id in delayRef.current)
                 delayRef.current[id] = 0;
+            if (instantAnim()) {
+                const render = {};
+                for (const id in targets)
+                    render[id] = targets[id];
+                for (const id of gatherGone)
+                    delete delayRef.current[id];
+                knownRef.current = nowKnown;
+                prevPlaceRef.current = { ...place };
+                homesRef.current = render;
+                setHomes(render);
+                setDeckShown(Math.max(1, 52 - dealCursor));
+                gatherDealRef.current = gatherGone.length > 0;
+                return;
+            }
             const render = {};
             for (const id in targets)
                 render[id] = newCards.includes(id) ? { x: deckTop.x, y: deckTop.y, up: false, z: 60 } : targets[id];
@@ -2704,6 +2727,20 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
         }
         if (gatherGone.length > 1)
             gatherGone.forEach((id, k) => { delayRef.current[id] = k * CARD_STAGGER; });
+        if (instantAnim()) {
+            const render = {};
+            for (const id in targets)
+                render[id] = targets[id];
+            for (const id of gatherGone)
+                delete delayRef.current[id];
+            knownRef.current = nowKnown;
+            prevPlaceRef.current = { ...place };
+            homesRef.current = render;
+            setHomes(render);
+            clearDeckTimers();
+            setDeckShown(deckCount);
+            return;
+        }
         const render = {};
         for (const id in targets) {
             if (newCards.includes(id))
@@ -3118,7 +3155,7 @@ function AboutModal({ onClose }) {
                 background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
             } }, tr("about.sourceLink")),
         React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.21-dev.5")));
+        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.21-dev.6")));
 }
 function MessageLogModal({ log, onClose }) {
     const scrollRef = React.useRef(null);

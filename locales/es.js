@@ -181,7 +181,7 @@ cribbageLocale("es", {
   "play.hist.pegging": "Pegging",
   "play.hist.hand": "Mano (el conteo)",
   "play.hist.crib": "Cuna",
-  "play.hist.pickHint": "Elige un tamaño/equipos específico arriba para ver tus puntos medios de pegging, mano y cuna.",
+  "play.hist.pickHint": "Elige un tamaño/equipos específico arriba para ver tus puntos medios de pegging, mano y cuna. Solo incluye partidas de un humano contra bots.",
   "play.hist.clearConfirm": "Toca otra vez para borrar todo el historial",
   "play.hist.clear": "Borrar historial",
   "play.peg.fifteen": "quince",

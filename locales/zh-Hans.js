@@ -187,7 +187,7 @@ cribbageLocale("zh-Hans", {
   "play.hist.pegging": "出牌",
   "play.hist.hand": "手牌（计分）",
   "play.hist.crib": "副牌",
-  "play.hist.pickHint": "在上方选择具体的人数/队伍，查看你出牌、手牌和副牌的平均得分。",
+  "play.hist.pickHint": "在上方选择具体的人数/队伍，查看你出牌、手牌和副牌的平均得分。仅统计一名真人对阵电脑的对局。",
   "play.hist.clearConfirm": "再次点击以清除所有历史",
   "play.hist.clear": "清除历史",
   // reducer status banner

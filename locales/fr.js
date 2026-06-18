@@ -187,7 +187,7 @@ cribbageLocale("fr", {
   "play.hist.pegging": "Jeu",
   "play.hist.hand": "Main (le décompte)",
   "play.hist.crib": "Crib",
-  "play.hist.pickHint": "Choisissez une taille/des équipes précises ci-dessus pour voir vos points moyens de jeu, de main et de crib.",
+  "play.hist.pickHint": "Choisissez une taille/des équipes précises ci-dessus pour voir vos points moyens de jeu, de main et de crib. Inclut uniquement les parties à un seul humain contre des bots.",
   "play.hist.clearConfirm": "Touchez encore pour tout effacer",
   "play.hist.clear": "Effacer l'historique",
   // reducer status banner

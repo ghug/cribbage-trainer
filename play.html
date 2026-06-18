@@ -322,7 +322,7 @@ cribbageLocale("en", {
   "play.hist.pegging": "Pegging",
   "play.hist.hand": "Hand (the show)",
   "play.hist.crib": "Crib",
-  "play.hist.pickHint": "Pick a specific size/teams above to see your average pegging, hand, and crib points.",
+  "play.hist.pickHint": "Pick a specific size/teams above to see your average pegging, hand, and crib points. Only includes one-human games vs bots.",
   "play.hist.clearConfirm": "Tap again to erase all history",
   "play.hist.clear": "Clear history",
   // reducer status banner — the transient message line. (history h.label values stay English.)
@@ -902,7 +902,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.21-dev.3";
+const APP_VERSION = "1.1.21-dev.4";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -1841,7 +1841,7 @@ function CribbagePlay() {
     }, [phase]);
     const recordedRef = React.useRef(false);
     useEffect(() => {
-        if (phase === "over" && winner !== null) {
+        if (phase === "over" && winner !== null && nHumans(players, settings) === 1) {
             if (!recordedRef.current) {
                 recordedRef.current = true;
                 saveHistory([...loadHistory(), gameRecord(state)]);
@@ -3103,7 +3103,7 @@ function AboutModal({ onClose }) {
                 background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
             } }, tr("about.sourceLink")),
         React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.21-dev.3")));
+        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.21-dev.4")));
 }
 function MessageLogModal({ log, onClose }) {
     const scrollRef = React.useRef(null);

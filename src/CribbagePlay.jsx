@@ -1295,7 +1295,9 @@ export default function CribbagePlay() {
   // Record each finished game once (when the board reaches "over" with a winner).
   const recordedRef = React.useRef(false);
   useEffect(() => {
-    if (phase === "over" && winner !== null) {
+    // Only one-human (you vs bots) games are recorded — hot-seat games with 2+ humans have no single
+    // "you" to track, so they're left out of the history.
+    if (phase === "over" && winner !== null && nHumans(players, settings) === 1) {
       if (!recordedRef.current) { recordedRef.current = true; saveHistory([...loadHistory(), gameRecord(state)]); }
     } else { recordedRef.current = false; }
   }, [phase, winner]);

@@ -322,7 +322,7 @@ cribbageLocale("en", {
   "play.hist.pegging": "Pegging",
   "play.hist.hand": "Hand (the show)",
   "play.hist.crib": "Crib",
-  "play.hist.pickHint": "Pick a specific size/teams above to see your average pegging, hand, and crib points.",
+  "play.hist.pickHint": "Pick a specific size/teams above to see your average pegging, hand, and crib points. Only includes one-human games vs bots.",
   "play.hist.clearConfirm": "Tap again to erase all history",
   "play.hist.clear": "Clear history",
   // reducer status banner — the transient message line. (history h.label values stay English.)
@@ -1382,7 +1382,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.21-dev.3"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.21-dev.4"))));
 }
 function MiniCard({ card, selected, disabled, onClick }) {
     return (React.createElement("button", { onClick: onClick, disabled: disabled, "aria-pressed": selected, "aria-label": `${rankLabel(card.r)} of ${["spades", "hearts", "diamonds", "clubs"][card.s]}`, style: {

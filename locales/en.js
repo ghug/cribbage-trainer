@@ -159,7 +159,7 @@ cribbageLocale("en", {
   "play.hist.pegging": "Pegging",
   "play.hist.hand": "Hand (the show)",
   "play.hist.crib": "Crib",
-  "play.hist.pickHint": "Pick a specific size/teams above to see your average pegging, hand, and crib points.",
+  "play.hist.pickHint": "Pick a specific size/teams above to see your average pegging, hand, and crib points. Only includes one-human games vs bots.",
   "play.hist.clearConfirm": "Tap again to erase all history",
   "play.hist.clear": "Clear history",
   // reducer status banner — the transient message line. (history h.label values stay English.)

@@ -4,8 +4,165 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#0f2417" />
-<title>Cribbage — Play</title>
-<style>html,body{margin:0;background:#0f2417;min-height:100%;-webkit-user-select:none;user-select:none}#root{min-height:100vh}input,textarea{-webkit-user-select:text;user-select:text}</style>
+<title>Cribbage</title>
+<style>
+  :root{
+    --baize:#1F423A; --baizeHi:#28534A;
+    --woodD:#5E3F26; --woodM:#8A5E37; --woodL:#B9824B;
+    --ivory:#F6EFDE; --cream:#ECE0C6; --muted:#C9BC9A;
+    --pegRed:#C8412B; --good:#5FA47C; --line:rgba(236,224,182,0.16);
+    --serif:'Hoefler Text','Iowan Old Style',Georgia,'Times New Roman',serif;
+    --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  }
+  html,body{margin:0;min-height:100%;-webkit-user-select:none;user-select:none}
+  input,textarea{-webkit-user-select:text;user-select:text}
+  body{
+    background:radial-gradient(120% 90% at 50% 0%, var(--baizeHi), var(--baize));
+    color:var(--cream); font-family:var(--serif); min-height:100vh;
+    display:flex; flex-direction:column;
+  }
+  header{
+    background:linear-gradient(180deg, var(--woodL), var(--woodM) 55%, var(--woodD));
+    padding:18px 18px 20px; box-shadow:0 6px 18px rgba(0,0,0,0.4);
+    border-bottom:2px solid rgba(0,0,0,0.3);
+  }
+  header h1{ margin:0; font-size:max(24px, var(--min-fs, 0px)); color:#2A1B0E; letter-spacing:.3px; font-weight:700 }
+  header p{ margin:6px 0 0; font-family:var(--mono); font-size:max(12px, var(--min-fs, 0px)); color:rgba(42,27,14,0.78) }
+  main{ flex:1; max-width:560px; width:100%; margin:0 auto; padding:26px 16px 40px; box-sizing:border-box }
+  .lead{ font-size:max(15px, var(--min-fs, 0px)); line-height:1.55; color:var(--cream); margin:0 0 22px }
+  .cards{ display:grid; gap:16px }
+  a.option{
+    display:block; text-decoration:none; color:inherit;
+    background:rgba(0,0,0,0.22); border:1px solid var(--line); border-radius:14px;
+    padding:20px 20px 22px; transition:transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+    box-shadow:0 4px 12px rgba(0,0,0,0.30);
+  }
+  a.option:hover{ transform:translateY(-3px); box-shadow:0 10px 22px rgba(0,0,0,0.42); border-color:rgba(236,224,182,0.4) }
+  a.option:focus-visible{ outline:2px solid var(--ivory); outline-offset:3px }
+  .opt-row{ display:flex; align-items:center; gap:14px }
+  .pip{ width:46px; height:46px; border-radius:12px; flex:0 0 auto; display:flex; align-items:center; justify-content:center;
+        font-size:max(24px, var(--min-fs, 0px)); box-shadow:inset 0 1px 2px rgba(255,255,255,0.15), 0 3px 8px rgba(0,0,0,0.35) }
+  .pip.train{ background:linear-gradient(180deg,var(--good),#3F7E5E) }
+  .pip.play{ background:linear-gradient(180deg,var(--pegRed),#9c3120) }
+  .opt-title{ font-size:max(19px, var(--min-fs, 0px)); font-weight:700; color:var(--ivory) }
+  .opt-sub{ font-family:var(--mono); font-size:max(11.5px, var(--min-fs, 0px)); color:var(--muted); margin-top:3px }
+  .opt-desc{ font-size:max(13.5px, var(--min-fs, 0px)); line-height:1.5; color:var(--cream); margin-top:12px }
+  .arrow{ margin-left:auto; color:var(--muted); font-size:max(22px, var(--min-fs, 0px)) }
+  footer{ max-width:560px; width:100%; margin:0 auto; padding:0 18px 28px; box-sizing:border-box;
+          font-family:var(--mono); font-size:max(10.5px, var(--min-fs, 0px)); color:var(--muted); line-height:1.6 }
+  .hdr-row{ display:flex; align-items:center; justify-content:space-between; gap:12px }
+  .brand{ display:flex; align-items:center; gap:12px; min-width:0 }
+  .logo{ flex:0 0 auto; width:42px; height:42px; border-radius:10px; background:var(--baize); color:var(--ivory);
+    display:flex; align-items:center; justify-content:center; font-size:max(23px, var(--min-fs, 0px)); line-height:1;
+    box-shadow:inset 0 1px 2px rgba(255,255,255,0.14), 0 2px 6px rgba(0,0,0,0.4) }
+  .gear{ flex:0 0 auto; width:42px; height:42px; border-radius:10px; cursor:pointer;
+    border:1px solid rgba(0,0,0,0.28); background:rgba(42,27,14,0.16); color:#2A1B0E; font-size:max(21px, var(--min-fs, 0px)); line-height:1;
+    display:flex; align-items:center; justify-content:center }
+  .overlay{ position:fixed; inset:0; z-index:100; background:rgba(0,0,0,0.62); padding:20px;
+    display:none; align-items:center; justify-content:center }
+  .overlay.open{ display:flex }
+  .modal{ max-width:380px; width:100%; box-sizing:border-box; background:var(--baize);
+    border:1px solid var(--line); border-radius:14px; padding:20px; box-shadow:0 14px 44px rgba(0,0,0,0.55);
+    max-height:85vh; overflow:auto }
+  .set-row{ margin-bottom:14px }
+  .set-title{ font-weight:700; font-size:max(13.5px, var(--min-fs, 0px)); color:var(--ivory) }
+  .set-desc{ font-family:var(--mono); font-size:max(10.5px, var(--min-fs, 0px)); color:var(--muted); margin:2px 0 7px; line-height:1.45 }
+  .set-segs{ display:flex; gap:6px; flex-wrap:wrap }
+  .seg{ flex:1; padding:9px 6px; border-radius:8px; cursor:pointer; font-family:var(--mono); font-size:max(11.5px, var(--min-fs, 0px));
+    background:rgba(0,0,0,0.2); color:var(--cream); border:1px solid var(--line) }
+  .seg.on{ background:#ECDCB4; color:#2A1B0E; border-color:#ECDCB4; font-weight:700 }
+  .seg:disabled{ cursor:default; opacity:0.5 }
+  .players-pick.disabled .pp-label{ opacity:0.5 }
+  .set-row.disabled .set-title, .set-row.disabled .set-desc{ opacity:0.55 }
+  .set-group{ border-top:1px solid var(--line) }
+  .set-group > summary{ list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between;
+    padding:12px 0 10px; font-family:var(--mono); font-size:max(11.5px, var(--min-fs, 0px)); font-weight:700; letter-spacing:0.4px; text-transform:uppercase; color:var(--cream) }
+  .set-group > summary::-webkit-details-marker{ display:none }
+  .set-group > summary::after{ content:"\25B8"; color:var(--muted); font-size:max(13px, var(--min-fs, 0px)) }
+  .set-group[open] > summary::after{ content:"\25BE" }
+  .set-group[open]{ padding-bottom:2px }
+  .players-pick{ background:rgba(0,0,0,0.18); border:1px solid var(--line); border-radius:14px; padding:14px 16px }
+  .pp-label{ font-size:max(14px, var(--min-fs, 0px)); font-weight:700; color:var(--ivory) }
+  .pp-note{ font-family:var(--mono); font-size:max(11px, var(--min-fs, 0px)); color:var(--muted); font-weight:400 }
+  .pp-segs{ display:flex; gap:6px; margin-top:9px }
+  .modal-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px }
+  .modal h2{ margin:0; font-size:max(17px, var(--min-fs, 0px)); color:var(--ivory) }
+  .modal p{ font-family:var(--mono); font-size:max(12px, var(--min-fs, 0px)); color:var(--cream); line-height:1.6; margin:0 0 14px }
+  .modal .logo{ width:34px; height:34px; font-size:max(19px, var(--min-fs, 0px)) }
+  .btn{ display:block; width:100%; box-sizing:border-box; text-align:center; padding:12px; border-radius:9px;
+    font-family:var(--mono); font-size:max(12.5px, var(--min-fs, 0px)); font-weight:700; cursor:pointer; text-decoration:none }
+  .btn-primary{ background:linear-gradient(180deg,var(--good),#3F7E5E); color:var(--ivory); border:none }
+  .btn-ghost{ background:rgba(0,0,0,0.3); color:var(--cream); border:1px solid var(--line) }
+  .btn-sm{ width:auto; padding:6px 14px; border-radius:8px; font-size:max(11.5px, var(--min-fs, 0px)) }
+  .repo-url{ font-family:var(--mono); font-size:max(10.5px, var(--min-fs, 0px)); color:var(--muted); text-align:center;
+    margin:8px 0 16px; word-break:break-all }
+  .link-btn{ background:none; border:none; padding:0; cursor:pointer; font:inherit;
+    color:var(--cream); text-decoration:underline; text-underline-offset:2px }
+  .link-btn:hover{ color:var(--ivory) }
+  .hist-chips{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px }
+  .hist-chip{ padding:6px 10px; border-radius:7px; cursor:pointer; font-family:var(--mono); font-weight:700;
+    font-size:max(11px, var(--min-fs, 0px)); background:rgba(0,0,0,0.25); color:var(--cream); border:1px solid var(--line) }
+  .hist-chip.on{ background:#ECDCB4; color:#2A1B0E; border-color:#ECDCB4 }
+  .hist-stat{ display:flex; justify-content:space-between; align-items:baseline; padding:7px 0; border-bottom:1px solid var(--line) }
+  .hist-stat .lbl{ font-family:var(--mono); font-size:max(12px, var(--min-fs, 0px)); color:var(--muted) }
+  .hist-stat .val{ font-family:var(--serif); font-size:max(16px, var(--min-fs, 0px)); font-weight:700; color:var(--cream) }
+  .hist-stat .val.good{ color:var(--good) }
+  .hist-stat .val.red{ color:var(--pegRed) }
+  .hist-sub{ font-family:var(--mono); font-size:max(10.5px, var(--min-fs, 0px)); color:var(--muted); margin:14px 0 4px; letter-spacing:0.3px }
+  .hist-hint{ font-family:var(--mono); font-size:max(10.5px, var(--min-fs, 0px)); color:var(--muted); margin-top:12px; line-height:1.5 }
+  .hist-empty{ font-family:var(--mono); font-size:max(12px, var(--min-fs, 0px)); color:var(--muted); line-height:1.6 }
+  .hist-clear{ width:100%; margin-top:16px; padding:10px; border-radius:9px; cursor:pointer; font-weight:700;
+    border:1px solid var(--line); background:rgba(0,0,0,0.25); color:var(--muted); font-family:var(--mono); font-size:max(11.5px, var(--min-fs, 0px)) }
+  .hist-clear.confirm{ border-color:var(--pegRed); color:var(--pegRed) }
+  .rules{ margin:0 0 16px; background:rgba(0,0,0,0.22); border:1px solid var(--line);
+    border-radius:14px; overflow:hidden }
+  .rules > summary{ cursor:pointer; list-style:none; padding:18px 20px; font-size:max(18px, var(--min-fs, 0px));
+    font-weight:700; color:var(--ivory); display:flex; align-items:center;
+    justify-content:space-between; gap:10px }
+  .rules > summary::-webkit-details-marker{ display:none }
+  .rules > summary .chev{ color:var(--muted); font-size:max(20px, var(--min-fs, 0px)); transition:transform 150ms }
+  .rules[open] > summary .chev{ transform:rotate(90deg) }
+  .rules-body{ padding:0 20px 22px }
+  .rules-body h3{ font-size:max(15px, var(--min-fs, 0px)); color:var(--ivory); margin:18px 0 6px }
+  .rules-body p{ font-family:var(--mono); font-size:max(12px, var(--min-fs, 0px)); line-height:1.65; color:var(--cream); margin:0 0 8px }
+  .rules-body ul{ margin:0 0 8px; padding-left:18px }
+  .rules-body li{ font-family:var(--mono); font-size:max(12px, var(--min-fs, 0px)); line-height:1.6; color:var(--cream); margin-bottom:4px }
+  .rules-body b{ color:var(--ivory) }
+  .rules-body .note{ color:var(--muted) }
+
+  /* Dynamic seat diagram — a little table that re-seats itself for the chosen size/teams */
+  .seat-diagram{ position:relative; width:100%; max-width:300px; height:170px; margin:4px auto 8px }
+  .seat-table{ position:absolute; left:17%; right:17%; top:27%; height:46%; border-radius:50%;
+    background:radial-gradient(120% 120% at 50% 30%, var(--baizeHi), var(--baize));
+    border:1px solid var(--line); box-shadow:inset 0 2px 12px rgba(0,0,0,0.4);
+    display:flex; align-items:center; justify-content:center }
+  .seat-table .tlabel{ font-family:var(--mono); font-size:max(11.5px, var(--min-fs, 0px)); line-height:1.45; color:var(--cream); text-align:center }
+  .seat{ position:absolute; transform:translate(-50%,-50%); display:flex; flex-direction:column; align-items:center; gap:3px; width:66px }
+  button.seat{ background:none; border:none; padding:0; font:inherit; color:inherit; cursor:pointer }
+  .seat .avatar{ position:relative; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-size:max(15px, var(--min-fs, 0px)); border:2px solid var(--line); background:rgba(0,0,0,0.28); color:var(--cream); transition:border-color .15s, box-shadow .15s, background .15s }
+  .seat-btn.human .avatar{ background:rgba(91,149,194,0.28) }
+  .seat.you .avatar{ border-color:#ECDCB4; border-width:4px; color:var(--ivory); box-shadow:0 0 0 3px rgba(236,220,180,0.18) }
+  /* bot difficulty badge, bottom-right corner of the avatar (no extra height) */
+  .seat-diff{ position:absolute; right:-5px; bottom:-4px; min-width:13px; height:13px; padding:0 2px; box-sizing:border-box;
+    border-radius:7px; font-family:var(--mono); font-size:max(9px, var(--min-fs, 0px)); font-weight:700; line-height:13px; text-align:center;
+    color:#10140d; border:1px solid rgba(0,0,0,0.4) }
+  .diff-easy{ background:#3FB57E }
+  .diff-medium{ background:#E6B800 }
+  .diff-hard{ background:#D2553F; color:#fff }
+  .seat .seat-name{ font-family:var(--mono); font-size:max(11px, var(--min-fs, 0px)); color:var(--cream); white-space:nowrap; text-align:center }
+  .seat.you .seat-name{ color:var(--ivory); font-weight:700 }
+  .seat .seat-name-input{ font-family:var(--mono); font-size:max(11px, var(--min-fs, 0px)); color:var(--ivory); width:58px; text-align:center;
+    background:rgba(0,0,0,0.4); border:1px solid var(--line); border-radius:6px; padding:2px 3px }
+  .names-btn{ width:100%; margin-top:9px; padding:9px 6px; border-radius:8px; cursor:pointer; font-family:var(--mono);
+    font-size:max(11.5px, var(--min-fs, 0px)); background:rgba(0,0,0,0.2); color:var(--cream); border:1px solid var(--line) }
+  .names-btn.on{ background:#ECDCB4; color:#2A1B0E; border-color:#ECDCB4; font-weight:700 }
+  .seat-hint{ font-family:var(--mono); font-size:max(11.5px, var(--min-fs, 0px)); line-height:1.45; color:var(--cream); text-align:center; margin:-2px auto 10px; max-width:280px }
+  .lang-row{ display:flex; align-items:center; justify-content:center; gap:8px; margin-top:10px; font-family:var(--mono); font-size:max(11px, var(--min-fs, 0px)); color:var(--muted) }
+  .lang-row[hidden]{ display:none }  /* author display:flex would otherwise beat the UA [hidden] rule */
+  .lang-row select{ font:inherit; color:var(--cream); background:rgba(0,0,0,0.25); border:1px solid var(--line); border-radius:7px; padding:4px 8px }
+</style>
+<style>#view-app{min-height:100vh}</style>
 <script src="vendor/react.production.min.js"></script>
 <script src="vendor/react-dom.production.min.js"></script>
 <script>
@@ -638,9 +795,2085 @@ cribbageLocale("en", {
 <script>window.i18nBootstrap&&i18nBootstrap();</script>
 </head>
 <body>
+<div id="view-home">
+  <header>
+    <div class="hdr-row">
+      <div class="brand">
+        <span class="logo" role="img" aria-label="Cribbage Trainer" data-i18n-aria="app.title">♣</span>
+        <div>
+          <h1 data-i18n="app.title">Cribbage Trainer</h1>
+          <p data-i18n="landing.tagline">play vs bots or friends and sharpen your discards</p>
+        </div>
+      </div>
+      <button id="gear" class="gear" type="button" aria-label="Settings" aria-haspopup="dialog" data-i18n-aria="settings.title">⚙</button>
+    </div>
+  </header>
+  <main>
+    <details class="rules">
+      <summary><span data-i18n="rules.summary">How to play — basic rules</span> <span class="chev" aria-hidden="true">›</span></summary>
+      <div class="rules-body">
+        <h3 data-i18n="rules.goal.h">The goal</h3>
+        <p data-i18n-html="rules.goal.p">Be the first to peg <b>121 points</b> over a series of deals. You score both
+          during the play and when hands are counted (“the show”). The deal passes one
+          seat each hand.</p>
 
-<div id="root"></div>
+        <h3 data-i18n="rules.deal.h">The deal &amp; the crib</h3>
+        <p data-i18n-html="rules.deal.p">Each player is dealt a small hand and throws a card (two, heads-up) into the
+          <b>crib</b> — a bonus hand that belongs to the <b>dealer</b>. The crib always
+          holds four cards and is counted, with the starter, like any other hand. How
+          many cards are dealt and who throws depends on the number of players — each
+          game here sets that up for you.</p>
+
+        <h3 data-i18n="rules.cut.h">The cut — the starter</h3>
+        <p data-i18n-html="rules.cut.p">After the throws, the deck is cut to turn up one <b>starter</b> card. It’s
+          shared by every hand and the crib when counting. If the starter is a <b>Jack</b>,
+          the dealer immediately pegs <b>2</b> (“his heels”).</p>
+
+        <h3 data-i18n="rules.play.h">The play (pegging)</h3>
+        <p data-i18n-html="rules.play.p">Players take turns laying a card face-up, calling the running total out loud.
+          The count may never pass <b>31</b>; if you can’t play without going over you say
+          <b>“Go.”</b> Score as you lay cards down:</p>
+        <ul>
+          <li data-i18n-html="rules.play.li1">Make the count exactly <b>15</b> → 2 · make exactly <b>31</b> → 2</li>
+          <li data-i18n-html="rules.play.li2"><b>Pair</b> the previous card → 2 (three of a kind → 6, four → 12)</li>
+          <li data-i18n-html="rules.play.li3">Complete a <b>run</b> of 3+ with the most recent cards (any order) → 1 per card</li>
+          <li data-i18n-html="rules.play.li4"><b>Go / last card:</b> the last player able to lay a card pegs 1 (when no one
+            else can play, or at the final card of the deal)</li>
+        </ul>
+
+        <h3 data-i18n="rules.show.h">The show (counting hands)</h3>
+        <p data-i18n-html="rules.show.p">When all cards are played, hands are counted in order — starting with the
+          player to the dealer’s left, the <b>dealer last</b>, then the <b>crib</b>. Combine
+          each hand’s four cards with the starter and score (aces = 1, face cards = 10):</p>
+        <ul>
+          <li data-i18n-html="rules.show.li1"><b>Fifteens</b> — every combination of cards adding to 15 → 2 each</li>
+          <li data-i18n-html="rules.show.li2"><b>Pairs</b> — 2 each (so three of a kind = 6, four = 12)</li>
+          <li data-i18n-html="rules.show.li3"><b>Runs</b> — three or more in sequence → 1 per card (duplicates count)</li>
+          <li data-i18n-html="rules.show.li4"><b>Flush</b> — four cards one suit → 4; if the starter matches too → 5
+            <span class="note">(the crib only scores a flush when all five share a suit)</span></li>
+          <li data-i18n-html="rules.show.li5"><b>Nobs</b> — holding the <b>Jack of the starter’s suit</b> → 1</li>
+        </ul>
+        <p class="note" data-i18n="rules.note29">The best possible hand is 29: three 5s plus the Jack of the cut’s
+          suit, with the fourth 5 turned as the starter.</p>
+      </div>
+    </details>
+
+    <nav class="cards">
+      <div class="players-pick">
+        <div class="pp-label" data-i18n="landing.playersAtTable">Players at the table</div>
+        <div class="pp-segs" id="playersSegs"></div>
+      </div>
+      <div class="seat-diagram" id="seatDiagram"></div>
+      <div class="seat-hint" data-i18n="landing.seatHint">Tap a seat to cycle: 🧑 human, then 🤖 easy / medium / hard bot.</div>
+      <div class="players-pick" id="teamsPick">
+        <div class="pp-label"><span data-i18n="landing.teams">Teams</span> <span class="pp-note" data-i18n="landing.teamsNote">— how the table splits up</span></div>
+        <div class="pp-segs" id="teamsSegs"></div>
+      </div>
+      <div id="namesRow" style="display:flex; gap:8px; margin-top:9px">
+        <button type="button" class="names-btn" id="resetNamesBtn" data-i18n="landing.resetNames" style="margin-top:0; width:auto; flex:0 0 auto; padding-left:14px; padding-right:14px; display:none">Reset names</button>
+        <button type="button" class="names-btn" id="namesBtn" style="margin-top:0; width:auto; flex:1 1 auto">Set player names</button>
+      </div>
+      <a class="option" href="play.html">
+        <div class="opt-row">
+          <span class="pip play">♥</span>
+          <div>
+            <div class="opt-title" data-i18n="landing.play.title">Play</div>
+            <div class="opt-sub" data-i18n="landing.play.sub">vs bots or friends · 2–6 players</div>
+          </div>
+          <span class="arrow">›</span>
+        </div>
+        <div class="opt-desc" data-i18n="landing.play.desc">Play a full game — against the computer, or pass the device for hot-seat
+          games with friends by setting any seat to a human on the table above. Set the size and teams
+          there too: heads-up through six-handed, individual or in teams.</div>
+      </a>
+      <a class="option" href="trainer.html">
+        <div class="opt-row">
+          <span class="pip train">♣</span>
+          <div>
+            <div class="opt-title" data-i18n="landing.trainer.title">Discard Trainer</div>
+            <div class="opt-sub" data-i18n="landing.trainer.sub">analyze &amp; rank every throw</div>
+          </div>
+          <span class="arrow">›</span>
+        </div>
+        <div class="opt-desc" data-i18n="landing.trainer.desc">Deal a hand and see all discards ranked by expected points —
+          hand value over every cut, crib swing, and pegging potential, each fully explained.
+          Follows the table size above — 2- through 6-handed, individual play or teams.</div>
+      </a>
+    </nav>
+  </main>
+  <footer>
+    <span data-i18n="landing.footer.note">Open-source cribbage practice.</span> <button id="footerAbout" class="link-btn" type="button" data-i18n="common.about">About</button>
+    <div class="lang-row" id="footerLangRow" hidden><span data-i18n="common.language">Language</span> <select id="footerLangPick"></select></div>
+  </footer>
+
+  <div class="overlay" id="settingsOverlay" role="dialog" aria-modal="true" aria-label="Settings" data-i18n-aria="settings.title">
+    <div class="modal">
+      <div class="modal-head">
+        <h2 data-i18n="settings.title">Settings</h2>
+        <button class="btn btn-ghost btn-sm" id="settingsDone" type="button" data-i18n="common.done">Done</button>
+      </div>
+      <div id="settingsList"></div>
+      <div id="textSizeRow"></div>
+      <div class="set-row"><div class="set-title" data-i18n="common.language">Language</div>
+        <div class="lang-row" style="justify-content:flex-start;margin-top:7px"><select id="langPick"></select></div></div>
+      <button class="btn btn-ghost" id="openHistory" type="button" style="margin-top:6px" data-i18n="settings.history">Game history</button>
+      <button class="btn btn-ghost" id="resetSettings" type="button" style="margin-top:6px" data-i18n="settings.resetDefaults">Reset game settings to defaults</button>
+      <button class="btn btn-ghost" id="openAbout" type="button" style="margin-top:6px" data-i18n="settings.aboutFeedback">About &amp; feedback</button>
+      <button class="btn btn-primary" id="settingsContinue" type="button" style="margin:12px 0 10px" data-i18n="settings.continue">Continue game</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="aboutOverlay" role="dialog" aria-modal="true" aria-label="About" data-i18n-aria="about.title">
+    <div class="modal">
+      <div class="modal-head">
+        <span class="logo" aria-hidden="true">♣</span>
+        <h2 style="flex:1" data-i18n="about.title">About Cribbage Trainer</h2>
+        <button class="btn btn-ghost btn-sm" id="aboutDone" type="button" data-i18n="common.done">Done</button>
+      </div>
+      <p data-i18n="about.line1">An open-source cribbage trainer and game.</p>
+      <p data-i18n="about.line2">Found a bug, or have feedback? The source lives on GitHub — feel free to go
+        there to be part of the conversation.</p>
+      <a class="btn btn-primary" href="https://github.com/ghug/cribbage-trainer/"
+         target="_blank" rel="noopener noreferrer" data-i18n="about.sourceLink">Source, bugs &amp; feedback ↗</a>
+      <div class="repo-url" style="margin-bottom:4px">github.com/ghug/cribbage-trainer</div>
+      <div class="repo-url">v1.1.21-dev.9</div>
+    </div>
+  </div>
+
+  <div id="resetMsg" role="status" data-i18n="settings.reset.alreadyDefault" onclick="this.style.display='none'" style="display:none;position:fixed;left:50%;top:72px;transform:translateX(-50%);z-index:240;background:linear-gradient(180deg,var(--woodL),var(--woodM));border:1px solid #ECDCB4;border-radius:10px;padding:10px 16px;box-shadow:0 8px 26px rgba(0,0,0,0.55),0 0 0 3px var(--baize);font-weight:700;font-size:max(14px, var(--min-fs, 0px));color:#241D14;cursor:pointer;max-width:90vw;text-align:center">Settings are already at their defaults.</div>
+
+  <div class="overlay" id="confirmResetOverlay" style="z-index:110" role="dialog" aria-modal="true" aria-label="Reset settings" data-i18n-aria="settings.reset.title">
+    <div class="modal" style="max-width:340px">
+      <h2 style="margin:0 0 6px" data-i18n="settings.reset.title">Reset settings?</h2>
+      <p data-i18n="settings.reset.body">This restores all game settings to their defaults.</p>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button class="btn btn-ghost" id="resetCancel" type="button" style="flex:1" data-i18n="common.cancel">Cancel</button>
+        <button class="btn" id="resetConfirm" type="button" style="flex:1;background:linear-gradient(180deg,var(--pegRed),#9c3120);color:var(--ivory);border:none" data-i18n="settings.reset.confirm">Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="confirmResetNamesOverlay" style="z-index:110" role="dialog" aria-modal="true" aria-label="Reset names" data-i18n-aria="landing.resetNames.title">
+    <div class="modal" style="max-width:340px">
+      <h2 style="margin:0 0 6px" data-i18n="landing.resetNames.title">Reset names?</h2>
+      <p data-i18n="landing.resetNames.body">This clears all custom player names back to the compass defaults.</p>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button class="btn btn-ghost" id="resetNamesCancel" type="button" style="flex:1" data-i18n="common.cancel">Cancel</button>
+        <button class="btn" id="resetNamesConfirm" type="button" style="flex:1;background:linear-gradient(180deg,var(--pegRed),#9c3120);color:var(--ivory);border:none" data-i18n="settings.reset.confirm">Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="historyOverlay" role="dialog" aria-modal="true" aria-label="Game history" data-i18n-aria="play.hist.title">
+    <div class="modal">
+      <div class="modal-head">
+        <h2 data-i18n="play.hist.title">Game history</h2>
+        <button class="btn btn-ghost btn-sm" id="historyDone" type="button" data-i18n="common.done">Done</button>
+      </div>
+      <div id="historyBody"></div>
+    </div>
+  </div>
+
+  </div>
+<div id="view-app" style="display:none"></div>
+<div id="spa-settings"></div>
 <script>
+"use strict";
+const T = {
+    baize: "#1F423A", baizeHi: "#28534A",
+    woodD: "#5E3F26", woodM: "#8A5E37", woodL: "#B9824B",
+    pegRed: "#C8412B", pegIvory: "#ECDCB4",
+    ivory: "#F6EFDE", ink: "#241D14", suitRed: "#A8362A",
+    cream: "#ECE0C6", muted: "#C9BC9A", line: "rgba(236,224,182,0.16)",
+    good: "#5FA47C", goodDeep: "#3F7E5E", selBlue: "#5B95C2",
+};
+const mono = "ui-monospace, 'SF Mono', Menlo, Consolas, monospace";
+const serif = "'Hoefler Text', 'Iowan Old Style', Georgia, 'Times New Roman', serif";
+const tr = (k, v) => (typeof window !== "undefined" && window.t) ? window.t(k, v) : k;
+const MIN_FS = { small: "0px", medium: "12px", large: "14px", xlarge: "16px" };
+const applyMinFs = (size) => { try {
+    document.documentElement.style.setProperty("--min-fs", MIN_FS[size] || "0px");
+}
+catch (e) { } };
+const SETTINGS_KEY = "cribbage:settings";
+const DEFAULT_SETTINGS = { players: 2, teams: 2, seats: [], names: [], speed: "normal", textSize: "large", counting: "auto", tapToSelect: true, autoCut: false, autoGo: false, warn: true, claimWarn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
+function settingsAtDefaults(settings, skip) {
+    for (const k in DEFAULT_SETTINGS)
+        if (skip.indexOf(k) < 0 && settings[k] !== DEFAULT_SETTINGS[k])
+            return false;
+    return true;
+}
+function loadSettings() { try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (raw)
+        return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+}
+catch (e) { } return { ...DEFAULT_SETTINGS }; }
+function saveSettings(s) { try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+}
+catch (e) { } }
+function hasHumanSeat(settings) {
+    const P = Math.max(2, Math.min(6, settings.players || 2));
+    const seats = settings.seats || [];
+    for (let i = 0; i < P; i++) {
+        const v = seats[i];
+        if (v === "human" || (v == null && i === 0))
+            return true;
+    }
+    return false;
+}
+const HISTORY_KEY = "cribbage:history";
+function loadHistory() { try {
+    const r = localStorage.getItem(HISTORY_KEY);
+    return r ? JSON.parse(r) : [];
+}
+catch (e) {
+    return [];
+} }
+function clearHistory() { try {
+    localStorage.removeItem(HISTORY_KEY);
+}
+catch (e) { } }
+function Modal({ onBackdrop, maxWidth = 380, padding = "20px", scroll = false, zIndex = 220, cardStyle, children }) {
+    return (React.createElement("div", { onClick: onBackdrop, style: { position: "fixed", inset: 0, zIndex, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
+        React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { maxWidth, width: "100%", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding, boxShadow: "0 14px 44px rgba(0,0,0,0.55)", ...(scroll ? { maxHeight: "86vh", overflowY: "auto" } : null), ...cardStyle } }, children)));
+}
+function ModalHeader({ title, onClose, closeLabel, mb = 12, children }) {
+    return (React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: mb, flex: "0 0 auto" } },
+        children != null ? children : React.createElement("span", { style: { fontWeight: 700, fontSize: "max(17px, var(--min-fs, 0px))" } }, title),
+        React.createElement("button", { onClick: onClose, style: { padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", fontWeight: 700 } }, closeLabel || tr("common.done"))));
+}
+const segStyle = (on) => ({
+    flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))",
+    background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
+    border: `1px solid ${on ? T.pegIvory : T.line}`, fontWeight: on ? 700 : 400,
+});
+function SettingsSection({ title, defaultOpen, children }) {
+    const [open, setOpen] = React.useState(!!defaultOpen);
+    return (React.createElement("div", { style: { borderTop: `1px solid ${T.line}`, marginBottom: open ? 12 : 0 } },
+        React.createElement("button", { onClick: () => setOpen((o) => !o), style: {
+                width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                background: "none", border: "none", cursor: "pointer", padding: "12px 0 10px",
+                color: T.cream, fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase",
+            } },
+            React.createElement("span", null, title),
+            React.createElement("span", { style: { color: T.muted, fontSize: "max(13px, var(--min-fs, 0px))" } }, open ? "▾" : "▸")),
+        open && React.createElement("div", null, children)));
+}
+function LanguageRow() {
+    const i = (typeof window !== "undefined") ? window.i18n : null;
+    const langs = i ? i.languages() : [];
+    if (!i || langs.length <= 1)
+        return null;
+    return (React.createElement("div", { style: { marginBottom: 14 } },
+        React.createElement("div", { style: { fontWeight: 700, fontSize: "max(13.5px, var(--min-fs, 0px))" } }, window.t ? window.t("common.language") : "Language"),
+        React.createElement("select", { defaultValue: i.lang, onChange: (e) => i.choose(e.target.value), style: { marginTop: 7, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.cream, background: "rgba(0,0,0,0.25)", border: `1px solid ${T.line}`, borderRadius: 8, padding: "8px 10px" } }, langs.map((l) => React.createElement("option", { key: l.code, value: l.code }, l.name)))));
+}
+function AboutRow({ onAbout }) {
+    return (React.createElement("div", { style: { borderTop: `1px solid ${T.line}`, margin: "2px -16px 0", padding: "12px 16px 4px" } },
+        React.createElement("button", { onClick: onAbout, style: {
+                width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer",
+                border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream,
+                fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700,
+            } }, tr("settings.aboutFeedback"))));
+}
+function AboutModal({ onClose }) {
+    const REPO = "https://github.com/ghug/cribbage-trainer/";
+    return (React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 220, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }, onClick: onClose },
+        React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { maxWidth: 380, width: "100%", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "20px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" } },
+            React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 } },
+                React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } },
+                    React.createElement("span", { "aria-hidden": "true", style: { flex: "0 0 auto", width: 34, height: 34, borderRadius: 8, background: "rgba(0,0,0,0.25)", color: T.ivory, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "max(19px, var(--min-fs, 0px))", lineHeight: 1 } }, "\u2663"),
+                    React.createElement("span", { style: { fontWeight: 700, fontSize: "max(17px, var(--min-fs, 0px))" } }, tr("about.title"))),
+                React.createElement("button", { onClick: onClose, style: { padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", fontWeight: 700 } }, tr("common.done"))),
+            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.cream, lineHeight: 1.6, marginBottom: 12 } }, tr("about.line1")),
+            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.cream, lineHeight: 1.6, marginBottom: 16 } }, tr("about.line2")),
+            React.createElement("a", { href: REPO, target: "_blank", rel: "noopener noreferrer", style: {
+                    display: "block", textAlign: "center", padding: "12px", borderRadius: 9, textDecoration: "none", boxSizing: "border-box",
+                    background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
+                } }, tr("about.sourceLink")),
+            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
+            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.21-dev.9"))));
+}
+function HistoryModal({ onClose }) {
+    const [tick, setTick] = React.useState(0);
+    const all = loadHistory();
+    const [sel, setSel] = React.useState("all");
+    const [confirmClear, setConfirmClear] = React.useState(false);
+    const keyOf = (r) => `${r.P}/${r.teams}`;
+    const cfgLabel = (P, t) => (t < P ? tr("play.hist.cfgTeams", { p: P, teams: t }) : tr("play.hist.cfgHanded", { p: P }));
+    const configs = Array.from(new Set(all.map(keyOf))).sort((a, b) => {
+        const [pa, ta] = a.split("/").map(Number), [pb, tb] = b.split("/").map(Number);
+        return pa - pb || tb - ta;
+    });
+    const filtered = sel === "all" ? all : all.filter((r) => keyOf(r) === sel);
+    const games = filtered.length;
+    const cnt = (o) => filtered.filter((r) => r.outcome === o).length;
+    const won = cnt("won"), lost = cnt("lost"), sk = cnt("skunked"), dsk = cnt("doubleSkunked");
+    const avg = (k) => (games ? filtered.reduce((a, r) => a + (r[k] || 0), 0) / games : 0);
+    const winPct = games ? Math.round((won / games) * 100) : 0;
+    const specific = sel !== "all";
+    const chip = (key, label) => (React.createElement("button", { key: key, onClick: () => { setSel(key); setConfirmClear(false); }, style: {
+            padding: "6px 10px", borderRadius: 7, cursor: "pointer", fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", fontWeight: 700,
+            border: `1px solid ${sel === key ? T.pegIvory : T.line}`,
+            background: sel === key ? T.pegIvory : "rgba(0,0,0,0.25)", color: sel === key ? "#2A1B0E" : T.cream,
+        } }, label));
+    const Stat = ({ label, value, accent }) => (React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "7px 0", borderBottom: `1px solid ${T.line}` } },
+        React.createElement("span", { style: { fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.muted } }, label),
+        React.createElement("span", { style: { fontFamily: serif, fontSize: "max(16px, var(--min-fs, 0px))", fontWeight: 700, color: accent || T.cream } }, value)));
+    return (React.createElement(Modal, { onBackdrop: onClose, scroll: true },
+        React.createElement(ModalHeader, { title: tr("play.hist.title"), onClose: onClose, mb: 14 }),
+        all.length === 0 ? (React.createElement("div", { style: { fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.muted, lineHeight: 1.6 }, "data-tick": tick }, tr("play.hist.empty"))) : (React.createElement(React.Fragment, null,
+            React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 } },
+                chip("all", tr("play.hist.all")),
+                configs.map((k) => { const [P, t] = k.split("/").map(Number); return chip(k, cfgLabel(P, t)); })),
+            React.createElement(Stat, { label: tr("play.hist.games"), value: games }),
+            React.createElement(Stat, { label: tr("play.hist.won"), value: tr("play.hist.wonValue", { n: won, pct: winPct }), accent: T.good }),
+            React.createElement(Stat, { label: tr("play.hist.lost"), value: lost }),
+            React.createElement(Stat, { label: tr("play.hist.skunked"), value: sk, accent: sk ? T.pegRed : T.cream }),
+            React.createElement(Stat, { label: tr("play.hist.dblSkunked"), value: dsk, accent: dsk ? T.pegRed : T.cream }),
+            specific ? (React.createElement(React.Fragment, null,
+                React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, margin: "14px 0 4px", letterSpacing: 0.3 } }, tr("play.hist.avgHeader")),
+                React.createElement(Stat, { label: tr("play.hist.pegging"), value: avg("peg").toFixed(1) }),
+                React.createElement(Stat, { label: tr("play.hist.hand"), value: avg("hand").toFixed(1) }),
+                React.createElement(Stat, { label: tr("play.hist.crib"), value: avg("crib").toFixed(1) }))) : (React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, marginTop: 12, lineHeight: 1.5 } }, tr("play.hist.pickHint"))),
+            React.createElement("button", { onClick: () => { if (confirmClear) {
+                    clearHistory();
+                    setSel("all");
+                    setConfirmClear(false);
+                    setTick(tick + 1);
+                }
+                else
+                    setConfirmClear(true); }, style: {
+                    width: "100%", marginTop: 16, padding: "10px", borderRadius: 9, cursor: "pointer",
+                    border: `1px solid ${confirmClear ? T.pegRed : T.line}`, background: "rgba(0,0,0,0.25)",
+                    color: confirmClear ? T.pegRed : T.muted, fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", fontWeight: 700,
+                } }, confirmClear ? tr("play.hist.clearConfirm") : tr("play.hist.clear"))))));
+}
+function SettingsPanel({ settings, onSet, onReset, onClose, onAbout, onHistory }) {
+    const hasHumans = hasHumanSeat(settings);
+    const [confirmReset, setConfirmReset] = React.useState(false);
+    const [resetMsg, setResetMsg] = React.useState(false);
+    React.useEffect(() => { if (!resetMsg)
+        return; const t = setTimeout(() => setResetMsg(false), 2600); return () => clearTimeout(t); }, [resetMsg]);
+    const tapReset = () => { if (settingsAtDefaults(settings, ["seats", "names"]))
+        setResetMsg(true);
+    else
+        setConfirmReset(true); };
+    const Row = ({ title, desc, k, options, disabled }) => (React.createElement("div", { style: { marginBottom: 14, opacity: disabled ? 0.5 : 1 } },
+        React.createElement("div", { style: { fontWeight: 700, fontSize: "max(13.5px, var(--min-fs, 0px))" } }, title),
+        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, margin: "2px 0 7px", lineHeight: 1.45 } }, desc),
+        React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap" } }, options.map(([label, val]) => (React.createElement("button", { key: String(val), disabled: disabled, onClick: disabled ? undefined : () => onSet(k, val), style: { ...segStyle(settings[k] === val), cursor: disabled ? "default" : "pointer" } }, label))))));
+    const off = tr("common.off"), on = tr("common.on"), manual = tr("common.manual"), auto = tr("common.auto");
+    return (React.createElement(React.Fragment, null,
+        React.createElement(Modal, { onBackdrop: onClose, maxWidth: 420, padding: "14px 16px 4px", scroll: true, cardStyle: { maxHeight: "88vh" } },
+            React.createElement(ModalHeader, { title: tr("settings.title"), onClose: onClose },
+                React.createElement("span", { style: { fontWeight: 700, fontSize: "max(16px, var(--min-fs, 0px))" } }, tr("settings.title"))),
+            React.createElement(SettingsSection, { title: tr("settings.group.controls") },
+                React.createElement(Row, { title: tr("settings.speed.title"), k: "speed", desc: tr("settings.speed.desc"), options: [[tr("settings.speed.optSlow"), "slow"], [tr("settings.speed.optNormal"), "normal"], [tr("settings.speed.optFast"), "fast"], [tr("settings.speed.optLightning"), "lightning"], [tr("settings.speed.optInstant"), "instant"]] }),
+                React.createElement(Row, { title: tr("settings.tapToSelect.title"), k: "tapToSelect", desc: tr("settings.tapToSelect.desc"), options: [[off, false], [on, true]] }),
+                React.createElement(Row, { title: tr("settings.warn.title"), k: "warn", desc: tr("settings.warn.desc"), options: [[on, true], [off, false]] })),
+            React.createElement(SettingsSection, { title: tr("settings.group.automation") },
+                React.createElement(Row, { title: tr("settings.autoDeal.title"), k: "autoDeal", desc: tr("settings.autoDeal.desc"), options: [[off, false], [on, true]] }),
+                React.createElement(Row, { title: tr("settings.autoCut.title"), k: "autoCut", desc: tr("settings.autoCut.desc"), options: [[manual, false], [auto, true]] }),
+                React.createElement(Row, { title: tr("settings.autoDiscardBest.title"), k: "autoDiscardBest", desc: tr("settings.autoDiscardBest.desc"), options: [[off, false], [on, true]] }),
+                React.createElement(Row, { title: tr("settings.autoPlayOne.title"), k: "autoPlayOne", desc: tr("settings.autoPlayOne.desc"), options: [[off, false], [on, true]] }),
+                React.createElement(Row, { title: tr("settings.autoPlayBest.title"), k: "autoPlayBest", desc: tr("settings.autoPlayBest.desc"), options: [[off, false], [on, true]] }),
+                React.createElement(Row, { title: tr("settings.autoGo.title"), k: "autoGo", desc: tr("settings.autoGo.desc"), options: [[manual, false], [auto, true]] }),
+                React.createElement(Row, { title: tr("settings.autoContinue.title"), k: "autoContinue", desc: tr("settings.autoContinue.desc"), options: [[off, false], [on, true]] })),
+            React.createElement(SettingsSection, { title: tr("settings.group.counting") },
+                React.createElement(Row, { title: tr("settings.counting.title"), k: "counting", disabled: !hasHumans, desc: tr(hasHumans ? "settings.counting.desc" : "settings.counting.disabledDesc"), options: [[tr("settings.counting.optAuto"), "auto"], [tr("settings.counting.optMuggins"), "muggins"]] }),
+                React.createElement(Row, { title: tr("settings.claimWarn.title"), k: "claimWarn", disabled: !(hasHumans && settings.counting === "muggins"), desc: tr("settings.claimWarn.desc"), options: [[on, true], [off, false]] })),
+            React.createElement(Row, { title: tr("settings.textSize.title"), k: "textSize", desc: tr("settings.textSize.desc"), options: [[tr("settings.textSize.optSmall"), "small"], [tr("settings.textSize.optMedium"), "medium"], [tr("settings.textSize.optLarge"), "large"], [tr("settings.textSize.optXLarge"), "xlarge"]] }),
+            React.createElement(LanguageRow, null),
+            React.createElement("div", { style: { borderTop: `1px solid ${T.line}`, margin: "2px -16px 0", padding: "12px 16px 0" } },
+                React.createElement("button", { onClick: onHistory, style: { width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700 } }, tr("settings.history"))),
+            React.createElement("button", { onClick: tapReset, style: { width: "100%", margin: "10px 0 0", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700 } }, tr("settings.resetDefaults")),
+            resetMsg && (React.createElement("div", { onClick: () => setResetMsg(false), role: "status", style: {
+                    position: "fixed", left: "50%", top: 72, transform: "translateX(-50%)", zIndex: 240,
+                    background: `linear-gradient(180deg, ${T.woodL}, ${T.woodM})`, border: `1px solid ${T.pegIvory}`, borderRadius: 10, padding: "10px 16px",
+                    boxShadow: `0 8px 26px rgba(0,0,0,0.55), 0 0 0 3px ${T.baize}`, fontWeight: 700, fontSize: "max(14px, var(--min-fs, 0px))", color: T.ink,
+                    cursor: "pointer", maxWidth: "90vw", textAlign: "center",
+                } }, tr("settings.reset.alreadyDefault"))),
+            React.createElement(AboutRow, { onAbout: onAbout }),
+            React.createElement("button", { onClick: onClose, style: {
+                    width: "100%", margin: "12px 0 10px", padding: "12px", borderRadius: 9, border: "none", cursor: "pointer",
+                    background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory,
+                    fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
+                } }, tr("common.done"))),
+        confirmReset && (React.createElement(Modal, { onBackdrop: () => setConfirmReset(false), maxWidth: 360, padding: "18px", zIndex: 230 },
+            React.createElement("div", { style: { fontWeight: 700, fontSize: "max(16px, var(--min-fs, 0px))", marginBottom: 6 } }, tr("settings.reset.title")),
+            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.muted, lineHeight: 1.5, marginBottom: 16 } }, tr("settings.reset.body")),
+            React.createElement("div", { style: { display: "flex", gap: 8 } },
+                React.createElement("button", { onClick: () => setConfirmReset(false), style: { flex: 1, padding: "12px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer", background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: "max(13px, var(--min-fs, 0px))", fontWeight: 700 } }, tr("common.cancel")),
+                React.createElement("button", { onClick: () => { setConfirmReset(false); onReset(); }, style: { flex: 1, padding: "12px", borderRadius: 9, border: "none", cursor: "pointer", background: `linear-gradient(180deg, ${T.pegRed}, #9c3120)`, color: T.ivory, fontFamily: mono, fontSize: "max(13px, var(--min-fs, 0px))", fontWeight: 700 } }, tr("settings.reset.confirm")))))));
+}
+function SpaSettings() {
+    const [open, setOpen] = React.useState(false);
+    const [about, setAbout] = React.useState(false);
+    const [hist, setHist] = React.useState(false);
+    const [settings, setSettings] = React.useState(loadSettings);
+    const [, bump] = React.useState(0);
+    React.useEffect(() => {
+        window.__cribOpenSettings = () => { setSettings(loadSettings()); setOpen(true); };
+        const i = (typeof window !== "undefined") ? window.i18n : null;
+        if (i && i.onChange)
+            i.onChange(() => bump((v) => v + 1));
+    }, []);
+    const set = (k, v) => { const ns = { ...settings, [k]: v }; setSettings(ns); saveSettings(ns); if (k === "textSize")
+        applyMinFs(v); };
+    const reset = () => { const ns = { ...DEFAULT_SETTINGS, seats: settings.seats, names: settings.names }; setSettings(ns); saveSettings(ns); applyMinFs(ns.textSize); };
+    if (!open && !about && !hist)
+        return null;
+    return (React.createElement(React.Fragment, null,
+        open && React.createElement(SettingsPanel, { settings: settings, onSet: set, onReset: reset, onClose: () => setOpen(false), onAbout: () => setAbout(true), onHistory: () => setHist(true) }),
+        about && React.createElement(AboutModal, { onClose: () => setAbout(false) }),
+        hist && React.createElement(HistoryModal, { onClose: () => setHist(false) })));
+}
+
+</script>
+<script>
+
+    (function () {
+      var s = document.getElementById('settingsOverlay');
+      var a = document.getElementById('aboutOverlay');
+      var c = document.getElementById('confirmResetOverlay');
+      var cn = document.getElementById('confirmResetNamesOverlay');
+      var h = document.getElementById('historyOverlay');
+      function open(el) { el.classList.add('open'); }
+      function close(el) { el.classList.remove('open'); }
+
+      // Game history (same cribbage:history store the Play game writes; this view mirrors the Play
+      // game's HistoryModal — the settings menus are identical across all three pages).
+      var HISTORY_KEY = 'cribbage:history';
+      function loadHistory() { try { var r = localStorage.getItem(HISTORY_KEY); return r ? JSON.parse(r) : []; } catch (e) { return []; } }
+      function clearHistory() { try { localStorage.removeItem(HISTORY_KEY); } catch (e) {} }
+      var histSel = 'all', histConfirmClear = false;
+      function histChip(key, label) { return '<button class="hist-chip' + (histSel === key ? ' on' : '') + '" type="button" data-key="' + esc(key) + '">' + esc(label) + '</button>'; }
+      function histStat(label, value, accent) { return '<div class="hist-stat"><span class="lbl">' + esc(label) + '</span><span class="val' + (accent ? ' ' + accent : '') + '">' + esc(value) + '</span></div>'; }
+      function renderHistory() {
+        var body = document.getElementById('historyBody');
+        var all = loadHistory();
+        if (!all.length) { body.innerHTML = '<div class="hist-empty">' + esc(tr('play.hist.empty')) + '</div>'; return; }
+        var keyOf = function (r) { return r.P + '/' + r.teams; };
+        var cfgLabel = function (P, t) { return t < P ? tr('play.hist.cfgTeams', { p: P, teams: t }) : tr('play.hist.cfgHanded', { p: P }); };
+        var configs = []; all.forEach(function (r) { var k = keyOf(r); if (configs.indexOf(k) < 0) configs.push(k); });
+        configs.sort(function (a, b) { var pa = a.split('/').map(Number), pb = b.split('/').map(Number); return pa[0] - pb[0] || pb[1] - pa[1]; });
+        if (histSel !== 'all' && configs.indexOf(histSel) < 0) histSel = 'all';
+        var filtered = histSel === 'all' ? all : all.filter(function (r) { return keyOf(r) === histSel; });
+        var games = filtered.length;
+        var cnt = function (o) { return filtered.filter(function (r) { return r.outcome === o; }).length; };
+        var won = cnt('won'), lost = cnt('lost'), sk = cnt('skunked'), dsk = cnt('doubleSkunked');
+        var avg = function (k) { return games ? filtered.reduce(function (a, r) { return a + (r[k] || 0); }, 0) / games : 0; };
+        var winPct = games ? Math.round(won / games * 100) : 0;
+        var html = '<div class="hist-chips">' + histChip('all', tr('play.hist.all'));
+        configs.forEach(function (k) { var pt = k.split('/').map(Number); html += histChip(k, cfgLabel(pt[0], pt[1])); });
+        html += '</div>';
+        html += histStat(tr('play.hist.games'), games);
+        html += histStat(tr('play.hist.won'), tr('play.hist.wonValue', { n: won, pct: winPct }), 'good');
+        html += histStat(tr('play.hist.lost'), lost);
+        html += histStat(tr('play.hist.skunked'), sk, sk ? 'red' : '');
+        html += histStat(tr('play.hist.dblSkunked'), dsk, dsk ? 'red' : '');
+        if (histSel !== 'all') {
+          html += '<div class="hist-sub">' + esc(tr('play.hist.avgHeader')) + '</div>';
+          html += histStat(tr('play.hist.pegging'), avg('peg').toFixed(1));
+          html += histStat(tr('play.hist.hand'), avg('hand').toFixed(1));
+          html += histStat(tr('play.hist.crib'), avg('crib').toFixed(1));
+        } else {
+          html += '<div class="hist-hint">' + esc(tr('play.hist.pickHint')) + '</div>';
+        }
+        html += '<button class="hist-clear' + (histConfirmClear ? ' confirm' : '') + '" id="histClear" type="button">' + esc(histConfirmClear ? tr('play.hist.clearConfirm') : tr('play.hist.clear')) + '</button>';
+        body.innerHTML = html;
+        body.querySelectorAll('.hist-chip').forEach(function (b) { b.addEventListener('click', function () { histSel = b.getAttribute('data-key'); histConfirmClear = false; renderHistory(); }); });
+        var cl = document.getElementById('histClear');
+        if (cl) cl.addEventListener('click', function () { if (histConfirmClear) { clearHistory(); histSel = 'all'; histConfirmClear = false; } else histConfirmClear = true; renderHistory(); });
+      }
+
+      // ---- i18n: a safe translate alias, the static-text pass, and the language picker ----
+      var tr = (window.t) ? window.t : function (k) { return k; };  // falls back to the key
+      function applyI18n() {
+        var n, i;
+        n = document.querySelectorAll('[data-i18n]'); for (i = 0; i < n.length; i++) n[i].textContent = tr(n[i].getAttribute('data-i18n'));
+        n = document.querySelectorAll('[data-i18n-html]'); for (i = 0; i < n.length; i++) n[i].innerHTML = tr(n[i].getAttribute('data-i18n-html'));
+        n = document.querySelectorAll('[data-i18n-aria]'); for (i = 0; i < n.length; i++) n[i].setAttribute('aria-label', tr(n[i].getAttribute('data-i18n-aria')));
+      }
+      applyI18n();
+      // Wire any language <select> (the settings modal + the footer share this helper).
+      function setupLangPick(pick) {
+        if (!pick || !window.i18n) return false;
+        var langs = i18n.languages();
+        for (var lj = 0; lj < langs.length; lj++) {
+          var o = document.createElement('option');
+          o.value = langs[lj].code; o.textContent = langs[lj].name;
+          if (langs[lj].code === i18n.lang) o.selected = true;
+          pick.appendChild(o);
+        }
+        pick.addEventListener('change', function () { i18n.choose(this.value); });
+        return langs.length > 1;
+      }
+      setupLangPick(document.getElementById('langPick'));
+      // The footer chooser only appears when there's an actual choice (>1 language).
+      if (setupLangPick(document.getElementById('footerLangPick'))) document.getElementById('footerLangRow').hidden = false;
+
+      // Game settings, shared across every page via localStorage (same key the games
+      // read/write), so a toggle here — or in any game — sticks everywhere.
+      var SETTINGS_KEY = "cribbage:settings";
+      var DEFAULTS = { players: 2, teams: 2, seats: [], names: [], speed: "normal", textSize: "large", counting: "auto", tapToSelect: true, autoCut: false, autoGo: false, warn: true, claimWarn: true, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false, autoContinue: false, autoDeal: false };
+      // "Players" lives on the main page (above Play); the rest are in this popup. These are the
+      // SAME global game settings every page (landing/trainer/play) reads & writes, so the menu is
+      // identical everywhere. title/desc/option labels are i18n keys, translated via tr() at render.
+      var ROWS = [
+        { k: "speed", title: "settings.speed.title", desc: "settings.speed.desc", opts: [["settings.speed.optSlow", "slow"], ["settings.speed.optNormal", "normal"], ["settings.speed.optFast", "fast"], ["settings.speed.optLightning", "lightning"], ["settings.speed.optInstant", "instant"]] },
+        { k: "textSize", title: "settings.textSize.title", desc: "settings.textSize.desc", opts: [["settings.textSize.optSmall", "small"], ["settings.textSize.optMedium", "medium"], ["settings.textSize.optLarge", "large"], ["settings.textSize.optXLarge", "xlarge"]] },
+        { k: "tapToSelect", title: "settings.tapToSelect.title", desc: "settings.tapToSelect.desc", opts: [["common.off", false], ["common.on", true]] },
+        { k: "warn", title: "settings.warn.title", desc: "settings.warn.desc", opts: [["common.on", true], ["common.off", false]] },
+        { k: "autoDeal", title: "settings.autoDeal.title", desc: "settings.autoDeal.desc", opts: [["common.off", false], ["common.on", true]] },
+        { k: "autoCut", title: "settings.autoCut.title", desc: "settings.autoCut.desc", opts: [["common.manual", false], ["common.auto", true]] },
+        { k: "autoDiscardBest", title: "settings.autoDiscardBest.title", desc: "settings.autoDiscardBest.desc", opts: [["common.off", false], ["common.on", true]] },
+        { k: "autoPlayOne", title: "settings.autoPlayOne.title", desc: "settings.autoPlayOne.desc", opts: [["common.off", false], ["common.on", true]] },
+        { k: "autoPlayBest", title: "settings.autoPlayBest.title", desc: "settings.autoPlayBest.desc", opts: [["common.off", false], ["common.on", true]] },
+        { k: "autoGo", title: "settings.autoGo.title", desc: "settings.autoGo.desc", opts: [["common.manual", false], ["common.auto", true]] },
+        { k: "autoContinue", title: "settings.autoContinue.title", desc: "settings.autoContinue.desc", opts: [["common.off", false], ["common.on", true]] },
+        { k: "counting", title: "settings.counting.title", desc: "settings.counting.desc", disabledDesc: "settings.counting.disabledDesc", opts: [["settings.counting.optAuto", "auto"], ["settings.counting.optMuggins", "muggins"]] },
+        { k: "claimWarn", title: "settings.claimWarn.title", desc: "settings.claimWarn.desc", opts: [["common.on", true], ["common.off", false]] }
+      ];
+      // Defaults first, then overlay EVERY saved key (preserving keys this page doesn't itself
+      // render, e.g. tapToSelect/autoCut/claimWarn) so a toggle on any page is never dropped here.
+      function loadSettings() { var m = {}; for (var dk in DEFAULTS) m[dk] = DEFAULTS[dk]; try { var r = localStorage.getItem(SETTINGS_KEY); if (r) { var o = JSON.parse(r); for (var key in o) m[key] = o[key]; } } catch (e) {} return m; }
+      function saveSettings(o) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(o)); } catch (e) {} }
+      // Global text-size floor: every font-size in the stylesheet is max(<px>, var(--min-fs,0px)),
+      // so raising --min-fs only grows sub-floor text. small = current sizing; medium/large lift it.
+      var MIN_FS = { small: "0px", medium: "12px", large: "14px", xlarge: "16px" };
+      function applyTextSize() { document.documentElement.style.setProperty("--min-fs", MIN_FS[settings.textSize] || "0px"); }
+      var settings = loadSettings();
+      applyTextSize();
+      // The toggle rows are grouped into collapsible sections (the menu was a long flat list).
+      var GROUPS = [
+        { title: "settings.group.controls", open: false, keys: ["speed", "tapToSelect", "warn"] },
+        { title: "settings.group.automation", open: false, keys: ["autoDeal", "autoCut", "autoDiscardBest", "autoPlayOne", "autoPlayBest", "autoGo", "autoContinue"] },
+        { title: "settings.group.counting", open: false, keys: ["counting", "claimWarn"] }
+      ];
+      function rowByKey(k) { for (var i = 0; i < ROWS.length; i++) if (ROWS[i].k === k) return ROWS[i]; return null; }
+      // Accurate human-seat count (seat 0 is human by default; a configured value wins).
+      function humanCount() { var n = 0; for (var i = 0; i < settings.players; i++) { var v = settings.seats && settings.seats[i]; if (v === 'human' || (v == null && i === 0)) n++; } return n; }
+      // Muggins needs at least one human; the claim-warning needs muggins to be the active mode.
+      function rowDisabled(k, hasHumans) { return (k === 'counting' && !hasHumans) || (k === 'claimWarn' && !(hasHumans && settings.counting === 'muggins')); }
+      function appendRow(host, row, disabled) {
+        var wrap = document.createElement('div'); wrap.className = 'set-row' + (disabled ? ' disabled' : '');
+        var titleEl = document.createElement('div'); titleEl.className = 'set-title'; titleEl.textContent = tr(row.title); wrap.appendChild(titleEl);
+        var d = document.createElement('div'); d.className = 'set-desc';
+        d.textContent = tr((disabled && row.disabledDesc) ? row.disabledDesc : row.desc);
+        wrap.appendChild(d);
+        var segs = document.createElement('div'); segs.className = 'set-segs';
+        row.opts.forEach(function (opt) {
+          var b = document.createElement('button'); b.type = 'button'; b.textContent = tr(opt[0]);
+          b.className = 'seg' + (settings[row.k] === opt[1] ? ' on' : '');
+          if (disabled) { b.disabled = true; }
+          else { b.addEventListener('click', (function (segsEl, btn, k, val) { return function () {
+            settings[k] = val; saveSettings(settings);
+            if (k === 'textSize') applyTextSize();   // live text-size floor
+            // Counting gates claimWarn's enabled state, so re-render the whole list for it;
+            // every other row updates its highlight in place (rebuilding collapses open sections).
+            if (k === 'counting') { renderSettings(); return; }
+            var sibs = segsEl.querySelectorAll('.seg');
+            for (var s = 0; s < sibs.length; s++) sibs[s].className = 'seg';
+            btn.className = 'seg on';
+          }; })(segs, b, row.k, opt[1])); }
+          segs.appendChild(b);
+        });
+        wrap.appendChild(segs); host.appendChild(wrap);
+      }
+      function renderSettings() {
+        var host = document.getElementById('settingsList');
+        host.innerHTML = '';
+        var hasHumans = humanCount() >= 1;
+        GROUPS.forEach(function (g) {
+          var det = document.createElement('details'); det.className = 'set-group'; det.open = g.open;
+          var sum = document.createElement('summary'); sum.textContent = tr(g.title); det.appendChild(sum);
+          g.keys.forEach(function (key) { var row = rowByKey(key); if (row) appendRow(det, row, rowDisabled(row.k, hasHumans)); });
+          host.appendChild(det);
+        });
+        // Text size sits on its own, just above the Language picker.
+        var ts = document.getElementById('textSizeRow'); if (ts) { ts.innerHTML = ''; appendRow(ts, rowByKey('textSize'), false); }
+      }
+      renderSettings();
+
+      // The "Players" and "Teams" controls live on the home page, above the Play card.
+      // Teams only appears at 4 or 6 players; it's a setting only for now (no gameplay).
+      function teamOptions(P) { if (P === 4) return [4, 2]; if (P === 6) return [6, 3, 2]; return [P]; }
+      function renderPlayers() {
+        var host = document.getElementById('playersSegs');
+        host.innerHTML = '';
+        [2, 3, 4, 5, 6].forEach(function (p) {
+          var b = document.createElement('button'); b.type = 'button'; b.textContent = String(p);
+          b.className = 'seg' + (settings.players === p ? ' on' : '');
+          // Switching players resets teams to the cutthroat default (one per player).
+          b.addEventListener('click', function () { settings.players = p; settings.teams = p; saveSettings(settings); editingNames = false; renderPlayers(); renderTeams(); renderNamesButton(); renderSeatHint(); });
+          host.appendChild(b);
+        });
+        renderSeatDiagram();
+      }
+      // Seat positions (x%, y%) around the table per size; seat 0 = You at the bottom,
+      // 1 = West (left), last = East (right), the middle seats spread across the top —
+      // matching the games' compass seating.
+      function seatLayout(P) {
+        return {
+          2: [[50, 84], [50, 12]],
+          3: [[50, 84], [13, 44], [87, 44]],
+          4: [[50, 84], [10, 50], [50, 12], [90, 50]],
+          5: [[50, 84], [8, 56], [27, 16], [73, 16], [92, 56]],
+          6: [[50, 85], [13, 63], [13, 31], [50, 11], [87, 31], [87, 63]]
+        }[P];
+      }
+      // Canonical position-based abbreviations (S, N, W, E, NW, NE, SW, SE) → translated for
+      // The diagram shows FULL seat names (South, Northwest, …) via the games' seat.* full-name keys
+      // (localized: Norte/Oeste in Spanish, etc.). Custom names override per seat.
+      var SEAT_FULL_KEY = { S: 'seat.south', N: 'seat.north', W: 'seat.west', E: 'seat.east', NW: 'seat.northwest', NE: 'seat.northeast', SW: 'seat.southwest', SE: 'seat.southeast' };
+      function seatNames(P) {
+        var n;
+        if (P === 2) n = ['S', 'N'];
+        else {
+          n = new Array(P); n[0] = 'S';
+          n[1] = P === 6 ? 'SW' : 'W'; n[P - 1] = P === 6 ? 'SE' : 'E';
+          var tops = []; for (var i = 2; i <= P - 2; i++) tops.push(i);
+          var labels = tops.length <= 1 ? ['N'] : tops.length === 2 ? ['NW', 'NE'] : ['NW', 'N', 'NE'];
+          tops.forEach(function (sx, k) { n[sx] = labels[k]; });
+        }
+        return n.map(function (c) { return tr(SEAT_FULL_KEY[c] || c); });
+      }
+      // Each seat is human or bot (stored in settings.seats). Default: South (seat 0) is a
+      // human and the rest bots — but any seat, South included, can be toggled.
+      // A seat is "human" or a bot at one of three difficulties. Legacy "bot" and any unconfigured
+      // bot seat default to "hard" (today's strongest play); seat 0 defaults to human.
+      var SEAT_CYCLE = ['human', 'easy', 'medium', 'hard'];
+      // full i18n keys by role, via a map lookup (a built-up key string would hide it from the lint)
+      var ROLE_KEY = { human: 'role.human', easy: 'role.easy', medium: 'role.medium', hard: 'role.hard' };
+      var DIFF_KEY = { easy: 'landing.diff.easy', medium: 'landing.diff.medium', hard: 'landing.diff.hard' };
+      function seatRoles(P) {
+        var src = settings.seats || [];
+        var r = [];
+        for (var i = 0; i < P; i++) {
+          var v = src[i];
+          r[i] = (SEAT_CYCLE.indexOf(v) >= 0) ? v : (v === 'bot' ? 'hard' : (i === 0 ? 'human' : 'hard'));
+        }
+        return r;
+      }
+      function toggleSeatRole(i) {
+        var roles = seatRoles(settings.players);
+        var k = SEAT_CYCLE.indexOf(roles[i]); if (k < 0) k = 0;
+        roles[i] = SEAT_CYCLE[(k + 1) % SEAT_CYCLE.length];   // human → easy → medium → hard → human
+        settings.seats = roles; saveSettings(settings); renderSeatDiagram();
+      }
+      // Per-seat custom name (settings.names[i]) overrides the compass label when set/non-empty.
+      var editingNames = false;
+      function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+      function baseSeatName(i, compass) { var c = settings.names || []; return (c[i] != null && c[i] !== '') ? c[i] : compass[i]; }
+      function renderSeatDiagram() {
+        var host = document.getElementById('seatDiagram');
+        var P = settings.players, teams = settings.teams;
+        // Crowded tables (5/6) stack seats on the flanks; give them more height so a seat's name
+        // label never reaches the seat below it.
+        host.style.height = (P === 6 ? 210 : P === 5 ? 190 : 170) + 'px';
+        var pos = seatLayout(P), names = seatNames(P), roles = seatRoles(P);
+        var humans = roles.filter(function (r) { return r === 'human'; }).length;
+        // Okabe–Ito colour-blind-safe palette (sky blue / orange / reddish-purple / bluish green /
+        // yellow / blue): six maximally separated hues distinguishable under all common colour-
+        // vision types (the 7th Okabe–Ito hue, vermillion, is dropped to avoid orange confusion).
+        // One colour per team when partnered; one per seat in cutthroat (teams === P → i % teams == i).
+        var palette = ['#56B4E9', '#E69F00', '#CC79A7', '#009E73', '#F0E442', '#0072B2'];
+        var byTeam = teams < P, target = P >= 5 ? 61 : 121;
+        var center = (byTeam ? tr('landing.tableTeams', { p: P, teams: teams }) : tr('landing.tableIndividual', { p: P })) + '<br>' + tr('landing.firstTo', { target: target });
+        var html = '<div class="seat-table"><span class="tlabel">' + center + '</span></div>';
+        for (var i = 0; i < P; i++) {
+          var avStyle = ' style="border-color:' + palette[i % teams] + ';border-width:4px"';   // by team, or per seat in cutthroat (teams === P)
+          var human = roles[i] === 'human';
+          var isYou = human && humans === 1;                 // a lone human (drives the .you emphasis only)
+          var base = baseSeatName(i, names);
+          var label = esc(base);                             // the seat's real name ("You" isn't a name — the 🧑 avatar marks the human)
+          var ps = 'left:' + pos[i][0] + '%;top:' + pos[i][1] + '%';
+          // bots show a small colour-coded difficulty badge (first letter of the level) on the avatar
+          var diffBadge = human ? '' : '<span class="seat-diff diff-' + roles[i] + '">' + esc(tr(DIFF_KEY[roles[i]]).charAt(0).toUpperCase()) + '</span>';
+          if (editingNames) {
+            // Naming mode: the input holds ONLY a real custom name; the compass label is a placeholder.
+            // (Pre-filling the value would bake the abbreviation in as a custom name on save, which
+            // then overrides BOTH the game's full name and its abbreviation — so an untouched seat must
+            // save as empty, leaving the game's full=direction-name / short=abbreviation defaults.)
+            var custom = (settings.names || [])[i] || '';
+            html += '<div class="seat ' + roles[i] + (isYou ? ' you' : '') + '" style="' + ps + '">'
+              + '<span class="avatar"' + avStyle + '>' + (human ? '🧑' : '🤖') + diffBadge + '</span>'
+              + '<input type="text" class="seat-name-input" data-seat="' + i + '" value="' + esc(custom) + '" placeholder="' + esc(names[i]) + '" aria-label="' + esc(names[i]) + '"></div>';
+            continue;
+          }
+          var cls = 'seat seat-btn ' + roles[i] + (isYou ? ' you' : '');
+          var aria = tr('landing.seatAria', { name: base, role: tr(ROLE_KEY[roles[i]]) });
+          html += '<button type="button" class="' + cls + '" data-seat="' + i + '" style="' + ps + '" aria-label="' + esc(aria) + '">'
+            + '<span class="avatar"' + avStyle + '>' + (human ? '🧑' : '🤖') + diffBadge + '</span><span class="seat-name">' + label + '</span></button>';
+        }
+        host.innerHTML = html;
+        var btns = host.querySelectorAll('.seat-btn');
+        for (var j = 0; j < btns.length; j++) {
+          btns[j].addEventListener('click', function () { toggleSeatRole(+this.getAttribute('data-seat')); });
+        }
+        // Naming mode: persist each name live as it's typed (no need to lock-in first).
+        var inputs = host.querySelectorAll('.seat-name-input');
+        for (var m = 0; m < inputs.length; m++) {
+          inputs[m].addEventListener('input', function () {
+            var names = (settings.names || []).slice();
+            names[+this.getAttribute('data-seat')] = this.value.trim();
+            settings.names = names; saveSettings(settings);
+          });
+        }
+      }
+      // Toggle between showing the diagram and editing every seat's name. Saving reads each input
+      // into settings.names (an empty box reverts that seat to its compass default).
+      // True when at least one seat has a custom (non-empty) name set, i.e. the names aren't the
+      // plain compass defaults — used to show the "Reset names" button only when there's something
+      // to reset.
+      function hasCustomNames() {
+        var c = settings.names || [];
+        for (var i = 0; i < c.length; i++) if (c[i] != null && c[i] !== '') return true;
+        return false;
+      }
+      function renderNamesButton() {
+        var btn = document.getElementById('namesBtn');
+        if (btn) {
+          btn.textContent = tr(editingNames ? 'landing.saveNames' : 'landing.setNames');
+          btn.className = 'names-btn' + (editingNames ? ' on' : '');
+        }
+        var rb = document.getElementById('resetNamesBtn');
+        if (rb) {
+          rb.textContent = tr('landing.resetNames');
+          rb.style.display = hasCustomNames() ? '' : 'none';
+        }
+      }
+      // The seat hint swaps to the naming instructions while editing names.
+      function renderSeatHint() {
+        var el = document.querySelector('.seat-hint');
+        if (el) el.textContent = tr(editingNames ? 'landing.seatHintEdit' : 'landing.seatHint');
+      }
+      function toggleNamesEdit() {
+        if (editingNames) {
+          var inputs = document.querySelectorAll('#seatDiagram .seat-name-input');
+          var names = (settings.names || []).slice();
+          for (var k = 0; k < inputs.length; k++) names[+inputs[k].getAttribute('data-seat')] = inputs[k].value.trim();
+          settings.names = names; saveSettings(settings);
+          editingNames = false;
+        } else { editingNames = true; }
+        renderSeatDiagram(); renderNamesButton(); renderSeatHint();
+      }
+      // [teams-value, label] choices, in display order. teams === players is "individual".
+      function teamChoices(P) {
+        if (P === 4) return [[4, "landing.team.individual"], [2, "landing.team.teams"]];
+        if (P === 6) return [[6, "landing.team.individual"], [2, "landing.team.two"], [3, "landing.team.three"]];
+        return [];
+      }
+      function renderTeams() {
+        var wrap = document.getElementById('teamsPick');
+        var host = document.getElementById('teamsSegs');
+        var choices = teamChoices(settings.players);
+        host.innerHTML = '';
+        // Teams only apply at 4 or 6 players — hide the whole control otherwise.
+        if (choices.length === 0) { wrap.hidden = true; return; }
+        wrap.hidden = false;
+        var values = choices.map(function (c) { return c[0]; });
+        if (values.indexOf(settings.teams) < 0) { settings.teams = settings.players; saveSettings(settings); }
+        choices.forEach(function (c) {
+          var b = document.createElement('button'); b.type = 'button'; b.textContent = tr(c[1]);
+          b.className = 'seg' + (settings.teams === c[0] ? ' on' : '');
+          b.addEventListener('click', function () { settings.teams = c[0]; saveSettings(settings); editingNames = false; renderTeams(); renderSeatDiagram(); renderNamesButton(); renderSeatHint(); });
+          host.appendChild(b);
+        });
+      }
+      renderPlayers();
+      renderTeams();
+      document.getElementById('namesBtn').addEventListener('click', toggleNamesEdit);
+      // Reset names: confirm first, then clear every custom name back to the compass defaults
+      // (stays in edit mode if open).
+      document.getElementById('resetNamesBtn').addEventListener('click', function () { open(cn); });
+      document.getElementById('resetNamesCancel').addEventListener('click', function () { close(cn); });
+      document.getElementById('resetNamesConfirm').addEventListener('click', function () {
+        settings.names = []; saveSettings(settings);
+        renderSeatDiagram(); renderNamesButton();
+        close(cn);
+      });
+      renderNamesButton();
+
+      // Live language switch (no reload): re-run the static text pass, re-render the JS-built
+      // controls (settings rows, players, teams + seat diagram) in the new language, and sync
+      // both <select>s (a switch from one shouldn't leave the other showing the old value).
+      if (window.i18n && i18n.onChange) i18n.onChange(function () {
+        applyI18n(); renderSettings(); renderPlayers(); renderTeams(); renderNamesButton(); renderSeatHint(); renderHistory();
+        ['langPick', 'footerLangPick'].forEach(function (id) { var el = document.getElementById(id); if (el) el.value = i18n.lang; });
+      });
+
+      document.getElementById('gear').addEventListener('click', function () { if (window.__crib && window.__crib.openSettings) { window.__crib.openSettings(); return; } settings = loadSettings(); applyTextSize(); renderSettings(); renderPlayers(); renderTeams(); open(s); });
+      document.getElementById('settingsDone').addEventListener('click', function () { close(s); });
+      document.getElementById('settingsContinue').addEventListener('click', function () { close(s); });
+      document.getElementById('openAbout').addEventListener('click', function () { close(s); open(a); });
+      document.getElementById('openHistory').addEventListener('click', function () { histSel = 'all'; histConfirmClear = false; renderHistory(); open(h); });
+      document.getElementById('historyDone').addEventListener('click', function () { close(h); });
+      // Reset asks for confirmation first (a popup), then resets everything to defaults EXCEPT the
+      // per-seat roles + custom names (the "who's playing" setup) — table size and teams reset too.
+      // The landing reset returns everything (incl. table size/teams) to default except seats/names.
+      function settingsAtDefaults() { for (var k in DEFAULTS) { if (k === 'seats' || k === 'names') continue; if (settings[k] !== DEFAULTS[k]) return false; } return true; }
+      var resetMsgTimer = null;
+      document.getElementById('resetSettings').addEventListener('click', function () {
+        if (settingsAtDefaults()) {
+          var m = document.getElementById('resetMsg'); m.style.display = 'block';
+          if (resetMsgTimer) clearTimeout(resetMsgTimer);
+          resetMsgTimer = setTimeout(function () { m.style.display = 'none'; }, 2600);
+        } else { open(c); }
+      });
+      document.getElementById('resetCancel').addEventListener('click', function () { close(c); });
+      document.getElementById('resetConfirm').addEventListener('click', function () {
+        for (var rk in DEFAULTS) { if (rk !== 'seats' && rk !== 'names') settings[rk] = DEFAULTS[rk]; }
+        saveSettings(settings); editingNames = false; applyTextSize();
+        renderSettings(); renderPlayers(); renderTeams(); renderSeatDiagram(); renderNamesButton(); renderSeatHint();
+        close(c);
+      });
+      document.getElementById('footerAbout').addEventListener('click', function () { open(a); });
+      document.getElementById('aboutDone').addEventListener('click', function () { close(a); });
+      [s, a, c, cn, h].forEach(function (el) {
+        el.addEventListener('click', function (e) { if (e.target === el) close(el); });
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { close(s); close(a); close(c); close(cn); close(h); }
+      });
+    })();
+  
+</script>
+<script>
+(function(){
+"use strict";
+const { useState, useMemo, useCallback, useEffect, useRef } = React;
+const SPEED_MULT = { slow: 2, normal: 1, fast: 0.5 };
+const SPEED_FLAT = { lightning: 32, instant: 0 };
+let SPEED = "normal";
+function spd(ms) { if (ms <= 0)
+    return ms; const flat = SPEED_FLAT[SPEED]; return flat != null ? flat : Math.round(ms * (SPEED_MULT[SPEED] ?? 1)); }
+const MIN_FS = { small: "0px", medium: "12px", large: "14px", xlarge: "16px" };
+const fifteenVal = (r) => Math.min(r, 10);
+function scoreInto(four, starter, isCrib, acc) {
+    const all = [...four, starter];
+    let f = 0, p = 0, ru = 0, fl = 0, no = 0;
+    for (let m = 1; m < 32; m++) {
+        let s = 0;
+        for (let i = 0; i < 5; i++)
+            if (m & (1 << i))
+                s += fifteenVal(all[i].r);
+        if (s === 15)
+            f += 2;
+    }
+    for (let i = 0; i < 5; i++)
+        for (let j = i + 1; j < 5; j++)
+            if (all[i].r === all[j].r)
+                p += 2;
+    const c = new Array(14).fill(0);
+    for (const x of all)
+        c[x.r]++;
+    let r = 1;
+    while (r <= 13) {
+        if (!c[r]) {
+            r++;
+            continue;
+        }
+        let len = 0, pr = 1, rr = r;
+        while (rr <= 13 && c[rr] > 0) {
+            len++;
+            pr *= c[rr];
+            rr++;
+        }
+        if (len >= 3)
+            ru += len * pr;
+        r = rr;
+    }
+    const s0 = four[0].s;
+    if (four.every((x) => x.s === s0)) {
+        if (starter.s === s0)
+            fl += 5;
+        else if (!isCrib)
+            fl += 4;
+    }
+    for (const x of four)
+        if (x.r === 11 && x.s === starter.s)
+            no += 1;
+    acc[0] += f;
+    acc[1] += p;
+    acc[2] += ru;
+    acc[3] += fl;
+    acc[4] += no;
+    return f + p + ru + fl + no;
+}
+function lockedFour(four) {
+    let f = 0, p = 0, ru = 0, fl = 0;
+    for (let m = 1; m < 16; m++) {
+        let s = 0;
+        for (let i = 0; i < 4; i++)
+            if (m & (1 << i))
+                s += fifteenVal(four[i].r);
+        if (s === 15)
+            f += 2;
+    }
+    for (let i = 0; i < 4; i++)
+        for (let j = i + 1; j < 4; j++)
+            if (four[i].r === four[j].r)
+                p += 2;
+    const c = new Array(14).fill(0);
+    for (const x of four)
+        c[x.r]++;
+    let r = 1;
+    while (r <= 13) {
+        if (!c[r]) {
+            r++;
+            continue;
+        }
+        let len = 0, pr = 1, rr = r;
+        while (rr <= 13 && c[rr] > 0) {
+            len++;
+            pr *= c[rr];
+            rr++;
+        }
+        if (len >= 3)
+            ru += len * pr;
+        r = rr;
+    }
+    if (four.every((x) => x.s === four[0].s))
+        fl += 4;
+    return f + p + ru + fl;
+}
+const cardId = (c) => (c.r - 1) * 4 + c.s;
+function deckExcluding(cards) {
+    const used = new Set(cards.map(cardId));
+    const d = [];
+    for (let r = 1; r <= 13; r++)
+        for (let s = 0; s < 4; s++) {
+            const c = { r, s };
+            if (!used.has(cardId(c)))
+                d.push(c);
+        }
+    return d;
+}
+function mulberry32(a) {
+    return function () {
+        a |= 0;
+        a = (a + 0x6d2b79f5) | 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+}
+function handDetail(four, dealt5) {
+    const deck = deckExcluding(dealt5);
+    const acc = [0, 0, 0, 0, 0];
+    let total = 0, sq = 0, mn = 99, mx = 0;
+    const byRank = {};
+    const vals = [];
+    for (const st of deck) {
+        const t = scoreInto(four, st, false, acc);
+        total += t;
+        sq += t * t;
+        if (t < mn)
+            mn = t;
+        if (t > mx)
+            mx = t;
+        vals.push(t);
+        const b = byRank[st.r] || (byRank[st.r] = { sum: 0, n: 0 });
+        b.sum += t;
+        b.n++;
+    }
+    const n = deck.length;
+    const ev = total / n;
+    const sd = Math.sqrt(Math.max(0, sq / n - ev * ev));
+    vals.sort((a, b) => a - b);
+    const locked = lockedFour(four);
+    const top = Object.keys(byRank)
+        .map((r) => ({ r: +r, avg: byRank[r].sum / byRank[r].n, p: byRank[r].n / n }))
+        .sort((a, b) => b.avg - a.avg).slice(0, 3);
+    return { ev, sd, mn, mx, p10: vals[(n * 0.1) | 0], p90: vals[(n * 0.9) | 0], cats: acc.map((x) => x / n), locked, fromCut: ev - locked, top };
+}
+const DEALER_DISCARD_PROBS = [0.0639, 0.08325, 0.09032, 0.05659, 0.07681, 0.06226, 0.08103, 0.0937, 0.06772, 0.04889, 0.09511, 0.07993, 0.10046];
+const DEFENDER_DISCARD_PROBS = [0.09388, 0.06719, 0.04547, 0.04428, 0.00398, 0.06537, 0.0818, 0.08531, 0.08712, 0.09632, 0.0411, 0.11445, 0.17376];
+const cumOf = (p) => { const c = []; let s = 0; for (const x of p) {
+    s += x;
+    c.push(s);
+} return c; };
+const DEALER_CUM = cumOf(DEALER_DISCARD_PROBS);
+const DEFENDER_CUM = cumOf(DEFENDER_DISCARD_PROBS);
+function pickWeightedRank(rng, cum) {
+    const u = rng() * cum[12];
+    for (let i = 0; i < 13; i++)
+        if (u <= cum[i])
+            return i + 1;
+    return 13;
+}
+function cribDetail(discards, dealt, N, rng, cribIsOurs, players, teams) {
+    const pool = deckExcluding(dealt);
+    const suitsByRank = Array.from({ length: 14 }, () => []);
+    for (const c of pool)
+        suitsByRank[c.r].push(c.s);
+    const nUniform = players === 3 ? 1 : 0;
+    const nThrows = 4 - discards.length - nUniform;
+    const teamSize = players / teams;
+    const dealerThrows = players <= 4;
+    const D = Math.max(0, teamSize - (dealerThrows ? 0 : 1));
+    let nDealer = players === 2 ? (cribIsOurs ? 0 : nThrows) : Math.max(0, D - (cribIsOurs ? 1 : 0));
+    nDealer = Math.min(nDealer, nThrows);
+    const weighted = new Array(nDealer).fill(DEALER_CUM).concat(new Array(nThrows - nDealer).fill(DEFENDER_CUM));
+    const acc = [0, 0, 0, 0, 0];
+    let total = 0, sq = 0, hits = 0;
+    const used = new Set();
+    const drawUniform = () => {
+        for (let t = 0; t < 80; t++) {
+            const c = pool[(rng() * pool.length) | 0];
+            if (!used.has(c.r * 4 + c.s)) {
+                used.add(c.r * 4 + c.s);
+                return c;
+            }
+        }
+        return pool[0];
+    };
+    for (let k = 0; k < N; k++) {
+        used.clear();
+        const draw = discards.slice();
+        for (let d = 0; d < weighted.length; d++) {
+            let card = null;
+            for (let tries = 0; tries < 48 && !card; tries++) {
+                const r = pickWeightedRank(rng, weighted[d]);
+                const suits = suitsByRank[r];
+                if (!suits.length)
+                    continue;
+                const free = suits.filter((s) => !used.has(r * 4 + s));
+                if (!free.length)
+                    continue;
+                const s = free[(rng() * free.length) | 0];
+                card = { r, s };
+                used.add(r * 4 + s);
+            }
+            if (!card)
+                card = drawUniform();
+            draw.push(card);
+        }
+        for (let u = 0; u < nUniform; u++)
+            draw.push(drawUniform());
+        const starter = drawUniform();
+        const t = scoreInto([draw[0], draw[1], draw[2], draw[3]], starter, true, acc);
+        total += t;
+        sq += t * t;
+        if (t > 0)
+            hits++;
+    }
+    const ev = total / N;
+    return { ev, sd: Math.sqrt(Math.max(0, sq / N - ev * ev)), cats: acc.map((x) => x / N), hitRate: hits / N };
+}
+const pval = (r) => Math.min(r, 10);
+function pegScore(pile, count) {
+    let pts = 0;
+    if (count === 15)
+        pts += 2;
+    if (count === 31)
+        pts += 2;
+    const n = pile.length, last = pile[n - 1];
+    let k = 1;
+    for (let i = n - 2; i >= 0; i--) {
+        if (pile[i] === last)
+            k++;
+        else
+            break;
+    }
+    if (k >= 2)
+        pts += k * (k - 1);
+    for (let m = Math.min(n, 7); m >= 3; m--) {
+        const tail = pile.slice(n - m);
+        if (new Set(tail).size === m && Math.max(...tail) - Math.min(...tail) === m - 1) {
+            pts += m;
+            break;
+        }
+    }
+    return pts;
+}
+function pegChoose(legal, count, pile, hand) {
+    let best = null, bestKey = -1e9;
+    for (const c of legal) {
+        const nc = count + pval(c);
+        const key0 = pegScore(pile.concat(c), nc) * 10;
+        let key = key0;
+        if (nc === 5 || nc === 21)
+            key -= 2;
+        if (count === 0) {
+            if (c === 5)
+                key -= 2;
+            key -= pval(c) * 0.1;
+            if (hand.filter((x) => x === c).length >= 2)
+                key += 0.5;
+        }
+        else
+            key -= pval(c) * 0.02;
+        if (key > bestKey) {
+            bestKey = key;
+            best = c;
+        }
+    }
+    return best;
+}
+function playPegging(hands, dealerIdx) {
+    hands = hands.map((h) => h.slice());
+    const P = hands.length;
+    const pts = new Array(P).fill(0);
+    let turn = (dealerIdx + 1) % P, count = 0, pile = [], passes = 0, last = -1;
+    let remaining = hands.reduce((s, h) => s + h.length, 0);
+    while (remaining > 0) {
+        const hand = hands[turn];
+        const legal = hand.filter((c) => pval(c) + count <= 31);
+        if (legal.length === 0) {
+            if (++passes >= P) {
+                if (last >= 0 && count !== 31)
+                    pts[last] += 1;
+                count = 0;
+                pile = [];
+                passes = 0;
+                last = -1;
+            }
+            turn = (turn + 1) % P;
+            continue;
+        }
+        const card = pegChoose(legal, count, pile, hand);
+        hand.splice(hand.indexOf(card), 1);
+        remaining--;
+        count += pval(card);
+        pile.push(card);
+        pts[turn] += pegScore(pile, count);
+        last = turn;
+        passes = 0;
+        if (count === 31) {
+            count = 0;
+            pile = [];
+            last = -1;
+        }
+        turn = (turn + 1) % P;
+    }
+    if (last >= 0)
+        pts[last] += 1;
+    return pts;
+}
+function pegDetail(four, dealt5, N, rng, youDeal, players) {
+    const pool = deckExcluding(dealt5);
+    const ourR = four.map((c) => c.r);
+    const dealerSeat = players - 1;
+    const oppCards = (players - 1) * 4;
+    let total = 0, sq = 0;
+    for (let k = 0; k < N; k++) {
+        const seen = new Set();
+        const opp = [];
+        while (opp.length < oppCards) {
+            const i = (rng() * pool.length) | 0;
+            if (!seen.has(i)) {
+                seen.add(i);
+                opp.push(pool[i].r);
+            }
+        }
+        const ourSeat = youDeal ? dealerSeat : (rng() * (players - 1)) | 0;
+        const hands = Array.from({ length: players }, () => []);
+        hands[ourSeat] = ourR.slice();
+        let oi = 0;
+        for (let s = 0; s < players; s++) {
+            if (s === ourSeat)
+                continue;
+            hands[s] = opp.slice(oi, oi + 4);
+            oi += 4;
+        }
+        const p = playPegging(hands, dealerSeat)[ourSeat];
+        total += p;
+        sq += p * p;
+    }
+    const ev = total / N;
+    return { ev, sd: Math.sqrt(Math.max(0, sq / N - ev * ev)) };
+}
+const RISK = 0.5;
+function discardCombos(handLen, k) {
+    const out = [];
+    if (k === 1) {
+        for (let i = 0; i < handLen; i++)
+            out.push([i]);
+        return out;
+    }
+    for (let i = 0; i < handLen; i++)
+        for (let j = i + 1; j < handLen; j++)
+            out.push([i, j]);
+    return out;
+}
+function analyze(hand, scenario, mode, players = 4, teams = players, N = 10000, Npeg = 700) {
+    const rng = mulberry32(hand.reduce((a, c) => (a * 53 + cardId(c) + 1) >>> 0, 7));
+    const { youDeal, cribIsOurs } = scenario;
+    const sign = cribIsOurs ? 1 : -1;
+    const cribW = (mode === "protect" && !cribIsOurs) ? 1.3 : (mode === "need" && !cribIsOurs) ? 0.9 : 1.0;
+    const riskSign = mode === "need" ? 1 : mode === "protect" ? -1 : 0;
+    const k = players === 2 ? 2 : 1;
+    const opts = [];
+    for (const idxs of discardCombos(hand.length, k)) {
+        const drop = new Set(idxs);
+        const four = hand.filter((_, j) => !drop.has(j));
+        const discards = idxs.map((j) => hand[j]);
+        const hd = handDetail(four, hand);
+        const cd = cribDetail(discards, hand, N, rng, cribIsOurs, players, teams);
+        const pd = pegDetail(four, hand, Npeg, rng, youDeal, players);
+        const net = hd.ev + pd.ev + sign * cd.ev;
+        const sd = Math.sqrt(hd.sd * hd.sd + cd.sd * cd.sd + pd.sd * pd.sd);
+        const adj = hd.ev + pd.ev + sign * cribW * cd.ev + riskSign * RISK * sd;
+        opts.push({ id: idxs.join(","), idxs, cards: discards, hand: hd, crib: cd, peg: pd, handEV: hd.ev, cribEV: cd.ev, pegEV: pd.ev, netEV: net, sd, adj });
+    }
+    opts.sort((a, b) => b.adj - a.adj);
+    return opts;
+}
+function suggestMode(you, leader) {
+    if (!you && !leader)
+        return "ev";
+    if (leader >= 106 && you < leader)
+        return "need";
+    if (you >= leader + 15 && you >= 95)
+        return "protect";
+    return "ev";
+}
+const T = {
+    baize: "#1F423A", baizeHi: "#28534A",
+    woodD: "#5E3F26", woodM: "#8A5E37", woodL: "#B9824B",
+    pegRed: "#C8412B", pegIvory: "#ECDCB4",
+    ivory: "#F6EFDE", ink: "#241D14", suitRed: "#A8362A",
+    cream: "#ECE0C6", muted: "#C9BC9A", line: "rgba(236,224,182,0.16)",
+    good: "#5FA47C", goodDeep: "#3F7E5E", selBlue: "#5B95C2",
+};
+const SUIT = ["♠", "♥", "♦", "♣"];
+const isRed = (s) => s === 1 || s === 2;
+const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
+const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
+const mono = "ui-monospace, 'SF Mono', Menlo, Consolas, monospace";
+const serif = "'Hoefler Text', 'Iowan Old Style', Georgia, 'Times New Roman', serif";
+const tr = (k, v) => (typeof window !== "undefined" && window.t) ? window.t(k, v) : k;
+const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
+const catName = (i) => tr(CAT_KEYS[i]);
+function randomHand(count = 5) {
+    const deck = deckExcluding([]);
+    for (let i = deck.length - 1; i > 0; i--) {
+        const j = (Math.random() * (i + 1)) | 0;
+        [deck[i], deck[j]] = [deck[j], deck[i]];
+    }
+    return deck.slice(0, count).sort((a, b) => a.r - b.r || a.s - b.s);
+}
+function Card({ card, onClick, phase, badge, dim, selected }) {
+    const clickable = phase === "choose";
+    const [hover, setHover] = useState(false);
+    const lift = badge || selected ? -10 : hover && clickable ? -6 : 0;
+    const edge = badge ? badge.color : selected ? T.selBlue : null;
+    return (React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flex: "0 1 68px", minWidth: 0, maxWidth: 68 } },
+        React.createElement("div", { style: { height: 18 } }, badge ? (React.createElement("span", { style: {
+                fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", letterSpacing: 0.5, fontWeight: 700,
+                color: T.ivory, background: badge.color, padding: "2px 7px", borderRadius: 4, whiteSpace: "nowrap",
+            } }, badge.text)) : selected ? (React.createElement("span", { style: {
+                fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", letterSpacing: 0.5, fontWeight: 700,
+                color: T.ivory, background: T.selBlue, padding: "2px 7px", borderRadius: 4, whiteSpace: "nowrap",
+            } }, "THROW")) : null),
+        React.createElement("button", { onClick: clickable ? onClick : undefined, onPointerEnter: () => setHover(true), onPointerLeave: () => setHover(false), "aria-label": `${rankLabel(card.r)} of ${["spades", "hearts", "diamonds", "clubs"][card.s]}`, "aria-pressed": clickable ? !!selected : undefined, style: {
+                width: "100%", borderRadius: 9, padding: 0, background: T.ivory, position: "relative",
+                cursor: clickable ? "pointer" : "default",
+                border: edge ? `2px solid ${edge}` : "1px solid rgba(0,0,0,0.25)",
+                boxShadow: badge || selected ? "0 8px 18px rgba(0,0,0,0.45)" : "0 4px 10px rgba(0,0,0,0.35)",
+                transform: `translateY(${lift}px)`, transition: "transform 140ms ease, box-shadow 140ms ease",
+                opacity: dim ? 0.5 : 1, outlineOffset: 3,
+            } },
+            React.createElement("span", { style: { display: "block", paddingBottom: "141.18%" } }),
+            React.createElement("svg", { viewBox: "0 0 68 96", preserveAspectRatio: "xMidYMid meet", "aria-hidden": "true", style: { position: "absolute", top: 0, left: 0, width: "100%", height: "100%", display: "block" } },
+                React.createElement("text", { x: "13", y: "15", textAnchor: "middle", dominantBaseline: "central", fontFamily: serif, fontWeight: "700", fontSize: "17", fill: isRed(card.s) ? T.suitRed : T.ink }, rankLabel(card.r)),
+                React.createElement("text", { x: "13", y: "30", textAnchor: "middle", dominantBaseline: "central", fontFamily: serif, fontWeight: "700", fontSize: "13", fill: isRed(card.s) ? T.suitRed : T.ink }, SUIT[card.s]),
+                React.createElement("text", { x: "34", y: "49", textAnchor: "middle", dominantBaseline: "central", fontFamily: serif, fontSize: "34", fill: isRed(card.s) ? T.suitRed : T.ink }, SUIT[card.s])))));
+}
+function PegTrack({ pct }) {
+    const holes = 26;
+    const pegAt = Math.round((pct / 100) * (holes - 1));
+    return (React.createElement("div", { style: { display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" } }, Array.from({ length: holes }).map((_, i) => {
+        const on = i === pegAt;
+        return (React.createElement("span", { key: i, style: {
+                width: on ? 11 : 7, height: on ? 11 : 7, borderRadius: "50%",
+                background: on ? T.pegRed : "rgba(0,0,0,0.4)",
+                boxShadow: on ? "0 0 0 2px rgba(236,220,180,0.5)" : "inset 0 1px 2px rgba(0,0,0,0.6)",
+                transition: "all 200ms ease",
+            } }));
+    })));
+}
+function CatBars({ cats, scale, color }) {
+    const max = Math.max(scale, ...cats, 0.001);
+    return (React.createElement("div", { style: { display: "grid", gap: 4 } }, cats.map((v, i) => v < 0.005 ? null : (React.createElement("div", { key: i, style: { display: "grid", gridTemplateColumns: "58px 1fr 44px", gap: 8, alignItems: "center" } },
+        React.createElement("span", { style: { fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted } }, catName(i)),
+        React.createElement("span", { style: { height: 7, background: "rgba(0,0,0,0.28)", borderRadius: 4, overflow: "hidden" } },
+            React.createElement("span", { style: { display: "block", height: "100%", width: `${(v / max) * 100}%`, background: color } })),
+        React.createElement("span", { style: { fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", textAlign: "right" } }, v.toFixed(2)))))));
+}
+function dominant(cats) {
+    let bi = 0;
+    for (let i = 1; i < cats.length; i++)
+        if (cats[i] > cats[bi])
+            bi = i;
+    return cats[bi] > 0.01 ? catName(bi) : tr("trainer.cat.spread");
+}
+function Explain({ opt, cribIsOurs, youDeal, mode, players = 4 }) {
+    const h = opt.hand, cr = opt.crib, pg = opt.peg;
+    const topStr = h.top.map((c) => `${rankLabel(c.r)}→${c.avg.toFixed(1)}`).join("   ");
+    const pegWhy = pg.ev >= 3.6
+        ? tr("trainer.ex.pegHigh")
+        : pg.ev <= 2.6
+            ? tr("trainer.ex.pegLow")
+            : tr("trainer.ex.pegMid");
+    return (React.createElement("div", { style: { padding: "12px 12px 14px", background: "rgba(0,0,0,0.26)", borderRadius: 9, marginTop: 6, lineHeight: 1.5 } },
+        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted, marginBottom: 6 } }, tr("trainer.ex.handHdr", { ev: h.ev.toFixed(2), cuts: players === 2 ? 46 : 47 })),
+        React.createElement("div", { style: { fontSize: "max(13.5px, var(--min-fs, 0px))", marginBottom: 8 } }, tr("trainer.ex.handBody", { locked: h.locked.toFixed(0), fromCut: h.fromCut.toFixed(2), cat: dominant(h.cats) })),
+        React.createElement(CatBars, { cats: h.cats, scale: h.ev, color: T.good }),
+        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted, marginTop: 8 } },
+            tr("trainer.ex.bestCuts"),
+            "\u00A0 ",
+            React.createElement("span", { style: { color: T.cream } }, topStr)),
+        React.createElement("div", { style: { height: 1, background: T.line, margin: "13px 0" } }),
+        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted, marginBottom: 6 } }, tr(opt.cards.length > 1 ? "trainer.ex.cribHdrTwo" : "trainer.ex.cribHdrOne", { cards: opt.cards.map(tag).join(" + "), ev: cr.ev.toFixed(2), dir: cribIsOurs ? tr("trainer.ex.forYou") : tr("trainer.ex.againstYou") })),
+        React.createElement("div", { style: { fontSize: "max(13.5px, var(--min-fs, 0px))", marginBottom: 8 } },
+            tr("trainer.ex.cribBody", { pct: (cr.hitRate * 100).toFixed(0), cat: dominant(cr.cats) }),
+            cribIsOurs ? tr("trainer.ex.cribOurs") : tr("trainer.ex.cribTheirs")),
+        React.createElement(CatBars, { cats: cr.cats, scale: cr.ev, color: cribIsOurs ? T.good : T.pegRed }),
+        React.createElement("div", { style: { height: 1, background: T.line, margin: "13px 0" } }),
+        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted, marginBottom: 6 } }, tr("trainer.ex.pegHdr", { ev: pg.ev.toFixed(2), seat: youDeal ? tr("trainer.ex.pegLast") : "" })),
+        React.createElement("div", { style: { fontSize: "max(13.5px, var(--min-fs, 0px))", marginBottom: 4 } }, pegWhy),
+        React.createElement("div", { style: { height: 1, background: T.line, margin: "13px 0" } }),
+        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.cream, lineHeight: 1.7 } },
+            React.createElement("div", null,
+                tr("trainer.tbl.hand"),
+                " ",
+                h.ev.toFixed(2),
+                " \u00A0 ",
+                tr("trainer.tbl.crib"),
+                " ",
+                cribIsOurs ? "+" : "−",
+                cr.ev.toFixed(2),
+                " \u00A0 ",
+                tr("trainer.tbl.peg"),
+                " +",
+                pg.ev.toFixed(2),
+                " \u00A0\u2192\u00A0 ",
+                React.createElement("b", null, tr("trainer.ex.net", { v: opt.netEV.toFixed(2) }))),
+            React.createElement("div", { style: { color: T.muted } }, tr("trainer.ex.spread", { sd: opt.sd.toFixed(2), mn: h.mn, mx: h.mx, p10: h.p10, p90: h.p90 })),
+            mode !== "ev" && (React.createElement("div", { style: { color: mode === "need" ? T.good : T.pegRed } }, tr("trainer.ex.adjLine", { mode: tr(mode === "need" ? "trainer.mode.need" : "trainer.mode.protect"), sign: mode === "need" ? "+" : "−", risk: RISK, adj: opt.adj.toFixed(2) })))),
+        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, marginTop: 10, lineHeight: 1.5 } }, tr("trainer.ex.footer", { deck: players === 3 ? tr("trainer.ex.footerDeck") : "", p: players, seat: youDeal ? tr("trainer.ex.seatDealer") : tr("trainer.ex.seatNon") }))));
+}
+function buildNote(cribIsOurs, best, chosen) {
+    const optimal = best.id === chosen.id;
+    const bestLabel = best.cards.map((c) => rankLabel(c.r)).join("+");
+    const multi = best.cards.length > 1;
+    const phrase = multi ? bestLabel : `the ${bestLabel}`;
+    const bestHas5 = best.cards.some((c) => c.r === 5);
+    const allHigh = best.cards.every((c) => c.r >= 11 && c.r <= 13);
+    if (optimal) {
+        if (cribIsOurs) {
+            if (bestHas5)
+                return tr("trainer.note.bestOurs5");
+            return tr("trainer.note.bestOurs");
+        }
+        if (bestHas5)
+            return tr("trainer.note.bestTheirs5");
+        if (allHigh)
+            return tr("trainer.note.bestTheirsHigh");
+        return multi ? tr("trainer.note.bestTheirsMulti") : tr("trainer.note.bestTheirsOne");
+    }
+    const delta = best.adj - chosen.adj;
+    if (!cribIsOurs && chosen.cards.some((c) => c.r === 5) && !bestHas5)
+        return tr("trainer.note.fed5", { cribEV: chosen.cribEV.toFixed(1), phrase, delta: delta.toFixed(2) });
+    if (chosen.handEV > best.handEV)
+        return multi
+            ? tr("trainer.note.handMoreMulti", { phrase, delta: delta.toFixed(2) })
+            : tr("trainer.note.handMoreOne", { label: bestLabel, delta: delta.toFixed(2) });
+    return tr("trainer.note.close", { phrase, delta: delta.toFixed(2) });
+}
+function Modal({ onBackdrop, maxWidth = 380, padding = "20px", scroll = false, zIndex = 220, cardStyle, children }) {
+    return (React.createElement("div", { onClick: onBackdrop, style: { position: "fixed", inset: 0, zIndex, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
+        React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { maxWidth, width: "100%", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding, boxShadow: "0 14px 44px rgba(0,0,0,0.55)", ...(scroll ? { maxHeight: "86vh", overflowY: "auto" } : null), ...cardStyle } }, children)));
+}
+function ModalHeader({ title, onClose, closeLabel, mb = 12, children }) {
+    return (React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: mb, flex: "0 0 auto" } },
+        children != null ? children : React.createElement("span", { style: { fontWeight: 700, fontSize: "max(17px, var(--min-fs, 0px))" } }, title),
+        React.createElement("button", { onClick: onClose, style: { padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", fontWeight: 700 } }, closeLabel || tr("common.done"))));
+}
+const segStyle = (on) => ({
+    flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))",
+    background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
+    border: `1px solid ${on ? T.pegIvory : T.line}`, fontWeight: on ? 700 : 400,
+});
+function SettingsSection({ title, defaultOpen, children }) {
+    const [open, setOpen] = React.useState(!!defaultOpen);
+    return (React.createElement("div", { style: { borderTop: `1px solid ${T.line}`, marginBottom: open ? 12 : 0 } },
+        React.createElement("button", { onClick: () => setOpen((o) => !o), style: {
+                width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                background: "none", border: "none", cursor: "pointer", padding: "12px 0 10px",
+                color: T.cream, fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase",
+            } },
+            React.createElement("span", null, title),
+            React.createElement("span", { style: { color: T.muted, fontSize: "max(13px, var(--min-fs, 0px))" } }, open ? "▾" : "▸")),
+        open && React.createElement("div", null, children)));
+}
+function SettingsPanel({ settings, onSet, onReset, onClose, onAbout, onHistory }) {
+    const hasHumans = humanCountT(settings) >= 1;
+    const [confirmReset, setConfirmReset] = React.useState(false);
+    const [resetMsg, setResetMsg] = React.useState(false);
+    React.useEffect(() => { if (!resetMsg)
+        return; const t = setTimeout(() => setResetMsg(false), 2600); return () => clearTimeout(t); }, [resetMsg]);
+    const tapReset = () => { if (settingsAtDefaults(settings, ["seats", "names"]))
+        setResetMsg(true);
+    else
+        setConfirmReset(true); };
+    const Row = ({ title, desc, k, options, disabled }) => (React.createElement("div", { style: { marginBottom: 14, opacity: disabled ? 0.5 : 1 } },
+        React.createElement("div", { style: { fontWeight: 700, fontSize: "max(13.5px, var(--min-fs, 0px))" } }, title),
+        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, margin: "2px 0 7px", lineHeight: 1.45 } }, desc),
+        React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap" } }, options.map(([label, val]) => (React.createElement("button", { key: String(val), disabled: disabled, onClick: disabled ? undefined : () => onSet(k, val), style: { ...segStyle(settings[k] === val), cursor: disabled ? "default" : "pointer" } }, label))))));
+    const off = tr("common.off"), on = tr("common.on"), manual = tr("common.manual"), auto = tr("common.auto");
+    return (React.createElement(React.Fragment, null,
+        React.createElement(Modal, { onBackdrop: onClose, maxWidth: 420, padding: "14px 16px 4px", scroll: true, cardStyle: { maxHeight: "88vh" } },
+            React.createElement(ModalHeader, { title: tr("settings.title"), onClose: onClose },
+                React.createElement("span", { style: { fontWeight: 700, fontSize: "max(16px, var(--min-fs, 0px))" } }, tr("settings.title"))),
+            React.createElement(SettingsSection, { title: tr("settings.group.controls") },
+                React.createElement(Row, { title: tr("settings.speed.title"), k: "speed", desc: tr("settings.speed.desc"), options: [[tr("settings.speed.optSlow"), "slow"], [tr("settings.speed.optNormal"), "normal"], [tr("settings.speed.optFast"), "fast"], [tr("settings.speed.optLightning"), "lightning"], [tr("settings.speed.optInstant"), "instant"]] }),
+                React.createElement(Row, { title: tr("settings.tapToSelect.title"), k: "tapToSelect", desc: tr("settings.tapToSelect.desc"), options: [[off, false], [on, true]] }),
+                React.createElement(Row, { title: tr("settings.warn.title"), k: "warn", desc: tr("settings.warn.desc"), options: [[on, true], [off, false]] })),
+            React.createElement(SettingsSection, { title: tr("settings.group.automation") },
+                React.createElement(Row, { title: tr("settings.autoDeal.title"), k: "autoDeal", desc: tr("settings.autoDeal.desc"), options: [[off, false], [on, true]] }),
+                React.createElement(Row, { title: tr("settings.autoCut.title"), k: "autoCut", desc: tr("settings.autoCut.desc"), options: [[manual, false], [auto, true]] }),
+                React.createElement(Row, { title: tr("settings.autoDiscardBest.title"), k: "autoDiscardBest", desc: tr("settings.autoDiscardBest.desc"), options: [[off, false], [on, true]] }),
+                React.createElement(Row, { title: tr("settings.autoPlayOne.title"), k: "autoPlayOne", desc: tr("settings.autoPlayOne.desc"), options: [[off, false], [on, true]] }),
+                React.createElement(Row, { title: tr("settings.autoPlayBest.title"), k: "autoPlayBest", desc: tr("settings.autoPlayBest.desc"), options: [[off, false], [on, true]] }),
+                React.createElement(Row, { title: tr("settings.autoGo.title"), k: "autoGo", desc: tr("settings.autoGo.desc"), options: [[manual, false], [auto, true]] }),
+                React.createElement(Row, { title: tr("settings.autoContinue.title"), k: "autoContinue", desc: tr("settings.autoContinue.desc"), options: [[off, false], [on, true]] })),
+            React.createElement(SettingsSection, { title: tr("settings.group.counting") },
+                React.createElement(Row, { title: tr("settings.counting.title"), k: "counting", disabled: !hasHumans, desc: tr(hasHumans ? "settings.counting.desc" : "settings.counting.disabledDesc"), options: [[tr("settings.counting.optAuto"), "auto"], [tr("settings.counting.optMuggins"), "muggins"]] }),
+                React.createElement(Row, { title: tr("settings.claimWarn.title"), k: "claimWarn", disabled: !(hasHumans && settings.counting === "muggins"), desc: tr("settings.claimWarn.desc"), options: [[on, true], [off, false]] })),
+            React.createElement(Row, { title: tr("settings.textSize.title"), k: "textSize", desc: tr("settings.textSize.desc"), options: [[tr("settings.textSize.optSmall"), "small"], [tr("settings.textSize.optMedium"), "medium"], [tr("settings.textSize.optLarge"), "large"], [tr("settings.textSize.optXLarge"), "xlarge"]] }),
+            React.createElement(LanguageRow, null),
+            React.createElement("div", { style: { borderTop: `1px solid ${T.line}`, margin: "2px -16px 0", padding: "12px 16px 0" } },
+                React.createElement("button", { onClick: onHistory, style: { width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700 } }, tr("settings.history"))),
+            React.createElement("button", { onClick: tapReset, style: { width: "100%", margin: "10px 0 0", padding: "10px", borderRadius: 9, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700 } }, tr("settings.resetDefaults")),
+            resetMsg && (React.createElement("div", { onClick: () => setResetMsg(false), role: "status", style: {
+                    position: "fixed", left: "50%", top: 72, transform: "translateX(-50%)", zIndex: 240,
+                    background: `linear-gradient(180deg, ${T.woodL}, ${T.woodM})`, border: `1px solid ${T.pegIvory}`, borderRadius: 10, padding: "10px 16px",
+                    boxShadow: `0 8px 26px rgba(0,0,0,0.55), 0 0 0 3px ${T.baize}`, fontWeight: 700, fontSize: "max(14px, var(--min-fs, 0px))", color: T.ink,
+                    cursor: "pointer", maxWidth: "90vw", textAlign: "center",
+                } }, tr("settings.reset.alreadyDefault"))),
+            React.createElement(AboutRow, { onAbout: onAbout }),
+            React.createElement("button", { onClick: onClose, style: {
+                    width: "100%", margin: "12px 0 10px", padding: "12px", borderRadius: 9, border: "none", cursor: "pointer",
+                    background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory,
+                    fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
+                } }, tr("common.done"))),
+        confirmReset && (React.createElement(Modal, { onBackdrop: () => setConfirmReset(false), maxWidth: 360, padding: "18px", zIndex: 230 },
+            React.createElement("div", { style: { fontWeight: 700, fontSize: "max(16px, var(--min-fs, 0px))", marginBottom: 6 } }, tr("settings.reset.title")),
+            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.muted, lineHeight: 1.5, marginBottom: 16 } }, tr("settings.reset.body")),
+            React.createElement("div", { style: { display: "flex", gap: 8 } },
+                React.createElement("button", { onClick: () => setConfirmReset(false), style: { flex: 1, padding: "12px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer", background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: "max(13px, var(--min-fs, 0px))", fontWeight: 700 } }, tr("common.cancel")),
+                React.createElement("button", { onClick: () => { setConfirmReset(false); onReset(); }, style: { flex: 1, padding: "12px", borderRadius: 9, border: "none", cursor: "pointer", background: `linear-gradient(180deg, ${T.pegRed}, #9c3120)`, color: T.ivory, fontFamily: mono, fontSize: "max(13px, var(--min-fs, 0px))", fontWeight: 700 } }, tr("settings.reset.confirm")))))));
+}
+const HISTORY_KEY = "cribbage:history";
+function loadHistory() { try {
+    const r = localStorage.getItem(HISTORY_KEY);
+    return r ? JSON.parse(r) : [];
+}
+catch (e) {
+    return [];
+} }
+function clearHistory() { try {
+    localStorage.removeItem(HISTORY_KEY);
+}
+catch (e) { } }
+function HistoryModal({ onClose }) {
+    const [tick, setTick] = React.useState(0);
+    const all = loadHistory();
+    const [sel, setSel] = React.useState("all");
+    const [confirmClear, setConfirmClear] = React.useState(false);
+    const keyOf = (r) => `${r.P}/${r.teams}`;
+    const cfgLabel = (P, t) => (t < P ? tr("play.hist.cfgTeams", { p: P, teams: t }) : tr("play.hist.cfgHanded", { p: P }));
+    const configs = Array.from(new Set(all.map(keyOf))).sort((a, b) => {
+        const [pa, ta] = a.split("/").map(Number), [pb, tb] = b.split("/").map(Number);
+        return pa - pb || tb - ta;
+    });
+    const filtered = sel === "all" ? all : all.filter((r) => keyOf(r) === sel);
+    const games = filtered.length;
+    const cnt = (o) => filtered.filter((r) => r.outcome === o).length;
+    const won = cnt("won"), lost = cnt("lost"), sk = cnt("skunked"), dsk = cnt("doubleSkunked");
+    const avg = (k) => (games ? filtered.reduce((a, r) => a + (r[k] || 0), 0) / games : 0);
+    const winPct = games ? Math.round((won / games) * 100) : 0;
+    const specific = sel !== "all";
+    const chip = (key, label) => (React.createElement("button", { key: key, onClick: () => { setSel(key); setConfirmClear(false); }, style: {
+            padding: "6px 10px", borderRadius: 7, cursor: "pointer", fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", fontWeight: 700,
+            border: `1px solid ${sel === key ? T.pegIvory : T.line}`,
+            background: sel === key ? T.pegIvory : "rgba(0,0,0,0.25)", color: sel === key ? "#2A1B0E" : T.cream,
+        } }, label));
+    const Stat = ({ label, value, accent }) => (React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "7px 0", borderBottom: `1px solid ${T.line}` } },
+        React.createElement("span", { style: { fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.muted } }, label),
+        React.createElement("span", { style: { fontFamily: serif, fontSize: "max(16px, var(--min-fs, 0px))", fontWeight: 700, color: accent || T.cream } }, value)));
+    return (React.createElement(Modal, { onBackdrop: onClose, scroll: true },
+        React.createElement(ModalHeader, { title: tr("play.hist.title"), onClose: onClose, mb: 14 }),
+        all.length === 0 ? (React.createElement("div", { style: { fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.muted, lineHeight: 1.6 }, "data-tick": tick }, tr("play.hist.empty"))) : (React.createElement(React.Fragment, null,
+            React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 } },
+                chip("all", tr("play.hist.all")),
+                configs.map((k) => { const [P, t] = k.split("/").map(Number); return chip(k, cfgLabel(P, t)); })),
+            React.createElement(Stat, { label: tr("play.hist.games"), value: games }),
+            React.createElement(Stat, { label: tr("play.hist.won"), value: tr("play.hist.wonValue", { n: won, pct: winPct }), accent: T.good }),
+            React.createElement(Stat, { label: tr("play.hist.lost"), value: lost }),
+            React.createElement(Stat, { label: tr("play.hist.skunked"), value: sk, accent: sk ? T.pegRed : T.cream }),
+            React.createElement(Stat, { label: tr("play.hist.dblSkunked"), value: dsk, accent: dsk ? T.pegRed : T.cream }),
+            specific ? (React.createElement(React.Fragment, null,
+                React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, margin: "14px 0 4px", letterSpacing: 0.3 } }, tr("play.hist.avgHeader")),
+                React.createElement(Stat, { label: tr("play.hist.pegging"), value: avg("peg").toFixed(1) }),
+                React.createElement(Stat, { label: tr("play.hist.hand"), value: avg("hand").toFixed(1) }),
+                React.createElement(Stat, { label: tr("play.hist.crib"), value: avg("crib").toFixed(1) }))) : (React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, marginTop: 12, lineHeight: 1.5 } }, tr("play.hist.pickHint"))),
+            React.createElement("button", { onClick: () => { if (confirmClear) {
+                    clearHistory();
+                    setSel("all");
+                    setConfirmClear(false);
+                    setTick(tick + 1);
+                }
+                else
+                    setConfirmClear(true); }, style: {
+                    width: "100%", marginTop: 16, padding: "10px", borderRadius: 9, cursor: "pointer",
+                    border: `1px solid ${confirmClear ? T.pegRed : T.line}`, background: "rgba(0,0,0,0.25)",
+                    color: confirmClear ? T.pegRed : T.muted, fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", fontWeight: 700,
+                } }, confirmClear ? tr("play.hist.clearConfirm") : tr("play.hist.clear"))))));
+}
+function InlineSetup({ players, teams, roleMode, onRoleMode, autoBest, onAutoBest, onSize }) {
+    const label = { fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted, marginBottom: 6 };
+    const isTeams = teams < players;
+    const forcedDefend = teams === players && players >= 5;
+    const roleOpts = isTeams
+        ? [["random", tr("trainer.set.role.random")], ["ours", tr("trainer.set.role.ours")], ["theirs", tr("trainer.set.role.theirs")]]
+        : [["random", tr("trainer.set.role.randomDeal", { p: players })], ["deal", tr("trainer.set.role.deal")], ["defend", tr("trainer.set.role.defend")]];
+    return (React.createElement("div", { style: { background: "rgba(0,0,0,0.22)", border: `1px solid ${T.line}`, borderRadius: 10, padding: "12px 14px" } },
+        React.createElement("div", { style: { fontWeight: 700, fontSize: "max(13.5px, var(--min-fs, 0px))", marginBottom: 10 } }, tr("trainer.set.setup")),
+        React.createElement("div", { style: { marginBottom: 12, fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted, lineHeight: 1.6 } },
+            tr("trainer.set.sizeLabel"),
+            " ",
+            React.createElement("b", { style: { color: T.cream } }, players === 2 ? tr("trainer.set.size2") : tr("trainer.set.sizeN", { p: players })),
+            ".",
+            " ",
+            tr("trainer.set.sizeTail")),
+        React.createElement("div", { style: { marginBottom: 12 } },
+            React.createElement("div", { style: label }, tr("trainer.set.tableSize")),
+            React.createElement("div", { style: { display: "flex", gap: 6 } }, [2, 3, 4, 5, 6].map((p) => (React.createElement("button", { key: p, onClick: () => onSize(p), style: segStyle(players === p) }, p))))),
+        forcedDefend ? (React.createElement("div", { style: { marginBottom: 12, fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, lineHeight: 1.5 } }, tr("trainer.set.forcedDefend", { p: players }))) : (React.createElement("div", { style: { marginBottom: 12 } },
+            React.createElement("div", { style: label }, isTeams ? tr("trainer.set.practiceAsTeam") : tr("trainer.set.practiceAs")),
+            React.createElement("div", { style: { display: "flex", gap: 6 } }, roleOpts.map(([k, l]) => (React.createElement("button", { key: k, onClick: () => onRoleMode(k), style: segStyle(roleMode === k) }, l)))))),
+        React.createElement("div", null,
+            React.createElement("div", { style: label }, tr("trainer.set.newHand")),
+            React.createElement("div", { style: { display: "flex", gap: 6 } },
+                React.createElement("button", { onClick: () => onAutoBest(false), style: segStyle(!autoBest) }, tr("trainer.set.iChoose")),
+                React.createElement("button", { onClick: () => onAutoBest(true), style: segStyle(autoBest) }, tr("trainer.set.autoBest"))))));
+}
+function LanguageRow() {
+    const i = (typeof window !== "undefined") ? window.i18n : null;
+    const langs = i ? i.languages() : [];
+    if (!i || langs.length <= 1)
+        return null;
+    return (React.createElement("div", { style: { marginBottom: 14 } },
+        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted, marginBottom: 6 } }, window.t ? window.t("common.language") : "Language"),
+        React.createElement("select", { defaultValue: i.lang, onChange: (e) => i.choose(e.target.value), style: { fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.cream, background: "rgba(0,0,0,0.2)", border: `1px solid ${T.line}`, borderRadius: 8, padding: "8px 10px" } }, langs.map((l) => React.createElement("option", { key: l.code, value: l.code }, l.name)))));
+}
+function AboutRow({ onAbout }) {
+    return (React.createElement("div", { style: { borderTop: `1px solid ${T.line}`, margin: "2px -16px 0", padding: "12px 16px 4px" } },
+        React.createElement("button", { onClick: onAbout, style: {
+                width: "100%", padding: "10px", borderRadius: 9, cursor: "pointer",
+                border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream,
+                fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", fontWeight: 700,
+            } }, tr("settings.aboutFeedback"))));
+}
+function AboutModal({ onClose }) {
+    const REPO = "https://github.com/ghug/cribbage-trainer/";
+    return (React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 220, background: "rgba(0,0,0,0.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }, onClick: onClose },
+        React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { maxWidth: 380, width: "100%", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "20px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)" } },
+            React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 } },
+                React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } },
+                    React.createElement("span", { "aria-hidden": "true", style: { flex: "0 0 auto", width: 34, height: 34, borderRadius: 8, background: "rgba(0,0,0,0.25)", color: T.ivory, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "max(19px, var(--min-fs, 0px))", lineHeight: 1 } }, "\u2663"),
+                    React.createElement("span", { style: { fontWeight: 700, fontSize: "max(17px, var(--min-fs, 0px))" } }, tr("about.title"))),
+                React.createElement("button", { onClick: onClose, style: { padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", fontWeight: 700 } }, tr("common.done"))),
+            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.cream, lineHeight: 1.6, marginBottom: 12 } }, tr("about.line1")),
+            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.cream, lineHeight: 1.6, marginBottom: 16 } }, tr("about.line2")),
+            React.createElement("a", { href: REPO, target: "_blank", rel: "noopener noreferrer", style: {
+                    display: "block", textAlign: "center", padding: "12px", borderRadius: 9, textDecoration: "none", boxSizing: "border-box",
+                    background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
+                } }, tr("about.sourceLink")),
+            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
+            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.21-dev.9"))));
+}
+function MiniCard({ card, selected, disabled, onClick }) {
+    return (React.createElement("button", { onClick: onClick, disabled: disabled, "aria-pressed": selected, "aria-label": `${rankLabel(card.r)} of ${["spades", "hearts", "diamonds", "clubs"][card.s]}`, style: {
+            width: "100%", boxSizing: "border-box", borderRadius: 6, padding: 0, background: T.ivory, position: "relative",
+            cursor: disabled ? "default" : "pointer",
+            border: "1px solid rgba(0,0,0,0.25)",
+            outline: selected ? `6px solid ${T.selBlue}` : "none", outlineOffset: "-3px",
+            boxShadow: selected ? "0 4px 12px rgba(0,0,0,0.45)" : "0 2px 5px rgba(0,0,0,0.3)",
+            opacity: disabled ? 0.4 : 1, transition: "opacity 120ms, box-shadow 120ms",
+        } },
+        React.createElement("span", { style: { display: "block", paddingBottom: "141.18%" } }),
+        React.createElement("svg", { viewBox: "0 0 68 96", preserveAspectRatio: "xMidYMid meet", "aria-hidden": "true", style: { position: "absolute", top: 0, left: 0, width: "100%", height: "100%" } },
+            React.createElement("text", { x: "13", y: "15", textAnchor: "middle", dominantBaseline: "central", fontFamily: serif, fontWeight: "700", fontSize: "17", fill: isRed(card.s) ? T.suitRed : T.ink }, rankLabel(card.r)),
+            React.createElement("text", { x: "13", y: "30", textAnchor: "middle", dominantBaseline: "central", fontFamily: serif, fontWeight: "700", fontSize: "13", fill: isRed(card.s) ? T.suitRed : T.ink }, SUIT[card.s]),
+            React.createElement("text", { x: "34", y: "49", textAnchor: "middle", dominantBaseline: "central", fontFamily: serif, fontSize: "34", fill: isRed(card.s) ? T.suitRed : T.ink }, SUIT[card.s]))));
+}
+function CardPicker({ count, onPick, onClose, dealerInit, canDeal }) {
+    const [sel, setSel] = useState([]);
+    const [asDealer, setAsDealer] = useState(!!dealerInit);
+    const deck = deckExcluding([]);
+    const seg = (on) => ({
+        flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))",
+        background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
+        border: `1px solid ${on ? T.pegIvory : T.line}`, fontWeight: on ? 700 : 400,
+    });
+    const toggle = (c) => {
+        const id = cardId(c);
+        setSel((s) => s.includes(id) ? s.filter((x) => x !== id) : (s.length >= count ? s : [...s, id]));
+    };
+    const ready = sel.length === count;
+    return (React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 230, background: "rgba(0,0,0,0.62)" }, onClick: onClose },
+        React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { position: "absolute", top: 12, bottom: 12, left: "50%", transform: "translateX(-50%)", width: "calc(100% - 24px)", maxWidth: 360, display: "flex", flexDirection: "column", background: T.baize, border: `1px solid ${T.line}`, borderRadius: 14, padding: "16px", boxShadow: "0 14px 44px rgba(0,0,0,0.55)", boxSizing: "border-box" } },
+            React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 } },
+                React.createElement("div", null,
+                    React.createElement("div", { style: { fontWeight: 700, fontSize: "max(16px, var(--min-fs, 0px))" } }, tr("trainer.picker.title")),
+                    React.createElement("div", { style: { fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted, marginTop: 2 } }, tr("trainer.picker.hint", { n: count, sel: sel.length }))),
+                React.createElement("button", { onClick: onClose, style: { padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.line}`, background: "rgba(0,0,0,0.25)", color: T.cream, fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", fontWeight: 700 } }, tr("trainer.picker.cancel"))),
+            React.createElement("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", margin: "0 -4px", padding: "0 4px 8px" } },
+                React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "flex-start" } }, [0, 1, 2, 3].map((s) => (React.createElement("div", { key: s, style: { flex: 1, minWidth: 0 } }, Array.from({ length: 13 }, (_, k) => {
+                    const c = { r: k + 1, s };
+                    const id = cardId(c);
+                    const on = sel.includes(id);
+                    return (React.createElement("div", { key: id, style: { position: "relative", zIndex: k, marginTop: k === 0 ? 0 : "-93.18%" } },
+                        React.createElement(MiniCard, { card: c, selected: on, disabled: !on && sel.length >= count, onClick: () => toggle(c) })));
+                })))))),
+            canDeal && (React.createElement("div", { style: { marginTop: 12 } },
+                React.createElement("div", { style: { fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted, marginBottom: 6 } }, tr("trainer.picker.roleLabel")),
+                React.createElement("div", { style: { display: "flex", gap: 6 } },
+                    React.createElement("button", { onClick: () => setAsDealer(true), style: seg(asDealer) }, tr("trainer.picker.asDealer")),
+                    React.createElement("button", { onClick: () => setAsDealer(false), style: seg(!asDealer) }, tr("trainer.picker.asDefend"))))),
+            React.createElement("button", { onClick: ready ? () => onPick(deck.filter((c) => sel.includes(cardId(c))), canDeal ? asDealer : false) : undefined, disabled: !ready, style: {
+                    marginTop: 14, width: "100%", padding: "13px", borderRadius: 10, border: "none",
+                    cursor: ready ? "pointer" : "default",
+                    background: ready ? `linear-gradient(180deg, ${T.good}, ${T.goodDeep})` : "rgba(0,0,0,0.25)",
+                    color: ready ? T.ivory : T.muted, opacity: ready ? 1 : 0.6,
+                    fontSize: "max(16px, var(--min-fs, 0px))", fontWeight: 700, letterSpacing: 0.3, boxShadow: ready ? "0 4px 12px rgba(0,0,0,0.35)" : "none",
+                } }, tr("trainer.picker.deal", { n: count })))));
+}
+const teamOptionsT = (p) => (p === 4 ? [4, 2] : p === 6 ? [6, 3, 2] : [p]);
+const SETTINGS_KEY = "cribbage:settings";
+const DEFAULT_SETTINGS = { players: 2, teams: 2, seats: [], names: [], speed: "normal", textSize: "large", counting: "auto", tapToSelect: true, autoCut: false, autoGo: false, warn: true, claimWarn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
+function settingsAtDefaults(settings, skip) {
+    for (const k in DEFAULT_SETTINGS)
+        if (skip.indexOf(k) < 0 && settings[k] !== DEFAULT_SETTINGS[k])
+            return false;
+    return true;
+}
+function loadSettings() { try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (raw)
+        return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+}
+catch (e) { } return { ...DEFAULT_SETTINGS }; }
+function saveSettings(s) { try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+}
+catch (e) { } }
+function humanCountT(settings) { const P = settings.players; let c = 0; for (let i = 0; i < P; i++) {
+    const v = settings.seats && settings.seats[i];
+    if (v === "human" || (v == null && i === 0))
+        c++;
+} return c; }
+function loadAutoBest() { try {
+    return localStorage.getItem("cribbage:trainerAutoBest") === "1";
+}
+catch (e) {
+    return false;
+} }
+function saveAutoBest(v) { try {
+    localStorage.setItem("cribbage:trainerAutoBest", v ? "1" : "0");
+}
+catch (e) { } }
+function trainerScenario(roleMode, players, teams) {
+    const teamSize = players / teams;
+    const dealerThrows = players <= 4;
+    const forcedDefend = teams === players && players >= 5;
+    let cribIsOurs;
+    if (forcedDefend)
+        cribIsOurs = false;
+    else if (roleMode === "ours" || roleMode === "deal")
+        cribIsOurs = true;
+    else if (roleMode === "theirs" || roleMode === "defend")
+        cribIsOurs = false;
+    else
+        cribIsOurs = Math.random() < teamSize / players;
+    const youDeal = cribIsOurs && dealerThrows && (teamSize === 1 || Math.random() < 1 / teamSize);
+    return { youDeal, cribIsOurs };
+}
+function CribbageTrainer() {
+    const [settings, setSettings] = useState(loadSettings);
+    SPEED = settings.speed || "normal";
+    const players = (settings.players >= 2 && settings.players <= 6) ? settings.players : 2;
+    const teams = teamOptionsT(players).includes(settings.teams) ? settings.teams : players;
+    const [roleMode, setRoleMode] = useState("random");
+    const [autoBest, setAutoBest] = useState(loadAutoBest);
+    const [hand, setHand] = useState(() => randomHand(players === 2 ? 6 : 5));
+    const [scenario, setScenario] = useState(() => trainerScenario("random", players, teams));
+    const [phase, setPhase] = useState("choose");
+    const [selected, setSelected] = useState([]);
+    const [chosenId, setChosenId] = useState(null);
+    const [expanded, setExpanded] = useState(null);
+    const [showModel, setShowModel] = useState(false);
+    const [showSettings, setShowSettings] = useState(false);
+    const [aboutOpen, setAboutOpen] = useState(false);
+    const [historyOpen, setHistoryOpen] = useState(false);
+    const [pickerOpen, setPickerOpen] = useState(false);
+    const [showBoard, setShowBoard] = useState(false);
+    const [yourPips, setYourPips] = useState(0);
+    const [leaderPips, setLeaderPips] = useState(0);
+    const [modeOverride, setModeOverride] = useState(null);
+    const [stats, setStats] = useState({ hands: 0, optimal: 0, lost: 0 });
+    const [, bumpLang] = useState(0);
+    useEffect(() => {
+        const i = (typeof window !== "undefined") ? window.i18n : null;
+        if (i && i.onChange)
+            i.onChange(() => bumpLang((v) => v + 1));
+    }, []);
+    const suggested = suggestMode(yourPips, leaderPips);
+    const mode = modeOverride || suggested;
+    const discardCount = players === 2 ? 2 : 1;
+    const opts = useMemo(() => (phase === "revealed" ? analyze(hand, scenario, mode, players, teams) : null), [phase, hand, scenario, mode, players, teams]);
+    const customHandRef = useRef(false);
+    const dealHand = useCallback((p) => {
+        const sc = trainerScenario(roleMode, p, teams);
+        customHandRef.current = false;
+        setHand(randomHand(p === 2 ? 6 : 5));
+        setScenario(sc);
+        setSelected([]);
+        setChosenId(null);
+        setExpanded(null);
+        setPhase("choose");
+    }, [roleMode, teams]);
+    const deal = useCallback(() => dealHand(players), [dealHand, players]);
+    const handSize = players === 2 ? 6 : 5;
+    const forcePickRef = useRef(false);
+    const dealCustom = useCallback((cards, asDealer) => {
+        const sc = asDealer ? { youDeal: true, cribIsOurs: true } : { youDeal: false, cribIsOurs: false };
+        forcePickRef.current = true;
+        customHandRef.current = true;
+        setHand(cards.slice().sort((a, b) => a.r - b.r || a.s - b.s));
+        setScenario(sc);
+        setSelected([]);
+        setChosenId(null);
+        setExpanded(null);
+        setPhase("choose");
+        setPickerOpen(false);
+    }, []);
+    const chooseSize = useCallback((p) => {
+        if (p === players)
+            return;
+        setSettings((prev) => { const next = { ...prev, players: p, teams: p }; saveSettings(next); return next; });
+        setRoleMode("random");
+        customHandRef.current = false;
+        setHand(randomHand(p === 2 ? 6 : 5));
+        setScenario(trainerScenario("random", p, p));
+        setSelected([]);
+        setChosenId(null);
+        setExpanded(null);
+        setPhase("choose");
+    }, [players]);
+    const setSetting = useCallback((k, val) => {
+        setSettings((prev) => { const next = { ...prev, [k]: val }; saveSettings(next); return next; });
+    }, []);
+    const resetSettings = useCallback(() => {
+        const dp = DEFAULT_SETTINGS.players, dt = DEFAULT_SETTINGS.teams;
+        setSettings((prev) => {
+            const next = { ...prev };
+            for (const k in DEFAULT_SETTINGS)
+                if (k !== "seats" && k !== "names")
+                    next[k] = DEFAULT_SETTINGS[k];
+            saveSettings(next);
+            return next;
+        });
+        setRoleMode("random");
+        customHandRef.current = false;
+        setHand(randomHand(dp === 2 ? 6 : 5));
+        setScenario(trainerScenario("random", dp, dt));
+        setSelected([]);
+        setChosenId(null);
+        setExpanded(null);
+        setPhase("choose");
+    }, []);
+    const pick = useCallback((idxs) => {
+        const id = idxs.slice().sort((a, b) => a - b).join(",");
+        const res = analyze(hand, scenario, mode, players, teams);
+        const best = res[0];
+        const chosen = res.find((o) => o.id === id);
+        const delta = best.adj - chosen.adj;
+        setChosenId(id);
+        setExpanded(null);
+        setPhase("revealed");
+        if (!customHandRef.current)
+            setStats((s) => ({ hands: s.hands + 1, optimal: s.optimal + (delta < 0.1 ? 1 : 0), lost: s.lost + delta }));
+    }, [hand, scenario, mode, players, teams]);
+    useEffect(() => {
+        if (phase !== "choose" || (!autoBest && !forcePickRef.current))
+            return;
+        forcePickRef.current = false;
+        pick(analyze(hand, scenario, mode, players, teams)[0].idxs);
+    }, [autoBest, phase, hand, scenario, mode, players, teams, pick]);
+    const toggleSelect = useCallback((i) => {
+        if (selected.includes(i)) {
+            setSelected(selected.filter((x) => x !== i));
+            return;
+        }
+        const next = [...selected, i];
+        if (next.length >= discardCount) {
+            setSelected([]);
+            pick(next);
+        }
+        else
+            setSelected(next);
+    }, [selected, discardCount, pick]);
+    const best = opts ? opts[0] : null;
+    const chosen = opts ? opts.find((o) => o.id === chosenId) : null;
+    const acc = stats.hands ? (stats.optimal / stats.hands) * 100 : 0;
+    const avgLost = stats.hands ? stats.lost / stats.hands : 0;
+    const maxAdj = opts ? Math.max(...opts.map((o) => o.adj)) : 1;
+    const cribIsOurs = scenario.cribIsOurs;
+    const isTeams = teams < players;
+    const bannerTitle = scenario.youDeal ? tr("trainer.banner.youDeal")
+        : cribIsOurs ? tr("trainer.banner.partner")
+            : isTeams ? tr("trainer.banner.oppTeam") : tr("trainer.banner.oppSolo");
+    const bannerSub = cribIsOurs ? tr("trainer.banner.subGreedy")
+        : tr("trainer.banner.subDefend");
+    const gridCols = `16px ${discardCount === 2 ? "58px" : "30px"} 1fr 38px 40px 34px 46px`;
+    const MODE_LABEL = { ev: tr("trainer.mode.ev"), need: tr("trainer.mode.need"), protect: tr("trainer.mode.protect") };
+    return (React.createElement("div", { style: {
+            minHeight: "100%", background: `radial-gradient(120% 90% at 50% 0%, ${T.baizeHi}, ${T.baize})`,
+            color: T.cream, fontFamily: serif, padding: "0 0 28px", "--min-fs": MIN_FS[settings.textSize] || "0px",
+        } },
+        React.createElement("style", null, `
+        @keyframes dealIn {from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+        .dealwrap > * {animation:dealIn var(--deal-ms,260ms) ease both}
+        .dealwrap > *:nth-child(2){animation-delay:calc(var(--deal-stg,40ms)*1)}
+        .dealwrap > *:nth-child(3){animation-delay:calc(var(--deal-stg,40ms)*2)}
+        .dealwrap > *:nth-child(4){animation-delay:calc(var(--deal-stg,40ms)*3)}
+        .dealwrap > *:nth-child(5){animation-delay:calc(var(--deal-stg,40ms)*4)}
+        .dealwrap > *:nth-child(6){animation-delay:calc(var(--deal-stg,40ms)*5)}
+        button{font-family:inherit}
+        button:focus-visible{outline:2px solid ${T.pegIvory}}
+        @media (prefers-reduced-motion: reduce){.dealwrap > *{animation:none}}
+      `),
+        React.createElement("header", { style: {
+                background: `linear-gradient(180deg, ${T.woodL}, ${T.woodM} 55%, ${T.woodD})`,
+                padding: "14px 18px 16px", boxShadow: "0 6px 18px rgba(0,0,0,0.4)", borderBottom: "2px solid rgba(0,0,0,0.3)",
+            } },
+            React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 } },
+                React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, minWidth: 0 } },
+                    React.createElement("a", { href: "index.html", "aria-label": tr("trainer.home"), title: tr("trainer.home"), style: {
+                            flex: "0 0 auto", width: 34, height: 34, borderRadius: 8, background: T.baize, color: T.ivory, textDecoration: "none",
+                            display: "flex", alignItems: "center", justifyContent: "center", fontSize: "max(19px, var(--min-fs, 0px))", lineHeight: 1,
+                            boxShadow: "inset 0 1px 2px rgba(255,255,255,0.12), 0 2px 5px rgba(0,0,0,0.35)",
+                        } }, "\u2663"),
+                    React.createElement("span", { style: { fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: "rgba(42,27,14,0.8)", lineHeight: 1.3 } }, players === 2 ? tr("trainer.hdr.heads") : teams < players ? tr("trainer.hdr.teams", { p: players, teams, size: players / teams }) : tr("trainer.hdr.solo", { p: players }))),
+                React.createElement("div", { style: { display: "flex", gap: 8, flex: "0 0 auto" } },
+                    React.createElement("a", { href: "index.html", "aria-label": tr("trainer.home"), style: {
+                            width: 40, height: 40, borderRadius: 10, textDecoration: "none",
+                            border: "1px solid rgba(0,0,0,0.28)", background: "rgba(42,27,14,0.14)",
+                            color: "#2A1B0E", fontSize: "max(19px, var(--min-fs, 0px))", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
+                        } }, "\u2302"),
+                    React.createElement("button", { onClick: () => (typeof window !== "undefined" && window.__crib && window.__crib.openSettings) ? window.__crib.openSettings() : setShowSettings((o) => !o), "aria-label": tr("settings.title"), "aria-expanded": showSettings, style: {
+                            width: 40, height: 40, borderRadius: 10, cursor: "pointer",
+                            border: "1px solid rgba(0,0,0,0.28)", background: showSettings ? "rgba(42,27,14,0.28)" : "rgba(42,27,14,0.14)",
+                            color: "#2A1B0E", fontSize: "max(20px, var(--min-fs, 0px))", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
+                        } }, "\u2699"))),
+            React.createElement("div", { style: { marginTop: 12 } },
+                React.createElement(PegTrack, { pct: acc })),
+            React.createElement("div", { style: { marginTop: 10, display: "flex", gap: 18, flexWrap: "wrap", fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: "#2A1B0E" } },
+                React.createElement("span", null,
+                    React.createElement("b", { style: { fontSize: "max(15px, var(--min-fs, 0px))" } }, stats.hands),
+                    " ",
+                    tr("trainer.stat.hands")),
+                React.createElement("span", null,
+                    React.createElement("b", { style: { fontSize: "max(15px, var(--min-fs, 0px))" } },
+                        stats.hands ? acc.toFixed(0) : "–",
+                        "%"),
+                    " ",
+                    tr("trainer.stat.optimal")),
+                React.createElement("span", null,
+                    React.createElement("b", { style: { fontSize: "max(15px, var(--min-fs, 0px))" } }, stats.hands ? avgLost.toFixed(2) : "–"),
+                    " ",
+                    tr("trainer.stat.lost")))),
+        React.createElement("main", { style: { maxWidth: 560, margin: "0 auto", padding: "18px 16px 0" } },
+            showSettings && React.createElement(SettingsPanel, { settings: settings, onSet: setSetting, onReset: resetSettings, onClose: () => setShowSettings(false), onAbout: () => { setShowSettings(false); setAboutOpen(true); }, onHistory: () => { setShowSettings(false); setHistoryOpen(true); } }),
+            aboutOpen && React.createElement(AboutModal, { onClose: () => setAboutOpen(false) }),
+            historyOpen && React.createElement(HistoryModal, { onClose: () => setHistoryOpen(false) }),
+            pickerOpen && React.createElement(CardPicker, { count: handSize, onPick: dealCustom, onClose: () => setPickerOpen(false), dealerInit: scenario.youDeal, canDeal: !(teams === players && players >= 5) }),
+            React.createElement("div", { style: {
+                    display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", borderRadius: 10,
+                    background: cribIsOurs ? "rgba(95,164,124,0.16)" : "rgba(200,65,43,0.14)",
+                    border: `1px solid ${cribIsOurs ? "rgba(95,164,124,0.5)" : "rgba(200,65,43,0.45)"}`,
+                } },
+                React.createElement("span", { style: { width: 12, height: 12, borderRadius: "50%", background: cribIsOurs ? T.good : T.pegRed, flex: "0 0 auto", boxShadow: "0 0 0 3px rgba(0,0,0,0.2)" } }),
+                React.createElement("div", null,
+                    React.createElement("div", { style: { fontWeight: 700, fontSize: "max(15px, var(--min-fs, 0px))" } }, bannerTitle),
+                    React.createElement("div", { style: { fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", color: T.muted, marginTop: 2 } }, bannerSub))),
+            React.createElement("p", { style: { fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.muted, margin: "18px 2px 6px" } }, phase === "choose"
+                ? (discardCount === 2
+                    ? (selected.length === 1 ? tr("trainer.prompt.tapTwoMore") : tr("trainer.prompt.tapTwo"))
+                    : tr("trainer.prompt.tapOne"))
+                : (mode === "ev"
+                    ? tr("trainer.prompt.ranked", { mode: MODE_LABEL[mode] })
+                    : tr("trainer.prompt.rankedRisk", { mode: MODE_LABEL[mode], sign: mode === "need" ? "+" : "−" }))),
+            React.createElement("div", { className: phase === "choose" ? "dealwrap" : "", style: { display: "flex", gap: 8, justifyContent: "center", flexWrap: "nowrap", "--deal-ms": spd(260) + "ms", "--deal-stg": spd(40) + "ms" } }, hand.map((card, i) => {
+                let badge = null, dim = false, sel = false;
+                if (phase === "revealed") {
+                    const isBest = best.idxs.includes(i), isPick = chosen ? chosen.idxs.includes(i) : false;
+                    if (isBest && isPick)
+                        badge = { text: "BEST ✓", color: T.goodDeep };
+                    else if (isBest)
+                        badge = { text: "BEST", color: T.goodDeep };
+                    else if (isPick)
+                        badge = { text: "YOUR PICK", color: T.pegRed };
+                    else
+                        dim = true;
+                }
+                else {
+                    sel = selected.includes(i);
+                }
+                return React.createElement(Card, { key: cardId(card), card: card, phase: phase, badge: badge, dim: dim, selected: sel, onClick: () => toggleSelect(i) });
+            })),
+            phase === "revealed" && opts && (React.createElement("div", { style: { marginTop: 20 } },
+                React.createElement("div", { style: {
+                        padding: "12px 14px", borderRadius: 10, marginBottom: 14, lineHeight: 1.5, fontSize: "max(14.5px, var(--min-fs, 0px))",
+                        background: chosenId === best.id ? "rgba(95,164,124,0.14)" : "rgba(0,0,0,0.22)",
+                        border: `1px solid ${chosenId === best.id ? "rgba(95,164,124,0.4)" : T.line}`,
+                    } }, buildNote(cribIsOurs, best, chosen)),
+                React.createElement("div", { style: { display: "grid", gridTemplateColumns: gridCols, gap: 5, fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, padding: "0 4px 2px" } },
+                    React.createElement("span", null),
+                    React.createElement("span", null, tr("trainer.tbl.throw")),
+                    React.createElement("span", null, tr("trainer.tbl.bar", { m: mode === "ev" ? tr("trainer.tbl.net") : tr("trainer.tbl.adj") })),
+                    React.createElement("span", { style: { textAlign: "right" } }, tr("trainer.tbl.hand")),
+                    React.createElement("span", { style: { textAlign: "right" } }, tr("trainer.tbl.crib")),
+                    React.createElement("span", { style: { textAlign: "right" } }, tr("trainer.tbl.peg")),
+                    React.createElement("span", { style: { textAlign: "right" } }, mode === "ev" ? tr("trainer.tbl.net") : tr("trainer.tbl.adj"))),
+                React.createElement("div", { style: { display: "grid", gap: 4 } }, opts.map((o) => {
+                    const isBest = o.id === best.id, isPick = o.id === chosenId, isOpen = expanded === o.id;
+                    const scoreVal = mode === "ev" ? o.netEV : o.adj;
+                    return (React.createElement("div", { key: o.id },
+                        React.createElement("button", { onClick: () => setExpanded(isOpen ? null : o.id), style: {
+                                width: "100%", textAlign: "left", cursor: "pointer",
+                                display: "grid", gridTemplateColumns: gridCols, gap: 5, alignItems: "center",
+                                padding: "8px 4px", borderRadius: 8,
+                                background: isBest ? "rgba(95,164,124,0.12)" : "rgba(0,0,0,0.12)",
+                                border: isPick && !isBest ? `1px solid ${T.pegRed}` : "1px solid transparent",
+                            } },
+                            React.createElement("span", { style: { fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.muted, transform: isOpen ? "rotate(90deg)" : "none", transition: "transform 150ms" } }, "›"),
+                            React.createElement("span", { style: { fontFamily: serif, fontWeight: 700, fontSize: discardCount === 2 ? 13 : 15, display: "flex", gap: 4, flexWrap: "wrap" } }, o.cards.map((c) => React.createElement("span", { key: cardId(c), style: { color: isRed(c.s) ? T.suitRed : T.ivory } }, tag(c)))),
+                            React.createElement("span", { style: { height: 9, background: "rgba(0,0,0,0.28)", borderRadius: 5, overflow: "hidden" } },
+                                React.createElement("span", { style: { display: "block", height: "100%", width: `${Math.max(4, (scoreVal / maxAdj) * 100)}%`, background: isBest ? T.good : isPick ? T.pegRed : "rgba(236,224,182,0.45)" } })),
+                            React.createElement("span", { style: { fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", textAlign: "right", color: T.cream } }, o.handEV.toFixed(2)),
+                            React.createElement("span", { style: { fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", textAlign: "right", color: T.muted } },
+                                cribIsOurs ? "+" : "−",
+                                o.cribEV.toFixed(2)),
+                            React.createElement("span", { style: { fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", textAlign: "right", color: T.muted } },
+                                "+",
+                                o.pegEV.toFixed(2)),
+                            React.createElement("span", { style: { fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700, textAlign: "right", color: isBest ? T.good : T.cream } }, scoreVal.toFixed(2))),
+                        isOpen && React.createElement(Explain, { opt: o, cribIsOurs: cribIsOurs, youDeal: scenario.youDeal, mode: mode, players: players })));
+                })))),
+            React.createElement("div", { style: { marginTop: 22, display: "flex", flexDirection: "column", gap: 14 } },
+                React.createElement("div", { style: { display: "flex", gap: 10 } }, [[tr("trainer.dealCustom"), () => setPickerOpen(true)], [tr("trainer.dealRandom"), deal]].map(([label, onClick]) => (React.createElement("button", { key: label, onClick: onClick, style: {
+                        flex: 1, padding: "13px", borderRadius: 10, border: "none", cursor: "pointer",
+                        background: `linear-gradient(180deg, ${T.woodL}, ${T.woodM})`, color: "#2A1B0E",
+                        fontSize: "max(16px, var(--min-fs, 0px))", fontWeight: 700, letterSpacing: 0.3, boxShadow: "0 4px 12px rgba(0,0,0,0.35)",
+                    } }, label)))),
+                React.createElement(InlineSetup, { players: players, teams: teams, roleMode: roleMode, onRoleMode: setRoleMode, autoBest: autoBest, onAutoBest: (v) => { setAutoBest(v); saveAutoBest(v); }, onSize: chooseSize }),
+                React.createElement("div", null,
+                    React.createElement("button", { onClick: () => setShowBoard((v) => !v), style: {
+                            width: "100%", textAlign: "left", cursor: "pointer", padding: "10px 12px", borderRadius: 8,
+                            background: mode === "ev" ? "rgba(0,0,0,0.2)" : (mode === "need" ? "rgba(95,164,124,0.18)" : "rgba(200,65,43,0.16)"),
+                            border: `1px solid ${mode === "ev" ? T.line : (mode === "need" ? "rgba(95,164,124,0.5)" : "rgba(200,65,43,0.45)")}`,
+                            color: T.cream, fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", display: "flex", justifyContent: "space-between", alignItems: "center",
+                        } },
+                        React.createElement("span", null, tr("trainer.board.toggle", { mode: MODE_LABEL[mode], state: modeOverride ? tr("trainer.board.stManual") : tr("trainer.board.stAuto") })),
+                        React.createElement("span", { style: { transform: showBoard ? "rotate(90deg)" : "none", transition: "transform 150ms" } }, "›")),
+                    showBoard && (React.createElement("div", { style: { padding: "12px 12px 14px", background: "rgba(0,0,0,0.26)", borderRadius: 9, marginTop: 6 } },
+                        React.createElement("div", { style: { fontSize: "max(13px, var(--min-fs, 0px))", lineHeight: 1.5, marginBottom: 12 } }, tr("trainer.board.body")),
+                        React.createElement("div", { style: { display: "flex", gap: 12, marginBottom: 12 } }, [["your", tr("trainer.board.yourPips"), yourPips, setYourPips], ["leader", tr("trainer.board.leaderPips"), leaderPips, setLeaderPips]].map(([id, lbl, val, set]) => (React.createElement("label", { key: id, style: { flex: 1, fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted } },
+                            lbl,
+                            React.createElement("input", { type: "number", min: 0, max: 120, value: val, onChange: (e) => set(Math.max(0, Math.min(120, parseInt(e.target.value || "0", 10)))), style: {
+                                    width: "100%", marginTop: 4, padding: "8px 10px", borderRadius: 7, boxSizing: "border-box",
+                                    background: "rgba(0,0,0,0.35)", border: `1px solid ${T.line}`, color: T.cream,
+                                    fontFamily: mono, fontSize: "max(15px, var(--min-fs, 0px))",
+                                } }))))),
+                        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted, marginBottom: 10 } }, yourPips || leaderPips
+                            ? tr("trainer.board.need", { you: Math.max(0, 121 - yourPips), leader: Math.max(0, 121 - leaderPips), mode: MODE_LABEL[suggested] })
+                            : tr("trainer.board.neutral")),
+                        React.createElement("div", { style: { display: "flex", gap: 6 } }, [["auto", null], ["ev", "ev"], ["need", "need"], ["protect", "protect"]].map(([lbl, val]) => {
+                            const on = val === modeOverride;
+                            const txt = val === null ? tr("trainer.board.auto") : MODE_LABEL[val];
+                            return (React.createElement("button", { key: lbl, onClick: () => setModeOverride(val), style: {
+                                    flex: 1, padding: "9px 4px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))",
+                                    background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
+                                    border: `1px solid ${on ? T.pegIvory : T.line}`, fontWeight: on ? 700 : 400,
+                                } }, txt));
+                        })),
+                        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, marginTop: 8, lineHeight: 1.5 } }, tr("trainer.board.risk", { risk: RISK }))))),
+                React.createElement("div", null,
+                    React.createElement("button", { onClick: () => setShowModel((v) => !v), style: {
+                            width: "100%", textAlign: "left", cursor: "pointer", padding: "10px 12px", borderRadius: 8,
+                            background: "rgba(0,0,0,0.2)", border: `1px solid ${T.line}`, color: T.cream,
+                            fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", display: "flex", justifyContent: "space-between", alignItems: "center",
+                        } },
+                        React.createElement("span", null, tr("trainer.model.toggle")),
+                        React.createElement("span", { style: { transform: showModel ? "rotate(90deg)" : "none", transition: "transform 150ms" } }, "›")),
+                    showModel && (React.createElement("div", { style: { padding: "12px 12px 14px", background: "rgba(0,0,0,0.26)", borderRadius: 9, marginTop: 6 } },
+                        React.createElement("div", { style: { fontSize: "max(13px, var(--min-fs, 0px))", lineHeight: 1.5, marginBottom: 12 } },
+                            tr("trainer.model.introA"),
+                            React.createElement("b", null, tr("trainer.model.dealers")),
+                            tr("trainer.model.introMid"),
+                            React.createElement("b", null, tr("trainer.model.defenders")),
+                            tr("trainer.model.introB"),
+                            " ",
+                            isTeams
+                                ? tr("trainer.model.teams", { teams })
+                                : players === 2
+                                    ? tr("trainer.model.heads")
+                                    : players === 3
+                                        ? tr("trainer.model.three")
+                                        : players >= 5
+                                            ? tr("trainer.model.five")
+                                            : tr("trainer.model.four"),
+                            " ",
+                            tr("trainer.model.cutUniform"),
+                            players !== 4 && (React.createElement("span", { style: { color: T.muted } },
+                                " \u00A0",
+                                tr("trainer.model.reuse", { p: players })))),
+                        React.createElement("div", { style: { display: "grid", gridTemplateColumns: "16px 1fr 1fr", gap: 6, alignItems: "center", marginBottom: 6 } },
+                            React.createElement("span", null),
+                            React.createElement("span", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.good } }, tr("trainer.model.dealerCol")),
+                            React.createElement("span", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.pegRed } }, tr("trainer.model.defenderCol"))),
+                        DEALER_DISCARD_PROBS.map((dp, i) => {
+                            const r = i + 1;
+                            const fp = DEFENDER_DISCARD_PROBS[i];
+                            const mx = Math.max(...DEALER_DISCARD_PROBS, ...DEFENDER_DISCARD_PROBS);
+                            const Bar = ({ v, color }) => (React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 5 } },
+                                React.createElement("span", { style: { height: 8, flex: 1, background: "rgba(0,0,0,0.28)", borderRadius: 4, overflow: "hidden" } },
+                                    React.createElement("span", { style: { display: "block", height: "100%", width: `${(v / mx) * 100}%`, background: color } })),
+                                React.createElement("span", { style: { fontFamily: mono, fontSize: "max(9.5px, var(--min-fs, 0px))", color: T.muted, width: 30, textAlign: "right" } }, (v * 100).toFixed(1))));
+                            return (React.createElement("div", { key: r, style: { display: "grid", gridTemplateColumns: "16px 1fr 1fr", gap: 6, alignItems: "center", marginBottom: 3 } },
+                                React.createElement("span", { style: { fontFamily: serif, fontWeight: 700, fontSize: "max(13px, var(--min-fs, 0px))" } }, rankLabel(r)),
+                                React.createElement(Bar, { v: dp, color: T.good }),
+                                React.createElement(Bar, { v: fp, color: T.pegRed })));
+                        }))))))));
+}
+
+window.__cribViews=window.__cribViews||{};window.__cribViews["trainer"]=CribbageTrainer;
+})();
+</script>
+<script>
+(function(){
 "use strict";
 const { useReducer, useEffect } = React;
 const SPEED_MULT = { slow: 2, normal: 1, fast: 0.5 };
@@ -3263,8 +5496,55 @@ function MugginsClaim({ info, starter, isCrib, settings, dispatch }) {
                 React.createElement("button", { onClick: () => setConfirm(false), style: { flex: 1, padding: "12px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer", background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700 } }, tr("play.show.keepCounting")),
                 React.createElement("button", { onClick: submit, style: { flex: 1, padding: "12px", borderRadius: 9, border: "none", cursor: "pointer", background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700 } }, tr("play.show.incompleteConfirm", { n: claimed })))))));
 }
-ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(CribbagePlay));
 
+window.__cribViews=window.__cribViews||{};window.__cribViews["play"]=CribbagePlay;
+})();
+</script>
+<script>
+(function () {
+  var home = document.getElementById("view-home");
+  var app = document.getElementById("view-app");
+  var root = null;
+  function unmount() { if (root) { try { root.unmount(); } catch (e) {} root = null; } app.innerHTML = ""; }
+  function mount(view) {
+    unmount();
+    var comp = window.__cribViews && window.__cribViews[view];
+    if (!comp) return;
+    root = ReactDOM.createRoot(app);
+    root.render(React.createElement(comp));
+  }
+  function show(route) {
+    if (route === "play" || route === "trainer") {
+      home.style.display = "none"; app.style.display = "";
+      mount(route);                 // fresh mount each visit (reset-fresh)
+    } else {
+      unmount();
+      app.style.display = "none"; home.style.display = "";
+    }
+    try { window.scrollTo(0, 0); } catch (e) {}
+  }
+  function route() {
+    var h = (location.hash || "").replace(/^#\/?/, "");
+    show(h === "play" ? "play" : h === "trainer" ? "trainer" : "home");
+  }
+  window.__crib = window.__crib || {};
+  window.__crib.goHome = function () { location.hash = "#/"; };
+  window.__crib.go = function (v) { location.hash = "#/" + v; };
+  // One shared, shell-level settings menu (core's SpaSettings). Every view's gear opens it.
+  window.__crib.openSettings = function () { if (window.__cribOpenSettings) window.__cribOpenSettings(); };
+  try { ReactDOM.createRoot(document.getElementById("spa-settings")).render(React.createElement(SpaSettings)); } catch (e) {}
+  // Intercept the landing cards (play.html/trainer.html) and the apps' Home links (index.html).
+  document.addEventListener("click", function (e) {
+    var a = e.target && e.target.closest ? e.target.closest("a") : null;
+    if (!a) return;
+    var href = a.getAttribute("href");
+    if (href === "play.html") { e.preventDefault(); location.hash = "#/play"; }
+    else if (href === "trainer.html") { e.preventDefault(); location.hash = "#/trainer"; }
+    else if (href === "index.html") { e.preventDefault(); location.hash = "#/"; }
+  });
+  window.addEventListener("hashchange", route);
+  route();
+})();
 </script>
 </body>
 </html>

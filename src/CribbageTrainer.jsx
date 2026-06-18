@@ -1145,7 +1145,7 @@ export default function CribbageTrainer() {
               border: "1px solid rgba(0,0,0,0.28)", background: "rgba(42,27,14,0.14)",
               color: "#2A1B0E", fontSize: "max(19px, var(--min-fs, 0px))", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
             }}>⌂</a>
-            <button onClick={() => setShowSettings((o) => !o)} aria-label={tr("settings.title")} aria-expanded={showSettings} style={{
+            <button onClick={() => (typeof window !== "undefined" && window.__crib && window.__crib.openSettings) ? window.__crib.openSettings() : setShowSettings((o) => !o)} aria-label={tr("settings.title")} aria-expanded={showSettings} style={{
               width: 40, height: 40, borderRadius: 10, cursor: "pointer",
               border: "1px solid rgba(0,0,0,0.28)", background: showSettings ? "rgba(42,27,14,0.28)" : "rgba(42,27,14,0.14)",
               color: "#2A1B0E", fontSize: "max(20px, var(--min-fs, 0px))", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",

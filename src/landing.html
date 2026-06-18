@@ -719,7 +719,7 @@
         ['langPick', 'footerLangPick'].forEach(function (id) { var el = document.getElementById(id); if (el) el.value = i18n.lang; });
       });
 
-      document.getElementById('gear').addEventListener('click', function () { settings = loadSettings(); applyTextSize(); renderSettings(); renderPlayers(); renderTeams(); open(s); });
+      document.getElementById('gear').addEventListener('click', function () { if (window.__crib && window.__crib.openSettings) { window.__crib.openSettings(); return; } settings = loadSettings(); applyTextSize(); renderSettings(); renderPlayers(); renderTeams(); open(s); });
       document.getElementById('settingsDone').addEventListener('click', function () { close(s); });
       document.getElementById('settingsContinue').addEventListener('click', function () { close(s); });
       document.getElementById('openAbout').addEventListener('click', function () { close(s); open(a); });

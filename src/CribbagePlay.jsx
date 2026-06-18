@@ -1312,7 +1312,10 @@ export default function CribbagePlay() {
     } else { recordedRef.current = false; }
   }, [phase, winner]);
 
-  const goHome = () => { if (phase === "cutdeal") window.location.href = "index.html"; else setConfirmHome(true); };
+  // In the combined SPA (index2) a hash router supplies window.__crib.goHome (no page reload);
+  // standalone the link falls through to index.html. Mid-game still confirms before leaving.
+  const spaHome = () => (typeof window !== "undefined" && window.__crib && window.__crib.goHome) ? (window.__crib.goHome(), true) : false;
+  const goHome = () => { if (phase === "cutdeal") { if (!spaHome()) window.location.href = "index.html"; } else setConfirmHome(true); };
   const canPause = settings.autoCut || settings.autoGo || settings.autoDeal || settings.autoContinue || settings.autoPlayOne || settings.autoPlayBest || settings.autoDiscardBest;
   const autoPaused = paused || settingsOpen || historySeat !== null || msgLogOpen;
   useEffect(() => { if (!canPause && paused) setPaused(false); }, [canPause, paused]);
@@ -1456,7 +1459,7 @@ export default function CribbagePlay() {
                 color: "#2A1B0E", fontSize: "max(17px, var(--min-fs, 0px))", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
               }}>{paused ? "▶" : "⏸"}</button>
             )}
-            <button onClick={() => setSettingsOpen((o) => !o)} aria-label="Settings" aria-expanded={settingsOpen} style={{
+            <button onClick={() => (typeof window !== "undefined" && window.__crib && window.__crib.openSettings) ? window.__crib.openSettings() : setSettingsOpen((o) => !o)} aria-label="Settings" aria-expanded={settingsOpen} style={{
               width: 40, height: 40, borderRadius: 10, cursor: "pointer",
               border: "1px solid rgba(0,0,0,0.28)", background: settingsOpen ? "rgba(42,27,14,0.28)" : "rgba(42,27,14,0.14)",
               color: "#2A1B0E", fontSize: "max(20px, var(--min-fs, 0px))", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",

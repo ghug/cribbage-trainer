@@ -932,7 +932,7 @@ cribbageLocale("en", {
       <a class="btn btn-primary" href="https://github.com/ghug/cribbage-trainer/"
          target="_blank" rel="noopener noreferrer" data-i18n="about.sourceLink">Source, bugs &amp; feedback ↗</a>
       <div class="repo-url" style="margin-bottom:4px">github.com/ghug/cribbage-trainer</div>
-      <div class="repo-url">v1.1.21-dev.9</div>
+      <div class="repo-url">v1.1.21-dev.10</div>
     </div>
   </div>
 
@@ -1343,7 +1343,7 @@ cribbageLocale("en", {
         ['langPick', 'footerLangPick'].forEach(function (id) { var el = document.getElementById(id); if (el) el.value = i18n.lang; });
       });
 
-      document.getElementById('gear').addEventListener('click', function () { if (window.__crib && window.__crib.openSettings) { window.__crib.openSettings(); return; } settings = loadSettings(); applyTextSize(); renderSettings(); renderPlayers(); renderTeams(); open(s); });
+      document.getElementById('gear').addEventListener('click', function () { settings = loadSettings(); applyTextSize(); renderSettings(); renderPlayers(); renderTeams(); open(s); });
       document.getElementById('settingsDone').addEventListener('click', function () { close(s); });
       document.getElementById('settingsContinue').addEventListener('click', function () { close(s); });
       document.getElementById('openAbout').addEventListener('click', function () { close(s); open(a); });

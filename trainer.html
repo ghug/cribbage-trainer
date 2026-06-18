@@ -1396,7 +1396,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.21-dev.9"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.21-dev.10"))));
 }
 function MiniCard({ card, selected, disabled, onClick }) {
     return (React.createElement("button", { onClick: onClick, disabled: disabled, "aria-pressed": selected, "aria-label": `${rankLabel(card.r)} of ${["spades", "hearts", "diamonds", "clubs"][card.s]}`, style: {
@@ -1678,7 +1678,7 @@ function CribbageTrainer() {
                             border: "1px solid rgba(0,0,0,0.28)", background: "rgba(42,27,14,0.14)",
                             color: "#2A1B0E", fontSize: "max(19px, var(--min-fs, 0px))", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
                         } }, "\u2302"),
-                    React.createElement("button", { onClick: () => (typeof window !== "undefined" && window.__crib && window.__crib.openSettings) ? window.__crib.openSettings() : setShowSettings((o) => !o), "aria-label": tr("settings.title"), "aria-expanded": showSettings, style: {
+                    React.createElement("button", { onClick: () => setShowSettings((o) => !o), "aria-label": tr("settings.title"), "aria-expanded": showSettings, style: {
                             width: 40, height: 40, borderRadius: 10, cursor: "pointer",
                             border: "1px solid rgba(0,0,0,0.28)", background: showSettings ? "rgba(42,27,14,0.28)" : "rgba(42,27,14,0.14)",
                             color: "#2A1B0E", fontSize: "max(20px, var(--min-fs, 0px))", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",

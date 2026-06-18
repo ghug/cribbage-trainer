@@ -104,39 +104,6 @@ HTML
   echo "built $OUT ($(wc -l < "$ROOT/$OUT") lines)"
 }
 
-# transpile_view <src.jsx> <ComponentName> <out.js>
-# Transpiles a React app source to plain JS (import-swap + export-swap, JSX->createElement)
-# WITHOUT a shell or an auto-mount — used by build_spa, which wraps each in an IIFE and lets
-# the router mount it. The standalone build_one calls already name-guarded these same sources
-# earlier in this run, so no separate guard here.
-transpile_view() {
-  local SRC="$1" COMPONENT="$2" OUT="$3"
-  local TMP; TMP="$(mktemp -d)"
-  sed -e 's#^import React, { \(.*\) } from "react";#const { \1 } = React;#' \
-      -e "s#^export default function ${COMPONENT}(#function ${COMPONENT}(#" \
-      "$ROOT/$SRC" > "$TMP/app.tsx"
-  npx --no-install tsc "$TMP/app.tsx" \
-      --jsx react --target es2020 --module none --removeComments \
-      --ignoreDeprecations 6.0 --skipLibCheck --noEmitOnError false \
-      --outDir "$TMP/out" >/dev/null 2>&1 || true
-  cp "$TMP/out/app.js" "$OUT"
-  rm -rf "$TMP"
-}
-
-# index2.html — the combined single-page app (Home + Play + Trainer). Additive: leaves the
-# three standalone pages untouched. engine/build_spa.js does the assembly (see its header).
-build_spa() {
-  local TMP; TMP="$(mktemp -d)"
-  transpile_view "src/spa/core.jsx"        "SpaCore"         "$TMP/core.js"
-  transpile_view "src/CribbageTrainer.jsx" "CribbageTrainer" "$TMP/trainer.js"
-  transpile_view "src/CribbagePlay.jsx"    "CribbagePlay"    "$TMP/play.js"
-  i18n_head > "$TMP/i18nhead.html"
-  local V; V="$(tr -d '[:space:]' < "$ROOT/VERSION" 2>/dev/null)"
-  node "$ROOT/engine/build_spa.js" "$TMP/play.js" "$TMP/trainer.js" "$TMP/i18nhead.html" \
-       "$ROOT/src/landing.html" "$ROOT/index2.html" "$V" "$TMP/core.js"
-  rm -rf "$TMP"
-}
-
 # Landing page is plain static HTML. Copy it, but splice the inlined primary-language i18n head
 # in place of its external <script src="i18n.js">…<i18nBootstrap()> block (src/landing.html keeps
 # the external tags so it still works opened directly; the deployed index.html gets the inlined,
@@ -153,9 +120,6 @@ echo "built index.html (landing, primary-language i18n head inlined)"
 # Both apps render their own Home button in their header, so neither uses the shell link.
 build_one "src/CribbageTrainer.jsx" "trainer.html" "Cribbage Discard Trainer" "CribbageTrainer" "no"
 build_one "src/CribbagePlay.jsx"    "play.html"    "Cribbage — Play"          "CribbagePlay"   "no"
-
-# The combined single-page app (additive; standalone pages above are unaffected).
-build_spa
 
 # Stamp the version (read from the VERSION file) into each page's About popup, which
 # carries the __APP_VERSION__ placeholder. VERSION is the single source of truth:

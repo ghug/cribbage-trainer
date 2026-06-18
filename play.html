@@ -904,7 +904,7 @@ const SUIT = ["♠", "♥", "♦", "♣"];
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
 const isRed = (s) => s === 1 || s === 2;
-const APP_VERSION = "1.1.21-dev.9";
+const APP_VERSION = "1.1.21-dev.10";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const rankLabel = (r) => (r === 1 ? "A" : r === 11 ? "J" : r === 12 ? "Q" : r === 13 ? "K" : String(r));
 const tag = (c) => `${rankLabel(c.r)}${SUIT[c.s]}`;
@@ -1859,11 +1859,8 @@ function CribbagePlay() {
             recordedRef.current = false;
         }
     }, [phase, winner]);
-    const spaHome = () => (typeof window !== "undefined" && window.__crib && window.__crib.goHome) ? (window.__crib.goHome(), true) : false;
-    const goHome = () => { if (phase === "cutdeal") {
-        if (!spaHome())
-            window.location.href = "index.html";
-    }
+    const goHome = () => { if (phase === "cutdeal")
+        window.location.href = "index.html";
     else
         setConfirmHome(true); };
     const canPause = settings.autoCut || settings.autoGo || settings.autoDeal || settings.autoContinue || settings.autoPlayOne || settings.autoPlayBest || settings.autoDiscardBest;
@@ -2017,7 +2014,7 @@ function CribbagePlay() {
                             border: "1px solid rgba(0,0,0,0.28)", background: paused ? "rgba(200,65,43,0.32)" : "rgba(42,27,14,0.14)",
                             color: "#2A1B0E", fontSize: "max(17px, var(--min-fs, 0px))", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
                         } }, paused ? "▶" : "⏸")),
-                    React.createElement("button", { onClick: () => (typeof window !== "undefined" && window.__crib && window.__crib.openSettings) ? window.__crib.openSettings() : setSettingsOpen((o) => !o), "aria-label": "Settings", "aria-expanded": settingsOpen, style: {
+                    React.createElement("button", { onClick: () => setSettingsOpen((o) => !o), "aria-label": "Settings", "aria-expanded": settingsOpen, style: {
                             width: 40, height: 40, borderRadius: 10, cursor: "pointer",
                             border: "1px solid rgba(0,0,0,0.28)", background: settingsOpen ? "rgba(42,27,14,0.28)" : "rgba(42,27,14,0.14)",
                             color: "#2A1B0E", fontSize: "max(20px, var(--min-fs, 0px))", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
@@ -3163,7 +3160,7 @@ function AboutModal({ onClose }) {
                 background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
             } }, tr("about.sourceLink")),
         React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.21-dev.9")));
+        React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.21-dev.10")));
 }
 function MessageLogModal({ log, onClose }) {
     const scrollRef = React.useRef(null);

@@ -89,6 +89,13 @@ const router = `
     else if (href === "trainer.html") { e.preventDefault(); location.hash = "#/trainer"; }
     else if (href === "index.html") { e.preventDefault(); location.hash = "#/"; }
   });
+  // The Home (landing) gear opens the shared shell menu, not the landing's own overlay. Capture
+  // phase + stopPropagation pre-empts the landing's bubble-phase click handler, so src/landing.html
+  // stays untouched (it is lifted verbatim into the Home view).
+  document.addEventListener("click", function (e) {
+    var g = e.target && e.target.closest ? e.target.closest("#gear") : null;
+    if (g) { e.stopPropagation(); window.__crib.openSettings(); }
+  }, true);
   window.addEventListener("hashchange", route);
   route();
 })();`;

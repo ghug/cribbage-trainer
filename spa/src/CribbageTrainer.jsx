@@ -559,6 +559,7 @@ function SettingsSection({ title, defaultOpen, children }) {
 // game (one localStorage object), so any toggle here sticks everywhere. The trainer's own setup
 // (table size, practice-as role, new-hand mode) is NOT here — it lives inline on the main screen
 // (InlineSetup), above the board-position item, alongside the analysis it drives.
+//#SPA-CUT-START (the SPA shell provides one shared SettingsPanel via core.jsx)
 function SettingsPanel({ settings, onSet, onReset, onClose, onAbout, onHistory }) {
   const hasHumans = humanCountT(settings) >= 1;   // muggins needs at least one human
   const [confirmReset, setConfirmReset] = React.useState(false);
@@ -641,7 +642,7 @@ function SettingsPanel({ settings, onSet, onReset, onClose, onAbout, onHistory }
     </>
   );
 }
-
+//#SPA-CUT-END
 // Game history — the same cribbage:history store the Play game writes (this trainer only reads/clears
 // it). Ported verbatim from the Play game's HistoryModal so the settings menus match across pages.
 const HISTORY_KEY = "cribbage:history";
@@ -1145,7 +1146,7 @@ export default function CribbageTrainer() {
               border: "1px solid rgba(0,0,0,0.28)", background: "rgba(42,27,14,0.14)",
               color: "#2A1B0E", fontSize: "max(19px, var(--min-fs, 0px))", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",
             }}>⌂</a>
-            <button onClick={() => setShowSettings((o) => !o)} aria-label={tr("settings.title")} aria-expanded={showSettings} style={{
+            <button onClick={() => (typeof window !== "undefined" && window.__crib && window.__crib.openSettings) ? window.__crib.openSettings() : setShowSettings((o) => !o)} aria-label={tr("settings.title")} aria-expanded={showSettings} style={{
               width: 40, height: 40, borderRadius: 10, cursor: "pointer",
               border: "1px solid rgba(0,0,0,0.28)", background: showSettings ? "rgba(42,27,14,0.28)" : "rgba(42,27,14,0.14)",
               color: "#2A1B0E", fontSize: "max(20px, var(--min-fs, 0px))", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center",

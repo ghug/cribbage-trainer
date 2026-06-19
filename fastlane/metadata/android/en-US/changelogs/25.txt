@@ -1,0 +1,8 @@
+New in 1.1.21:
+- Muggins is now available in any game with human players, and once you claim a combination it can no longer be un-claimed.
+- Game history is now reachable from every page and records only your games against bots.
+- During the show, the scoring panel is titled by whose hand or crib is being counted, replacing the old header.
+- Fixed cards being left stranded at the pegging-to-show transition on the fastest game speeds.
+- Reset now tells you when settings are already at their defaults instead of asking you to confirm.
+- Added an app icon and web manifest so the page can be installed to your home screen.
+- Minor polish: the crib tip no longer races on fast speeds, and the trainer's stats skip custom-built deals.

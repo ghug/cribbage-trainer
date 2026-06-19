@@ -197,7 +197,50 @@ function saveSettings(s) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringi
 // still shows another tab's change only after a reload.) Returns the merged object.
 function persistSettingChange(changes) { const next = { ...loadSettings(), ...changes }; saveSettings(next); return next; }
 const HISTORY_KEY = "cribbage:history";
-function loadHistory() { try { const r = localStorage.getItem(HISTORY_KEY); return r ? JSON.parse(r) : []; } catch (e) { return []; } }
+/* Game history is stored as an AGGREGATE only — no per-game rows, no timestamps. It's an object keyed
+ * `${P}-${teams}`, each value a bucket: { games, peg, hand, crib (running AVERAGES), won, lost,
+ * skunked, doubleSkunked }. A finished game folds into its config's bucket. */
+function histKey(P, teams) { return P + "-" + teams; }
+function blankBucket() { return { games: 0, peg: 0, hand: 0, crib: 0, won: 0, lost: 0, skunked: 0, doubleSkunked: 0 }; }
+// Fold one finished-game summary { P, teams, outcome, peg, hand, crib } into the aggregate, rolling the
+// running averages: newAvg = (games*prevAvg + value) / (games+1), bumping games + the outcome counter.
+// Mutates and returns `stats`.
+function foldGameStats(stats, rec) {
+  const key = histKey(rec.P, rec.teams), b = stats[key] || blankBucket(), n = b.games;
+  b.peg = (n * b.peg + (rec.peg || 0)) / (n + 1);
+  b.hand = (n * b.hand + (rec.hand || 0)) / (n + 1);
+  b.crib = (n * b.crib + (rec.crib || 0)) / (n + 1);
+  b.games = n + 1;
+  if (b[rec.outcome] != null) b[rec.outcome] += 1;
+  stats[key] = b;
+  return stats;
+}
+// Combine buckets into one (the "all configs" view): summed counts/games, games-weighted averages.
+function combineBuckets(list) {
+  const out = blankBucket();
+  for (const b of list) {
+    const n = out.games, m = b.games || 0;
+    if (n + m > 0) {
+      out.peg = (n * out.peg + m * (b.peg || 0)) / (n + m);
+      out.hand = (n * out.hand + m * (b.hand || 0)) / (n + m);
+      out.crib = (n * out.crib + m * (b.crib || 0)) / (n + m);
+    }
+    out.games = n + m;
+    out.won += b.won || 0; out.lost += b.lost || 0; out.skunked += b.skunked || 0; out.doubleSkunked += b.doubleSkunked || 0;
+  }
+  return out;
+}
+// Returns the aggregate object. A pre-aggregate install stored a per-game ARRAY (or anything else);
+// that old format is IGNORED — return a fresh empty aggregate, which the next finished game overwrites.
+function loadHistory() {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    if (!raw) return {};
+    const v = JSON.parse(raw);
+    return (v && typeof v === "object" && !Array.isArray(v)) ? v : {};
+  } catch (e) { return {}; }
+}
+function saveHistory(h) { try { localStorage.setItem(HISTORY_KEY, JSON.stringify(h)); } catch (e) {} }
 function clearHistory() { try { localStorage.removeItem(HISTORY_KEY); } catch (e) {} }
 </script>
 <script>
@@ -843,7 +886,7 @@ cribbageLocale("en", {
         <div>
           <h1 data-i18n="app.title">Cribbage Trainer</h1>
           <p data-i18n="landing.tagline">play vs bots or friends and sharpen your discards</p>
-          <span class="ver" id="verBadge">v1.1.22-dev.6</span>
+          <span class="ver" id="verBadge">v1.1.22-dev.7</span>
         </div>
       </div>
       <button id="gear" class="gear" type="button" aria-label="Settings" aria-haspopup="dialog" data-i18n-aria="settings.title">⚙</button>
@@ -977,7 +1020,7 @@ cribbageLocale("en", {
       <a class="btn btn-primary" href="https://github.com/ghug/cribbage-trainer/"
          target="_blank" rel="noopener noreferrer" data-i18n="about.sourceLink">Source, bugs &amp; feedback ↗</a>
       <div class="repo-url" style="margin-bottom:4px">github.com/ghug/cribbage-trainer</div>
-      <div class="repo-url">v1.1.22-dev.6</div>
+      <div class="repo-url">v1.1.22-dev.7</div>
     </div>
   </div>
 
@@ -1018,7 +1061,7 @@ cribbageLocale("en", {
   <script>
     (function () {
       // Show the version badge in the header only on dev builds (a release strips the -dev suffix).
-      if (/-dev/.test("1.1.22-dev.6")) { var _vb = document.getElementById('verBadge'); if (_vb) _vb.style.display = 'block'; }
+      if (/-dev/.test("1.1.22-dev.7")) { var _vb = document.getElementById('verBadge'); if (_vb) _vb.style.display = 'block'; }
       var s = document.getElementById('settingsOverlay');
       var a = document.getElementById('aboutOverlay');
       var c = document.getElementById('confirmResetOverlay');
@@ -1036,20 +1079,18 @@ cribbageLocale("en", {
       function renderHistory() {
         var body = document.getElementById('historyBody');
         var all = loadHistory();
-        if (!all.length) { body.innerHTML = '<div class="hist-empty">' + esc(tr('play.hist.empty')) + '</div>'; return; }
-        var keyOf = function (r) { return r.P + '/' + r.teams; };
+        var configs = Object.keys(all);
+        if (!configs.length) { body.innerHTML = '<div class="hist-empty">' + esc(tr('play.hist.empty')) + '</div>'; return; }
         var cfgLabel = function (P, t) { return t < P ? tr('play.hist.cfgTeams', { p: P, teams: t }) : tr('play.hist.cfgHanded', { p: P }); };
-        var configs = []; all.forEach(function (r) { var k = keyOf(r); if (configs.indexOf(k) < 0) configs.push(k); });
-        configs.sort(function (a, b) { var pa = a.split('/').map(Number), pb = b.split('/').map(Number); return pa[0] - pb[0] || pb[1] - pa[1]; });
+        configs.sort(function (a, b) { var pa = a.split('-').map(Number), pb = b.split('-').map(Number); return pa[0] - pb[0] || pb[1] - pa[1]; });
         if (histSel !== 'all' && configs.indexOf(histSel) < 0) histSel = 'all';
-        var filtered = histSel === 'all' ? all : all.filter(function (r) { return keyOf(r) === histSel; });
-        var games = filtered.length;
-        var cnt = function (o) { return filtered.filter(function (r) { return r.outcome === o; }).length; };
-        var won = cnt('won'), lost = cnt('lost'), sk = cnt('skunked'), dsk = cnt('doubleSkunked');
-        var avg = function (k) { return games ? filtered.reduce(function (a, r) { return a + (r[k] || 0); }, 0) / games : 0; };
+        // "all" combines every config's bucket; a chip picks one. Averages come straight off the bucket.
+        var bucket = histSel === 'all' ? combineBuckets(configs.map(function (k) { return all[k]; })) : (all[histSel] || blankBucket());
+        var games = bucket.games;
+        var won = bucket.won, lost = bucket.lost, sk = bucket.skunked, dsk = bucket.doubleSkunked;
         var winPct = games ? Math.round(won / games * 100) : 0;
         var html = '<div class="hist-chips">' + histChip('all', tr('play.hist.all'));
-        configs.forEach(function (k) { var pt = k.split('/').map(Number); html += histChip(k, cfgLabel(pt[0], pt[1])); });
+        configs.forEach(function (k) { var pt = k.split('-').map(Number); html += histChip(k, cfgLabel(pt[0], pt[1])); });
         html += '</div>';
         html += histStat(tr('play.hist.games'), games);
         html += histStat(tr('play.hist.won'), tr('play.hist.wonValue', { n: won, pct: winPct }), 'good');
@@ -1058,9 +1099,9 @@ cribbageLocale("en", {
         html += histStat(tr('play.hist.dblSkunked'), dsk, dsk ? 'red' : '');
         if (histSel !== 'all') {
           html += '<div class="hist-sub">' + esc(tr('play.hist.avgHeader')) + '</div>';
-          html += histStat(tr('play.hist.pegging'), avg('peg').toFixed(1));
-          html += histStat(tr('play.hist.hand'), avg('hand').toFixed(1));
-          html += histStat(tr('play.hist.crib'), avg('crib').toFixed(1));
+          html += histStat(tr('play.hist.pegging'), bucket.peg.toFixed(1));
+          html += histStat(tr('play.hist.hand'), bucket.hand.toFixed(1));
+          html += histStat(tr('play.hist.crib'), bucket.crib.toFixed(1));
         } else {
           html += '<div class="hist-hint">' + esc(tr('play.hist.pickHint')) + '</div>';
         }

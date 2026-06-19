@@ -377,20 +377,18 @@
       function renderHistory() {
         var body = document.getElementById('historyBody');
         var all = loadHistory();
-        if (!all.length) { body.innerHTML = '<div class="hist-empty">' + esc(tr('play.hist.empty')) + '</div>'; return; }
-        var keyOf = function (r) { return r.P + '/' + r.teams; };
+        var configs = Object.keys(all);
+        if (!configs.length) { body.innerHTML = '<div class="hist-empty">' + esc(tr('play.hist.empty')) + '</div>'; return; }
         var cfgLabel = function (P, t) { return t < P ? tr('play.hist.cfgTeams', { p: P, teams: t }) : tr('play.hist.cfgHanded', { p: P }); };
-        var configs = []; all.forEach(function (r) { var k = keyOf(r); if (configs.indexOf(k) < 0) configs.push(k); });
-        configs.sort(function (a, b) { var pa = a.split('/').map(Number), pb = b.split('/').map(Number); return pa[0] - pb[0] || pb[1] - pa[1]; });
+        configs.sort(function (a, b) { var pa = a.split('-').map(Number), pb = b.split('-').map(Number); return pa[0] - pb[0] || pb[1] - pa[1]; });
         if (histSel !== 'all' && configs.indexOf(histSel) < 0) histSel = 'all';
-        var filtered = histSel === 'all' ? all : all.filter(function (r) { return keyOf(r) === histSel; });
-        var games = filtered.length;
-        var cnt = function (o) { return filtered.filter(function (r) { return r.outcome === o; }).length; };
-        var won = cnt('won'), lost = cnt('lost'), sk = cnt('skunked'), dsk = cnt('doubleSkunked');
-        var avg = function (k) { return games ? filtered.reduce(function (a, r) { return a + (r[k] || 0); }, 0) / games : 0; };
+        // "all" combines every config's bucket; a chip picks one. Averages come straight off the bucket.
+        var bucket = histSel === 'all' ? combineBuckets(configs.map(function (k) { return all[k]; })) : (all[histSel] || blankBucket());
+        var games = bucket.games;
+        var won = bucket.won, lost = bucket.lost, sk = bucket.skunked, dsk = bucket.doubleSkunked;
         var winPct = games ? Math.round(won / games * 100) : 0;
         var html = '<div class="hist-chips">' + histChip('all', tr('play.hist.all'));
-        configs.forEach(function (k) { var pt = k.split('/').map(Number); html += histChip(k, cfgLabel(pt[0], pt[1])); });
+        configs.forEach(function (k) { var pt = k.split('-').map(Number); html += histChip(k, cfgLabel(pt[0], pt[1])); });
         html += '</div>';
         html += histStat(tr('play.hist.games'), games);
         html += histStat(tr('play.hist.won'), tr('play.hist.wonValue', { n: won, pct: winPct }), 'good');
@@ -399,9 +397,9 @@
         html += histStat(tr('play.hist.dblSkunked'), dsk, dsk ? 'red' : '');
         if (histSel !== 'all') {
           html += '<div class="hist-sub">' + esc(tr('play.hist.avgHeader')) + '</div>';
-          html += histStat(tr('play.hist.pegging'), avg('peg').toFixed(1));
-          html += histStat(tr('play.hist.hand'), avg('hand').toFixed(1));
-          html += histStat(tr('play.hist.crib'), avg('crib').toFixed(1));
+          html += histStat(tr('play.hist.pegging'), bucket.peg.toFixed(1));
+          html += histStat(tr('play.hist.hand'), bucket.hand.toFixed(1));
+          html += histStat(tr('play.hist.crib'), bucket.crib.toFixed(1));
         } else {
           html += '<div class="hist-hint">' + esc(tr('play.hist.pickHint')) + '</div>';
         }

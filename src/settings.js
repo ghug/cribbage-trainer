@@ -24,5 +24,48 @@ function saveSettings(s) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringi
 // still shows another tab's change only after a reload.) Returns the merged object.
 function persistSettingChange(changes) { const next = { ...loadSettings(), ...changes }; saveSettings(next); return next; }
 const HISTORY_KEY = "cribbage:history";
-function loadHistory() { try { const r = localStorage.getItem(HISTORY_KEY); return r ? JSON.parse(r) : []; } catch (e) { return []; } }
+/* Game history is stored as an AGGREGATE only — no per-game rows, no timestamps. It's an object keyed
+ * `${P}-${teams}`, each value a bucket: { games, peg, hand, crib (running AVERAGES), won, lost,
+ * skunked, doubleSkunked }. A finished game folds into its config's bucket. */
+function histKey(P, teams) { return P + "-" + teams; }
+function blankBucket() { return { games: 0, peg: 0, hand: 0, crib: 0, won: 0, lost: 0, skunked: 0, doubleSkunked: 0 }; }
+// Fold one finished-game summary { P, teams, outcome, peg, hand, crib } into the aggregate, rolling the
+// running averages: newAvg = (games*prevAvg + value) / (games+1), bumping games + the outcome counter.
+// Mutates and returns `stats`.
+function foldGameStats(stats, rec) {
+  const key = histKey(rec.P, rec.teams), b = stats[key] || blankBucket(), n = b.games;
+  b.peg = (n * b.peg + (rec.peg || 0)) / (n + 1);
+  b.hand = (n * b.hand + (rec.hand || 0)) / (n + 1);
+  b.crib = (n * b.crib + (rec.crib || 0)) / (n + 1);
+  b.games = n + 1;
+  if (b[rec.outcome] != null) b[rec.outcome] += 1;
+  stats[key] = b;
+  return stats;
+}
+// Combine buckets into one (the "all configs" view): summed counts/games, games-weighted averages.
+function combineBuckets(list) {
+  const out = blankBucket();
+  for (const b of list) {
+    const n = out.games, m = b.games || 0;
+    if (n + m > 0) {
+      out.peg = (n * out.peg + m * (b.peg || 0)) / (n + m);
+      out.hand = (n * out.hand + m * (b.hand || 0)) / (n + m);
+      out.crib = (n * out.crib + m * (b.crib || 0)) / (n + m);
+    }
+    out.games = n + m;
+    out.won += b.won || 0; out.lost += b.lost || 0; out.skunked += b.skunked || 0; out.doubleSkunked += b.doubleSkunked || 0;
+  }
+  return out;
+}
+// Returns the aggregate object. A pre-aggregate install stored a per-game ARRAY (or anything else);
+// that old format is IGNORED — return a fresh empty aggregate, which the next finished game overwrites.
+function loadHistory() {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    if (!raw) return {};
+    const v = JSON.parse(raw);
+    return (v && typeof v === "object" && !Array.isArray(v)) ? v : {};
+  } catch (e) { return {}; }
+}
+function saveHistory(h) { try { localStorage.setItem(HISTORY_KEY, JSON.stringify(h)); } catch (e) {} }
 function clearHistory() { try { localStorage.removeItem(HISTORY_KEY); } catch (e) {} }

@@ -43,7 +43,7 @@ function loadSandbox(seed) {
 }
 
 const S = loadSandbox(1);
-const { reduce, initGame, scoreInto, pegScore, pegChoose, gameRecord, plan } = S;
+const { reduce, initGame, scoreInto, pegScore, pegChoose, gameRecord, foldGameStats, combineBuckets, plan } = S;
 const pval = (r) => Math.min(r, 10);
 const sameCard = (a, b) => a.r === b.r && a.s === b.s;
 
@@ -320,6 +320,24 @@ teamsCheck(6, 2, [[0, 2, 4], [1, 3, 5]]);   // every other seat, three to a team
   const lossAt = (P, teams, score) => { const s = mk(P, teams, [[{ pts: score, label: "hand" }], [{ pts: 999, label: "x" }]], 1); s.seats[0].score = score; return gameRecord(s).outcome; };
   check(lossAt(2, 2, 100) === "lost" && lossAt(2, 2, 90) === "skunked" && lossAt(2, 2, 60) === "doubleSkunked", "gameRecord 121 skunk lines 90/60");
   check(lossAt(6, 6, 31) === "lost" && lossAt(6, 6, 30) === "skunked" && lossAt(6, 6, 15) === "doubleSkunked", "gameRecord 61 skunk lines 30/15");
+}
+
+/* ---- foldGameStats / combineBuckets: the aggregated history store. Folding rolls running averages
+       (newAvg = (games*prevAvg + value)/(games+1)), bumps games + the outcome counter, keyed P-teams;
+       combineBuckets sums counts and games-weights the averages for the "all" view. ---- */
+{
+  const stats = {};
+  foldGameStats(stats, { P: 2, teams: 2, outcome: "won", peg: 10, hand: 8, crib: 4 });
+  foldGameStats(stats, { P: 2, teams: 2, outcome: "lost", peg: 20, hand: 12, crib: 6 });
+  const b = stats["2-2"];
+  check(b.games === 2, `foldGameStats counts games (${b.games})`);
+  check(b.peg === 15 && b.hand === 10 && b.crib === 5, `foldGameStats rolls running averages got ${b.peg}/${b.hand}/${b.crib}`);
+  check(b.won === 1 && b.lost === 1 && b.skunked === 0 && b.doubleSkunked === 0, `foldGameStats outcome counts (${b.won}/${b.lost})`);
+  foldGameStats(stats, { P: 4, teams: 2, outcome: "skunked", peg: 4, hand: 2, crib: 1 });
+  check(Object.keys(stats).length === 2 && stats["4-2"].games === 1 && stats["4-2"].skunked === 1, "foldGameStats keys each config by P-teams");
+  const c = combineBuckets([stats["2-2"], stats["4-2"]]);
+  check(c.games === 3 && c.won === 1 && c.lost === 1 && c.skunked === 1, `combineBuckets sums counts (${c.games} games)`);
+  check(Math.abs(c.peg - (15 * 2 + 4 * 1) / 3) < 1e-9, `combineBuckets games-weights the average (${c.peg})`);
 }
 
 /* ---- Mixed human/bot games (settings.seats): with 2+ human seats the discard phase

@@ -774,8 +774,8 @@ function reduce(state, action) {
 // Settings persist across pages in localStorage under a shared key. try/catch keeps
 // the verification harness (no localStorage) and private-mode browsers happy.
 
-// ---- Finished-game history (per device) ----
-function saveHistory(h) { try { localStorage.setItem(HISTORY_KEY, JSON.stringify(h)); } catch (e) {} }
+// ---- Finished-game history (per device) ---- (HISTORY_KEY / loadHistory / saveHistory /
+// foldGameStats live in the shared settings.js; gameRecord summarizes one finished game below.)
 
 // Summarize a finished game from your (team's) side: the outcome bucket plus the team's
 // pegging / hand / crib point totals. A team's points are the sum of its members' own
@@ -798,7 +798,7 @@ function gameRecord(state) {
   const won = teamOf(state.winner, P, teams) === teamOf(you, P, teams);
   const { skunk, dbl } = skunkLines(P);
   const outcome = won ? "won" : score <= dbl ? "doubleSkunked" : score <= skunk ? "skunked" : "lost";
-  return { t: Date.now(), P, teams, outcome, peg, hand, crib, score };
+  return { P, teams, outcome, peg, hand, crib };   // a one-game summary; foldGameStats rolls it into the aggregate
 }
 
 // Cut for deal, dealt one card at a time off cutDeal.deck to each seat still in contention. The first
@@ -1060,7 +1060,7 @@ export default function CribbagePlay() {
     // Only one-human (you vs bots) games are recorded — hot-seat games with 2+ humans have no single
     // "you" to track, so they're left out of the history.
     if (phase === "over" && winner !== null && nHumans(players, settings) === 1) {
-      if (!recordedRef.current) { recordedRef.current = true; saveHistory([...loadHistory(), gameRecord(state)]); }
+      if (!recordedRef.current) { recordedRef.current = true; saveHistory(foldGameStats(loadHistory(), gameRecord(state))); }
     } else { recordedRef.current = false; }
   }, [phase, winner]);
 

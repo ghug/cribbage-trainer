@@ -193,17 +193,16 @@ function HistoryModal({ onClose }) {
   const all = loadHistory();
   const [sel, setSel] = React.useState("all");
   const [confirmClear, setConfirmClear] = React.useState(false);
-  const keyOf = (r) => `${r.P}/${r.teams}`;
   const cfgLabel = (P, t) => (t < P ? tr("play.hist.cfgTeams", { p: P, teams: t }) : tr("play.hist.cfgHanded", { p: P }));
-  const configs = Array.from(new Set(all.map(keyOf))).sort((a, b) => {
-    const [pa, ta] = a.split("/").map(Number), [pb, tb] = b.split("/").map(Number);
+  const configs = Object.keys(all).sort((a, b) => {
+    const [pa, ta] = a.split("-").map(Number), [pb, tb] = b.split("-").map(Number);
     return pa - pb || tb - ta;
   });
-  const filtered = sel === "all" ? all : all.filter((r) => keyOf(r) === sel);
-  const games = filtered.length;
-  const cnt = (o) => filtered.filter((r) => r.outcome === o).length;
-  const won = cnt("won"), lost = cnt("lost"), sk = cnt("skunked"), dsk = cnt("doubleSkunked");
-  const avg = (k) => (games ? filtered.reduce((a, r) => a + (r[k] || 0), 0) / games : 0);
+  // "all" combines every config's bucket; a chip picks one bucket directly. Averages are read straight
+  // off the bucket (peg/hand/crib are stored as running averages).
+  const bucket = sel === "all" ? combineBuckets(configs.map((k) => all[k])) : (all[sel] || blankBucket());
+  const games = bucket.games;
+  const won = bucket.won, lost = bucket.lost, sk = bucket.skunked, dsk = bucket.doubleSkunked;
   const winPct = games ? Math.round((won / games) * 100) : 0;
   const specific = sel !== "all";
   const chip = (key, label) => (
@@ -222,13 +221,13 @@ function HistoryModal({ onClose }) {
   return (
     <Modal onBackdrop={onClose} scroll>
       <ModalHeader title={tr("play.hist.title")} onClose={onClose} mb={14} />
-        {all.length === 0 ? (
+        {configs.length === 0 ? (
           <div style={{ fontFamily: mono, fontSize: "max(12px, var(--min-fs, 0px))", color: T.muted, lineHeight: 1.6 }} data-tick={tick}>{tr("play.hist.empty")}</div>
         ) : (
           <React.Fragment>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
               {chip("all", tr("play.hist.all"))}
-              {configs.map((k) => { const [P, t] = k.split("/").map(Number); return chip(k, cfgLabel(P, t)); })}
+              {configs.map((k) => { const [P, t] = k.split("-").map(Number); return chip(k, cfgLabel(P, t)); })}
             </div>
             <Stat label={tr("play.hist.games")} value={games} />
             <Stat label={tr("play.hist.won")} value={tr("play.hist.wonValue", { n: won, pct: winPct })} accent={T.good} />
@@ -238,9 +237,9 @@ function HistoryModal({ onClose }) {
             {specific ? (
               <React.Fragment>
                 <div style={{ fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, margin: "14px 0 4px", letterSpacing: 0.3 }}>{tr("play.hist.avgHeader")}</div>
-                <Stat label={tr("play.hist.pegging")} value={avg("peg").toFixed(1)} />
-                <Stat label={tr("play.hist.hand")} value={avg("hand").toFixed(1)} />
-                <Stat label={tr("play.hist.crib")} value={avg("crib").toFixed(1)} />
+                <Stat label={tr("play.hist.pegging")} value={bucket.peg.toFixed(1)} />
+                <Stat label={tr("play.hist.hand")} value={bucket.hand.toFixed(1)} />
+                <Stat label={tr("play.hist.crib")} value={bucket.crib.toFixed(1)} />
               </React.Fragment>
             ) : (
               <div style={{ fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, marginTop: 12, lineHeight: 1.5 }}>{tr("play.hist.pickHint")}</div>

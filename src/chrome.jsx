@@ -50,7 +50,7 @@ const MIN_FS = { small: "0px", medium: "12px", large: "14px", xlarge: "16px" };
 
 /* ---- settings + history storage (the shared cribbage:settings / cribbage:history) ---- */
 const SETTINGS_KEY = "cribbage:settings";
-const DEFAULT_SETTINGS = { players: 2, teams: 2, seats: [], names: [], speed: "normal", textSize: "large", counting: "auto", tapToSelect: true, autoCut: false, autoGo: false, warn: true, claimWarn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
+const DEFAULT_SETTINGS = { players: 2, teams: 2, seats: [], names: [], speed: "normal", textSize: "large", counting: "muggins", tapToSelect: true, autoCut: false, autoGo: false, warn: true, claimWarn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
 // True when every setting the reset would touch (all but `skip`) already equals its default.
 function settingsAtDefaults(settings, skip) {
   for (const k in DEFAULT_SETTINGS) if (skip.indexOf(k) < 0 && settings[k] !== DEFAULT_SETTINGS[k]) return false;

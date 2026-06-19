@@ -78,7 +78,12 @@ check(pegScore([3, 1, 2], 6) === 3, "out-of-order run of 3 = 3");
 // the explicit CUT action (the auto-cut path — which skips the cut phase — is covered
 // separately by autoCutSkips()).
 function gameFor(P) {
-  return reduce(reduce(initGame(), { type: "SET_SETTING", key: "autoCut", value: false }), { type: "SET_SETTING", key: "players", value: P });
+  // Pin counting to "auto" so this driver exercises the full auto-count show path (its per-step
+  // scoring checks) regardless of the product default — which is "muggins". mixedGame leaves counting
+  // at the default, so the muggins show path still gets coverage there.
+  let s = reduce(initGame(), { type: "SET_SETTING", key: "autoCut", value: false });
+  s = reduce(s, { type: "SET_SETTING", key: "counting", value: "auto" });
+  return reduce(s, { type: "SET_SETTING", key: "players", value: P });
 }
 
 // The cut-for-deal is incremental too: from "cutdeal", each CUT_NEXT reveals one card until all P are

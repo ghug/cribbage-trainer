@@ -370,7 +370,7 @@
 
       // Game history (same cribbage:history store the Play game writes; this view mirrors the Play
       // game's HistoryModal — the settings menus are identical across all three pages). HISTORY_KEY /
-      // loadHistory / clearHistory come from the shared settings.js inlined above.
+      // loadHistory / clearHistory come from the shared settings.js loaded above (inlined at build).
       var histSel = 'all', histConfirmClear = false;
       function histChip(key, label) { return '<button class="hist-chip' + (histSel === key ? ' on' : '') + '" type="button" data-key="' + esc(key) + '">' + esc(label) + '</button>'; }
       function histStat(label, value, accent) { return '<div class="hist-stat"><span class="lbl">' + esc(label) + '</span><span class="val' + (accent ? ' ' + accent : '') + '">' + esc(value) + '</span></div>'; }
@@ -440,7 +440,8 @@
 
       // Game settings, shared across every page via localStorage (same key the games read/write), so
       // a toggle here — or in any game — sticks everywhere. SETTINGS_KEY / DEFAULT_SETTINGS /
-      // settingsAtDefaults / loadSettings / saveSettings come from the shared settings.js inlined above.
+      // settingsAtDefaults / loadSettings / saveSettings come from the shared settings.js loaded above
+      // (an external tag in this source; inlined into index.html at build).
       // "Players" lives on the main page (above Play); the rest are in this popup. These are the
       // SAME global game settings every page (landing/trainer/play) reads & writes, so the menu is
       // identical everywhere. title/desc/option labels are i18n keys, translated via tr() at render.

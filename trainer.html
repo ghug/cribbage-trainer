@@ -909,6 +909,47 @@ function pegChoose(legal, count, pile, hand) {
     }
     return best;
 }
+const PEG_DEF_W = 1.0;
+function pegChooseDeep(legal, count, pile, hand, unseen) {
+    const avail = {};
+    for (const r of unseen)
+        avail[r] = (avail[r] || 0) + 1;
+    const ranks = Object.keys(avail).map(Number), tot = unseen.length;
+    let best = null, bestKey = -1e9;
+    for (const c of legal) {
+        const nc = count + pval(c);
+        const myGain = pegScore(pile.concat(c), nc);
+        let threat = 0, oppCanPlay = false;
+        if (nc !== 31) {
+            let num = 0;
+            for (const r of ranks)
+                if (pval(r) + nc <= 31) {
+                    num += avail[r] * pegScore(pile.concat(c, r), nc + pval(r));
+                    oppCanPlay = true;
+                }
+            threat = tot > 0 ? num / tot : 0;
+        }
+        let key = myGain * 10 - PEG_DEF_W * threat * 10;
+        if (nc !== 31 && !oppCanPlay)
+            key += 1;
+        if (nc === 5 || nc === 21)
+            key -= 2;
+        if (count === 0) {
+            if (c === 5)
+                key -= 2;
+            key -= pval(c) * 0.1;
+            if (hand.filter((x) => x === c).length >= 2)
+                key += 0.5;
+        }
+        else
+            key -= pval(c) * 0.02;
+        if (key > bestKey) {
+            bestKey = key;
+            best = c;
+        }
+    }
+    return best;
+}
 const T = {
     baize: "#1F423A", baizeHi: "#28534A",
     woodD: "#5E3F26", woodM: "#8A5E37", woodL: "#B9824B",
@@ -926,7 +967,7 @@ const serif = "'Hoefler Text', 'Iowan Old Style', Georgia, 'Times New Roman', se
 const tr = (k, v) => (typeof window !== "undefined" && window.t) ? window.t(k, v) : k;
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
-const APP_VERSION = "1.1.23";
+const APP_VERSION = "1.1.24-dev.1";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const SPEED_MULT = { slow: 2, normal: 1, fast: 0.5 };
 const SPEED_FLAT = { lightning: 32, instant: 0 };
@@ -1007,7 +1048,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.23"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.24-dev.1"))));
 }
 function HistoryModal({ onClose }) {
     const [tick, setTick] = React.useState(0);

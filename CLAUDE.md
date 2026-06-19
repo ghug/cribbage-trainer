@@ -252,9 +252,14 @@ layout) is derived from the player count via `plan(P, dealerIdx)` / `tableSeats(
   string; legacy `"bot"` and any unconfigured bot seat default to **`hard`** (today's strongest play),
   so existing games are unchanged. `seatLevel(i,settings)` reads it; `BOT_SKILL[level]` gives
   `{discardNoise, pegSkill}`: `aiDiscardN` adds uniform ±`discardNoise` points to each throw's
-  objective before argmax (hard = 0 → exact pick), and the pegging effect uses `pegChoose` with
-  probability `pegSkill` else a random legal card (hard = 1 → always greedy). easy = `{2.0, 0.35}`,
-  medium = `{0.8, 0.65}`, hard = `{0, 1}`.
+  objective before argmax (hard = 0 → exact pick). For pegging, **hard seats use `pegChooseDeep`**
+  (`src/engine.js`) — a depth-1 expectimax that maximizes the card's immediate `pegScore` minus the
+  opponent's expected reply over the cards it can't see (`pegUnseen(state,seat)` = deck − own hand −
+  own discards − starter − everything played); it nets ~0.45 more pegging pts/hand than greedy
+  (proven by the seat-swapped head-to-head in `engine/pegging.js`). **easy/medium** still use the
+  greedy `pegChoose` with probability `pegSkill` else a random legal card. easy = `{2.0, 0.35}`,
+  medium = `{0.8, 0.65}`, hard = `{0, 1}` (`pegSkill` only gates easy/medium now). The human's
+  `autoPlayBest` autopilot also uses `pegChooseDeep`.
 - **Interactive pegging**: a self-clocking `useEffect` keyed on the peg state. A
   human with a legal card blocks for a tap; bots move and all forced "go"s fire on a
   timer. The reducer mirrors the verified `playPegging` mechanics exactly (15/31/
@@ -313,8 +318,11 @@ lookahead.
 
 ## Known limitations (be honest about these in the UI)
 
-- **Pegging is an estimate, not a solve.** Greedy opponent policy; no lookahead.
-  The relative ranking across holds is the trustworthy part, not the absolute pts.
+- **Pegging is an estimate, not a solve.** Hard bots peg with a depth-1 lookahead
+  (`pegChooseDeep`); the trainer's discard-EV pegging model (`pegDetail`) and easy/medium bots are
+  still greedy with no lookahead. The relative ranking across holds is the trustworthy part, not the
+  absolute pts. (Upgrading `pegDetail` to the lookahead policy is a follow-up — it would shift
+  `analyze` and warrant re-running `calibrate_split.js`.)
 - **Board mode is a risk heuristic, not win-probability.** It rewards/penalizes
   volatility (`±RISK·σ`) and stiffens crib defense; it does not model the race to
   121 or who is about to peg out beyond the simple `suggestMode` thresholds.
@@ -585,7 +593,9 @@ all done and shipped. Remaining ideas:
 
 1. Add an in-repo test runner (port the `engine/` checks to a `test/` dir, e.g.
    vitest) so changes are guarded.
-2. Stronger pegging: shallow expectiminimax or a learned policy instead of greedy.
+2. Stronger pegging: **done for hard bots** (`pegChooseDeep`, depth-1 expectimax). Remaining: apply
+   the same policy to the trainer's `pegDetail` MC (then re-run `calibrate_split.js`), and/or go to
+   2-ply lookahead or a learned policy.
 3. Real win-probability board model (game-to-121 race) to replace the σ heuristic.
 4. Exploit-mode: let the user enter observed opponent tendencies and re-weight the
    crib distributions away from the self-play equilibrium.

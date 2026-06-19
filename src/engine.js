@@ -133,3 +133,34 @@ function pegChoose(legal, count, pile, hand) {
   }
   return best;
 }
+// A stronger pegging policy than the greedy `pegChoose`: depth-1 expectimax. It maximizes the points
+// the card scores NOW minus the points it hands the opponent on their immediate reply, averaged over
+// the cards they could still hold — `unseen` = the full deck minus my hand, my discards, the starter,
+// and every card already played (ranks; suits are irrelevant in pegging). Retains pegChoose's tactical
+// tie-breakers. `PEG_DEF_W` and the expected-reply form were picked by a seat-swapped head-to-head vs
+// greedy (engine/pegging.js): it nets ~0.45 more pegging points per hand; a worst-case (minimax) reply
+// term overreacted and did worse. Clean-room — this is the "shallow expectiminimax" the project's next
+// steps call for, using only the existing pegScore.
+const PEG_DEF_W = 1.0;
+function pegChooseDeep(legal, count, pile, hand, unseen) {
+  const avail = {}; for (const r of unseen) avail[r] = (avail[r] || 0) + 1;
+  const ranks = Object.keys(avail).map(Number), tot = unseen.length;
+  let best = null, bestKey = -1e9;
+  for (const c of legal) {
+    const nc = count + pval(c);
+    const myGain = pegScore(pile.concat(c), nc);
+    let threat = 0, oppCanPlay = false;
+    if (nc !== 31) {                                   // 31 ends the sub-round — the opponent gets no reply
+      let num = 0;
+      for (const r of ranks) if (pval(r) + nc <= 31) { num += avail[r] * pegScore(pile.concat(c, r), nc + pval(r)); oppCanPlay = true; }
+      threat = tot > 0 ? num / tot : 0;                // expected points a random unseen reply would peg
+    }
+    let key = myGain * 10 - PEG_DEF_W * threat * 10;
+    if (nc !== 31 && !oppCanPlay) key += 1;            // forcing the opponent to "go" is good (likely last card)
+    if (nc === 5 || nc === 21) key -= 2;               // (the greedy tie-breakers, retained)
+    if (count === 0) { if (c === 5) key -= 2; key -= pval(c) * 0.1; if (hand.filter((x) => x === c).length >= 2) key += 0.5; }
+    else key -= pval(c) * 0.02;
+    if (key > bestKey) { bestKey = key; best = c; }
+  }
+  return best;
+}

@@ -409,6 +409,20 @@ const seatLevel = (i, settings) => {
   const v = settings && settings.seats && settings.seats[i];
   return (v === "easy" || v === "medium" || v === "hard") ? v : "hard";
 };
+// Ranks a seat can't see during pegging (could be in any opponent's hand or the crib): the full deck
+// minus this seat's own remaining hand + its discards, the public starter, and every card already
+// played this hand. Suits are irrelevant in pegging, so it returns ranks. Feeds pegChooseDeep's
+// opponent-reply model — using only the seat's own legitimate information.
+function pegUnseen(state, seat) {
+  const peg = state.peg, seen = [];
+  for (const c of peg.hands[seat]) seen.push(c.r);
+  for (const p of peg.played) for (const c of p) seen.push(c.r);
+  for (const c of (state.seats[seat].discard || [])) seen.push(c.r);
+  if (state.starter) seen.push(state.starter.r);
+  const unseen = [];
+  for (let r = 1; r <= 13; r++) { let n = 4; for (const s of seen) if (s === r) n--; for (let i = 0; i < n; i++) unseen.push(r); }
+  return unseen;
+}
 function nHumans(P, settings) { let c = 0; for (let i = 0; i < P; i++) if (seatIsHuman(i, settings)) c++; return c; }
 // The lone human's seat when exactly one is seated (else -1); and the first human seat (or
 // 0 if the table is all bots — a spectated game).
@@ -1086,7 +1100,7 @@ export default function CribbagePlay() {
         return () => clearTimeout(t);
       }
       if (settings.autoPlayBest && legal.length >= 1 && !state.pendingPlay) {
-        const rank = pegChoose(legal.map((c) => c.r), peg.count, peg.pile, hand.map((c) => c.r));
+        const rank = pegChooseDeep(legal.map((c) => c.r), peg.count, peg.pile, hand.map((c) => c.r), pegUnseen(state, seat));
         const card = legal.find((c) => c.r === rank) || legal[0];
         const t = setTimeout(() => dispatch({ type: "PLAY_CARD", seat, card }), spd(450));
         return () => clearTimeout(t);
@@ -1099,10 +1113,14 @@ export default function CribbagePlay() {
     }
     const t = setTimeout(() => {
       if (legal.length === 0) { dispatch({ type: "PASS_GO", seat }); return; }
+      const level = seatLevel(seat, settings);
       let chosen;
-      if (Math.random() < (BOT_SKILL[seatLevel(seat, settings)] || BOT_SKILL.hard).pegSkill) {
+      if (level === "hard") {                                      // strong: depth-1 lookahead
+        const rank = pegChooseDeep(legal.map((c) => c.r), peg.count, peg.pile, hand.map((c) => c.r), pegUnseen(state, seat));
+        chosen = legal.find((c) => c.r === rank) || legal[0];
+      } else if (Math.random() < (BOT_SKILL[level] || BOT_SKILL.hard).pegSkill) {
         const rank = pegChoose(legal.map((c) => c.r), peg.count, peg.pile, hand.map((c) => c.r));
-        chosen = legal.find((c) => c.r === rank) || legal[0];      // greedy (strong) play
+        chosen = legal.find((c) => c.r === rank) || legal[0];      // greedy play
       } else {
         chosen = legal[Math.floor(Math.random() * legal.length)];  // easier bots play a random legal card
       }

@@ -853,7 +853,7 @@ const serif = "'Hoefler Text', 'Iowan Old Style', Georgia, 'Times New Roman', se
 const tr = (k, v) => (typeof window !== "undefined" && window.t) ? window.t(k, v) : k;
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
-const APP_VERSION = "1.1.22-dev.1";
+const APP_VERSION = "1.1.22-dev.2";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const SPEED_MULT = { slow: 2, normal: 1, fast: 0.5 };
 const SPEED_FLAT = { lightning: 32, instant: 0 };
@@ -967,7 +967,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.22-dev.1"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.22-dev.2"))));
 }
 function HistoryModal({ onClose }) {
     const [tick, setTick] = React.useState(0);
@@ -3232,7 +3232,11 @@ function MugginsClaim({ info, starter, isCrib, settings, dispatch }) {
         React.createElement("div", { style: { display: "flex", gap: 5, justifyContent: "center", alignItems: "flex-start", marginBottom: 12 } }, five.map((c) => {
             const id = cardId(c), on = sel.includes(id), isStarter = sameCard(c, starter);
             return (React.createElement("button", { key: id, onClick: () => toggle(id), style: { border: "none", background: "none", padding: 0, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", marginLeft: isStarter ? 14 : 0, transform: on ? "translateY(-6px)" : "none", transition: "transform 120ms ease" } },
-                React.createElement(CardFace, { card: c, edge: on ? T.selBlue : null }),
+                React.createElement("div", { style: { position: "relative" } },
+                    React.createElement(CardFace, { card: c, edge: on ? T.selBlue : null }),
+                    on && (React.createElement("span", { "aria-hidden": "true", style: { position: "absolute", top: -7, right: -7, width: 18, height: 18, borderRadius: "50%",
+                            background: T.selBlue, color: T.ivory, border: `2px solid ${T.ivory}`, display: "flex", alignItems: "center", justifyContent: "center",
+                            fontFamily: mono, fontSize: 11, fontWeight: 700, lineHeight: 1, boxShadow: "0 2px 5px rgba(0,0,0,0.45)", pointerEvents: "none" } }, "\u2713"))),
                 React.createElement("span", { style: { height: 12, marginTop: 2, fontFamily: mono, fontSize: "max(9px, var(--min-fs, 0px))", fontWeight: 700, color: T.muted, whiteSpace: "nowrap" } }, isStarter ? tr("play.starterCard") : "")));
         })),
         React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: claims.length ? 12 : 14 } }, Object.keys(CAT_KEY).map((type) => {

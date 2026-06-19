@@ -2613,7 +2613,15 @@ function MugginsClaim({ info, starter, isCrib, settings, dispatch }) {
           // The starter (last card) sits apart from the four hand cards with a "cut card" caption.
           return (
             <button key={id} onClick={() => toggle(id)} style={{ border: "none", background: "none", padding: 0, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", marginLeft: isStarter ? 14 : 0, transform: on ? "translateY(-6px)" : "none", transition: "transform 120ms ease" }}>
-              <CardFace card={c} edge={on ? T.selBlue : null} />
+              <div style={{ position: "relative" }}>
+                <CardFace card={c} edge={on ? T.selBlue : null} />
+                {/* A check badge on the corner makes selection obvious on top of the lift + blue edge. */}
+                {on && (
+                  <span aria-hidden="true" style={{ position: "absolute", top: -7, right: -7, width: 18, height: 18, borderRadius: "50%",
+                    background: T.selBlue, color: T.ivory, border: `2px solid ${T.ivory}`, display: "flex", alignItems: "center", justifyContent: "center",
+                    fontFamily: mono, fontSize: 11, fontWeight: 700, lineHeight: 1, boxShadow: "0 2px 5px rgba(0,0,0,0.45)", pointerEvents: "none" }}>✓</span>
+                )}
+              </div>
               <span style={{ height: 12, marginTop: 2, fontFamily: mono, fontSize: "max(9px, var(--min-fs, 0px))", fontWeight: 700, color: T.muted, whiteSpace: "nowrap" }}>{isStarter ? tr("play.starterCard") : ""}</span>
             </button>
           );

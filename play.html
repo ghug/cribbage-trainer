@@ -655,6 +655,39 @@ cribbageLocale("en", {
 <div id="root"></div>
 <script>
 "use strict";
+const SETTINGS_KEY = "cribbage:settings";
+const DEFAULT_SETTINGS = { players: 2, teams: 2, seats: [], names: [], speed: "normal", textSize: "large", counting: "muggins", tapToSelect: true, autoCut: false, autoGo: false, warn: true, claimWarn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
+function settingsAtDefaults(settings, skip) {
+    for (const k in DEFAULT_SETTINGS)
+        if (skip.indexOf(k) < 0 && settings[k] !== DEFAULT_SETTINGS[k])
+            return false;
+    return true;
+}
+function loadSettings() {
+    try {
+        const raw = localStorage.getItem(SETTINGS_KEY);
+        if (raw)
+            return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+    }
+    catch (e) { }
+    return { ...DEFAULT_SETTINGS };
+}
+function saveSettings(s) { try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+}
+catch (e) { } }
+const HISTORY_KEY = "cribbage:history";
+function loadHistory() { try {
+    const r = localStorage.getItem(HISTORY_KEY);
+    return r ? JSON.parse(r) : [];
+}
+catch (e) {
+    return [];
+} }
+function clearHistory() { try {
+    localStorage.removeItem(HISTORY_KEY);
+}
+catch (e) { } }
 const fifteenVal = (r) => Math.min(r, 10);
 const pval = (r) => Math.min(r, 10);
 const cardId = (c) => (c.r - 1) * 4 + c.s;
@@ -853,7 +886,7 @@ const serif = "'Hoefler Text', 'Iowan Old Style', Georgia, 'Times New Roman', se
 const tr = (k, v) => (typeof window !== "undefined" && window.t) ? window.t(k, v) : k;
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
-const APP_VERSION = "1.1.22";
+const APP_VERSION = "1.1.22-dev.5";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const SPEED_MULT = { slow: 2, normal: 1, fast: 0.5 };
 const SPEED_FLAT = { lightning: 32, instant: 0 };
@@ -861,39 +894,6 @@ let SPEED = "normal";
 function spd(ms) { if (ms <= 0)
     return ms; const flat = SPEED_FLAT[SPEED]; return flat != null ? flat : Math.round(ms * (SPEED_MULT[SPEED] ?? 1)); }
 const MIN_FS = { small: "0px", medium: "12px", large: "14px", xlarge: "16px" };
-const SETTINGS_KEY = "cribbage:settings";
-const DEFAULT_SETTINGS = { players: 2, teams: 2, seats: [], names: [], speed: "normal", textSize: "large", counting: "muggins", tapToSelect: true, autoCut: false, autoGo: false, warn: true, claimWarn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
-function settingsAtDefaults(settings, skip) {
-    for (const k in DEFAULT_SETTINGS)
-        if (skip.indexOf(k) < 0 && settings[k] !== DEFAULT_SETTINGS[k])
-            return false;
-    return true;
-}
-function loadSettings() {
-    try {
-        const raw = localStorage.getItem(SETTINGS_KEY);
-        if (raw)
-            return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
-    }
-    catch (e) { }
-    return { ...DEFAULT_SETTINGS };
-}
-function saveSettings(s) { try {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
-}
-catch (e) { } }
-const HISTORY_KEY = "cribbage:history";
-function loadHistory() { try {
-    const r = localStorage.getItem(HISTORY_KEY);
-    return r ? JSON.parse(r) : [];
-}
-catch (e) {
-    return [];
-} }
-function clearHistory() { try {
-    localStorage.removeItem(HISTORY_KEY);
-}
-catch (e) { } }
 const segStyle = (on) => ({
     flex: 1, padding: "9px 6px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))",
     background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
@@ -967,7 +967,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.22"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.22-dev.5"))));
 }
 function HistoryModal({ onClose }) {
     const [tick, setTick] = React.useState(0);

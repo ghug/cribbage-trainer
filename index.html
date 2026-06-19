@@ -171,6 +171,30 @@
   .lang-row select{ font:inherit; color:var(--cream); background:rgba(0,0,0,0.25); border:1px solid var(--line); border-radius:7px; padding:4px 8px }
 </style>
 <script>
+/* Shared settings + history storage (cribbage:settings / cribbage:history) — the SINGLE source of
+ * truth for the global game settings, used by all three surfaces: the landing (plain JS), the Play
+ * game and the Trainer (React). build.sh PREPENDS this into each app (compiled in alongside
+ * engine.js/chrome.jsx) and INLINES it into the landing's <head>, so there's one DEFAULT_SETTINGS /
+ * load+save with no per-page copy to drift out of sync (which is how the `counting` default once
+ * diverged). Plain classic-script JS: the top-level declarations land in the shared global scope, so
+ * the landing's later inline script sees them, and tsc compiles it fine when prepended to the apps. */
+const SETTINGS_KEY = "cribbage:settings";
+const DEFAULT_SETTINGS = { players: 2, teams: 2, seats: [], names: [], speed: "normal", textSize: "large", counting: "muggins", tapToSelect: true, autoCut: false, autoGo: false, warn: true, claimWarn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
+// True when every setting the reset would touch (all but `skip`) already equals its default.
+function settingsAtDefaults(settings, skip) {
+  for (const k in DEFAULT_SETTINGS) if (skip.indexOf(k) < 0 && settings[k] !== DEFAULT_SETTINGS[k]) return false;
+  return true;
+}
+function loadSettings() {
+  try { const raw = localStorage.getItem(SETTINGS_KEY); if (raw) return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) }; } catch (e) {}
+  return { ...DEFAULT_SETTINGS };
+}
+function saveSettings(s) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (e) {} }
+const HISTORY_KEY = "cribbage:history";
+function loadHistory() { try { const r = localStorage.getItem(HISTORY_KEY); return r ? JSON.parse(r) : []; } catch (e) { return []; } }
+function clearHistory() { try { localStorage.removeItem(HISTORY_KEY); } catch (e) {} }
+</script>
+<script>
 /* Minimal, offline-first internationalization for the cribbage pages.
  *
  * Design (built to scale to ~200 languages without a bundler or network):
@@ -813,7 +837,7 @@ cribbageLocale("en", {
         <div>
           <h1 data-i18n="app.title">Cribbage Trainer</h1>
           <p data-i18n="landing.tagline">play vs bots or friends and sharpen your discards</p>
-          <span class="ver" id="verBadge">v1.1.22</span>
+          <span class="ver" id="verBadge">v1.1.22-dev.5</span>
         </div>
       </div>
       <button id="gear" class="gear" type="button" aria-label="Settings" aria-haspopup="dialog" data-i18n-aria="settings.title">⚙</button>
@@ -947,7 +971,7 @@ cribbageLocale("en", {
       <a class="btn btn-primary" href="https://github.com/ghug/cribbage-trainer/"
          target="_blank" rel="noopener noreferrer" data-i18n="about.sourceLink">Source, bugs &amp; feedback ↗</a>
       <div class="repo-url" style="margin-bottom:4px">github.com/ghug/cribbage-trainer</div>
-      <div class="repo-url">v1.1.22</div>
+      <div class="repo-url">v1.1.22-dev.5</div>
     </div>
   </div>
 
@@ -988,7 +1012,7 @@ cribbageLocale("en", {
   <script>
     (function () {
       // Show the version badge in the header only on dev builds (a release strips the -dev suffix).
-      if (/-dev/.test("1.1.22")) { var _vb = document.getElementById('verBadge'); if (_vb) _vb.style.display = 'block'; }
+      if (/-dev/.test("1.1.22-dev.5")) { var _vb = document.getElementById('verBadge'); if (_vb) _vb.style.display = 'block'; }
       var s = document.getElementById('settingsOverlay');
       var a = document.getElementById('aboutOverlay');
       var c = document.getElementById('confirmResetOverlay');
@@ -998,10 +1022,8 @@ cribbageLocale("en", {
       function close(el) { el.classList.remove('open'); }
 
       // Game history (same cribbage:history store the Play game writes; this view mirrors the Play
-      // game's HistoryModal — the settings menus are identical across all three pages).
-      var HISTORY_KEY = 'cribbage:history';
-      function loadHistory() { try { var r = localStorage.getItem(HISTORY_KEY); return r ? JSON.parse(r) : []; } catch (e) { return []; } }
-      function clearHistory() { try { localStorage.removeItem(HISTORY_KEY); } catch (e) {} }
+      // game's HistoryModal — the settings menus are identical across all three pages). HISTORY_KEY /
+      // loadHistory / clearHistory come from the shared settings.js inlined above.
       var histSel = 'all', histConfirmClear = false;
       function histChip(key, label) { return '<button class="hist-chip' + (histSel === key ? ' on' : '') + '" type="button" data-key="' + esc(key) + '">' + esc(label) + '</button>'; }
       function histStat(label, value, accent) { return '<div class="hist-stat"><span class="lbl">' + esc(label) + '</span><span class="val' + (accent ? ' ' + accent : '') + '">' + esc(value) + '</span></div>'; }
@@ -1069,10 +1091,9 @@ cribbageLocale("en", {
       // The footer chooser only appears when there's an actual choice (>1 language).
       if (setupLangPick(document.getElementById('footerLangPick'))) document.getElementById('footerLangRow').hidden = false;
 
-      // Game settings, shared across every page via localStorage (same key the games
-      // read/write), so a toggle here — or in any game — sticks everywhere.
-      var SETTINGS_KEY = "cribbage:settings";
-      var DEFAULTS = { players: 2, teams: 2, seats: [], names: [], speed: "normal", textSize: "large", counting: "auto", tapToSelect: true, autoCut: false, autoGo: false, warn: true, claimWarn: true, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false, autoContinue: false, autoDeal: false };
+      // Game settings, shared across every page via localStorage (same key the games read/write), so
+      // a toggle here — or in any game — sticks everywhere. SETTINGS_KEY / DEFAULT_SETTINGS /
+      // settingsAtDefaults / loadSettings / saveSettings come from the shared settings.js inlined above.
       // "Players" lives on the main page (above Play); the rest are in this popup. These are the
       // SAME global game settings every page (landing/trainer/play) reads & writes, so the menu is
       // identical everywhere. title/desc/option labels are i18n keys, translated via tr() at render.
@@ -1093,8 +1114,6 @@ cribbageLocale("en", {
       ];
       // Defaults first, then overlay EVERY saved key (preserving keys this page doesn't itself
       // render, e.g. tapToSelect/autoCut/claimWarn) so a toggle on any page is never dropped here.
-      function loadSettings() { var m = {}; for (var dk in DEFAULTS) m[dk] = DEFAULTS[dk]; try { var r = localStorage.getItem(SETTINGS_KEY); if (r) { var o = JSON.parse(r); for (var key in o) m[key] = o[key]; } } catch (e) {} return m; }
-      function saveSettings(o) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(o)); } catch (e) {} }
       // Global text-size floor: every font-size in the stylesheet is max(<px>, var(--min-fs,0px)),
       // so raising --min-fs only grows sub-floor text. small = current sizing; medium/large lift it.
       var MIN_FS = { small: "0px", medium: "12px", large: "14px", xlarge: "16px" };
@@ -1369,10 +1388,9 @@ cribbageLocale("en", {
       // Reset asks for confirmation first (a popup), then resets everything to defaults EXCEPT the
       // per-seat roles + custom names (the "who's playing" setup) — table size and teams reset too.
       // The landing reset returns everything (incl. table size/teams) to default except seats/names.
-      function settingsAtDefaults() { for (var k in DEFAULTS) { if (k === 'seats' || k === 'names') continue; if (settings[k] !== DEFAULTS[k]) return false; } return true; }
       var resetMsgTimer = null;
       document.getElementById('resetSettings').addEventListener('click', function () {
-        if (settingsAtDefaults()) {
+        if (settingsAtDefaults(settings, ['seats', 'names'])) {
           var m = document.getElementById('resetMsg'); m.style.display = 'block';
           if (resetMsgTimer) clearTimeout(resetMsgTimer);
           resetMsgTimer = setTimeout(function () { m.style.display = 'none'; }, 2600);
@@ -1380,7 +1398,7 @@ cribbageLocale("en", {
       });
       document.getElementById('resetCancel').addEventListener('click', function () { close(c); });
       document.getElementById('resetConfirm').addEventListener('click', function () {
-        for (var rk in DEFAULTS) { if (rk !== 'seats' && rk !== 'names') settings[rk] = DEFAULTS[rk]; }
+        for (var rk in DEFAULT_SETTINGS) { if (rk !== 'seats' && rk !== 'names') settings[rk] = DEFAULT_SETTINGS[rk]; }
         saveSettings(settings); editingNames = false; applyTextSize();
         renderSettings(); renderPlayers(); renderTeams(); renderSeatDiagram(); renderNamesButton(); renderSeatHint();
         close(c);

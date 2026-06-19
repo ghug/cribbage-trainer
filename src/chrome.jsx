@@ -48,22 +48,10 @@ function spd(ms) { if (ms <= 0) return ms; const flat = SPEED_FLAT[SPEED]; retur
 // on the app root from settings.textSize) only grows text below the floor.
 const MIN_FS = { small: "0px", medium: "12px", large: "14px", xlarge: "16px" };
 
-/* ---- settings + history storage (the shared cribbage:settings / cribbage:history) ---- */
-const SETTINGS_KEY = "cribbage:settings";
-const DEFAULT_SETTINGS = { players: 2, teams: 2, seats: [], names: [], speed: "normal", textSize: "large", counting: "muggins", tapToSelect: true, autoCut: false, autoGo: false, warn: true, claimWarn: true, autoDeal: false, autoContinue: false, autoPlayOne: false, autoPlayBest: false, autoDiscardBest: false };
-// True when every setting the reset would touch (all but `skip`) already equals its default.
-function settingsAtDefaults(settings, skip) {
-  for (const k in DEFAULT_SETTINGS) if (skip.indexOf(k) < 0 && settings[k] !== DEFAULT_SETTINGS[k]) return false;
-  return true;
-}
-function loadSettings() {
-  try { const raw = localStorage.getItem(SETTINGS_KEY); if (raw) return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) }; } catch (e) {}
-  return { ...DEFAULT_SETTINGS };
-}
-function saveSettings(s) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (e) {} }
-const HISTORY_KEY = "cribbage:history";
-function loadHistory() { try { const r = localStorage.getItem(HISTORY_KEY); return r ? JSON.parse(r) : []; } catch (e) { return []; } }
-function clearHistory() { try { localStorage.removeItem(HISTORY_KEY); } catch (e) {} }
+/* ---- settings + history storage ---- */
+// SETTINGS_KEY / DEFAULT_SETTINGS / settingsAtDefaults / loadSettings / saveSettings / HISTORY_KEY /
+// loadHistory / clearHistory now live in the shared src/settings.js (the single source of truth for
+// the global settings, also used by the plain-JS landing). build.sh prepends it before this file.
 
 /* ---- the modal shell ---- */
 // Shared segmented-button style (selected vs not).

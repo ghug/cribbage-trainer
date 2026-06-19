@@ -40,7 +40,7 @@ build_one() {
   #    The import sed captures whatever hooks the file imports, so it is component-agnostic.
   #    The shared engine (src/engine.js) and UI chrome (src/chrome.jsx) are PREPENDED so each built
   #    page still ships one self-contained copy of the deduped math + theme/modal/storage chrome.
-  cat "$ROOT/src/engine.js" "$ROOT/src/chrome.jsx" > "$TMP/app.tsx"
+  cat "$ROOT/src/settings.js" "$ROOT/src/engine.js" "$ROOT/src/chrome.jsx" > "$TMP/app.tsx"
   sed -e 's#^import React, { \(.*\) } from "react";#const { \1 } = React;#' \
       -e "s#^export default function ${COMPONENT}(#function ${COMPONENT}(#" \
       "$ROOT/$SRC" >> "$TMP/app.tsx"
@@ -55,7 +55,7 @@ build_one() {
   #      Prepend the shared engine too, so the names it now provides (scoreInto, pegScore, …)
   #      that $SRC references but no longer declares are resolved.
   local NAMEERR
-  cat "$ROOT/src/engine.js" "$ROOT/src/chrome.jsx" "$ROOT/$SRC" > "$TMP/guard.tsx"
+  cat "$ROOT/src/settings.js" "$ROOT/src/engine.js" "$ROOT/src/chrome.jsx" "$ROOT/$SRC" > "$TMP/guard.tsx"
   NAMEERR="$(npx --no-install tsc "$TMP/guard.tsx" \
       --jsx react --target es2020 --module none --removeComments \
       --ignoreDeprecations 6.0 --skipLibCheck --noEmit 2>&1 \
@@ -122,7 +122,11 @@ HTML
 # the external tags so it still works opened directly; the deployed index.html gets the inlined,
 # host-independent version). The block runs from the i18n.js line through the i18nBootstrap() line.
 I18N_TMP="$(mktemp)"; i18n_head > "$I18N_TMP"
-awk -v hf="$I18N_TMP" '
+# Also inline the shared settings module (src/settings.js) in place of its <script src="settings.js">
+# tag, so the deployed landing carries one copy of DEFAULT_SETTINGS/load+save (never fetched at runtime
+# and identical to what the apps compile in). src/landing.html keeps the external tag for direct opens.
+awk -v sf="$ROOT/src/settings.js" -v hf="$I18N_TMP" '
+  index($0, "<script src=\"settings.js\">") { print "<script>"; while ((getline l < sf) > 0) print l; close(sf); print "</script>"; next }
   index($0, "<script src=\"i18n.js\">") { while ((getline l < hf) > 0) print l; close(hf); blk=1; next }
   blk { if (index($0, "i18nBootstrap()")) blk=0; next }
   { print }

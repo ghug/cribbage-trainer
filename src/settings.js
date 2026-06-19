@@ -17,6 +17,12 @@ function loadSettings() {
   return { ...DEFAULT_SETTINGS };
 }
 function saveSettings(s) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (e) {} }
+// Multi-tab clobber guard. localStorage is shared across every tab of the origin, so writing the whole
+// settings blob from one tab's (possibly stale) in-memory copy reverts a different field another tab
+// changed meanwhile. persistSettingChange re-reads the current stored blob and overlays ONLY the
+// changed field(s), so concurrent edits to different fields survive. (No live cross-tab sync: a tab
+// still shows another tab's change only after a reload.) Returns the merged object.
+function persistSettingChange(changes) { const next = { ...loadSettings(), ...changes }; saveSettings(next); return next; }
 const HISTORY_KEY = "cribbage:history";
 function loadHistory() { try { const r = localStorage.getItem(HISTORY_KEY); return r ? JSON.parse(r) : []; } catch (e) { return []; } }
 function clearHistory() { try { localStorage.removeItem(HISTORY_KEY); } catch (e) {} }

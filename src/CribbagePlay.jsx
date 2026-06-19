@@ -624,11 +624,11 @@ function reduce(state, action) {
       return cutRedraw(state);
 
     case "SET_SETTING": {
-      const settings = { ...state.settings, [action.key]: action.value };
       // Changing the table size resets teams to the cutthroat default (one per player)
       // and restarts the game. The teams setting itself is display-only for now.
-      if (action.key === "players") settings.teams = action.value;
-      saveSettings(settings);
+      const changes = action.key === "players" ? { players: action.value, teams: action.value } : { [action.key]: action.value };
+      persistSettingChange(changes);   // field-scoped write: don't clobber another tab's other settings
+      const settings = { ...state.settings, ...changes };
       if (action.key === "players") return newGameState({ settings });
       return { ...state, settings };
     }
@@ -637,10 +637,10 @@ function reduce(state, action) {
       // Reset the gameplay toggles to defaults, but on the play page NEVER change the table size or
       // teams (nor the per-seat roles / custom names) — a reset here leaves the table setup alone so
       // the current/next game keeps its size. (Size/teams are reset from the landing page instead.)
-      const settings = { ...state.settings };
-      for (const k in DEFAULT_SETTINGS) if (k !== "players" && k !== "teams" && k !== "seats" && k !== "names") settings[k] = DEFAULT_SETTINGS[k];
-      saveSettings(settings);
-      return { ...state, settings };
+      const changes = {};
+      for (const k in DEFAULT_SETTINGS) if (k !== "players" && k !== "teams" && k !== "seats" && k !== "names") changes[k] = DEFAULT_SETTINGS[k];
+      persistSettingChange(changes);
+      return { ...state, settings: { ...state.settings, ...changes } };
     }
 
     case "DISCARD": // commit straight away (programmatic / tests); action.idxs = [..]

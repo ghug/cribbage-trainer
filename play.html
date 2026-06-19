@@ -676,6 +676,7 @@ function saveSettings(s) { try {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
 }
 catch (e) { } }
+function persistSettingChange(changes) { const next = { ...loadSettings(), ...changes }; saveSettings(next); return next; }
 const HISTORY_KEY = "cribbage:history";
 function loadHistory() { try {
     const r = localStorage.getItem(HISTORY_KEY);
@@ -886,7 +887,7 @@ const serif = "'Hoefler Text', 'Iowan Old Style', Georgia, 'Times New Roman', se
 const tr = (k, v) => (typeof window !== "undefined" && window.t) ? window.t(k, v) : k;
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
-const APP_VERSION = "1.1.22-dev.5";
+const APP_VERSION = "1.1.22-dev.6";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const SPEED_MULT = { slow: 2, normal: 1, fast: 0.5 };
 const SPEED_FLAT = { lightning: 32, instant: 0 };
@@ -967,7 +968,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.22-dev.5"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.22-dev.6"))));
 }
 function HistoryModal({ onClose }) {
     const [tick, setTick] = React.useState(0);
@@ -1654,21 +1655,20 @@ function reduce(state, action) {
         case "CUT_REDRAW":
             return cutRedraw(state);
         case "SET_SETTING": {
-            const settings = { ...state.settings, [action.key]: action.value };
-            if (action.key === "players")
-                settings.teams = action.value;
-            saveSettings(settings);
+            const changes = action.key === "players" ? { players: action.value, teams: action.value } : { [action.key]: action.value };
+            persistSettingChange(changes);
+            const settings = { ...state.settings, ...changes };
             if (action.key === "players")
                 return newGameState({ settings });
             return { ...state, settings };
         }
         case "RESET_SETTINGS": {
-            const settings = { ...state.settings };
+            const changes = {};
             for (const k in DEFAULT_SETTINGS)
                 if (k !== "players" && k !== "teams" && k !== "seats" && k !== "names")
-                    settings[k] = DEFAULT_SETTINGS[k];
-            saveSettings(settings);
-            return { ...state, settings };
+                    changes[k] = DEFAULT_SETTINGS[k];
+            persistSettingChange(changes);
+            return { ...state, settings: { ...state.settings, ...changes } };
         }
         case "DISCARD":
             return commitDiscard(state, action.idxs);

@@ -604,7 +604,8 @@ export default function CribbageTrainer() {
   // size change, so it stays in sync with the landing page and the Play game.
   const chooseSize = useCallback((p) => {
     if (p === players) return;
-    setSettings((prev) => { const next = { ...prev, players: p, teams: p }; saveSettings(next); return next; });
+    persistSettingChange({ players: p, teams: p });   // field-scoped write (clobber-safe)
+    setSettings((prev) => ({ ...prev, players: p, teams: p }));
     setRoleMode("random");
     customHandRef.current = false;
     setHand(randomHand(p === 2 ? 6 : 5));
@@ -613,18 +614,18 @@ export default function CribbageTrainer() {
   }, [players]);
   // The shared global menu rows write straight to the settings object (and localStorage).
   const setSetting = useCallback((k, val) => {
-    setSettings((prev) => { const next = { ...prev, [k]: val }; saveSettings(next); return next; });
+    persistSettingChange({ [k]: val });   // field-scoped write (clobber-safe)
+    setSettings((prev) => ({ ...prev, [k]: val }));
   }, []);
   // Reset all gameplay toggles AND the table size/teams to defaults (keeping the per-seat roles +
   // custom names), then re-deal a fresh hand at the default size — like chooseSize. Also restores the
   // trainer-local setup: "practice as" → random and "on a new hand" → "I choose" (autoBest off).
   const resetSettings = useCallback(() => {
     const dp = DEFAULT_SETTINGS.players, dt = DEFAULT_SETTINGS.teams;
-    setSettings((prev) => {
-      const next = { ...prev };
-      for (const k in DEFAULT_SETTINGS) if (k !== "seats" && k !== "names") next[k] = DEFAULT_SETTINGS[k];
-      saveSettings(next); return next;
-    });
+    const changes = {};
+    for (const k in DEFAULT_SETTINGS) if (k !== "seats" && k !== "names") changes[k] = DEFAULT_SETTINGS[k];
+    persistSettingChange(changes);   // field-scoped write (clobber-safe)
+    setSettings((prev) => ({ ...prev, ...changes }));
     setRoleMode("random");
     setAutoBest(false); saveAutoBest(false);
     customHandRef.current = false;

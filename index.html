@@ -190,6 +190,12 @@ function loadSettings() {
   return { ...DEFAULT_SETTINGS };
 }
 function saveSettings(s) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (e) {} }
+// Multi-tab clobber guard. localStorage is shared across every tab of the origin, so writing the whole
+// settings blob from one tab's (possibly stale) in-memory copy reverts a different field another tab
+// changed meanwhile. persistSettingChange re-reads the current stored blob and overlays ONLY the
+// changed field(s), so concurrent edits to different fields survive. (No live cross-tab sync: a tab
+// still shows another tab's change only after a reload.) Returns the merged object.
+function persistSettingChange(changes) { const next = { ...loadSettings(), ...changes }; saveSettings(next); return next; }
 const HISTORY_KEY = "cribbage:history";
 function loadHistory() { try { const r = localStorage.getItem(HISTORY_KEY); return r ? JSON.parse(r) : []; } catch (e) { return []; } }
 function clearHistory() { try { localStorage.removeItem(HISTORY_KEY); } catch (e) {} }
@@ -837,7 +843,7 @@ cribbageLocale("en", {
         <div>
           <h1 data-i18n="app.title">Cribbage Trainer</h1>
           <p data-i18n="landing.tagline">play vs bots or friends and sharpen your discards</p>
-          <span class="ver" id="verBadge">v1.1.22-dev.5</span>
+          <span class="ver" id="verBadge">v1.1.22-dev.6</span>
         </div>
       </div>
       <button id="gear" class="gear" type="button" aria-label="Settings" aria-haspopup="dialog" data-i18n-aria="settings.title">⚙</button>
@@ -971,7 +977,7 @@ cribbageLocale("en", {
       <a class="btn btn-primary" href="https://github.com/ghug/cribbage-trainer/"
          target="_blank" rel="noopener noreferrer" data-i18n="about.sourceLink">Source, bugs &amp; feedback ↗</a>
       <div class="repo-url" style="margin-bottom:4px">github.com/ghug/cribbage-trainer</div>
-      <div class="repo-url">v1.1.22-dev.5</div>
+      <div class="repo-url">v1.1.22-dev.6</div>
     </div>
   </div>
 
@@ -1012,7 +1018,7 @@ cribbageLocale("en", {
   <script>
     (function () {
       // Show the version badge in the header only on dev builds (a release strips the -dev suffix).
-      if (/-dev/.test("1.1.22-dev.5")) { var _vb = document.getElementById('verBadge'); if (_vb) _vb.style.display = 'block'; }
+      if (/-dev/.test("1.1.22-dev.6")) { var _vb = document.getElementById('verBadge'); if (_vb) _vb.style.display = 'block'; }
       var s = document.getElementById('settingsOverlay');
       var a = document.getElementById('aboutOverlay');
       var c = document.getElementById('confirmResetOverlay');
@@ -1144,7 +1150,7 @@ cribbageLocale("en", {
           b.className = 'seg' + (settings[row.k] === opt[1] ? ' on' : '');
           if (disabled) { b.disabled = true; }
           else { b.addEventListener('click', (function (segsEl, btn, k, val) { return function () {
-            settings[k] = val; saveSettings(settings);
+            settings[k] = val; persistSettingChange({ [k]: val });
             if (k === 'textSize') applyTextSize();   // live text-size floor
             // Counting gates claimWarn's enabled state, so re-render the whole list for it;
             // every other row updates its highlight in place (rebuilding collapses open sections).
@@ -1182,7 +1188,7 @@ cribbageLocale("en", {
           var b = document.createElement('button'); b.type = 'button'; b.textContent = String(p);
           b.className = 'seg' + (settings.players === p ? ' on' : '');
           // Switching players resets teams to the cutthroat default (one per player).
-          b.addEventListener('click', function () { settings.players = p; settings.teams = p; saveSettings(settings); editingNames = false; renderPlayers(); renderTeams(); renderNamesButton(); renderSeatHint(); });
+          b.addEventListener('click', function () { settings.players = p; settings.teams = p; persistSettingChange({ players: p, teams: p }); editingNames = false; renderPlayers(); renderTeams(); renderNamesButton(); renderSeatHint(); });
           host.appendChild(b);
         });
         renderSeatDiagram();
@@ -1236,7 +1242,7 @@ cribbageLocale("en", {
         var roles = seatRoles(settings.players);
         var k = SEAT_CYCLE.indexOf(roles[i]); if (k < 0) k = 0;
         roles[i] = SEAT_CYCLE[(k + 1) % SEAT_CYCLE.length];   // human → easy → medium → hard → human
-        settings.seats = roles; saveSettings(settings); renderSeatDiagram();
+        settings.seats = roles; persistSettingChange({ seats: roles }); renderSeatDiagram();
       }
       // Per-seat custom name (settings.names[i]) overrides the compass label when set/non-empty.
       var editingNames = false;
@@ -1294,7 +1300,7 @@ cribbageLocale("en", {
           inputs[m].addEventListener('input', function () {
             var names = (settings.names || []).slice();
             names[+this.getAttribute('data-seat')] = this.value.trim();
-            settings.names = names; saveSettings(settings);
+            settings.names = names; persistSettingChange({ names: names });
           });
         }
       }
@@ -1330,7 +1336,7 @@ cribbageLocale("en", {
           var inputs = document.querySelectorAll('#seatDiagram .seat-name-input');
           var names = (settings.names || []).slice();
           for (var k = 0; k < inputs.length; k++) names[+inputs[k].getAttribute('data-seat')] = inputs[k].value.trim();
-          settings.names = names; saveSettings(settings);
+          settings.names = names; persistSettingChange({ names: names });
           editingNames = false;
         } else { editingNames = true; }
         renderSeatDiagram(); renderNamesButton(); renderSeatHint();
@@ -1350,11 +1356,11 @@ cribbageLocale("en", {
         if (choices.length === 0) { wrap.hidden = true; return; }
         wrap.hidden = false;
         var values = choices.map(function (c) { return c[0]; });
-        if (values.indexOf(settings.teams) < 0) { settings.teams = settings.players; saveSettings(settings); }
+        if (values.indexOf(settings.teams) < 0) { settings.teams = settings.players; persistSettingChange({ teams: settings.teams }); }
         choices.forEach(function (c) {
           var b = document.createElement('button'); b.type = 'button'; b.textContent = tr(c[1]);
           b.className = 'seg' + (settings.teams === c[0] ? ' on' : '');
-          b.addEventListener('click', function () { settings.teams = c[0]; saveSettings(settings); editingNames = false; renderTeams(); renderSeatDiagram(); renderNamesButton(); renderSeatHint(); });
+          b.addEventListener('click', function () { settings.teams = c[0]; persistSettingChange({ teams: c[0] }); editingNames = false; renderTeams(); renderSeatDiagram(); renderNamesButton(); renderSeatHint(); });
           host.appendChild(b);
         });
       }
@@ -1366,7 +1372,7 @@ cribbageLocale("en", {
       document.getElementById('resetNamesBtn').addEventListener('click', function () { open(cn); });
       document.getElementById('resetNamesCancel').addEventListener('click', function () { close(cn); });
       document.getElementById('resetNamesConfirm').addEventListener('click', function () {
-        settings.names = []; saveSettings(settings);
+        settings.names = []; persistSettingChange({ names: [] });
         renderSeatDiagram(); renderNamesButton();
         close(cn);
       });
@@ -1399,8 +1405,9 @@ cribbageLocale("en", {
       });
       document.getElementById('resetCancel').addEventListener('click', function () { close(c); });
       document.getElementById('resetConfirm').addEventListener('click', function () {
-        for (var rk in DEFAULT_SETTINGS) { if (rk !== 'seats' && rk !== 'names') settings[rk] = DEFAULT_SETTINGS[rk]; }
-        saveSettings(settings); editingNames = false; applyTextSize();
+        var resetChanges = {};
+        for (var rk in DEFAULT_SETTINGS) { if (rk !== 'seats' && rk !== 'names') { settings[rk] = DEFAULT_SETTINGS[rk]; resetChanges[rk] = DEFAULT_SETTINGS[rk]; } }
+        persistSettingChange(resetChanges); editingNames = false; applyTextSize();
         renderSettings(); renderPlayers(); renderTeams(); renderSeatDiagram(); renderNamesButton(); renderSeatHint();
         close(c);
       });

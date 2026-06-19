@@ -491,7 +491,7 @@
           b.className = 'seg' + (settings[row.k] === opt[1] ? ' on' : '');
           if (disabled) { b.disabled = true; }
           else { b.addEventListener('click', (function (segsEl, btn, k, val) { return function () {
-            settings[k] = val; saveSettings(settings);
+            settings[k] = val; persistSettingChange({ [k]: val });
             if (k === 'textSize') applyTextSize();   // live text-size floor
             // Counting gates claimWarn's enabled state, so re-render the whole list for it;
             // every other row updates its highlight in place (rebuilding collapses open sections).
@@ -529,7 +529,7 @@
           var b = document.createElement('button'); b.type = 'button'; b.textContent = String(p);
           b.className = 'seg' + (settings.players === p ? ' on' : '');
           // Switching players resets teams to the cutthroat default (one per player).
-          b.addEventListener('click', function () { settings.players = p; settings.teams = p; saveSettings(settings); editingNames = false; renderPlayers(); renderTeams(); renderNamesButton(); renderSeatHint(); });
+          b.addEventListener('click', function () { settings.players = p; settings.teams = p; persistSettingChange({ players: p, teams: p }); editingNames = false; renderPlayers(); renderTeams(); renderNamesButton(); renderSeatHint(); });
           host.appendChild(b);
         });
         renderSeatDiagram();
@@ -583,7 +583,7 @@
         var roles = seatRoles(settings.players);
         var k = SEAT_CYCLE.indexOf(roles[i]); if (k < 0) k = 0;
         roles[i] = SEAT_CYCLE[(k + 1) % SEAT_CYCLE.length];   // human → easy → medium → hard → human
-        settings.seats = roles; saveSettings(settings); renderSeatDiagram();
+        settings.seats = roles; persistSettingChange({ seats: roles }); renderSeatDiagram();
       }
       // Per-seat custom name (settings.names[i]) overrides the compass label when set/non-empty.
       var editingNames = false;
@@ -641,7 +641,7 @@
           inputs[m].addEventListener('input', function () {
             var names = (settings.names || []).slice();
             names[+this.getAttribute('data-seat')] = this.value.trim();
-            settings.names = names; saveSettings(settings);
+            settings.names = names; persistSettingChange({ names: names });
           });
         }
       }
@@ -677,7 +677,7 @@
           var inputs = document.querySelectorAll('#seatDiagram .seat-name-input');
           var names = (settings.names || []).slice();
           for (var k = 0; k < inputs.length; k++) names[+inputs[k].getAttribute('data-seat')] = inputs[k].value.trim();
-          settings.names = names; saveSettings(settings);
+          settings.names = names; persistSettingChange({ names: names });
           editingNames = false;
         } else { editingNames = true; }
         renderSeatDiagram(); renderNamesButton(); renderSeatHint();
@@ -697,11 +697,11 @@
         if (choices.length === 0) { wrap.hidden = true; return; }
         wrap.hidden = false;
         var values = choices.map(function (c) { return c[0]; });
-        if (values.indexOf(settings.teams) < 0) { settings.teams = settings.players; saveSettings(settings); }
+        if (values.indexOf(settings.teams) < 0) { settings.teams = settings.players; persistSettingChange({ teams: settings.teams }); }
         choices.forEach(function (c) {
           var b = document.createElement('button'); b.type = 'button'; b.textContent = tr(c[1]);
           b.className = 'seg' + (settings.teams === c[0] ? ' on' : '');
-          b.addEventListener('click', function () { settings.teams = c[0]; saveSettings(settings); editingNames = false; renderTeams(); renderSeatDiagram(); renderNamesButton(); renderSeatHint(); });
+          b.addEventListener('click', function () { settings.teams = c[0]; persistSettingChange({ teams: c[0] }); editingNames = false; renderTeams(); renderSeatDiagram(); renderNamesButton(); renderSeatHint(); });
           host.appendChild(b);
         });
       }
@@ -713,7 +713,7 @@
       document.getElementById('resetNamesBtn').addEventListener('click', function () { open(cn); });
       document.getElementById('resetNamesCancel').addEventListener('click', function () { close(cn); });
       document.getElementById('resetNamesConfirm').addEventListener('click', function () {
-        settings.names = []; saveSettings(settings);
+        settings.names = []; persistSettingChange({ names: [] });
         renderSeatDiagram(); renderNamesButton();
         close(cn);
       });
@@ -746,8 +746,9 @@
       });
       document.getElementById('resetCancel').addEventListener('click', function () { close(c); });
       document.getElementById('resetConfirm').addEventListener('click', function () {
-        for (var rk in DEFAULT_SETTINGS) { if (rk !== 'seats' && rk !== 'names') settings[rk] = DEFAULT_SETTINGS[rk]; }
-        saveSettings(settings); editingNames = false; applyTextSize();
+        var resetChanges = {};
+        for (var rk in DEFAULT_SETTINGS) { if (rk !== 'seats' && rk !== 'names') { settings[rk] = DEFAULT_SETTINGS[rk]; resetChanges[rk] = DEFAULT_SETTINGS[rk]; } }
+        persistSettingChange(resetChanges); editingNames = false; applyTextSize();
         renderSettings(); renderPlayers(); renderTeams(); renderSeatDiagram(); renderNamesButton(); renderSeatHint();
         close(c);
       });

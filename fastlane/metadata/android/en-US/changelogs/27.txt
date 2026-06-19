@@ -1,0 +1,3 @@
+New in 1.1.23:
+- Settings are no longer overwritten when the app is open in more than one browser tab.
+- Game history is now kept as compact per-table-size stats (existing history is reset once with this update).

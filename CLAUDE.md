@@ -259,14 +259,23 @@ layout) is derived from the player count via `plan(P, dealerIdx)` / `tableSeats(
   every award and stopping immediately** (a non-dealer to the dealer's left can peg
   out first). Auto-count or **muggins** (you claim your own hand/crib; missed points
   go to the next opponent in counting order; over-claims are corrected down).
-- **Game history** (`localStorage["cribbage:history"]`): each finished game is appended
-  once via a `phase==="over"` effect using `gameRecord(state)` — it buckets your
-  **outcome** (won / lost / skunked / double-skunked, from your team's final score vs
-  `skunkLines(P)`) and sums your team's **pegging / hand / crib** points by history label
-  (partners' entries combine; his-heels→peg, muggins→hand). The **Game history** modal
-  (Settings → Game history) shows combined totals by default and per-`P/teams` config when
-  a chip is picked, adding avg peg/hand/crib for that config. `gameRecord` is React-path
-  only, so `engine/verify_play.js` unit-tests its categorization + skunk-line buckets.
+- **Game history** (`localStorage["cribbage:history"]`): an **aggregate**, not a per-game
+  log — an object keyed `"P-teams"`, each value a bucket `{ games, peg, hand, crib (running
+  AVERAGES), won, lost, skunked, doubleSkunked }`. **No timestamps / per-game rows.** A
+  finished game (`phase==="over"` effect) is summarized by `gameRecord(state)` into
+  `{ P, teams, outcome, peg, hand, crib }` — your **outcome** (won / lost / skunked /
+  double-skunked vs `skunkLines(P)`) and your team's **pegging / hand / crib** points by
+  history label (partners combine; his-heels→peg, muggins→hand) — then **folded** into its
+  config's bucket by `foldGameStats` (each average rolls `(games·prevAvg + value)/(games+1)`,
+  `games`++ and the matching outcome counter++). Only **solo (one-human vs bots)** games
+  record. The store helpers live in the shared `src/settings.js`; `loadHistory` returns the
+  aggregate and **ignores** any old per-game-array value (returns `{}`, overwritten by the
+  next game — no migration). The **Game history** modal (Settings → Game history) and the
+  landing's `renderHistory` read buckets: a `P-teams` chip shows that bucket's avg
+  peg/hand/crib, **"all"** combines every bucket via `combineBuckets` (counts summed,
+  averages games-weighted). `gameRecord` / `foldGameStats` / `combineBuckets` are
+  React-/store-path only, so `engine/verify_play.js` unit-tests the categorization,
+  skunk-line buckets, the running-average fold and the weighted combine.
 - **Correctness pitfalls guarded** (see `engine/verify_play.js`): go/31/last-card
   never double-count; his heels = **+2** at the cut; the 121 counting-order
   short-circuit; suits survive pegging (only the rank arrays handed to

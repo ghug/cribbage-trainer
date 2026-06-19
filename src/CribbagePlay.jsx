@@ -770,10 +770,6 @@ function reduce(state, action) {
   }
 }
 
-// True when every setting the reset would touch (all but `skip`) already equals its default.
-// Settings persist across pages in localStorage under a shared key. try/catch keeps
-// the verification harness (no localStorage) and private-mode browsers happy.
-
 // ---- Finished-game history (per device) ---- (HISTORY_KEY / loadHistory / saveHistory /
 // foldGameStats live in the shared settings.js; gameRecord summarizes one finished game below.)
 

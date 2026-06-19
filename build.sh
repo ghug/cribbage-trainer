@@ -38,8 +38,9 @@ build_one() {
 
   # 1) Swap the ESM import/export for browser-global CDN React, and mount the app.
   #    The import sed captures whatever hooks the file imports, so it is component-agnostic.
-  #    The shared engine (src/engine.js) and UI chrome (src/chrome.jsx) are PREPENDED so each built
-  #    page still ships one self-contained copy of the deduped math + theme/modal/storage chrome.
+  #    The shared settings (src/settings.js), engine (src/engine.js) and UI chrome (src/chrome.jsx)
+  #    are PREPENDED so each built page still ships one self-contained copy of the deduped
+  #    settings/storage + math + theme/modal chrome.
   cat "$ROOT/src/settings.js" "$ROOT/src/engine.js" "$ROOT/src/chrome.jsx" > "$TMP/app.tsx"
   sed -e 's#^import React, { \(.*\) } from "react";#const { \1 } = React;#' \
       -e "s#^export default function ${COMPONENT}(#function ${COMPONENT}(#" \

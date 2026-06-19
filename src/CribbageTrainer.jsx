@@ -612,7 +612,8 @@ export default function CribbageTrainer() {
     setScenario(trainerScenario("random", p, p));
     setSelected([]); setChosenId(null); setExpanded(null); setPhase("choose");
   }, [players]);
-  // The shared global menu rows write straight to the settings object (and localStorage).
+  // The shared global menu rows persist each change field-scoped via persistSettingChange (so a
+  // concurrent tab's other settings aren't clobbered) and update local state.
   const setSetting = useCallback((k, val) => {
     persistSettingChange({ [k]: val });   // field-scoped write (clobber-safe)
     setSettings((prev) => ({ ...prev, [k]: val }));

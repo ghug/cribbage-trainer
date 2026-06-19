@@ -220,10 +220,14 @@ the conventional short game for a crowded table). Each target has its own skunk 
 (`skunkLines(P)`): at 121 a loser is skunked under 91 / double-skunked under 61
 (i.e. **≤ 90 / ≤ 60**); at 61 the lines are **skunk ≤ 30, double skunk ≤ 15**. Every win check in the reducer
 (pegging, go, last-card, his-heels, the show) and the peg-track fill use `targetFor(P)`.
-It is a second self-contained React page that
-**copies the engine primitives verbatim** from the trainer (`scoreInto`, `handDetail`,
-`pegScore`, `pegChoose`, `deckExcluding`, the theme/UI atoms) — the two pages never
-share a module, matching how `engine/` also duplicates the math. Everything per-size
+It is a React page that **shares its core primitives with the trainer via build-time
+prepend** (the old verbatim-copy duplication was de-duped): `scoreInto` / `handDetail` /
+`pegScore` / `pegChoose` live in **`src/engine.js`**, the theme/UI atoms + modals
+(`Modal`, `SettingsPanel`, `HistoryModal`, …) in **`src/chrome.jsx`**, and the
+settings/history storage in **`src/settings.js`** — `build.sh` PREPENDS all three before
+each app, so every built page still ships one self-contained copy (no bundler, no
+`import`). (The `engine/` Node verification scripts stay an independent copy of the math.)
+Everything per-size
 (deal sizes, crib makeup, starter index, show order, pegging rotation, seat names,
 layout) is derived from the player count via `plan(P, dealerIdx)` / `tableSeats(P)`.
 
@@ -258,7 +262,9 @@ layout) is derived from the player count via `plan(P, dealerIdx)` / `tableSeats(
 - **The show**: counts in order `[pone, +2, +3, dealer, CRIB]`, **checking ≥121 after
   every award and stopping immediately** (a non-dealer to the dealer's left can peg
   out first). Auto-count or **muggins** (you claim your own hand/crib; missed points
-  go to the next opponent in counting order; over-claims are corrected down).
+  go to the next opponent in counting order; over-claims are corrected down). **Muggins is
+  the default** counting mode (`DEFAULT_SETTINGS.counting`); muggins only engages with at
+  least one human at the table.
 - **Game history** (`localStorage["cribbage:history"]`): an **aggregate**, not a per-game
   log — an object keyed `"P-teams"`, each value a bucket `{ games, peg, hand, crib (running
   AVERAGES), won, lost, skunked, doubleSkunked }`. **No timestamps / per-game rows.** A
@@ -326,7 +332,7 @@ node engine/verify_trainer.js   # trainer.html: discard ranking at every table s
 node engine/verify_play.js      # play.html: evals the built consolidated reducer, drives whole hands
                                 #   at every table size P=2..6 — deal/crib/starter, go/31/last-card,
                                 #   his-heels +2, the 121 show short-circuit, the skip-discard paths,
-                                #   gameRecord history buckets, + mixed human/bot (hot-seat) games
+                                #   gameRecord + the history-aggregate fold/combine, + mixed human/bot games
 node engine/verify_i18n.js      # i18n key-parity: every t()/data-i18n key referenced in src/
                                 #   exists in locales/en.js, no stray/typo keys in a translation,
                                 #   index.js languages all have files. RUN BY ./build.sh (fails build).
@@ -413,9 +419,9 @@ network, working identically online and offline in the APK. **Architecture:**
   The **game-history popups** are extracted too (`play.hist.*`): the per-seat scoring panel
   (`HistoryPanel`) and the aggregate stats modal (`HistoryModal` — chips, the won/lost/skunk
   Stat rows, the averages, the clear-history confirm). Only each entry's `h.label` text stays
-  English — it's reducer-generated and stored in localStorage, so it's part of the reducer-message
-  slice. The **trainer's structural chrome** is extracted too (`trainer.*`, with `CribbageTrainer.jsx`
-  getting its own module-level `tr`): the settings panel (size line, role/practice-as options,
+  English — it's reducer-generated and read by `gameRecord` to bucket points, so it's part of the reducer-message
+  slice. The **trainer's structural chrome** is extracted too (`trainer.*`, using the shared
+  module-level `tr` from `chrome.jsx`): the settings panel (size line, role/practice-as options,
   auto-pick), card-picker modal, header (home/settings aria + table-size descriptor + stats),
   the scenario banner, the choose-prompt, the mode labels, the analysis table column headers, and
   the Deal custom/random buttons — reusing `settings.*`/`about.*`/`common.done` where shared. The
@@ -432,8 +438,8 @@ network, working identically online and offline in the APK. **Architecture:**
   detected once (`pegParts`) and formatted two ways: `pegReason` (English) for the **stored** history
   `h.label` and `pegReasonTr` (translated) for the transient banner — so the only thing still English
   is each entry's stored `h.label` itself, deliberately kept as a **stable categorization key** that
-  `gameRecord` string-matches and `verify_play.js` asserts on (translated only would mix languages in
-  localStorage and break categorization). With that, **every user-facing surface is localized.** The
+  `gameRecord` string-matches and `verify_play.js` asserts on (translating it would break
+  `gameRecord`'s peg/hand/crib categorization). With that, **every user-facing surface is localized.** The
   refactor also retired the now-dead `entLabel`/`poss`/`sv`/`scoreCallout` helpers.
   The **compass seat names** are localized too (`seat.*` keys), both the full names (You/South/…/
   Northwest, in play prose/banners) and the abbreviations (You/S/…/NW, in the score columns and the
@@ -456,18 +462,24 @@ or `trainer.html` / `play.html` directly. They are pre-compiled to plain JS (no
 Babel, no in-browser build). React/ReactDOM are **vendored locally** in `vendor/`
 (`react@18.3.1` UMD), referenced as `<script src="vendor/react*.min.js">` — **no
 CDN**, so everything works fully offline (this matters for the APK wrapper below).
-The editable sources are `src/CribbageTrainer.jsx`, `src/CribbagePlay.jsx`, and
-`src/landing.html`. The `vendor/` files must be served alongside the HTML (they are
-not in `.assetsignore`).
+The editable sources are `src/CribbageTrainer.jsx`, `src/CribbagePlay.jsx`,
+`src/landing.html`, plus the three **shared files** `build.sh` folds into them:
+`src/engine.js` (scoring/pegging math — `scoreInto`/`handDetail`/`pegScore`/`pegChoose`),
+`src/chrome.jsx` (theme + modals + `SettingsPanel`/`HistoryModal`), and `src/settings.js`
+(the `cribbage:settings` / `cribbage:history` storage, incl. `DEFAULT_SETTINGS` and the
+field-scoped, clobber-safe `persistSettingChange`). The trainer keeps its own
+Monte-Carlo layer (`analyze`/`cribDetail`/`pegDetail` + the calibrated constants). The
+`vendor/` files must be served alongside the HTML (they are not in `.assetsignore`).
 
 **Rebuild after editing any source:** run `./build.sh` (needs a global `tsc`; one is
 present in this environment). It regenerates the root pages from `src/`:
-- `index.html` ← `src/landing.html` (plain static HTML, copied verbatim).
+- `index.html` ← `src/landing.html` (plain static HTML; the build **inlines** the shared
+  `src/settings.js` + the primary-language i18n head, otherwise copied verbatim).
 - `trainer.html` ← `src/CribbageTrainer.jsx`; `play.html` ← `src/CribbagePlay.jsx` —
-  each via a `build_one <src> <out> <title> <Component> <homeLink>` helper:
-  transpile JSX → `React.createElement` (`tsc --jsx react --target es2020
-  --removeComments`), swap the ESM import/export for CDN globals, wrap in the HTML
-  shell. Both apps render their **own ⌂ Home button in their header** (the trainer's
+  each via a `build_one <src> <out> <title> <Component> <homeLink> <description>` helper:
+  **PREPEND the shared `src/settings.js` + `src/engine.js` + `src/chrome.jsx`**, transpile
+  the JSX → `React.createElement` (`tsc --jsx react --target es2020 --removeComments`), swap
+  the ESM import/export for CDN globals, wrap in the HTML shell. Both apps render their **own ⌂ Home button in their header** (the trainer's
   links straight home; the game's confirms first, since leaving ends the game), so
   both pass `homeLink "no"` — the shell's optional fixed Home link is unused but kept
   for any future page.
@@ -477,8 +489,10 @@ the build if it reports any `Cannot find name` (an undefined identifier). This c
 one bug class the `engine/verify_*.js` harnesses can't — they only exercise the pure
 functions, never the React render, so a bare `ReferenceError` inside JSX (e.g. a leftover
 `dealer` after the team refactor) would otherwise ship and blank the screen on the tap
-that hits it. The check runs on the original `src/*.jsx` (which imports React/hooks as
-names) so the `React`/`ReactDOM` globals aren't false positives.
+that hits it. The check runs on the `.jsx` with the same shared files prepended
+(`settings.js` + `engine.js` + `chrome.jsx`), so the names they provide resolve, and the
+source still imports React/hooks as names so the `React`/`ReactDOM` globals aren't false
+positives either.
 
 Historically the trainer's compiled `<script>` was byte-for-byte identical to the
 old single-page `index.html`; that intentionally ended when the in-header Home

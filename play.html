@@ -853,7 +853,7 @@ const serif = "'Hoefler Text', 'Iowan Old Style', Georgia, 'Times New Roman', se
 const tr = (k, v) => (typeof window !== "undefined" && window.t) ? window.t(k, v) : k;
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
-const APP_VERSION = "1.1.21";
+const APP_VERSION = "1.1.22-dev.1";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const SPEED_MULT = { slow: 2, normal: 1, fast: 0.5 };
 const SPEED_FLAT = { lightning: 32, instant: 0 };
@@ -967,7 +967,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.21"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.22-dev.1"))));
 }
 function HistoryModal({ onClose }) {
     const [tick, setTick] = React.useState(0);
@@ -1024,7 +1024,7 @@ function HistoryModal({ onClose }) {
                     color: confirmClear ? T.pegRed : T.muted, fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", fontWeight: 700,
                 } }, confirmClear ? tr("play.hist.clearConfirm") : tr("play.hist.clear"))))));
 }
-function SettingsPanel({ settings, dispatch, onSet, onReset, onClose, onAbout, onHistory, hasHumans }) {
+function SettingsPanel({ settings, dispatch, onSet, onReset, onClose, onAbout, onHistory, hasHumans, extraDirty }) {
     const set = dispatch ? (k, v) => dispatch({ type: "SET_SETTING", key: k, value: v }) : onSet;
     const doReset = dispatch ? () => dispatch({ type: "RESET_SETTINGS" }) : onReset;
     const resetSkip = dispatch ? ["players", "teams", "seats", "names"] : ["seats", "names"];
@@ -1033,7 +1033,7 @@ function SettingsPanel({ settings, dispatch, onSet, onReset, onClose, onAbout, o
     const [resetMsg, setResetMsg] = React.useState(false);
     React.useEffect(() => { if (!resetMsg)
         return; const t = setTimeout(() => setResetMsg(false), 2600); return () => clearTimeout(t); }, [resetMsg]);
-    const tapReset = () => { if (settingsAtDefaults(settings, resetSkip))
+    const tapReset = () => { if (settingsAtDefaults(settings, resetSkip) && !extraDirty)
         setResetMsg(true);
     else
         setConfirmReset(true); };

@@ -616,7 +616,8 @@ export default function CribbageTrainer() {
     setSettings((prev) => { const next = { ...prev, [k]: val }; saveSettings(next); return next; });
   }, []);
   // Reset all gameplay toggles AND the table size/teams to defaults (keeping the per-seat roles +
-  // custom names), then re-deal a fresh hand at the default size — like chooseSize.
+  // custom names), then re-deal a fresh hand at the default size — like chooseSize. Also restores the
+  // trainer-local setup: "practice as" → random and "on a new hand" → "I choose" (autoBest off).
   const resetSettings = useCallback(() => {
     const dp = DEFAULT_SETTINGS.players, dt = DEFAULT_SETTINGS.teams;
     setSettings((prev) => {
@@ -625,6 +626,7 @@ export default function CribbageTrainer() {
       saveSettings(next); return next;
     });
     setRoleMode("random");
+    setAutoBest(false); saveAutoBest(false);
     customHandRef.current = false;
     setHand(randomHand(dp === 2 ? 6 : 5));
     setScenario(trainerScenario("random", dp, dt));
@@ -727,7 +729,7 @@ export default function CribbageTrainer() {
       </header>
 
       <main style={{ maxWidth: 560, margin: "0 auto", padding: "18px 16px 0" }}>
-        {showSettings && <SettingsPanel settings={settings} onSet={setSetting} onReset={resetSettings} hasHumans={humanCountT(settings) >= 1} onClose={() => setShowSettings(false)} onAbout={() => { setShowSettings(false); setAboutOpen(true); }} onHistory={() => { setShowSettings(false); setHistoryOpen(true); }} />}
+        {showSettings && <SettingsPanel settings={settings} onSet={setSetting} onReset={resetSettings} extraDirty={autoBest || roleMode !== "random"} hasHumans={humanCountT(settings) >= 1} onClose={() => setShowSettings(false)} onAbout={() => { setShowSettings(false); setAboutOpen(true); }} onHistory={() => { setShowSettings(false); setHistoryOpen(true); }} />}
         {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
         {historyOpen && <HistoryModal onClose={() => setHistoryOpen(false)} />}
         {pickerOpen && <CardPicker count={handSize} onPick={dealCustom} onClose={() => setPickerOpen(false)} dealerInit={scenario.youDeal} canDeal={!(teams === players && players >= 5)} />}

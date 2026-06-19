@@ -270,7 +270,10 @@ function HistoryModal({ onClose }) {
 // The global settings menu, shared by both apps. Dual-contract: the Play game passes `dispatch`
 // (reducer actions), the Trainer passes `onSet(k,v)`/`onReset()`. `hasHumans` is passed in (each app
 // computes it its own way) and gates the muggins rows. The Done label + reset scope differ per host.
-function SettingsPanel({ settings, dispatch, onSet, onReset, onClose, onAbout, onHistory, hasHumans }) {
+// `extraDirty` (Trainer only) lets a host flag host-local settings (e.g. the trainer's role/new-hand
+// toggles) as non-default, so the reset isn't short-circuited to the "already at defaults" toast when
+// only those differ. Play omits it (undefined → falsy), keeping its reducer path bit-for-bit unchanged.
+function SettingsPanel({ settings, dispatch, onSet, onReset, onClose, onAbout, onHistory, hasHumans, extraDirty }) {
   const set = dispatch ? (k, v) => dispatch({ type: "SET_SETTING", key: k, value: v }) : onSet;
   const doReset = dispatch ? () => dispatch({ type: "RESET_SETTINGS" }) : onReset;
   const resetSkip = dispatch ? ["players", "teams", "seats", "names"] : ["seats", "names"];
@@ -278,7 +281,7 @@ function SettingsPanel({ settings, dispatch, onSet, onReset, onClose, onAbout, o
   const [confirmReset, setConfirmReset] = React.useState(false);
   const [resetMsg, setResetMsg] = React.useState(false);   // "already at defaults" toast
   React.useEffect(() => { if (!resetMsg) return; const t = setTimeout(() => setResetMsg(false), 2600); return () => clearTimeout(t); }, [resetMsg]);
-  const tapReset = () => { if (settingsAtDefaults(settings, resetSkip)) setResetMsg(true); else setConfirmReset(true); };
+  const tapReset = () => { if (settingsAtDefaults(settings, resetSkip) && !extraDirty) setResetMsg(true); else setConfirmReset(true); };
   const Row = ({ title, desc, k, options, disabled }) => (
     <div style={{ marginBottom: 14, opacity: disabled ? 0.5 : 1 }}>
       <div style={{ fontWeight: 700, fontSize: "max(13.5px, var(--min-fs, 0px))" }}>{title}</div>

@@ -1,0 +1,4 @@
+New in 1.1.22:
+- Muggins is now the default counting mode — claim your own hands and crib by hand (switch back to Auto-count in Settings any time).
+- Selected cards now carry a clear checkmark badge, in your hand and in the muggins claim, so it's obvious what you've picked.
+- The trainer's "Reset settings to defaults" now also restores the practice setup ("practice as" and "on a new hand").

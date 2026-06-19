@@ -1374,7 +1374,7 @@ function CardFace({ card, edge }) {
 // up). `dur`/`delay` time the move to a new home. The element holds both faces (front +
 // back rotated 180°) so a face flip is the same rotateY tween as a move. Interactive props
 // (clickable/selected/raised/dim/onClick) apply only when it is the human's live hand card.
-function CardSprite({ card, home, dur, delay, clickable, selected, raised, dim, selLabel, onClick, hidden, noAnim }) {
+function CardSprite({ card, home, dur, delay, clickable, selected, raised, dim, onClick, hidden, noAnim }) {
   const lift = selected || raised ? 8 : 0;                 // selected/raised cards nudge up
   const edge = selected || raised ? T.selBlue : null;
   // The position (translate + flip) transition is OFF while idle and ON only for an actual move —
@@ -1402,10 +1402,12 @@ function CardSprite({ card, home, dur, delay, clickable, selected, raised, dim, 
         visibility: hidden ? "hidden" : "visible",
       }}>
       {(selected || raised) && (
-        <span style={{ position: "absolute", bottom: "calc(100% + 2px)", left: 0, right: 0, textAlign: "center", backfaceVisibility: "hidden",
-          fontFamily: mono, fontSize: "max(9.5px, var(--min-fs, 0px))", letterSpacing: 0.4, fontWeight: 700, color: T.ivory, pointerEvents: "none" }}>
-          <span style={{ background: T.selBlue, padding: "2px 6px", borderRadius: 4, whiteSpace: "nowrap" }}>{selLabel || tr("play.sel.throw")}</span>
-        </span>
+        // A corner check badge — same as the muggins claim — marks the selection without poking a
+        // wide banner up over the action button above the hand. translateZ keeps it above the face in
+        // the 3D flip; backfaceVisibility hides it when the card is face-down.
+        <span aria-hidden="true" style={{ position: "absolute", top: -7, right: -7, width: 18, height: 18, borderRadius: "50%", backfaceVisibility: "hidden",
+          transform: "translateZ(1px)", background: T.selBlue, color: T.ivory, border: `2px solid ${T.ivory}`, display: "flex", alignItems: "center", justifyContent: "center",
+          fontFamily: mono, fontSize: 11, fontWeight: 700, lineHeight: 1, boxShadow: "0 2px 5px rgba(0,0,0,0.45)", pointerEvents: "none" }}>✓</span>
       )}
       <div style={{ position: "absolute", inset: 0, backfaceVisibility: "hidden" }}><CardFace card={card} edge={edge} /></div>
       <div style={{ position: "absolute", inset: 0, backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}><CardBack /></div>
@@ -2257,7 +2259,6 @@ function PlayScreen({ state, dispatch, me: meTarget, needHandoff, cribGliding, o
       selected={inHand && !tapSelect && chosen}
       raised={inHand && tapSelect && chosen}
       dim={inHand && !pending && !legal && (discardPhase ? false : turn === me)}
-      selLabel={inHand && !discardPhase ? tr("play.sel.play") : undefined}
       noAnim={resizing || inHand}
       hidden={mugCribClaim && p && (p.group === "showcrib" || p.group === "cribhome")}
       onClick={inHand ? () => tapCard(handIdx) : inCribHome ? () => setCribNote(true) : undefined} />;

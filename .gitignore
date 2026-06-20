@@ -25,3 +25,4 @@ node_modules/
 .DS_Store
 
 engine/az_checkpoint.json
+engine/az_data/

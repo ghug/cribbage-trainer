@@ -324,11 +324,10 @@ lookahead.
 
 ## Known limitations (be honest about these in the UI)
 
-- **Pegging is an estimate, not a solve.** Hard bots peg with a depth-1 lookahead
-  (`pegChooseDeep`); the trainer's discard-EV pegging model (`pegDetail`) and easy/medium bots are
-  still greedy with no lookahead. The relative ranking across holds is the trustworthy part, not the
-  absolute pts. (Upgrading `pegDetail` to the lookahead policy is a follow-up — it would shift
-  `analyze` and warrant re-running `calibrate_split.js`.)
+- **Pegging is an estimate, not a solve.** Hard bots and the trainer's `pegDetail` now peg with a
+  depth-1 lookahead (`pegChooseDeep`) — in `pegDetail` only YOUR seat plays deep (the only seat it
+  measures), opponents stay greedy, so the N=700 MC stays cheap. easy/medium bots are still greedy.
+  The relative ranking across holds is the trustworthy part, not the absolute pts.
 - **Win-probability model caveats** (`src/winprob.js`, replaced the old σ heuristic): the per-hand
   increment distributions are **policy-dependent** (calibrated under the current bots; regenerate via
   `engine/selfplay.js` after a play change). The 3–6-player path is an analytic **normal-approximation
@@ -607,12 +606,11 @@ all done and shipped. Remaining ideas:
 
 1. Add an in-repo test runner (port the `engine/` checks to a `test/` dir, e.g.
    vitest) so changes are guarded.
-2. Stronger pegging: **done for hard bots** (`pegChooseDeep`, depth-1 expectimax). Remaining
-   (engine item #1, deferred): apply the same lookahead to the trainer's `pegDetail` MC — your seat
-   pegs deep, opponents greedy (only `[ourSeat]` is measured, keeps the budget) — then **re-run
-   `engine/selfplay.js`** to refresh the win-prob increment stats and measure the win-rate delta.
-   `calibrate_split.js` does NOT need re-running (its discard objective is hand+crib-EV only,
-   pegging-independent). Beyond that: 2-ply lookahead or a learned policy.
+2. Stronger pegging: **done** — hard bots AND the trainer's `pegDetail` peg with `pegChooseDeep`
+   (depth-1 expectimax; in `pegDetail`, your seat deep / opponents greedy). The win-prob increment
+   stats did NOT need regenerating (the bots were already deep), and `calibrate_split.js` is
+   pegging-independent (hand+crib-EV objective). Remaining: lift easy/medium bots, or go to 2-ply
+   lookahead / a learned policy.
 3. Real win-probability board model: **DONE** (`src/winprob.js`, engine item #2 — replaced the σ
    heuristic in both the trainer's `analyze` and the bots' `aiDiscardN`). Possible follow-ups: an
    exact (non-analytic) multi-player win-split, or a non-i.i.d. increment model.

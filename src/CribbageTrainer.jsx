@@ -90,12 +90,16 @@ function cribDetail(discards, dealt, N, rng, cribIsOurs, players, teams) {
    Scoring mechanics unit-tested (15s, 31s, pair royals, in/out-of-order runs,
    gos, last card). Opponents play a greedy point-grabbing policy with light
    defense, so the pegging term is an estimate of play-phase value, not exact. */
-function playPegging(hands, dealerIdx) {
+// `deepSeat` (default -1 = none) pegs with the depth-1 lookahead pegChooseDeep; every other seat
+// stays greedy. pegDetail only measures YOUR seat's points, so only your seat plays deep — keeping
+// the estimate cheap (the N=700 loop is dwarfed by the crib MC) while reflecting strong play.
+function playPegging(hands, dealerIdx, deepSeat = -1) {
   hands = hands.map((h) => h.slice());
-  const P = hands.length; // 3- or 4-handed; derived so the loop is seat-count agnostic
+  const P = hands.length; // 2- to 6-handed; derived so the loop is seat-count agnostic
   const pts = new Array(P).fill(0);
   let turn = (dealerIdx + 1) % P, count = 0, pile = [], passes = 0, last = -1;
   let remaining = hands.reduce((s, h) => s + h.length, 0);
+  const playedCount = new Array(14).fill(0);   // ranks played so far → the deep seat's unseen model
   while (remaining > 0) {
     const hand = hands[turn];
     const legal = hand.filter((c) => pval(c) + count <= 31);
@@ -103,8 +107,16 @@ function playPegging(hands, dealerIdx) {
       if (++passes >= P) { if (last >= 0 && count !== 31) pts[last] += 1; count = 0; pile = []; passes = 0; last = -1; }
       turn = (turn + 1) % P; continue;
     }
-    const card = pegChoose(legal, count, pile, hand);
+    let card;
+    if (turn === deepSeat) {
+      const unseen = [];                       // 52-deck ranks minus everything played minus your own remaining cards
+      for (let r = 1; r <= 13; r++) { let avail = 4 - playedCount[r]; for (const c of hand) if (c === r) avail--; for (let j = 0; j < avail; j++) unseen.push(r); }
+      card = pegChooseDeep(legal, count, pile, hand, unseen);
+    } else {
+      card = pegChoose(legal, count, pile, hand);
+    }
     hand.splice(hand.indexOf(card), 1); remaining--;
+    playedCount[card]++;
     count += pval(card); pile.push(card);
     pts[turn] += pegScore(pile, count); last = turn; passes = 0;
     if (count === 31) { count = 0; pile = []; last = -1; }
@@ -125,7 +137,7 @@ function pegDetail(four, dealt5, N, rng, youDeal, players) {
     const ourSeat = youDeal ? dealerSeat : (rng() * (players - 1)) | 0;
     const hands = Array.from({ length: players }, () => []); hands[ourSeat] = ourR.slice();
     let oi = 0; for (let s = 0; s < players; s++) { if (s === ourSeat) continue; hands[s] = opp.slice(oi, oi + 4); oi += 4; }
-    const p = playPegging(hands, dealerSeat)[ourSeat];
+    const p = playPegging(hands, dealerSeat, ourSeat)[ourSeat];   // your seat pegs deep, opponents greedy
     total += p; sq += p * p;
   }
   const ev = total / N;

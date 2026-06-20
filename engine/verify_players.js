@@ -46,6 +46,24 @@ function pegChoose(legal, count, pile, hand) {
   for (const c of legal) { const nc = count + pval(c); let key = pegScore(pile.concat(c), nc) * 10; if (nc === 5 || nc === 21) key -= 2; if (count === 0) { if (c === 5) key -= 2; key -= pval(c) * 0.1; if (hand.filter((x) => x === c).length >= 2) key += 0.5; } else key -= pval(c) * 0.02; if (key > bestKey) { bestKey = key; best = c; } }
   return best;
 }
+// depth-1 lookahead — copy of engine.js pegChooseDeep (PEG_DEF_W = 0.6), used by NEW_playPegging's deep seat
+const PEG_DEF_W = 0.6;
+function pegChooseDeep(legal, count, pile, hand, unseen) {
+  const avail = {}; for (const r of unseen) avail[r] = (avail[r] || 0) + 1;
+  const ranks = Object.keys(avail).map(Number), tot = unseen.length;
+  let best = null, bestKey = -1e9;
+  for (const c of legal) {
+    const nc = count + pval(c); const myGain = pegScore(pile.concat(c), nc);
+    let threat = 0, oppCanPlay = false;
+    if (nc !== 31) { let num = 0; for (const r of ranks) if (pval(r) + nc <= 31) { num += avail[r] * pegScore(pile.concat(c, r), nc + pval(r)); oppCanPlay = true; } threat = tot > 0 ? num / tot : 0; }
+    let key = myGain * 10 - PEG_DEF_W * threat * 10;
+    if (nc !== 31 && !oppCanPlay) key += 1;
+    if (nc === 5 || nc === 21) key -= 2;
+    if (count === 0) { if (c === 5) key -= 2; key -= pval(c) * 0.1; if (hand.filter((x) => x === c).length >= 2) key += 0.5; } else key -= pval(c) * 0.02;
+    if (key > bestKey) { bestKey = key; best = c; }
+  }
+  return best;
+}
 
 /* ---------- ORIGINAL (4-handed only) ---------- */
 function OLD_cribDetail(discard, dealt5, N, rng, role) {
@@ -114,13 +132,17 @@ function NEW_cribDetail(discards, dealt, N, rng, role, players) {
   }
   const ev = total / N; return { ev, sd: Math.sqrt(Math.max(0, sq / N - ev * ev)), cats: acc.map((x) => x / N), hitRate: hits / N };
 }
-function NEW_playPegging(hands, dealerIdx) {
+function NEW_playPegging(hands, dealerIdx, deepSeat = -1) {
   hands = hands.map((h) => h.slice()); const P = hands.length; const pts = new Array(P).fill(0);
   let turn = (dealerIdx + 1) % P, count = 0, pile = [], passes = 0, last = -1; let remaining = hands.reduce((s, h) => s + h.length, 0);
+  const playedCount = new Array(14).fill(0);
   while (remaining > 0) {
     const hand = hands[turn]; const legal = hand.filter((c) => pval(c) + count <= 31);
     if (legal.length === 0) { if (++passes >= P) { if (last >= 0 && count !== 31) pts[last] += 1; count = 0; pile = []; passes = 0; last = -1; } turn = (turn + 1) % P; continue; }
-    const card = pegChoose(legal, count, pile, hand); hand.splice(hand.indexOf(card), 1); remaining--; count += pval(card); pile.push(card); pts[turn] += pegScore(pile, count); last = turn; passes = 0; if (count === 31) { count = 0; pile = []; last = -1; } turn = (turn + 1) % P;
+    let card;
+    if (turn === deepSeat) { const unseen = []; for (let r = 1; r <= 13; r++) { let avail = 4 - playedCount[r]; for (const c of hand) if (c === r) avail--; for (let j = 0; j < avail; j++) unseen.push(r); } card = pegChooseDeep(legal, count, pile, hand, unseen); }
+    else card = pegChoose(legal, count, pile, hand);
+    hand.splice(hand.indexOf(card), 1); remaining--; playedCount[card]++; count += pval(card); pile.push(card); pts[turn] += pegScore(pile, count); last = turn; passes = 0; if (count === 31) { count = 0; pile = []; last = -1; } turn = (turn + 1) % P;
   }
   if (last >= 0) pts[last] += 1; return pts;
 }
@@ -131,7 +153,7 @@ function NEW_pegDetail(four, dealt5, N, rng, role, players) {
     const seen = new Set(); const opp = []; while (opp.length < oppCards) { const i = (rng() * pool.length) | 0; if (!seen.has(i)) { seen.add(i); opp.push(pool[i].r); } }
     const ourSeat = role === "deal" ? dealerSeat : (rng() * (players - 1)) | 0; const hands = Array.from({ length: players }, () => []); hands[ourSeat] = ourR.slice();
     let oi = 0; for (let s = 0; s < players; s++) { if (s === ourSeat) continue; hands[s] = opp.slice(oi, oi + 4); oi += 4; }
-    const p = NEW_playPegging(hands, dealerSeat)[ourSeat]; total += p; sq += p * p;
+    const p = NEW_playPegging(hands, dealerSeat, ourSeat)[ourSeat]; total += p; sq += p * p;   // your seat deep
   }
   const ev = total / N; return { ev, sd: Math.sqrt(Math.max(0, sq / N - ev * ev)) };
 }
@@ -146,7 +168,7 @@ function approx(a, b, tol, msg) { if (Math.abs(a - b) > tol) { console.log(`  �
 console.log("1) Regression — refactored players=4 vs original 4-handed code (exact):");
 {
   const handRng = mulberry32(12345);
-  let checked = 0;
+  let checked = 0, oldPegSum = 0, newPegSum = 0;
   for (let h = 0; h < 40; h++) {
     const hand = handFrom(handRng);
     for (const role of ["deal", "defend"]) {
@@ -156,13 +178,17 @@ console.log("1) Regression — refactored players=4 vs original 4-handed code (e
       const a = OLD_cribDetail(discard, hand, 500, mulberry32(seed), role);
       const b = NEW_cribDetail([discard], hand, 500, mulberry32(seed), role, 4);
       if (a.ev !== b.ev || a.sd !== b.sd || a.hitRate !== b.hitRate || a.cats.some((v, i) => v !== b.cats[i])) { console.log(`  ✗ cribDetail mismatch h=${h} role=${role}`); failures++; }
+      // crib stays exact (the players refactor is unchanged). Pegging now upgrades the measured seat to
+      // the depth-1 lookahead (OLD = greedy reference), so compare in AGGREGATE: deep nets ≥ greedy on
+      // the same hands/RNG (the per-hand opponent draws are identical; only your play policy differs).
       const pa = OLD_pegDetail(four, hand, 400, mulberry32(seed + 1), role);
       const pb = NEW_pegDetail(four, hand, 400, mulberry32(seed + 1), role, 4);
-      if (pa.ev !== pb.ev || pa.sd !== pb.sd) { console.log(`  ✗ pegDetail mismatch h=${h} role=${role}`); failures++; }
+      oldPegSum += pa.ev; newPegSum += pb.ev;
       checked += 2;
     }
   }
-  console.log(`   ${checked} crib + ${checked} peg comparisons, ${failures === 0 ? "all identical ✓" : failures + " mismatches ✗"}`);
+  if (newPegSum < oldPegSum - 1e-9) { console.log(`  ✗ deep pegDetail should net ≥ greedy in aggregate (${newPegSum.toFixed(2)} < ${oldPegSum.toFixed(2)})`); failures++; }
+  console.log(`   ${checked} crib comparisons exact; deep pegging nets ${((newPegSum - oldPegSum) / checked).toFixed(3)} pts/hand more than greedy over ${checked} hands ${failures === 0 ? "✓" : "✗"}`);
 }
 
 /* ===== 2) SANITY: crib swing per rank (your=deal, their=defend), 4- vs 3-handed ===== */

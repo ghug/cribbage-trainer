@@ -1116,7 +1116,7 @@ const serif = "'Hoefler Text', 'Iowan Old Style', Georgia, 'Times New Roman', se
 const tr = (k, v) => (typeof window !== "undefined" && window.t) ? window.t(k, v) : k;
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
-const APP_VERSION = "1.1.24-dev.2";
+const APP_VERSION = "1.1.24-dev.3";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const SPEED_MULT = { slow: 2, normal: 1, fast: 0.5 };
 const SPEED_FLAT = { lightning: 32, instant: 0 };
@@ -1197,7 +1197,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.24-dev.2"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.24-dev.3"))));
 }
 function HistoryModal({ onClose }) {
     const [tick, setTick] = React.useState(0);
@@ -1396,12 +1396,13 @@ function cribDetail(discards, dealt, N, rng, cribIsOurs, players, teams) {
     const ev = total / N;
     return { ev, sd: Math.sqrt(Math.max(0, sq / N - ev * ev)), cats: acc.map((x) => x / N), hitRate: hits / N };
 }
-function playPegging(hands, dealerIdx) {
+function playPegging(hands, dealerIdx, deepSeat = -1) {
     hands = hands.map((h) => h.slice());
     const P = hands.length;
     const pts = new Array(P).fill(0);
     let turn = (dealerIdx + 1) % P, count = 0, pile = [], passes = 0, last = -1;
     let remaining = hands.reduce((s, h) => s + h.length, 0);
+    const playedCount = new Array(14).fill(0);
     while (remaining > 0) {
         const hand = hands[turn];
         const legal = hand.filter((c) => pval(c) + count <= 31);
@@ -1417,9 +1418,25 @@ function playPegging(hands, dealerIdx) {
             turn = (turn + 1) % P;
             continue;
         }
-        const card = pegChoose(legal, count, pile, hand);
+        let card;
+        if (turn === deepSeat) {
+            const unseen = [];
+            for (let r = 1; r <= 13; r++) {
+                let avail = 4 - playedCount[r];
+                for (const c of hand)
+                    if (c === r)
+                        avail--;
+                for (let j = 0; j < avail; j++)
+                    unseen.push(r);
+            }
+            card = pegChooseDeep(legal, count, pile, hand, unseen);
+        }
+        else {
+            card = pegChoose(legal, count, pile, hand);
+        }
         hand.splice(hand.indexOf(card), 1);
         remaining--;
+        playedCount[card]++;
         count += pval(card);
         pile.push(card);
         pts[turn] += pegScore(pile, count);
@@ -1462,7 +1479,7 @@ function pegDetail(four, dealt5, N, rng, youDeal, players) {
             hands[s] = opp.slice(oi, oi + 4);
             oi += 4;
         }
-        const p = playPegging(hands, dealerSeat)[ourSeat];
+        const p = playPegging(hands, dealerSeat, ourSeat)[ourSeat];
         total += p;
         sq += p * p;
     }

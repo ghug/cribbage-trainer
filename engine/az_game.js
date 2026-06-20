@@ -11,7 +11,7 @@
  *
  * Action SLOTS (fixed width 15 so one policy head spans both phases):
  *   discard  → slots 0..14 = the 15 two-card combos of the 6-card hand (i<j order)
- *   pegging  → slots 0..3  = the player's four kept cards (kept-order), masked to in-hand & ≤31
+ *   pegging  → slots 0..k  = the player's CURRENT hand cards (index order), masked to ≤31
  */
 "use strict";
 const fs = require("fs");
@@ -49,9 +49,9 @@ class CribGame {
   _legalSlots() {
     const legal = new Array(NPOL).fill(false);
     if (this.phase === "discard") { for (let j = 0; j < 15; j++) legal[j] = true; }
-    else { // pegging: which kept-cards are still in hand and playable
-      const me = this.toAct, hand = this._pegHand[me], k4 = this.kept[me];
-      for (let s = 0; s < k4.length; s++) { const c = k4[s]; if (hand.some((h) => h.r === c.r && h.s === c.s) && pval(c.r) + this._count <= 31) legal[s] = true; }
+    else { // pegging: slot = index into the CURRENT hand (determinization-safe), legal if ≤31
+      const hand = this._pegHand[this.toAct];
+      for (let s = 0; s < hand.length; s++) if (pval(hand[s].r) + this._count <= 31) legal[s] = true;
     }
     return legal;
   }
@@ -66,10 +66,9 @@ class CribGame {
       else { this._afterDiscards(); }
       return;
     }
-    // pegging
-    const me = this.toAct, card = this.kept[me][slot];
-    const hand = this._pegHand[me];
-    hand.splice(hand.findIndex((h) => h.r === card.r && h.s === card.s), 1);
+    // pegging — slot indexes the current hand
+    const me = this.toAct, hand = this._pegHand[me], card = hand[slot];
+    hand.splice(slot, 1);
     this._pile.push(card.r); this._played.push(card.r); this._count += pval(card.r);
     if (this._award(me, pegScore(this._pile, this._count))) return;
     this._pegLast = me; this._pegPasses = 0;

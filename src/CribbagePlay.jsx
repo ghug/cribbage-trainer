@@ -317,6 +317,7 @@ const initPeg = (seats, dealerIdx, P) => ({
   turn: (dealerIdx + 1) % P,
   count: 0, pile: [], pileSuited: [], played: seats.map(() => []),
   passes: 0, lastPlayer: -1,
+  goLow: seats.map(() => 0),   // lowest count each seat said "go" this hand (for the Zero net's pegging input)
 });
 const initShow = (dealerIdx, P) => {
   const order = [];
@@ -723,9 +724,12 @@ function reduce(state, action) {
       const peg = state.peg, seat = action.seat;
       const passes = peg.passes + 1;
       const goMsg = isYou(seat) ? tr("play.msg.goYou") : tr("play.msg.goSeat", { seat: seatName(seat) });
+      // record this seat's go-count (the lowest count it went at this hand — reveals it holds no card ≤ 31-count)
+      const goLow = (peg.goLow || state.seats.map(() => 0)).slice();
+      if (peg.count > 0 && (!goLow[seat] || peg.count < goLow[seat])) goLow[seat] = peg.count;
       if (passes >= P) {
         let seats = state.seats, message = goMsg;
-        const np = { ...peg, passes: 0, turn: (seat + 1) % P };
+        const np = { ...peg, goLow, passes: 0, turn: (seat + 1) % P };
         if (peg.lastPlayer >= 0 && peg.count !== 31) {
           seats = addScore(seats, peg.lastPlayer, 1, "pegging · go", P, teams);
           message = tr("play.msg.goPoint", { seat: seatName(peg.lastPlayer) });
@@ -734,7 +738,7 @@ function reduce(state, action) {
         np.count = 0; np.pile = []; np.pileSuited = []; np.lastPlayer = -1;
         return { ...state, seats, peg: np, message };
       }
-      return { ...state, peg: { ...peg, passes, turn: (seat + 1) % P }, message: goMsg };
+      return { ...state, peg: { ...peg, goLow, passes, turn: (seat + 1) % P }, message: goMsg };
     }
 
     case "SHOW_CLAIM":
@@ -1119,7 +1123,13 @@ export default function CribbagePlay() {
       if (legal.length === 0) { dispatch({ type: "PASS_GO", seat }); return; }
       const level = seatLevel(seat, settings);
       let chosen;
-      if (level === "hard" || level === "zero") {                  // strong: depth-1 lookahead (Zero pegs with the deep heuristic)
+      if (level === "zero" && settings.players === 2 && zeroReady()) {   // Cribbage Zero net picks the heads-up peg card
+        const tgt = targetFor(settings.players), opp = 1 - seat;
+        const logits = zeroForwardLogits(ZERO_NET, zeroEncodePeg(hand, state.dealerIdx === seat, tgt - state.seats[seat].score, tgt - state.seats[opp].score, peg.count, peg.hands[opp].length, (peg.goLow ? peg.goLow[opp] : 0), peg.pile, state.starter, tgt));
+        let bk = -1, bv = -Infinity;
+        for (let k = 0; k < hand.length; k++) if (pval(hand[k].r) + peg.count <= 31 && logits[k] > bv) { bv = logits[k]; bk = k; }
+        chosen = bk >= 0 ? hand[bk] : legal[0];
+      } else if (level === "hard" || level === "zero") {           // strong: depth-1 lookahead (hard, or zero in 3-6p)
         const rank = pegChooseDeep(legal.map((c) => c.r), peg.count, peg.pile, hand.map((c) => c.r), pegUnseen(state, seat));
         chosen = legal.find((c) => c.r === rank) || legal[0];
       } else if (Math.random() < (BOT_SKILL[level] || BOT_SKILL.hard).pegSkill) {

@@ -1118,7 +1118,7 @@ const serif = "'Hoefler Text', 'Iowan Old Style', Georgia, 'Times New Roman', se
 const tr = (k, v) => (typeof window !== "undefined" && window.t) ? window.t(k, v) : k;
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
-const APP_VERSION = "1.1.24-dev.5";
+const APP_VERSION = "1.1.24-dev.6";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const SPEED_MULT = { slow: 2, normal: 1, fast: 0.5 };
 const SPEED_FLAT = { lightning: 32, instant: 0 };
@@ -1199,7 +1199,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.24-dev.5"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.24-dev.6"))));
 }
 function HistoryModal({ onClose }) {
     const [tick, setTick] = React.useState(0);
@@ -1359,6 +1359,43 @@ function zeroEncodeDiscard(six, dealerIsMe, yourToGo, oppToGo, target) {
         f.push(0);
     for (i = 0; i < 17; i++)
         f.push(0);
+    return f;
+}
+function zeroEncodePeg(hand, dealerIsMe, yourToGo, oppToGo, count, oppHandLen, oppGoLow, pileRanks, starter, target) {
+    var f = [], i, k;
+    for (i = 0; i < 6; i++) {
+        var c = hand[i], rr = new Array(13).fill(0), ss = new Array(4).fill(0);
+        if (c) {
+            rr[c.r - 1] = 1;
+            ss[c.s] = 1;
+        }
+        for (k = 0; k < 13; k++)
+            f.push(rr[k]);
+        for (k = 0; k < 4; k++)
+            f.push(ss[k]);
+    }
+    f.push(0, 1, dealerIsMe ? 1 : 0);
+    f.push(yourToGo / target, oppToGo / target);
+    f.push((count || 0) / 31, hand.length / 4, oppHandLen / 4);
+    f.push((oppGoLow || 0) / 31);
+    var last6 = (pileRanks || []).slice(-6), off = 6 - last6.length;
+    for (i = 0; i < 6; i++) {
+        var r = i >= off ? last6[i - off] : 0;
+        var rr2 = new Array(13).fill(0);
+        if (r)
+            rr2[r - 1] = 1;
+        for (k = 0; k < 13; k++)
+            f.push(rr2[k]);
+    }
+    var sr = new Array(13).fill(0), ssr = new Array(4).fill(0);
+    if (starter) {
+        sr[starter.r - 1] = 1;
+        ssr[starter.s] = 1;
+    }
+    for (k = 0; k < 13; k++)
+        f.push(sr[k]);
+    for (k = 0; k < 4; k++)
+        f.push(ssr[k]);
     return f;
 }
 function zeroDiscardIdxs(six, dealerIsMe, yourToGo, oppToGo, target) {
@@ -1644,6 +1681,7 @@ const initPeg = (seats, dealerIdx, P) => ({
     turn: (dealerIdx + 1) % P,
     count: 0, pile: [], pileSuited: [], played: seats.map(() => []),
     passes: 0, lastPlayer: -1,
+    goLow: seats.map(() => 0),
 });
 const initShow = (dealerIdx, P) => {
     const order = [];
@@ -2033,9 +2071,12 @@ function reduce(state, action) {
             const peg = state.peg, seat = action.seat;
             const passes = peg.passes + 1;
             const goMsg = isYou(seat) ? tr("play.msg.goYou") : tr("play.msg.goSeat", { seat: seatName(seat) });
+            const goLow = (peg.goLow || state.seats.map(() => 0)).slice();
+            if (peg.count > 0 && (!goLow[seat] || peg.count < goLow[seat]))
+                goLow[seat] = peg.count;
             if (passes >= P) {
                 let seats = state.seats, message = goMsg;
-                const np = { ...peg, passes: 0, turn: (seat + 1) % P };
+                const np = { ...peg, goLow, passes: 0, turn: (seat + 1) % P };
                 if (peg.lastPlayer >= 0 && peg.count !== 31) {
                     seats = addScore(seats, peg.lastPlayer, 1, "pegging · go", P, teams);
                     message = tr("play.msg.goPoint", { seat: seatName(peg.lastPlayer) });
@@ -2048,7 +2089,7 @@ function reduce(state, action) {
                 np.lastPlayer = -1;
                 return { ...state, seats, peg: np, message };
             }
-            return { ...state, peg: { ...peg, passes, turn: (seat + 1) % P }, message: goMsg };
+            return { ...state, peg: { ...peg, goLow, passes, turn: (seat + 1) % P }, message: goMsg };
         }
         case "SHOW_CLAIM":
             return { ...state, show: { ...state.show, claimSubmitted: true, claimValue: action.value } };
@@ -2382,7 +2423,18 @@ function CribbagePlay() {
             }
             const level = seatLevel(seat, settings);
             let chosen;
-            if (level === "hard" || level === "zero") {
+            if (level === "zero" && settings.players === 2 && zeroReady()) {
+                const tgt = targetFor(settings.players), opp = 1 - seat;
+                const logits = zeroForwardLogits(ZERO_NET, zeroEncodePeg(hand, state.dealerIdx === seat, tgt - state.seats[seat].score, tgt - state.seats[opp].score, peg.count, peg.hands[opp].length, (peg.goLow ? peg.goLow[opp] : 0), peg.pile, state.starter, tgt));
+                let bk = -1, bv = -Infinity;
+                for (let k = 0; k < hand.length; k++)
+                    if (pval(hand[k].r) + peg.count <= 31 && logits[k] > bv) {
+                        bv = logits[k];
+                        bk = k;
+                    }
+                chosen = bk >= 0 ? hand[bk] : legal[0];
+            }
+            else if (level === "hard" || level === "zero") {
                 const rank = pegChooseDeep(legal.map((c) => c.r), peg.count, peg.pile, hand.map((c) => c.r), pegUnseen(state, seat));
                 chosen = legal.find((c) => c.r === rank) || legal[0];
             }

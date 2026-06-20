@@ -34,13 +34,16 @@ vm.createContext(sandbox);
 vm.runInContext(body, sandbox);
 const { analyze } = sandbox;
 const sc = (youDeal, cribIsOurs) => ({ youDeal, cribIsOurs });
+// analyze now ranks by win probability; these crib/EV-mechanics checks want the max-EV hold, so pick
+// it explicitly (at a neutral board the win-prob best ≈ this anyway).
+const evBest = (opts) => [...opts].sort((a, b) => b.netEV - a.netEV)[0];
 
 const hand6 = [{ r: 5, s: 0 }, { r: 5, s: 1 }, { r: 7, s: 2 }, { r: 8, s: 3 }, { r: 10, s: 0 }, { r: 11, s: 1 }];
 const hand5 = [{ r: 5, s: 0 }, { r: 5, s: 1 }, { r: 6, s: 2 }, { r: 9, s: 3 }, { r: 11, s: 0 }];
 
 /* ---- 2-handed: deal 6, throw two -> 15 ranked combos ---- */
 {
-  const opts = analyze(hand6, sc(false, false), "ev", 2, 2, 4000, 400);
+  const opts = analyze(hand6, sc(false, false), null, 2, 2, 4000, 400);
   check(opts.length === 15, `2-handed ranks 15 two-card throws (got ${opts.length})`);
   check(opts.every((o) => o.cards.length === 2 && Number.isFinite(o.netEV)), "2-handed throws are two finite cards");
 }
@@ -48,18 +51,19 @@ const hand5 = [{ r: 5, s: 0 }, { r: 5, s: 1 }, { r: 6, s: 2 }, { r: 9, s: 3 }, {
 /* ---- 3-/4-/5-/6-handed cutthroat defend: deal 5, throw one -> 5 ranked throws ---- */
 const cribEV = {}, handEV = {};
 for (const P of [3, 4, 5, 6]) {
-  const opts = analyze(hand5, sc(false, false), "ev", P, P, 8000, 400);
+  const opts = analyze(hand5, sc(false, false), null, P, P, 8000, 400);
   check(opts.length === 5 && opts.every((o) => o.cards.length === 1), `P=${P}: ranks 5 single throws`);
   check(opts.every((o) => Number.isFinite(o.netEV) && Number.isFinite(o.cribEV) && o.hand.ev >= 0), `P=${P}: options finite`);
-  cribEV[P] = opts[0].cribEV;
-  handEV[P] = opts[0].handEV;
+  const eb = evBest(opts);
+  cribEV[P] = eb.cribEV;
+  handEV[P] = eb.handEV;
 }
 for (const P of [4, 5, 6]) check(Math.abs(handEV[P] - handEV[3]) < 1e-9, `P=${P}: hand EV is players-independent`);
 check(cribEV[5] < cribEV[4], `5-handed defend crib leaner than 4-handed (${cribEV[5].toFixed(3)} < ${cribEV[4].toFixed(3)})`);
 check(cribEV[6] < cribEV[4], `6-handed defend crib leaner than 4-handed (${cribEV[6].toFixed(3)} < ${cribEV[4].toFixed(3)})`);
 
 /* ---- team crib composition (more dealer-intent throws → richer crib) ---- */
-const tcrib = (P, T, ours) => analyze(hand5, sc(false, ours), "ev", P, T, 9000, 400)[0].cribEV;
+const tcrib = (P, T, ours) => evBest(analyze(hand5, sc(false, ours), null, P, T, 9000, 400)).cribEV;
 {
   const o42 = tcrib(4, 2, true), t42 = tcrib(4, 2, false);   // ours 1 dealer+2 def · theirs 2 dealer+1 def
   const o62 = tcrib(6, 2, true), t62 = tcrib(6, 2, false);   // ours 1 dealer+2 def · theirs 2 dealer+1 def
@@ -70,7 +74,7 @@ const tcrib = (P, T, ours) => analyze(hand5, sc(false, ours), "ev", P, T, 9000, 
   check(o63 < cribEV[4], `6/3 your-side crib (0 salt) leaner than 4-handed defend (${o63.toFixed(3)} < ${cribEV[4].toFixed(3)})`);
   // every team config yields 5 finite single throws
   for (const [P, T] of [[4, 2], [6, 2], [6, 3]]) for (const ours of [true, false]) {
-    const opts = analyze(hand5, sc(false, ours), "ev", P, T, 2000, 200);
+    const opts = analyze(hand5, sc(false, ours), null, P, T, 2000, 200);
     check(opts.length === 5 && opts.every((o) => o.cards.length === 1 && Number.isFinite(o.netEV)), `${P}/${T} ${ours ? "ours" : "theirs"}: 5 finite throws`);
   }
 }
@@ -78,9 +82,9 @@ const tcrib = (P, T, ours) => analyze(hand5, sc(false, ours), "ev", P, T, 9000, 
 /* ---- the crib SIGN flips with cribIsOurs (same kept four scores higher net when
         the crib is on your team, since the crib value is added rather than subtracted) ---- */
 {
-  const oursOpts = analyze(hand5, sc(false, true), "ev", 4, 2, 9000, 400);
-  const theirsOpts = analyze(hand5, sc(false, false), "ev", 4, 2, 9000, 400);
-  const id = oursOpts[0].id;                         // compare the same throw both ways
+  const oursOpts = analyze(hand5, sc(false, true), null, 4, 2, 9000, 400);
+  const theirsOpts = analyze(hand5, sc(false, false), null, 4, 2, 9000, 400);
+  const id = evBest(oursOpts).id;                    // compare the same throw both ways
   const a = oursOpts.find((o) => o.id === id);
   const b = theirsOpts.find((o) => o.id === id);
   check(a.netEV > b.netEV, `same throw nets more when the crib is yours (${a.netEV.toFixed(3)} > ${b.netEV.toFixed(3)})`);

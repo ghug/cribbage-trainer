@@ -48,35 +48,34 @@ const BOT_SKILL = {
   hard: { discardNoise: 0, pegSkill: 1 },
 };
 
-// A bot's board-position mood, mirroring the trainer's suggestMode but scaled to this game's target
-// (5/6-handed plays to 61, not 121). Compares the seat's team score to the leading OTHER team.
-function botSuggestMode(you, leader, target) {
-  const s = target / 121;
-  if (leader >= 106 * s && you < leader) return "need";        // a rival's about to peg out and you trail → chase
-  if (you >= leader + 15 * s && you >= 95 * s) return "protect"; // comfortable lead near the finish → play safe
-  return "ev";
-}
-function botBoardMode(seat, seats, P, teams) {
+// A bot's board position: its team's score and the leading OTHER team's score. Feeds the
+// win-probability discard objective (which replaced the old σ/mode heuristic).
+function botBoard(seat, seats, P, teams) {
   const myTeam = teamOf(seat, P, teams);
   let leader = 0;
   for (let i = 0; i < P; i++) if (teamOf(i, P, teams) !== myTeam) leader = Math.max(leader, seats[i].score);
-  return botSuggestMode(seats[seat].score, leader, targetFor(P));
+  return { you: seats[seat].score, leader };
 }
 
-// Bot discard: throw `n` cards (1 or 2) maximising kept-hand EV plus the crib swing
-// of the throw. The crib helps whoever's TEAM the dealer is on, so a throw is +EV
-// when this seat is on the dealer's team (the crib is "ours"), −EV otherwise.
-// `mode` adds a BOARD-POSITION tilt (mirrors the trainer): "need" (behind, late) chases volatility
-// (+RISK·sd) and eases off crib defense; "protect" (big lead, late) damps volatility (−RISK·sd) and
-// stiffens crib defense. "ev" (the whole early/mid game) is board-neutral, exactly as before.
+// Bot discard: throw `n` cards (1 or 2) maximising the WIN PROBABILITY after the hand (replaces the
+// old EV+σ heuristic). The crib helps whoever's TEAM the dealer is on, so it counts toward this
+// seat's increment when the crib is "ours" and toward the opponent's when it isn't. The board
+// (this team vs the leading other team) makes the bot chase upside when behind and protect a lead —
+// straight from the win-prob curvature, no hand-coded modes. Difficulty noise perturbs the bot's
+// perceived hand value (in points) before the win-prob map, so easy bots still misjudge holds.
 // Returns { discard: [cards], kept: [cards] } — discard is always an array.
-function aiDiscardN(dealt, seat, dealerIdx, n, P, teams, mode = "ev", level = "hard") {
+function aiDiscardN(dealt, seat, dealerIdx, n, P, teams, board, level = "hard") {
   const sign = teamOf(seat, P, teams) === teamOf(dealerIdx, P, teams) ? 1 : -1;
   const cribOurs = sign === 1;
-  const cribW = (mode === "protect" && !cribOurs) ? 1.3 : (mode === "need" && !cribOurs) ? 0.9 : 1.0;
-  const riskSign = mode === "need" ? 1 : mode === "protect" ? -1 : 0;
+  const target = targetFor(P);
+  const wpBoard = { yourToGo: target - (board ? board.you : 0), oppToGo: target - (board ? board.leader : 0), youDeal: cribOurs, P, teams };
   const noise = (BOT_SKILL[level] || BOT_SKILL.hard).discardNoise;   // easier bots wander off the best throw
-  const objective = (four, cribVal) => { const hd = handDetail(four, dealt); return hd.ev + sign * cribW * cribVal + riskSign * RISK * hd.sd + (noise ? (Math.random() * 2 - 1) * noise : 0); };
+  const objective = (four, cribVal) => {
+    const hd = handDetail(four, dealt);
+    const noisy = noise ? (Math.random() * 2 - 1) * noise : 0;       // points of misjudged hand value
+    const yourMean = hd.ev + (cribOurs ? cribVal : 0) + noisy;       // your increment this hand (crib only if ours)
+    return winProbHand(wpBoard, yourMean, hd.sd, cribOurs ? 0 : cribVal);
+  };
   if (n === 2) {
     let best = null, bv = -1e9;
     for (const idxs of twoCombos(dealt.length)) {
@@ -550,7 +549,7 @@ function finalizeDeal(state) {
   // DEAL ORDER here — unsorted — and are sorted only when first shown face-up for a seat's turn.
   for (let i = 0; i < P; i++) {
     if (pl.throws[i] === 0) { seats[i].kept = seats[i].dealt; seats[i].discard = []; }
-    else if (!seatIsHuman(i, state.settings)) { const r = aiDiscardN(seats[i].dealt, i, d, pl.throws[i], P, teams, botBoardMode(i, seats, P, teams), seatLevel(i, state.settings)); seats[i].discard = r.discard; seats[i].kept = r.kept; }
+    else if (!seatIsHuman(i, state.settings)) { const r = aiDiscardN(seats[i].dealt, i, d, pl.throws[i], P, teams, botBoard(i, seats, P, teams), seatLevel(i, state.settings)); seats[i].discard = r.discard; seats[i].kept = r.kept; }
   }
   const humanThrowers = throwOrder(P, d, state.settings);   // pone first, clockwise, dealer last
   const firstThrower = humanThrowers.length ? humanThrowers[0] : null;

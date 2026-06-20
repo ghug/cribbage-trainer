@@ -14,7 +14,6 @@
 const fifteenVal = (r) => Math.min(r, 10);
 const pval = (r) => Math.min(r, 10);
 const cardId = (c) => (c.r - 1) * 4 + c.s;
-const RISK = 0.5; // weight on volatility for the board-position modes
 
 function scoreInto(four, starter, isCrib, acc) {
   const all = [...four, starter];

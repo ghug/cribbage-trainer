@@ -139,12 +139,14 @@ function discardCombos(handLen, k) {
   for (let i = 0; i < handLen; i++) for (let j = i + 1; j < handLen; j++) out.push([i, j]);
   return out;
 }
-function analyze(hand, scenario, mode, players = 4, teams = players, N = 10000, Npeg = 700) {
+function analyze(hand, scenario, board, players = 4, teams = players, N = 10000, Npeg = 700) {
   const rng = mulberry32(hand.reduce((a, c) => (a * 53 + cardId(c) + 1) >>> 0, 7));
   const { youDeal, cribIsOurs } = scenario;            // youDeal: you're the dealer; cribIsOurs: crib on your team
   const sign = cribIsOurs ? 1 : -1;
-  const cribW = (mode === "protect" && !cribIsOurs) ? 1.3 : (mode === "need" && !cribIsOurs) ? 0.9 : 1.0;
-  const riskSign = mode === "need" ? 1 : mode === "protect" ? -1 : 0;
+  // The board state drives the win-probability objective (replaces the old σ/mode heuristic). Your
+  // team holds the deal this hand iff the crib is yours; the win-prob race rotates it next hand.
+  const target = WP_TARGET(players);
+  const wpBoard = { yourToGo: target - (board ? board.you : 0), oppToGo: target - (board ? board.leader : 0), youDeal: cribIsOurs, P: players, teams };
   const k = players === 2 ? 2 : 1; // cards discarded to the crib
   const opts = [];
   for (const idxs of discardCombos(hand.length, k)) {
@@ -156,19 +158,15 @@ function analyze(hand, scenario, mode, players = 4, teams = players, N = 10000, 
     const pd = pegDetail(four, hand, Npeg, rng, youDeal, players);
     const net = hd.ev + pd.ev + sign * cd.ev;                       // mode-neutral expected points
     const sd = Math.sqrt(hd.sd * hd.sd + cd.sd * cd.sd + pd.sd * pd.sd);
-    const adj = hd.ev + pd.ev + sign * cribW * cd.ev + riskSign * RISK * sd; // ranking objective
-    opts.push({ id: idxs.join(","), idxs, cards: discards, hand: hd, crib: cd, peg: pd, handEV: hd.ev, cribEV: cd.ev, pegEV: pd.ev, netEV: net, sd, adj });
+    // Win-probability ranking objective: your real increment this hand (your crib counts toward YOUR
+    // side only when the crib is ours), and the crib you gift the opponent when it isn't.
+    const yourMean = hd.ev + pd.ev + (cribIsOurs ? cd.ev : 0);
+    const yourSd = Math.sqrt(hd.sd * hd.sd + pd.sd * pd.sd + (cribIsOurs ? cd.sd * cd.sd : 0));
+    const wp = winProbHand(wpBoard, yourMean, yourSd, cribIsOurs ? 0 : cd.ev);
+    opts.push({ id: idxs.join(","), idxs, cards: discards, hand: hd, crib: cd, peg: pd, handEV: hd.ev, cribEV: cd.ev, pegEV: pd.ev, netEV: net, sd, wp });
   }
-  opts.sort((a, b) => b.adj - a.adj);
+  opts.sort((a, b) => b.wp - a.wp);
   return opts;
-}
-
-// Board-position posture suggested from the pip scores (game to 121).
-function suggestMode(you, leader) {
-  if (!you && !leader) return "ev";
-  if (leader >= 106 && you < leader) return "need";        // someone's about to peg out and you trail
-  if (you >= leader + 15 && you >= 95) return "protect";   // comfortable lead near the finish
-  return "ev";
 }
 
 function randomHand(count = 5) {
@@ -254,7 +252,7 @@ function dominant(cats) {
 }
 
 /* ---- the per-discard explanation ---- */
-function Explain({ opt, cribIsOurs, youDeal, mode, players = 4 }) {
+function Explain({ opt, cribIsOurs, youDeal, boardSet, players = 4 }) {
   const h = opt.hand, cr = opt.crib, pg = opt.peg;
   const topStr = h.top.map((c) => `${rankLabel(c.r)}→${c.avg.toFixed(1)}`).join("   ");
   const pegWhy = pg.ev >= 3.6
@@ -299,9 +297,9 @@ function Explain({ opt, cribIsOurs, youDeal, mode, players = 4 }) {
       <div style={{ fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.cream, lineHeight: 1.7 }}>
         <div>{tr("trainer.tbl.hand")} {h.ev.toFixed(2)} &nbsp; {tr("trainer.tbl.crib")} {cribIsOurs ? "+" : "−"}{cr.ev.toFixed(2)} &nbsp; {tr("trainer.tbl.peg")} +{pg.ev.toFixed(2)} &nbsp;→&nbsp; <b>{tr("trainer.ex.net", { v: opt.netEV.toFixed(2) })}</b></div>
         <div style={{ color: T.muted }}>{tr("trainer.ex.spread", { sd: opt.sd.toFixed(2), mn: h.mn, mx: h.mx, p10: h.p10, p90: h.p90 })}</div>
-        {mode !== "ev" && (
-          <div style={{ color: mode === "need" ? T.good : T.pegRed }}>
-            {tr("trainer.ex.adjLine", { mode: tr(mode === "need" ? "trainer.mode.need" : "trainer.mode.protect"), sign: mode === "need" ? "+" : "−", risk: RISK, adj: opt.adj.toFixed(2) })}
+        {boardSet && (
+          <div style={{ color: T.pegIvory }}>
+            {tr("trainer.ex.winLine", { pct: (opt.wp * 100).toFixed(1) })}
           </div>
         )}
       </div>
@@ -329,7 +327,7 @@ function buildNote(cribIsOurs, best, chosen) {
     if (allHigh) return tr("trainer.note.bestTheirsHigh");
     return multi ? tr("trainer.note.bestTheirsMulti") : tr("trainer.note.bestTheirsOne");
   }
-  const delta = best.adj - chosen.adj;
+  const delta = best.netEV - chosen.netEV;
   if (!cribIsOurs && chosen.cards.some((c) => c.r === 5) && !bestHas5)
     return tr("trainer.note.fed5", { cribEV: chosen.cribEV.toFixed(1), phrase, delta: delta.toFixed(2) });
   if (chosen.handEV > best.handEV)
@@ -556,7 +554,6 @@ export default function CribbageTrainer() {
   const [showBoard, setShowBoard] = useState(false);
   const [yourPips, setYourPips] = useState(0);
   const [leaderPips, setLeaderPips] = useState(0);
-  const [modeOverride, setModeOverride] = useState(null); // null = auto from pips
   const [stats, setStats] = useState({ hands: 0, optimal: 0, lost: 0 });
   // Live language switch: re-render when i18n.choose() loads a new locale (no page reload).
   const [, bumpLang] = useState(0);
@@ -565,12 +562,12 @@ export default function CribbageTrainer() {
     if (i && i.onChange) i.onChange(() => bumpLang((v) => v + 1));
   }, []);
 
-  const suggested = suggestMode(yourPips, leaderPips);
-  const mode = modeOverride || suggested;
+  // The pip scores feed the win-probability ranking objective (replaces the old ev/need/protect mode).
+  const board = { you: yourPips, leader: leaderPips };
 
   const discardCount = players === 2 ? 2 : 1; // cards thrown to the crib (heads-up throws two)
 
-  const opts = useMemo(() => (phase === "revealed" ? analyze(hand, scenario, mode, players, teams) : null), [phase, hand, scenario, mode, players, teams]);
+  const opts = useMemo(() => (phase === "revealed" ? analyze(hand, scenario, board, players, teams) : null), [phase, hand, scenario, yourPips, leaderPips, players, teams]);
 
   // customHandRef marks the current hand as a "Deal custom" one, so it can be excluded from the
   // header hand stats (those track your random-deal practice, not hands you set up yourself).
@@ -637,22 +634,23 @@ export default function CribbageTrainer() {
 
   const pick = useCallback((idxs) => {
     const id = idxs.slice().sort((a, b) => a - b).join(","); // match analyze's i<j combo ids
-    const res = analyze(hand, scenario, mode, players, teams);
-    const best = res[0];
+    const res = analyze(hand, scenario, board, players, teams);
+    const best = res[0];                                  // the win-probability recommendation
     const chosen = res.find((o) => o.id === id);
-    const delta = best.adj - chosen.adj;
+    const bestEV = res.reduce((m, o) => (o.netEV > m ? o.netEV : m), -Infinity);
+    const delta = Math.max(0, bestEV - chosen.netEV);     // expected points given up vs the max-EV hold
     setChosenId(id); setExpanded(null); setPhase("revealed");
     if (!customHandRef.current)   // custom ("Deal custom") hands don't count toward the header stats
-      setStats((s) => ({ hands: s.hands + 1, optimal: s.optimal + (delta < 0.1 ? 1 : 0), lost: s.lost + delta }));
-  }, [hand, scenario, mode, players, teams]);
+      setStats((s) => ({ hands: s.hands + 1, optimal: s.optimal + (chosen.id === best.id ? 1 : 0), lost: s.lost + delta }));
+  }, [hand, scenario, yourPips, leaderPips, players, teams]);
 
   // Auto-pick the optimal discard once a hand is in the choose phase — when the setting is
   // on, or always after a "Deal custom" (the one-shot forcePickRef).
   useEffect(() => {
     if (phase !== "choose" || (!autoBest && !forcePickRef.current)) return;
     forcePickRef.current = false;
-    pick(analyze(hand, scenario, mode, players, teams)[0].idxs);
-  }, [autoBest, phase, hand, scenario, mode, players, teams, pick]);
+    pick(analyze(hand, scenario, board, players, teams)[0].idxs);
+  }, [autoBest, phase, hand, scenario, yourPips, leaderPips, players, teams, pick]);
 
   const toggleSelect = useCallback((i) => {
     if (selected.includes(i)) { setSelected(selected.filter((x) => x !== i)); return; } // tap again to deselect
@@ -665,8 +663,10 @@ export default function CribbageTrainer() {
   const chosen = opts ? opts.find((o) => o.id === chosenId) : null;
   const acc = stats.hands ? (stats.optimal / stats.hands) * 100 : 0;
   const avgLost = stats.hands ? stats.lost / stats.hands : 0;
-  const maxAdj = opts ? Math.max(...opts.map((o) => o.adj)) : 1;
+  const maxNet = opts ? Math.max(...opts.map((o) => o.netEV)) : 1;
   const cribIsOurs = scenario.cribIsOurs;
+  const boardSet = yourPips > 0 || leaderPips > 0;        // the pip scores are entered → win-% is meaningful
+  const wpNow = boardSet ? winProb({ yourToGo: WP_TARGET(players) - yourPips, oppToGo: WP_TARGET(players) - leaderPips, youDeal: cribIsOurs, P: players, teams }) : null;
   const isTeams = teams < players;
   // banner: you deal · your team's crib (partner deals) · opponents' crib
   const bannerTitle = scenario.youDeal ? tr("trainer.banner.youDeal")
@@ -675,7 +675,6 @@ export default function CribbageTrainer() {
   const bannerSub = cribIsOurs ? tr("trainer.banner.subGreedy")
     : tr("trainer.banner.subDefend");
   const gridCols = `16px ${discardCount === 2 ? "58px" : "30px"} 1fr 38px 40px 34px 46px`;
-  const MODE_LABEL = { ev: tr("trainer.mode.ev"), need: tr("trainer.mode.need"), protect: tr("trainer.mode.protect") };
 
   return (
     <div style={{
@@ -752,9 +751,7 @@ export default function CribbageTrainer() {
             ? (discardCount === 2
                 ? (selected.length === 1 ? tr("trainer.prompt.tapTwoMore") : tr("trainer.prompt.tapTwo"))
                 : tr("trainer.prompt.tapOne"))
-            : (mode === "ev"
-                ? tr("trainer.prompt.ranked", { mode: MODE_LABEL[mode] })
-                : tr("trainer.prompt.rankedRisk", { mode: MODE_LABEL[mode], sign: mode === "need" ? "+" : "−" }))}
+            : (boardSet ? tr("trainer.prompt.rankedWin", { pct: (wpNow * 100).toFixed(0) }) : tr("trainer.prompt.rankedWP"))}
         </p>
         <div className={phase === "choose" ? "dealwrap" : ""} style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "nowrap", "--deal-ms": spd(260) + "ms", "--deal-stg": spd(40) + "ms" }}>
           {hand.map((card, i) => {
@@ -781,15 +778,15 @@ export default function CribbageTrainer() {
             }}>{buildNote(cribIsOurs, best, chosen)}</div>
 
             <div style={{ display: "grid", gridTemplateColumns: gridCols, gap: 5, fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, padding: "0 4px 2px" }}>
-              <span></span><span>{tr("trainer.tbl.throw")}</span><span>{tr("trainer.tbl.bar", { m: mode === "ev" ? tr("trainer.tbl.net") : tr("trainer.tbl.adj") })}</span>
+              <span></span><span>{tr("trainer.tbl.throw")}</span><span>{tr("trainer.tbl.bar", { m: tr("trainer.tbl.net") })}</span>
               <span style={{ textAlign: "right" }}>{tr("trainer.tbl.hand")}</span><span style={{ textAlign: "right" }}>{tr("trainer.tbl.crib")}</span>
-              <span style={{ textAlign: "right" }}>{tr("trainer.tbl.peg")}</span><span style={{ textAlign: "right" }}>{mode === "ev" ? tr("trainer.tbl.net") : tr("trainer.tbl.adj")}</span>
+              <span style={{ textAlign: "right" }}>{tr("trainer.tbl.peg")}</span><span style={{ textAlign: "right" }}>{tr("trainer.tbl.net")}</span>
             </div>
 
             <div style={{ display: "grid", gap: 4 }}>
               {opts.map((o) => {
                 const isBest = o.id === best.id, isPick = o.id === chosenId, isOpen = expanded === o.id;
-                const scoreVal = mode === "ev" ? o.netEV : o.adj;
+                const scoreVal = o.netEV;
                 return (
                   <div key={o.id}>
                     <button onClick={() => setExpanded(isOpen ? null : o.id)} style={{
@@ -804,14 +801,14 @@ export default function CribbageTrainer() {
                         {o.cards.map((c) => <span key={cardId(c)} style={{ color: isRed(c.s) ? T.suitRed : T.ivory }}>{tag(c)}</span>)}
                       </span>
                       <span style={{ height: 9, background: "rgba(0,0,0,0.28)", borderRadius: 5, overflow: "hidden" }}>
-                        <span style={{ display: "block", height: "100%", width: `${Math.max(4, (scoreVal / maxAdj) * 100)}%`, background: isBest ? T.good : isPick ? T.pegRed : "rgba(236,224,182,0.45)" }} />
+                        <span style={{ display: "block", height: "100%", width: `${Math.max(4, (scoreVal / maxNet) * 100)}%`, background: isBest ? T.good : isPick ? T.pegRed : "rgba(236,224,182,0.45)" }} />
                       </span>
                       <span style={{ fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", textAlign: "right", color: T.cream }}>{o.handEV.toFixed(2)}</span>
                       <span style={{ fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", textAlign: "right", color: T.muted }}>{cribIsOurs ? "+" : "−"}{o.cribEV.toFixed(2)}</span>
                       <span style={{ fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", textAlign: "right", color: T.muted }}>+{o.pegEV.toFixed(2)}</span>
                       <span style={{ fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700, textAlign: "right", color: isBest ? T.good : T.cream }}>{scoreVal.toFixed(2)}</span>
                     </button>
-                    {isOpen && <Explain opt={o} cribIsOurs={cribIsOurs} youDeal={scenario.youDeal} mode={mode} players={players} />}
+                    {isOpen && <Explain opt={o} cribIsOurs={cribIsOurs} youDeal={scenario.youDeal} boardSet={boardSet} players={players} />}
                   </div>
                 );
               })}
@@ -836,24 +833,24 @@ export default function CribbageTrainer() {
           <div>
             <button onClick={() => setShowBoard((v) => !v)} style={{
               width: "100%", textAlign: "left", cursor: "pointer", padding: "10px 12px", borderRadius: 8,
-              background: mode === "ev" ? "rgba(0,0,0,0.2)" : (mode === "need" ? "rgba(95,164,124,0.18)" : "rgba(200,65,43,0.16)"),
-              border: `1px solid ${mode === "ev" ? T.line : (mode === "need" ? "rgba(95,164,124,0.5)" : "rgba(200,65,43,0.45)")}`,
+              background: boardSet ? "rgba(214,188,122,0.16)" : "rgba(0,0,0,0.2)",
+              border: `1px solid ${boardSet ? "rgba(214,188,122,0.5)" : T.line}`,
               color: T.cream, fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", display: "flex", justifyContent: "space-between", alignItems: "center",
             }}>
-              <span>{tr("trainer.board.toggle", { mode: MODE_LABEL[mode], state: modeOverride ? tr("trainer.board.stManual") : tr("trainer.board.stAuto") })}</span>
+              <span>{boardSet ? tr("trainer.board.toggleWin", { pct: (wpNow * 100).toFixed(0) }) : tr("trainer.board.toggleNeutral")}</span>
               <span style={{ transform: showBoard ? "rotate(90deg)" : "none", transition: "transform 150ms" }}>{"›"}</span>
             </button>
             {showBoard && (
               <div style={{ padding: "12px 12px 14px", background: "rgba(0,0,0,0.26)", borderRadius: 9, marginTop: 6 }}>
                 <div style={{ fontSize: "max(13px, var(--min-fs, 0px))", lineHeight: 1.5, marginBottom: 12 }}>
-                  {tr("trainer.board.body")}
+                  {tr("trainer.board.bodyWin")}
                 </div>
                 <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
                   {[["your", tr("trainer.board.yourPips"), yourPips, setYourPips], ["leader", tr("trainer.board.leaderPips"), leaderPips, setLeaderPips]].map(([id, lbl, val, set]) => (
                     <label key={id} style={{ flex: 1, fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted }}>
                       {lbl}
-                      <input type="number" min={0} max={120} value={val}
-                        onChange={(e) => set(Math.max(0, Math.min(120, parseInt(e.target.value || "0", 10))))}
+                      <input type="number" min={0} max={WP_TARGET(players) - 1} value={val}
+                        onChange={(e) => set(Math.max(0, Math.min(WP_TARGET(players) - 1, parseInt(e.target.value || "0", 10))))}
                         style={{
                           width: "100%", marginTop: 4, padding: "8px 10px", borderRadius: 7, boxSizing: "border-box",
                           background: "rgba(0,0,0,0.35)", border: `1px solid ${T.line}`, color: T.cream,
@@ -862,26 +859,13 @@ export default function CribbageTrainer() {
                     </label>
                   ))}
                 </div>
-                <div style={{ fontFamily: mono, fontSize: "max(11px, var(--min-fs, 0px))", color: T.muted, marginBottom: 10 }}>
-                  {yourPips || leaderPips
-                    ? tr("trainer.board.need", { you: Math.max(0, 121 - yourPips), leader: Math.max(0, 121 - leaderPips), mode: MODE_LABEL[suggested] })
+                <div style={{ fontFamily: mono, fontSize: "max(11.5px, var(--min-fs, 0px))", color: boardSet ? T.pegIvory : T.muted, marginBottom: 10 }}>
+                  {boardSet
+                    ? tr("trainer.board.winState", { you: Math.max(0, WP_TARGET(players) - yourPips), leader: Math.max(0, WP_TARGET(players) - leaderPips), pct: (wpNow * 100).toFixed(0) })
                     : tr("trainer.board.neutral")}
                 </div>
-                <div style={{ display: "flex", gap: 6 }}>
-                  {[["auto", null], ["ev", "ev"], ["need", "need"], ["protect", "protect"]].map(([lbl, val]) => {
-                    const on = val === modeOverride;
-                    const txt = val === null ? tr("trainer.board.auto") : MODE_LABEL[val];
-                    return (
-                      <button key={lbl} onClick={() => setModeOverride(val)} style={{
-                        flex: 1, padding: "9px 4px", borderRadius: 8, cursor: "pointer", fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))",
-                        background: on ? T.pegIvory : "rgba(0,0,0,0.2)", color: on ? "#2A1B0E" : T.cream,
-                        border: `1px solid ${on ? T.pegIvory : T.line}`, fontWeight: on ? 700 : 400,
-                      }}>{txt}</button>
-                    );
-                  })}
-                </div>
                 <div style={{ fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, marginTop: 8, lineHeight: 1.5 }}>
-                  {tr("trainer.board.risk", { risk: RISK })}
+                  {players > 2 ? tr("trainer.board.winNoteMulti") : tr("trainer.board.winNote")}
                 </div>
               </div>
             )}

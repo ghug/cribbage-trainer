@@ -109,12 +109,13 @@ against — they are not imported by the apps, but they document and re-prove th
 
 ## Architecture / data flow
 
-`analyze(hand, role, mode, players=4, N=10000, Npeg=700)` is the core. It enumerates
-the discard options (`discardCombos`: 5 single-card throws for 4-/3-handed, all 15
-two-card combos for 2-handed) and for each computes three components and two
-roll-ups. Each option carries `{ id, idxs, cards }` (the discard index set + the
-actual card(s)); `id` is `idxs.join(",")`. `players` flows into the crib and pegging
-models below.
+`analyze(hand, scenario, board, players=4, teams=players, N=10000, Npeg=700)` is the core
+(`scenario = {youDeal, cribIsOurs}`; `board = {you, leader}` pip scores, or null for a neutral
+game). It enumerates the discard options (`discardCombos`: 5 single-card throws for 4-/3-handed,
+all 15 two-card combos for 2-handed) and for each computes three components and the roll-ups
+(`net`, `sd`, and the win-probability ranking `wp`; see Scoring roll-up). Each option carries
+`{ id, idxs, cards }` (the discard index set + the actual card(s)); `id` is `idxs.join(",")`.
+`players` flows into the crib and pegging models below.
 
 1. **Hand EV — exact.** `handDetail(four, dealt)` enumerates every possible cut
    card (47 from a 5-card deal, 46 heads-up) and averages the kept-four score.
@@ -147,23 +148,29 @@ models below.
 ### Scoring roll-up
 
 ```
-sign  = +1 if dealing else -1
-net   = handEV + pegEV + sign*cribEV                      # mode-neutral expected points
+sign  = +1 if cribIsOurs else -1
+net   = handEV + pegEV + sign*cribEV                      # expected points (displayed in the table)
 sd    = sqrt(handSd^2 + cribSd^2 + pegSd^2)
-adj   = handEV + pegEV + sign*cribW*cribEV + riskSign*RISK*sd   # the ranking objective
+# Ranking objective = WIN PROBABILITY after this hand (src/winprob.js, replaces the old σ/mode adj):
+yourMean = handEV + pegEV + (cribIsOurs ? cribEV : 0)    # your real increment (crib only if it's yours)
+yourSd   = sqrt(handSd^2 + pegSd^2 + (cribIsOurs ? cribSd^2 : 0))
+wp       = winProbHand(board, yourMean, yourSd, cribIsOurs ? 0 : cribEV)   # ranks options
 ```
 
-`RISK = 0.5`. Modes:
-
-| mode    | label         | riskSign | cribW (defend only) |
-|---------|---------------|----------|---------------------|
-| ev      | max EV        |  0       | 1.0                 |
-| need    | chase points  | +1       | 0.9                 |
-| protect | protect lead  | -1       | 1.3                 |
-
-`suggestMode(you, leader)`: `leader>=106 && you<leader → need`;
-`you>=leader+15 && you>=95 → protect`; else `ev`. The board panel auto-applies the
-suggestion but the user can override (Auto / ev / need / protect).
+**Win-probability board model (engine item #2, `src/winprob.js`).** The σ heuristic (`±RISK·σ`
+plus `ev`/`need`/`protect` modes, `suggestMode`, `RISK=0.5`) is **retired**. Each discard is now
+ranked by `winProbHand(board, mean, sd, oppAdd)` = `E[P(win the race to the target after this hand)]`
+over your increment `~Normal(mean, sd)`; `oppAdd` is the crib you gift the opponent when defending.
+Risk-seeking when behind and risk-averse when ahead fall out of the win-prob **curvature** — no modes.
+The `board` is `{yourToGo, oppToGo, youDeal, P, teams}` from the trainer's pip inputs (and the bots'
+seat scores). **Hybrid**: heads-up (P=2) uses an exact **dynamic program** over the
+`(yourToGo, oppToGo, whoseDeal)` state space (built once at first use, ~155 ms, memoized); 3–6/team
+use an analytic **normal-approximation race**. The per-hand increment distributions are baked from
+`node engine/selfplay.js` (full-game self-play, hard bots) — **policy-dependent, regenerate after a
+pegging/discard change**. `winProbHand` itself is ~0.4 µs/call, so it adds ~0 to `analyze`. `net`/`sd`
+are still computed and the table still shows `net` (points); the win-% shows in the board panel and
+each row's Explain. For P>2 the win-% is a **pairwise race vs the current leader**, not a table-wide
+solve (labeled as such in the UI).
 
 Performance: a full `analyze()` is ~175 ms at these sample sizes. Keep it under
 ~300 ms; it runs synchronously on each pick.
@@ -236,17 +243,16 @@ layout) is derived from the player count via `plan(P, dealerIdx)` / `tableSeats(
   (`{score, dealt, kept, discard, isAI}`, cards stay **suited** throughout), `crib`,
   `starter`, a `peg` sub-state during play, a `show` sub-state during counting, and
   `settings.counting`.
-- **Bot discard** (`aiDiscardN`): for each of the 5 throws, `handDetail(keptFour).ev +
-  sign*cribW*CRIB_VALUE[rank] + riskSign*RISK*sd` (`sign=+1` if that seat's team deals, else
-  `−1`); pick the best. `CRIB_VALUE` is the **"your" crib-swing row** from the reference table
-  above (per rank A–K) — a fast stand-in for the trainer's Monte-Carlo `cribDetail`. Bots are
-  **board-aware**: `botBoardMode(seat,seats,P,teams)` mirrors the trainer's `suggestMode`
-  (thresholds scaled to `targetFor(P)`, comparing the seat's team score to the leading other
-  team) → `need`/`protect`/`ev`. `need` (behind, late) chases volatility (`riskSign +1`) and
-  eases crib defense (`cribW 0.9`); `protect` (big lead, late) damps volatility (`−1`) and
-  stiffens defense (`cribW 1.3`); `ev` (the whole early/mid game) is **board-neutral, bit-for-bit
-  the old pure-EV pick**. `RISK = 0.5`, `cribW` adjusts on defense only — same constants as the
-  trainer's `analyze`.
+- **Bot discard** (`aiDiscardN`): for each throw, ranks by **win probability** —
+  `winProbHand(board, handDetail(keptFour).ev + (cribOurs ? CRIB_VALUE[rank] : 0) + noise,
+  handDetail(keptFour).sd, cribOurs ? 0 : CRIB_VALUE[rank])` (`cribOurs` = this seat's team deals).
+  `CRIB_VALUE` is the **"your" crib-swing row** from the reference table above (per rank A–K) — a
+  fast stand-in for the trainer's Monte-Carlo `cribDetail`. The board (`botBoard(seat,seats,P,teams)`
+  = this team's score vs the leading other team, target `targetFor(P)`) makes the bot chase upside
+  when behind and protect a lead — straight from the win-prob **curvature**, no hand-coded modes
+  (the old `botBoardMode`/`botSuggestMode`/`RISK`/`cribW` are retired). Difficulty `noise`
+  (`discardNoise`) perturbs the bot's *perceived* hand value in **points** before the win-prob map,
+  so easy bots still misjudge holds. Same `src/winprob.js` model as the trainer's `analyze`.
 - **Per-seat bot difficulty** (`easy`/`medium`/`hard`, set by tapping the landing seat diagram — the
   cycle is human → easy → medium → hard → human). `settings.seats[i]` now holds `"human"` or a level
   string; legacy `"bot"` and any unconfigured bot seat default to **`hard`** (today's strongest play),
@@ -323,9 +329,12 @@ lookahead.
   still greedy with no lookahead. The relative ranking across holds is the trustworthy part, not the
   absolute pts. (Upgrading `pegDetail` to the lookahead policy is a follow-up — it would shift
   `analyze` and warrant re-running `calibrate_split.js`.)
-- **Board mode is a risk heuristic, not win-probability.** It rewards/penalizes
-  volatility (`±RISK·σ`) and stiffens crib defense; it does not model the race to
-  121 or who is about to peg out beyond the simple `suggestMode` thresholds.
+- **Win-probability model caveats** (`src/winprob.js`, replaced the old σ heuristic): the per-hand
+  increment distributions are **policy-dependent** (calibrated under the current bots; regenerate via
+  `engine/selfplay.js` after a play change). The 3–6-player path is an analytic **normal-approximation
+  race** (weakest in the exact endgame; only heads-up gets the exact DP) and is a **pairwise race vs
+  the leader**, not a full multi-player win-split. The heads-up DP assumes per-hand increments are
+  i.i.d. given role (ignores that the score itself shifts how sides play — a second-order effect).
 - **Opponent suit choice is uniform within rank.** Fine — the only thing it
   affects is the ~0.2%/~0.01-pt crib flush.
 
@@ -344,6 +353,10 @@ node engine/verify_play.js      # play.html: evals the built consolidated reduce
 node engine/verify_i18n.js      # i18n key-parity: every t()/data-i18n key referenced in src/
                                 #   exists in locales/en.js, no stray/typo keys in a translation,
                                 #   index.js languages all have files. RUN BY ./build.sh (fails build).
+node engine/verify_winprob.js   # src/winprob.js: boundaries, zero-sum symmetry, monotonicity, the
+                                #   heads-up DP vs a Monte-Carlo rollout, and ranking convexity
+node engine/selfplay.js [N]     # (re)generate the win-prob increment stats: full-game self-play with
+                                #   hard bots → engine/winprob_stats.json (bake into src/winprob.js)
 ```
 If you change `scoreInto`, re-run breakdown/pegging tests AND re-check the crib
 swing table above before trusting `analyze()`. If you touch `cribDetail`,
@@ -471,11 +484,12 @@ Babel, no in-browser build). React/ReactDOM are **vendored locally** in `vendor/
 (`react@18.3.1` UMD), referenced as `<script src="vendor/react*.min.js">` — **no
 CDN**, so everything works fully offline (this matters for the APK wrapper below).
 The editable sources are `src/CribbageTrainer.jsx`, `src/CribbagePlay.jsx`,
-`src/landing.html`, plus the three **shared files** `build.sh` folds into them:
+`src/landing.html`, plus the **shared files** `build.sh` folds into them:
 `src/engine.js` (scoring/pegging math — `scoreInto`/`handDetail`/`pegScore`/`pegChoose`),
-`src/chrome.jsx` (theme + modals + `SettingsPanel`/`HistoryModal`), and `src/settings.js`
-(the `cribbage:settings` / `cribbage:history` storage, incl. `DEFAULT_SETTINGS` and the
-field-scoped, clobber-safe `persistSettingChange`). The trainer keeps its own
+`src/winprob.js` (the win-probability board model — `winProb`/`winProbHand`/`WP_TARGET` + baked
+self-play stats), `src/chrome.jsx` (theme + modals + `SettingsPanel`/`HistoryModal`), and
+`src/settings.js` (the `cribbage:settings` / `cribbage:history` storage, incl. `DEFAULT_SETTINGS`
+and the field-scoped, clobber-safe `persistSettingChange`). The trainer keeps its own
 Monte-Carlo layer (`analyze`/`cribDetail`/`pegDetail` + the calibrated constants). The
 `vendor/` files must be served alongside the HTML (they are not in `.assetsignore`).
 
@@ -593,10 +607,15 @@ all done and shipped. Remaining ideas:
 
 1. Add an in-repo test runner (port the `engine/` checks to a `test/` dir, e.g.
    vitest) so changes are guarded.
-2. Stronger pegging: **done for hard bots** (`pegChooseDeep`, depth-1 expectimax). Remaining: apply
-   the same policy to the trainer's `pegDetail` MC (then re-run `calibrate_split.js`), and/or go to
-   2-ply lookahead or a learned policy.
-3. Real win-probability board model (game-to-121 race) to replace the σ heuristic.
+2. Stronger pegging: **done for hard bots** (`pegChooseDeep`, depth-1 expectimax). Remaining
+   (engine item #1, deferred): apply the same lookahead to the trainer's `pegDetail` MC — your seat
+   pegs deep, opponents greedy (only `[ourSeat]` is measured, keeps the budget) — then **re-run
+   `engine/selfplay.js`** to refresh the win-prob increment stats and measure the win-rate delta.
+   `calibrate_split.js` does NOT need re-running (its discard objective is hand+crib-EV only,
+   pegging-independent). Beyond that: 2-ply lookahead or a learned policy.
+3. Real win-probability board model: **DONE** (`src/winprob.js`, engine item #2 — replaced the σ
+   heuristic in both the trainer's `analyze` and the bots' `aiDiscardN`). Possible follow-ups: an
+   exact (non-analytic) multi-player win-split, or a non-i.i.d. increment model.
 4. Exploit-mode: let the user enter observed opponent tendencies and re-weight the
    crib distributions away from the self-play equilibrium.
 5. Publish to IzzyOnDroid: the APK/CI and `fastlane/` listing are ready — file the

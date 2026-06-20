@@ -23,6 +23,7 @@ const eng = fs.readFileSync(path.join(__dirname, "..", "src", "engine.js"), "utf
 const wpSrc = fs.readFileSync(path.join(__dirname, "..", "src", "winprob.js"), "utf8");
 const lib = new Function(eng + "\n" + wpSrc + "\n return { scoreInto, handDetail, pegScore, pegChoose, pegChooseDeep, pval, winProbHand };")();
 const { scoreInto, handDetail, pegScore, pegChoose, pegChooseDeep, pval, winProbHand } = lib;
+const { pegSearch } = require("./ismcts.js");           // determinized search (peg policy "ismcts")
 
 const CRIB_VALUE = [3.96, 3.95, 4.05, 4.06, 6.38, 4.10, 4.21, 4.34, 4.09, 3.74, 4.19, 3.73, 3.85];
 const fifteenVal = (r) => Math.min(r, 10);
@@ -80,9 +81,10 @@ const POLICY = {
 function shuffle(rng) { const d = []; for (let r = 1; r <= 13; r++) for (let s = 0; s < 4; s++) d.push({ r, s }); for (let i = d.length - 1; i > 0; i--) { const j = (rng() * (i + 1)) | 0; [d[i], d[j]] = [d[j], d[i]]; } return d; }
 
 // pegging for two seats with per-seat policy; mutates scores, returns winner seat or -1
-function pegGame(kept, dealer, pol, scores) {
+function pegGame(kept, dealer, pol, scores, starterRank) {
   const hands = [kept[0].map((c) => c.r), kept[1].map((c) => c.r)];   // suits dropped for pegging
-  const played = new Array(14).fill(0);
+  const played = new Array(14).fill(0);                               // per-rank counts (deep unseen model)
+  const playedFlat = [];                                             // flat list of ranks played (ismcts view)
   let turn = (dealer + 1) % 2, count = 0, pile = [], passes = 0, last = -1, remaining = 4 + 4;
   const award = (seat, pts) => { scores[seat] += pts; return scores[seat] >= TARGET; };
   while (remaining > 0) {
@@ -92,11 +94,13 @@ function pegGame(kept, dealer, pol, scores) {
       turn = (turn + 1) % 2; continue;
     }
     let card;
-    if (pol[turn].peg === "deep") {
+    if (pol[turn].peg === "ismcts") {
+      card = pegSearch({ myHand: hand, seatSizes: [hands[0].length, hands[1].length], me: turn, count, pile, played: playedFlat, starter: starterRank, P: 2, last, passes }, pol[turn].iters || 150);
+    } else if (pol[turn].peg === "deep") {
       const unseen = []; for (let r = 1; r <= 13; r++) { let a = 4 - played[r]; for (const c of hand) if (c === r) a--; for (let k = 0; k < a; k++) unseen.push(r); }
       card = pegChooseDeep(legal, count, pile, hand, unseen);
     } else card = pegChoose(legal, count, pile, hand);
-    hand.splice(hand.indexOf(card), 1); remaining--; played[card]++;
+    hand.splice(hand.indexOf(card), 1); remaining--; played[card]++; playedFlat.push(card);
     count += pval(card); pile.push(card);
     if (award(turn, pegScore(pile, count))) return turn;
     last = turn; passes = 0;
@@ -122,7 +126,7 @@ function playGame(seed, polBySeat, firstDealer) {
       kept[seat] = r.kept; crib.push(...r.crib);
     }
     if (starter.r === 11) { scores[dealer] += 2; if (scores[dealer] >= TARGET) break; }   // his heels
-    const pegWinner = pegGame(kept, dealer, polBySeat, scores);
+    const pegWinner = pegGame(kept, dealer, polBySeat, scores, starter.r);
     if (pegWinner >= 0) break;
     // the show: pone counts, then dealer, then dealer's crib — stop the instant someone hits 121
     const acc = [0, 0, 0, 0, 0];
@@ -165,3 +169,12 @@ match("NEW vs OLD       ", POLICY.NEW, POLICY.OLD, GAMES);
 // decompose: which half of the upgrade carries it?
 match("win-prob discard only", { discard: discardNEW, peg: "greedy" }, POLICY.OLD, GAMES);
 match("deep pegging only    ", { discard: discardOLD, peg: "deep" }, POLICY.OLD, GAMES);
+
+// IS-MCTS pegging (determinized search) vs the current best pegging (deep), discard held equal so
+// this isolates pegging. Climbing with the iteration budget = the search ceiling showing through.
+// Much slower per decision, so run on fewer decks (override with arg 3).
+const ISD = parseInt(process.argv[3], 10) || Math.max(200, (GAMES / 6) | 0);
+console.log(`  --- IS-MCTS pegging vs deep pegging (same discard), ${ISD} decks ---`);
+for (const iters of [60, 200]) {
+  match(`ismcts-${iters} vs deep`, { discard: discardOLD, peg: "ismcts", iters }, { discard: discardOLD, peg: "deep" }, ISD);
+}

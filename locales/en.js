@@ -18,9 +18,11 @@ cribbageLocale("en", {
   "role.easy": "easy bot",
   "role.medium": "medium bot",
   "role.hard": "hard bot",
+  "role.zero": "Zero bot (experimental, heads-up)",
   "landing.diff.easy": "easy",
   "landing.diff.medium": "medium",
   "landing.diff.hard": "hard",
+  "landing.diff.zero": "zero",
   "app.title": "Cribbage Trainer",
   // compass seat names — full (play game prose/banners) + abbreviations (score columns,
   // landing seat diagram). "You"/"S"/etc. stay the canonical identity keys in code; only
@@ -237,7 +239,7 @@ cribbageLocale("en", {
   // landing — header, nav, footer
   "landing.tagline": "play vs bots or friends and sharpen your discards",
   "landing.playersAtTable": "Players at the table",
-  "landing.seatHint": "Tap a seat to cycle: 🧑 human, then 🤖 easy / medium / hard bot.",
+  "landing.seatHint": "Tap a seat to cycle: 🧑 human, then 🤖 easy / medium / hard bot (+ experimental Zero, heads-up).",
   "landing.seatHintEdit": "Tap and type custom names, and then lock-in below if you need to adjust any from bot/human",
   "landing.setNames": "Edit player names",
   "landing.saveNames": "Lock-in player names",

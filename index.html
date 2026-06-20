@@ -158,6 +158,7 @@
   .diff-easy{ background:#3FB57E }
   .diff-medium{ background:#E6B800 }
   .diff-hard{ background:#D2553F; color:#fff }
+  .diff-zero{ background:#7E5FB0; color:#fff }
   .seat .seat-name{ font-family:var(--mono); font-size:max(11px, var(--min-fs, 0px)); color:var(--cream); white-space:nowrap; text-align:center }
   .seat.you .seat-name{ color:var(--ivory); font-weight:700 }
   .seat .seat-name-input{ font-family:var(--mono); font-size:max(11px, var(--min-fs, 0px)); color:var(--ivory); width:58px; text-align:center;
@@ -422,9 +423,11 @@ cribbageLocale("en", {
   "role.easy": "easy bot",
   "role.medium": "medium bot",
   "role.hard": "hard bot",
+  "role.zero": "Zero bot (experimental, heads-up)",
   "landing.diff.easy": "easy",
   "landing.diff.medium": "medium",
   "landing.diff.hard": "hard",
+  "landing.diff.zero": "zero",
   "app.title": "Cribbage Trainer",
   // compass seat names — full (play game prose/banners) + abbreviations (score columns,
   // landing seat diagram). "You"/"S"/etc. stay the canonical identity keys in code; only
@@ -641,7 +644,7 @@ cribbageLocale("en", {
   // landing — header, nav, footer
   "landing.tagline": "play vs bots or friends and sharpen your discards",
   "landing.playersAtTable": "Players at the table",
-  "landing.seatHint": "Tap a seat to cycle: 🧑 human, then 🤖 easy / medium / hard bot.",
+  "landing.seatHint": "Tap a seat to cycle: 🧑 human, then 🤖 easy / medium / hard bot (+ experimental Zero, heads-up).",
   "landing.seatHintEdit": "Tap and type custom names, and then lock-in below if you need to adjust any from bot/human",
   "landing.setNames": "Edit player names",
   "landing.saveNames": "Lock-in player names",
@@ -895,7 +898,7 @@ cribbageLocale("en", {
         <div>
           <h1 data-i18n="app.title">Cribbage Trainer</h1>
           <p data-i18n="landing.tagline">play vs bots or friends and sharpen your discards</p>
-          <span class="ver" id="verBadge">v1.1.24-dev.3</span>
+          <span class="ver" id="verBadge">v1.1.24-dev.4</span>
         </div>
       </div>
       <button id="gear" class="gear" type="button" aria-label="Settings" aria-haspopup="dialog" data-i18n-aria="settings.title">⚙</button>
@@ -1029,7 +1032,7 @@ cribbageLocale("en", {
       <a class="btn btn-primary" href="https://github.com/ghug/cribbage-trainer/"
          target="_blank" rel="noopener noreferrer" data-i18n="about.sourceLink">Source, bugs &amp; feedback ↗</a>
       <div class="repo-url" style="margin-bottom:4px">github.com/ghug/cribbage-trainer</div>
-      <div class="repo-url">v1.1.24-dev.3</div>
+      <div class="repo-url">v1.1.24-dev.4</div>
     </div>
   </div>
 
@@ -1070,7 +1073,7 @@ cribbageLocale("en", {
   <script>
     (function () {
       // Show the version badge in the header only on dev builds (a release strips the -dev suffix).
-      if (/-dev/.test("1.1.24-dev.3")) { var _vb = document.getElementById('verBadge'); if (_vb) _vb.style.display = 'block'; }
+      if (/-dev/.test("1.1.24-dev.4")) { var _vb = document.getElementById('verBadge'); if (_vb) _vb.style.display = 'block'; }
       var s = document.getElementById('settingsOverlay');
       var a = document.getElementById('aboutOverlay');
       var c = document.getElementById('confirmResetOverlay');
@@ -1275,23 +1278,27 @@ cribbageLocale("en", {
       // human and the rest bots — but any seat, South included, can be toggled.
       // A seat is "human" or a bot at one of three difficulties. Legacy "bot" and any unconfigured
       // bot seat default to "hard" (today's strongest play); seat 0 defaults to human.
-      var SEAT_CYCLE = ['human', 'easy', 'medium', 'hard'];
+      // "zero" (the experimental Cribbage Zero net bot) is offered ONLY heads-up — its action space is
+      // "throw 2 of 6", so it doesn't apply to 3-6 players (where any stored "zero" falls back to hard).
+      var SEAT_CYCLE_BASE = ['human', 'easy', 'medium', 'hard'];
+      function seatCycle() { return settings.players === 2 ? SEAT_CYCLE_BASE.concat('zero') : SEAT_CYCLE_BASE; }
       // full i18n keys by role, via a map lookup (a built-up key string would hide it from the lint)
-      var ROLE_KEY = { human: 'role.human', easy: 'role.easy', medium: 'role.medium', hard: 'role.hard' };
-      var DIFF_KEY = { easy: 'landing.diff.easy', medium: 'landing.diff.medium', hard: 'landing.diff.hard' };
+      var ROLE_KEY = { human: 'role.human', easy: 'role.easy', medium: 'role.medium', hard: 'role.hard', zero: 'role.zero' };
+      var DIFF_KEY = { easy: 'landing.diff.easy', medium: 'landing.diff.medium', hard: 'landing.diff.hard', zero: 'landing.diff.zero' };
       function seatRoles(P) {
         var src = settings.seats || [];
         var r = [];
         for (var i = 0; i < P; i++) {
           var v = src[i];
-          r[i] = (SEAT_CYCLE.indexOf(v) >= 0) ? v : (v === 'bot' ? 'hard' : (i === 0 ? 'human' : 'hard'));
+          r[i] = (seatCycle().indexOf(v) >= 0) ? v : (v === 'bot' ? 'hard' : (i === 0 ? 'human' : 'hard'));
         }
         return r;
       }
       function toggleSeatRole(i) {
         var roles = seatRoles(settings.players);
-        var k = SEAT_CYCLE.indexOf(roles[i]); if (k < 0) k = 0;
-        roles[i] = SEAT_CYCLE[(k + 1) % SEAT_CYCLE.length];   // human → easy → medium → hard → human
+        var CYC = seatCycle();
+        var k = CYC.indexOf(roles[i]); if (k < 0) k = 0;
+        roles[i] = CYC[(k + 1) % CYC.length];                // human → easy → medium → hard → (zero, heads-up) → human
         settings.seats = roles; persistSettingChange({ seats: roles }); renderSeatDiagram();
       }
       // Per-seat custom name (settings.names[i]) overrides the compass label when set/non-empty.

@@ -41,7 +41,15 @@ build_one() {
   #    The shared settings (src/settings.js), engine (src/engine.js) and UI chrome (src/chrome.jsx)
   #    are PREPENDED so each built page still ships one self-contained copy of the deduped
   #    settings/storage + math + theme/modal chrome.
-  cat "$ROOT/src/settings.js" "$ROOT/src/engine.js" "$ROOT/src/winprob.js" "$ROOT/src/chrome.jsx" > "$TMP/app.tsx"
+  # Cribbage Zero net + inference for the "Zero" bot: the real net is bundled into play.html only; other
+  # pages get a null stub so the name-guard still resolves ZERO_NET and the zero* functions.
+  local ZPRE="$TMP/zero.tsx"
+  if [ "$OUT" = "play.html" ] && [ -f "$ROOT/src/az_net.json" ]; then
+    { printf 'var ZERO_NET = '; cat "$ROOT/src/az_net.json"; printf ';\n'; cat "$ROOT/src/zero.js"; } > "$ZPRE"
+  else
+    { printf 'var ZERO_NET = null;\n'; cat "$ROOT/src/zero.js"; } > "$ZPRE"
+  fi
+  cat "$ROOT/src/settings.js" "$ROOT/src/engine.js" "$ROOT/src/winprob.js" "$ROOT/src/chrome.jsx" "$ZPRE" > "$TMP/app.tsx"
   sed -e 's#^import React, { \(.*\) } from "react";#const { \1 } = React;#' \
       -e "s#^export default function ${COMPONENT}(#function ${COMPONENT}(#" \
       "$ROOT/$SRC" >> "$TMP/app.tsx"
@@ -56,7 +64,7 @@ build_one() {
   #      Prepend the shared engine too, so the names it now provides (scoreInto, pegScore, …)
   #      that $SRC references but no longer declares are resolved.
   local NAMEERR
-  cat "$ROOT/src/settings.js" "$ROOT/src/engine.js" "$ROOT/src/winprob.js" "$ROOT/src/chrome.jsx" "$ROOT/$SRC" > "$TMP/guard.tsx"
+  cat "$ROOT/src/settings.js" "$ROOT/src/engine.js" "$ROOT/src/winprob.js" "$ROOT/src/chrome.jsx" "$ZPRE" "$ROOT/$SRC" > "$TMP/guard.tsx"
   NAMEERR="$(npx --no-install tsc "$TMP/guard.tsx" \
       --jsx react --target es2020 --module none --removeComments \
       --ignoreDeprecations 6.0 --skipLibCheck --noEmit 2>&1 \

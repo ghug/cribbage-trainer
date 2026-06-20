@@ -194,9 +194,11 @@ cribbageLocale("en", {
   "role.easy": "easy bot",
   "role.medium": "medium bot",
   "role.hard": "hard bot",
+  "role.zero": "Zero bot (experimental, heads-up)",
   "landing.diff.easy": "easy",
   "landing.diff.medium": "medium",
   "landing.diff.hard": "hard",
+  "landing.diff.zero": "zero",
   "app.title": "Cribbage Trainer",
   // compass seat names — full (play game prose/banners) + abbreviations (score columns,
   // landing seat diagram). "You"/"S"/etc. stay the canonical identity keys in code; only
@@ -413,7 +415,7 @@ cribbageLocale("en", {
   // landing — header, nav, footer
   "landing.tagline": "play vs bots or friends and sharpen your discards",
   "landing.playersAtTable": "Players at the table",
-  "landing.seatHint": "Tap a seat to cycle: 🧑 human, then 🤖 easy / medium / hard bot.",
+  "landing.seatHint": "Tap a seat to cycle: 🧑 human, then 🤖 easy / medium / hard bot (+ experimental Zero, heads-up).",
   "landing.seatHintEdit": "Tap and type custom names, and then lock-in below if you need to adjust any from bot/human",
   "landing.setNames": "Edit player names",
   "landing.saveNames": "Lock-in player names",
@@ -1116,7 +1118,7 @@ const serif = "'Hoefler Text', 'Iowan Old Style', Georgia, 'Times New Roman', se
 const tr = (k, v) => (typeof window !== "undefined" && window.t) ? window.t(k, v) : k;
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
-const APP_VERSION = "1.1.24-dev.3";
+const APP_VERSION = "1.1.24-dev.4";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const SPEED_MULT = { slow: 2, normal: 1, fast: 0.5 };
 const SPEED_FLAT = { lightning: 32, instant: 0 };
@@ -1197,7 +1199,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.24-dev.3"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.24-dev.4"))));
 }
 function HistoryModal({ onClose }) {
     const [tick, setTick] = React.useState(0);
@@ -1311,6 +1313,55 @@ function SettingsPanel({ settings, dispatch, onSet, onReset, onClose, onAbout, o
             React.createElement("div", { style: { display: "flex", gap: 8 } },
                 React.createElement("button", { onClick: () => setConfirmReset(false), style: { flex: 1, padding: "12px", borderRadius: 9, border: `1px solid ${T.line}`, cursor: "pointer", background: "rgba(0,0,0,0.3)", color: T.cream, fontFamily: mono, fontSize: "max(13px, var(--min-fs, 0px))", fontWeight: 700 } }, tr("common.cancel")),
                 React.createElement("button", { onClick: () => { setConfirmReset(false); doReset(); }, style: { flex: 1, padding: "12px", borderRadius: 9, border: "none", cursor: "pointer", background: `linear-gradient(180deg, ${T.pegRed}, #9c3120)`, color: T.ivory, fontFamily: mono, fontSize: "max(13px, var(--min-fs, 0px))", fontWeight: 700 } }, tr("settings.reset.confirm")))))));
+}
+var ZERO_NET = null;
+var ZERO_COMBOS6 = (function () { var o = []; for (var i = 0; i < 6; i++)
+    for (var j = i + 1; j < 6; j++)
+        o.push([i, j]); return o; })();
+function zeroReady() { return typeof ZERO_NET !== "undefined" && ZERO_NET && Array.isArray(ZERO_NET.W1) && ZERO_NET.W1.length === ZERO_NET.nHid; }
+function zeroForwardLogits(net, x) {
+    var nHid = net.nHid, nPol = net.nPol, nIn = net.nIn, h = new Array(nHid), i, k, j, m, s;
+    for (i = 0; i < nHid; i++) {
+        s = net.b1[i];
+        var Wi = net.W1[i];
+        for (k = 0; k < nIn; k++)
+            s += Wi[k] * x[k];
+        h[i] = Math.tanh(s);
+    }
+    var logits = new Array(nPol);
+    for (j = 0; j < nPol; j++) {
+        s = net.bp[j];
+        var Wj = net.Wp[j];
+        for (m = 0; m < nHid; m++)
+            s += Wj[m] * h[m];
+        logits[j] = s;
+    }
+    return logits;
+}
+function zeroEncodeDiscard(six, dealerIsMe, yourToGo, oppToGo, target) {
+    var f = [], rc = new Array(13).fill(0), i;
+    for (i = 0; i < six.length; i++)
+        rc[six[i].r - 1]++;
+    for (i = 0; i < 13; i++)
+        f.push(rc[i] / 2);
+    f.push(1, 0, dealerIsMe ? 1 : 0, 1);
+    f.push(yourToGo / target, oppToGo / target);
+    f.push(0, 0, 0);
+    for (i = 0; i < 13; i++)
+        f.push(0);
+    for (i = 0; i < 13; i++)
+        f.push(0);
+    return f;
+}
+function zeroDiscardIdxs(six, dealerIsMe, yourToGo, oppToGo, target) {
+    var logits = zeroForwardLogits(ZERO_NET, zeroEncodeDiscard(six, dealerIsMe, yourToGo, oppToGo, target));
+    var best = 0, bv = -Infinity;
+    for (var j = 0; j < 15; j++)
+        if (logits[j] > bv) {
+            bv = logits[j];
+            best = j;
+        }
+    return ZERO_COMBOS6[best];
 }
 const { useState, useMemo, useCallback, useEffect, useRef } = React;
 function mulberry32(a) {

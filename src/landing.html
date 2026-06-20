@@ -158,6 +158,7 @@
   .diff-easy{ background:#3FB57E }
   .diff-medium{ background:#E6B800 }
   .diff-hard{ background:#D2553F; color:#fff }
+  .diff-zero{ background:#7E5FB0; color:#fff }
   .seat .seat-name{ font-family:var(--mono); font-size:max(11px, var(--min-fs, 0px)); color:var(--cream); white-space:nowrap; text-align:center }
   .seat.you .seat-name{ color:var(--ivory); font-weight:700 }
   .seat .seat-name-input{ font-family:var(--mono); font-size:max(11px, var(--min-fs, 0px)); color:var(--ivory); width:58px; text-align:center;
@@ -564,23 +565,27 @@
       // human and the rest bots — but any seat, South included, can be toggled.
       // A seat is "human" or a bot at one of three difficulties. Legacy "bot" and any unconfigured
       // bot seat default to "hard" (today's strongest play); seat 0 defaults to human.
-      var SEAT_CYCLE = ['human', 'easy', 'medium', 'hard'];
+      // "zero" (the experimental Cribbage Zero net bot) is offered ONLY heads-up — its action space is
+      // "throw 2 of 6", so it doesn't apply to 3-6 players (where any stored "zero" falls back to hard).
+      var SEAT_CYCLE_BASE = ['human', 'easy', 'medium', 'hard'];
+      function seatCycle() { return settings.players === 2 ? SEAT_CYCLE_BASE.concat('zero') : SEAT_CYCLE_BASE; }
       // full i18n keys by role, via a map lookup (a built-up key string would hide it from the lint)
-      var ROLE_KEY = { human: 'role.human', easy: 'role.easy', medium: 'role.medium', hard: 'role.hard' };
-      var DIFF_KEY = { easy: 'landing.diff.easy', medium: 'landing.diff.medium', hard: 'landing.diff.hard' };
+      var ROLE_KEY = { human: 'role.human', easy: 'role.easy', medium: 'role.medium', hard: 'role.hard', zero: 'role.zero' };
+      var DIFF_KEY = { easy: 'landing.diff.easy', medium: 'landing.diff.medium', hard: 'landing.diff.hard', zero: 'landing.diff.zero' };
       function seatRoles(P) {
         var src = settings.seats || [];
         var r = [];
         for (var i = 0; i < P; i++) {
           var v = src[i];
-          r[i] = (SEAT_CYCLE.indexOf(v) >= 0) ? v : (v === 'bot' ? 'hard' : (i === 0 ? 'human' : 'hard'));
+          r[i] = (seatCycle().indexOf(v) >= 0) ? v : (v === 'bot' ? 'hard' : (i === 0 ? 'human' : 'hard'));
         }
         return r;
       }
       function toggleSeatRole(i) {
         var roles = seatRoles(settings.players);
-        var k = SEAT_CYCLE.indexOf(roles[i]); if (k < 0) k = 0;
-        roles[i] = SEAT_CYCLE[(k + 1) % SEAT_CYCLE.length];   // human → easy → medium → hard → human
+        var CYC = seatCycle();
+        var k = CYC.indexOf(roles[i]); if (k < 0) k = 0;
+        roles[i] = CYC[(k + 1) % CYC.length];                // human → easy → medium → hard → (zero, heads-up) → human
         settings.seats = roles; persistSettingChange({ seats: roles }); renderSeatDiagram();
       }
       // Per-seat custom name (settings.names[i]) overrides the compass label when set/non-empty.

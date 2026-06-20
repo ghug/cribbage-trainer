@@ -46,6 +46,7 @@ const BOT_SKILL = {
   easy: { discardNoise: 2.0, pegSkill: 0.35 },
   medium: { discardNoise: 0.8, pegSkill: 0.65 },
   hard: { discardNoise: 0, pegSkill: 1 },
+  zero: { discardNoise: 0, pegSkill: 1 },   // Cribbage Zero net picks the heads-up discard; pegging = deep heuristic
 };
 
 // A bot's board position: its team's score and the leading OTHER team's score. Feeds the
@@ -77,6 +78,10 @@ function aiDiscardN(dealt, seat, dealerIdx, n, P, teams, board, level = "hard") 
     return winProbHand(wpBoard, yourMean, hd.sd, cribOurs ? 0 : cribVal);
   };
   if (n === 2) {
+    if (level === "zero" && zeroReady()) {                            // the Cribbage Zero net picks the heads-up throw
+      const zi = zeroDiscardIdxs(dealt, dealerIdx === seat, target - (board ? board.you : 0), target - (board ? board.leader : 0), target);
+      return { discard: [dealt[zi[0]], dealt[zi[1]]], kept: dealt.filter((_, j) => j !== zi[0] && j !== zi[1]) };
+    }
     let best = null, bv = -1e9;
     for (const idxs of twoCombos(dealt.length)) {
       const four = dealt.filter((_, j) => !idxs.includes(j));
@@ -399,14 +404,14 @@ function evalDiscards(dealt, dealerIdx, n, P, teams, seat = 0) {
 const seatIsHuman = (i, settings) => {
   const v = settings && settings.seats && settings.seats[i];
   if (v === "human") return true;
-  if (v === "bot" || v === "easy" || v === "medium" || v === "hard") return false;
+  if (v === "bot" || v === "easy" || v === "medium" || v === "hard" || v === "zero") return false;
   return i === 0;
 };
 // A bot seat's difficulty. Legacy "bot" and any unconfigured bot seat default to "hard" (today's
 // strongest play), so existing games are unchanged; "easy"/"medium" are opt-in from the landing.
 const seatLevel = (i, settings) => {
   const v = settings && settings.seats && settings.seats[i];
-  return (v === "easy" || v === "medium" || v === "hard") ? v : "hard";
+  return (v === "easy" || v === "medium" || v === "hard" || v === "zero") ? v : "hard";
 };
 // Ranks a seat can't see during pegging (could be in any opponent's hand or the crib): the full deck
 // minus this seat's own remaining hand + its discards, the public starter, and every card already
@@ -1114,7 +1119,7 @@ export default function CribbagePlay() {
       if (legal.length === 0) { dispatch({ type: "PASS_GO", seat }); return; }
       const level = seatLevel(seat, settings);
       let chosen;
-      if (level === "hard") {                                      // strong: depth-1 lookahead
+      if (level === "hard" || level === "zero") {                  // strong: depth-1 lookahead (Zero pegs with the deep heuristic)
         const rank = pegChooseDeep(legal.map((c) => c.r), peg.count, peg.pile, hand.map((c) => c.r), pegUnseen(state, seat));
         chosen = legal.find((c) => c.r === rank) || legal[0];
       } else if (Math.random() < (BOT_SKILL[level] || BOT_SKILL.hard).pegSkill) {

@@ -1,0 +1,57 @@
+name: Refresh Cribbage Zero net
+
+# Pulls the latest trained net from the cribbage-zero `net` branch, re-bundles it into the game
+# (src/az_net.json -> rebuilt play.html), and commits if it changed. Run this before a release so the
+# shipped "Zero" bot uses the current net. Manual (and optional weekly) — the net is otherwise frozen
+# at whatever was last committed.
+
+on:
+  workflow_dispatch:
+  # schedule:
+  #   - cron: "0 6 * * 1"   # uncomment for a weekly auto-refresh
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-zero-net
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install TypeScript (build.sh needs tsc)
+        run: npm i -g typescript
+
+      - name: Pull latest net from cribbage-zero
+        run: |
+          curl -sSL "https://raw.githubusercontent.com/ghug/cribbage-zero/net/checkpoints/az_checkpoint.json" -o /tmp/net.json
+          node -e '
+            const n = JSON.parse(require("fs").readFileSync("/tmp/net.json","utf8"));
+            if (!Array.isArray(n.W1) || n.W1.length !== n.nHid) { console.error("::error::fetched net looks malformed"); process.exit(1); }
+            const net = { iter:n.iter, games:n.games||0, nIn:n.nIn, nHid:n.nHid, nPol:n.nPol, W1:n.W1, b1:n.b1, Wv:n.Wv, bv:n.bv, Wp:n.Wp, bp:n.bp };
+            require("fs").writeFileSync("src/az_net.json", JSON.stringify(net));
+            console.log("pulled net iter", net.iter, "games", net.games);
+          '
+
+      - name: Rebuild the pages
+        run: ./build.sh
+
+      - name: Commit if the net changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add src/az_net.json index.html trainer.html play.html
+          if git diff --cached --quiet; then
+            echo "Zero net unchanged — nothing to commit."
+          else
+            ITER=$(node -e 'console.log(require("./src/az_net.json").iter)')
+            GAMES=$(node -e 'console.log(require("./src/az_net.json").games)')
+            git commit -m "Refresh Cribbage Zero net (iter ${ITER}, ${GAMES} games)"
+            git push
+          fi

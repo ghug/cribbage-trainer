@@ -73,18 +73,34 @@ function evalVsRandom(net, games) {
 const ITERS = parseInt(process.argv[2], 10) || 5;
 const GAMES = parseInt(process.argv[3], 10) || 40;
 const SIMS = parseInt(process.argv[4], 10) || 20;
-const HID = 32, CPUCT = 1.5, LR = 0.02, EPOCHS = 2, EVAL = 300;
+const HID = 48, CPUCT = 1.5, LR = 0.02, EPOCHS = 2, EVAL = 200, EVAL_EVERY = 20;
+const CKPT = path.join(__dirname, "az_checkpoint.json");
 
-const net = new Net(CribGame.INPUT_DIM, HID, NPOL, 0.3);
-console.log(`from-random AlphaZero loop: ${ITERS} iters × ${GAMES} games × ${SIMS} sims  (hidden ${HID})`);
-console.log(`  baseline (random net, greedy) vs random: ${(100 * evalVsRandom(net, EVAL)).toFixed(1)}%`);
+// RESUME so Cribbage Zero training continues across runs / this ephemeral box. --fresh forces a restart.
+let net, startIter = 0;
+if (fs.existsSync(CKPT) && !process.argv.includes("--fresh")) {
+  const c = JSON.parse(fs.readFileSync(CKPT, "utf8"));
+  net = new Net(c.nIn, c.nHid, c.nPol); net.W1 = c.W1; net.b1 = c.b1; net.Wv = c.Wv; net.bv = c.bv; net.Wp = c.Wp; net.bp = c.bp;
+  startIter = c.iter || 0;
+  console.log(`resuming Cribbage Zero from checkpoint @ iter ${startIter} (hidden ${c.nHid})`);
+} else {
+  net = new Net(CribGame.INPUT_DIM, HID, NPOL, 0.3);
+  console.log(`fresh Cribbage Zero: hidden ${HID}`);
+}
+const saveCkpt = (it) => fs.writeFileSync(CKPT, JSON.stringify({ iter: it, nIn: net.nIn, nHid: net.nHid, nPol: net.nPol, W1: net.W1, b1: net.b1, Wv: net.Wv, bv: net.bv, Wp: net.Wp, bp: net.bp }));
+
+console.log(`training ${ITERS} iters × ${GAMES} games × ${SIMS} sims (eval every ${EVAL_EVERY})`);
 const t0 = Date.now();
-for (let it = 1; it <= ITERS; it++) {
+for (let it = startIter + 1; it <= startIter + ITERS; it++) {
   let data = [];
   for (let g = 0; g < GAMES; g++) data = data.concat(selfPlay(net, SIMS, CPUCT));
   const loss = train(net, data, EPOCHS, LR);
-  const wr = 100 * evalVsRandom(net, EVAL);
-  console.log(`  iter ${it}: ${data.length} samples, train loss ${loss.toFixed(3)}, vs random ${wr.toFixed(1)}%   [${((Date.now() - t0) / 1000).toFixed(0)}s]`);
-  fs.writeFileSync(path.join(__dirname, "az_checkpoint.json"), JSON.stringify({ iter: it, nIn: CribGame.INPUT_DIM, nHid: HID, nPol: NPOL, W1: net.W1, b1: net.b1, Wv: net.Wv, bv: net.bv, Wp: net.Wp, bp: net.bp }));
+  saveCkpt(it);                                            // checkpoint every iter → resumable
+  if (it % EVAL_EVERY === 0 || it === startIter + ITERS) {
+    const wr = 100 * evalVsRandom(net, EVAL);
+    console.log(`  iter ${it}: loss ${loss.toFixed(3)}, vs random ${wr.toFixed(1)}%   [${((Date.now() - t0) / 1000).toFixed(0)}s]`);
+  } else if (it % 5 === 0) {
+    console.log(`  iter ${it}: loss ${loss.toFixed(3)}   [${((Date.now() - t0) / 1000).toFixed(0)}s]`);
+  }
 }
-console.log(`\nwrote engine/az_checkpoint.json`);
+console.log(`\ncheckpoint @ iter ${startIter + ITERS} saved (engine/az_checkpoint.json)`);

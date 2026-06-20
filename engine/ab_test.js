@@ -174,7 +174,6 @@ match("deep pegging only    ", { discard: discardOLD, peg: "deep" }, POLICY.OLD,
 // this isolates pegging. Climbing with the iteration budget = the search ceiling showing through.
 // Much slower per decision, so run on fewer decks (override with arg 3).
 const ISD = parseInt(process.argv[3], 10) || Math.max(200, (GAMES / 6) | 0);
-console.log(`  --- IS-MCTS pegging vs deep pegging (same discard), ${ISD} decks ---`);
-for (const iters of [60, 200]) {
-  match(`ismcts-${iters} vs deep`, { discard: discardOLD, peg: "ismcts", iters }, { discard: discardOLD, peg: "deep" }, ISD);
-}
+console.log(`  --- exact-PIMC pegging vs deep / greedy (same discard), ${ISD} decks ---`);
+match(`ismcts-40 vs deep  `, { discard: discardOLD, peg: "ismcts", iters: 40 }, { discard: discardOLD, peg: "deep" }, ISD);
+match(`ismcts-40 vs greedy`, { discard: discardOLD, peg: "ismcts", iters: 40 }, { discard: discardOLD, peg: "greedy" }, ISD);

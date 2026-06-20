@@ -9,10 +9,12 @@
  * outcome across many such samples. The determinization distribution IS the opponent model, drawn
  * from the real unseen cards rather than any hand-tuned weighting.
  *
- * This first cut is PIMC-style (Perfect-Information Monte-Carlo): sample a determinization, play each
- * candidate first move out greedily, average the pegging margin. That already reasons about hidden
- * cards correctly and is the foundation; the tree/UCB refinements and a learned leaf value replace the
- * greedy rollout in later layers. Pure pegging for now (discard search comes next).
+ * PURE (tabula rasa): the only knowledge is the rules and the real terminal margin — no policy or
+ * heuristic. PIMC-style: sample a determinization, then EXACTLY solve the resulting perfect-information
+ * pegging subgame (alpha-beta minimax to terminal) to score each candidate move, and average over
+ * determinizations. Pegging is short enough to solve exactly, so no rollout policy (greedy or random)
+ * is needed. Later layers: a learned value to approximate this for speed / extend past the pegging
+ * horizon, and the proper IS-MCTS tree (the endgoal). Heads-up pegging for now.
  *
  * Run standalone for a self-test:  node engine/ismcts.js
  */
@@ -25,25 +27,31 @@ const path = require("path");
 const eng = fs.readFileSync(path.join(__dirname, "..", "src", "engine.js"), "utf8");
 const { pegScore, pegChoose, pval } = new Function(eng + "\n return { pegScore, pegChoose, pval };")();
 
-// Greedy perfect-information playout from a pegging state → points each seat scores to the end.
-function pegRollout(hands, turn, count, pile, last, passes, P) {
-  hands = hands.map((h) => h.slice());
-  const pts = new Array(P).fill(0);
-  let remaining = hands.reduce((s, h) => s + h.length, 0);
-  while (remaining > 0) {
-    const hand = hands[turn], legal = hand.filter((c) => pval(c) + count <= 31);
-    if (legal.length === 0) {
-      if (++passes >= P) { if (last >= 0 && count !== 31) pts[last] += 1; count = 0; pile = []; passes = 0; last = -1; }
-      turn = (turn + 1) % P; continue;
-    }
-    const card = pegChoose(legal, count, pile, hand);
-    hand.splice(hand.indexOf(card), 1); remaining--; count += pval(card); pile.push(card);
-    pts[turn] += pegScore(pile, count); last = turn; passes = 0;
-    if (count === 31) { count = 0; pile = []; last = -1; }
-    turn = (turn + 1) % P;
+// PURE exact solve of a heads-up determinized (perfect-information) pegging subgame: returns the
+// optimal points differential (seat0 − seat1) from this state to the end, seat 0 maximising and
+// seat 1 minimising. No policy/heuristic — only the rules and the real terminal margin (incl. the
+// last-card point). Pegging is short, so alpha-beta to terminal is cheap. (Heads-up only.)
+function solvePeg(hands, turn, count, pile, last, passes, alpha, beta) {
+  if (hands[0].length === 0 && hands[1].length === 0) return last >= 0 ? (last === 0 ? 1 : -1) : 0;
+  const hand = hands[turn], legal = hand.filter((c) => pval(c) + count <= 31);
+  if (legal.length === 0) {                                // "go"
+    let add = 0, nc = count, npile = pile, nlast = last, np = passes + 1;
+    if (np >= 2) { if (last >= 0 && count !== 31) add = last === 0 ? 1 : -1; nc = 0; npile = []; nlast = -1; np = 0; }
+    return add + solvePeg(hands, turn ^ 1, nc, npile, nlast, np, alpha, beta);
   }
-  if (last >= 0) pts[last] += 1;
-  return pts;
+  let best = turn === 0 ? -Infinity : Infinity;
+  for (const c of legal) {
+    const h2 = [hands[0].slice(), hands[1].slice()];
+    h2[turn].splice(h2[turn].indexOf(c), 1);
+    let nc = count + pval(c); const npile = pile.concat(c);
+    const imm = pegScore(npile, nc) * (turn === 0 ? 1 : -1);
+    let fpile = npile, nlast = turn, ncount = nc;
+    if (nc === 31) { ncount = 0; fpile = []; nlast = -1; }
+    const v = imm + solvePeg(h2, turn ^ 1, ncount, fpile, nlast, 0, alpha, beta);
+    if (turn === 0) { if (v > best) best = v; if (best > alpha) alpha = best; } else { if (v < best) best = v; if (best < beta) beta = best; }
+    if (alpha >= beta) break;                              // alpha-beta cutoff
+  }
+  return best;
 }
 
 /* Determinized pegging search. The acting seat `me` knows only `myHand` (ranks), the public pile and
@@ -74,19 +82,17 @@ function pegSearch(view, iters = 200) {
     det[me] = myHand.slice();
     let oi = 0;
     for (let s = 0; s < P; s++) { if (s === me) continue; det[s] = pool.slice(oi, oi + seatSizes[s]); oi += seatSizes[s]; }
-    // evaluate every legal first move against THIS determinization (paired → low variance)
+    // evaluate every legal first move by EXACTLY solving the determinized subgame (pure: optimal
+    // continuation for both sides, real terminal margin — no rollout policy). Paired across moves.
     for (const c of legal) {
-      const hands = det.map((h) => h.slice());
-      let cnt = count, pl = pile.slice(), lst = last;
-      hands[me].splice(hands[me].indexOf(c), 1);
-      cnt += pval(c); pl.push(c);
-      const pts = new Array(P).fill(0);
-      pts[me] += pegScore(pl, cnt); lst = me;
-      if (cnt === 31) { cnt = 0; pl = []; lst = -1; }
-      const rp = pegRollout(hands, (me + 1) % P, cnt, pl, lst, 0, P);
-      for (let s = 0; s < P; s++) pts[s] += rp[s];
-      let others = 0; for (let s = 0; s < P; s++) if (s !== me) others += pts[s];
-      const margin = pts[me] * (P - 1) - others;          // heads-up: pts[me] − pts[opp]
+      const h2 = [det[0].slice(), det[1].slice()];
+      h2[me].splice(h2[me].indexOf(c), 1);
+      let nc = count + pval(c); const npile = pile.concat(c);
+      const imm = pegScore(npile, nc) * (me === 0 ? 1 : -1);
+      let fpile = npile, nlast = me, ncount = nc;
+      if (nc === 31) { ncount = 0; fpile = []; nlast = -1; }
+      const diff = imm + solvePeg(h2, me ^ 1, ncount, fpile, nlast, 0, -Infinity, Infinity);   // (seat0 − seat1)
+      const margin = me === 0 ? diff : -diff;             // → from my perspective
       sum.set(c, sum.get(c) + margin); n.set(c, n.get(c) + 1);
     }
   }
@@ -95,7 +101,7 @@ function pegSearch(view, iters = 200) {
   return best;
 }
 
-module.exports = { pegSearch, pegRollout };
+module.exports = { pegSearch, solvePeg };
 
 /* ---------------- self-test ---------------- */
 if (require.main === module) {

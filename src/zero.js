@@ -2,9 +2,9 @@
  *
  * The trained AlphaZero-style network (ZERO_NET — bundled from the cribbage-zero `net` branch at build
  * time) picks the HEADS-UP discard. The position encoding mirrors engine/az_game.js's encode() at the
- * discard decision exactly, and the policy is over the 15 two-card combos (ZERO_COMBOS6, i<j order).
- * Heads-up only (the net's action space is "throw 2 of 6"); pegging stays on the strong heuristic.
- * The net is weak/experimental — its rank-histogram input caps how good its discards can get.
+ * discard decision exactly (per-card hand rank+suit, then zeros for the pegging/pile/starter slots), and
+ * the policy is over the 15 two-card combos (ZERO_COMBOS6, i<j order). Heads-up only (the net's action
+ * space is "throw 2 of 6"); pegging stays on the strong heuristic. The net is weak/experimental.
  */
 var ZERO_COMBOS6 = (function () { var o = []; for (var i = 0; i < 6; i++) for (var j = i + 1; j < 6; j++) o.push([i, j]); return o; })();
 
@@ -18,16 +18,21 @@ function zeroForwardLogits(net, x) {                       // hidden tanh -> pol
   return logits;
 }
 
-// encode a heads-up DISCARD position, matching engine/az_game.js encode() at phase "discard"
+// encode a heads-up DISCARD position, matching engine/az_game.js encode() at phase "discard" (INPUT_DIM 207)
 function zeroEncodeDiscard(six, dealerIsMe, yourToGo, oppToGo, target) {
-  var f = [], rc = new Array(13).fill(0), i;
-  for (i = 0; i < six.length; i++) rc[six[i].r - 1]++;
-  for (i = 0; i < 13; i++) f.push(rc[i] / 2);            // own 6 cards: rank multiplicity / 2
-  f.push(1, 0, dealerIsMe ? 1 : 0, 1);                   // [discard, peg, dealer-is-me, to-act-is-me]
+  var f = [], i, k;
+  // own hand by position: rank one-hot (13) + suit one-hot (4) per card, 6 positions
+  for (i = 0; i < 6; i++) {
+    var c = six[i], rr = new Array(13).fill(0), ss = new Array(4).fill(0);
+    if (c) { rr[c.r - 1] = 1; ss[c.s] = 1; }
+    for (k = 0; k < 13; k++) f.push(rr[k]); for (k = 0; k < 4; k++) f.push(ss[k]);
+  }
+  f.push(1, 0, dealerIsMe ? 1 : 0);                      // [discard, peg, dealer-is-me]  (to-act is always me)
   f.push(yourToGo / target, oppToGo / target);          // scores to-go, mine then opp
   f.push(0, 0, 0);                                       // pegging context (none at discard)
-  for (i = 0; i < 13; i++) f.push(0);                   // pile tail (none)
-  for (i = 0; i < 13; i++) f.push(0);                   // starter (not cut yet)
+  f.push(0);                                             // opponent go-count (none)
+  for (i = 0; i < 6 * 13; i++) f.push(0);               // pegging pile (none at discard)
+  for (i = 0; i < 17; i++) f.push(0);                   // starter rank+suit (not cut yet)
   return f;
 }
 

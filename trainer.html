@@ -1118,7 +1118,7 @@ const serif = "'Hoefler Text', 'Iowan Old Style', Georgia, 'Times New Roman', se
 const tr = (k, v) => (typeof window !== "undefined" && window.t) ? window.t(k, v) : k;
 const CAT_KEYS = ["trainer.cat.fifteens", "trainer.cat.pairs", "trainer.cat.runs", "trainer.cat.flush", "trainer.cat.nobs"];
 const catName = (i) => tr(CAT_KEYS[i]);
-const APP_VERSION = "1.1.24-dev.4";
+const APP_VERSION = "1.1.24-dev.5";
 const IS_DEV_VERSION = APP_VERSION.indexOf("-dev") !== -1;
 const SPEED_MULT = { slow: 2, normal: 1, fast: 0.5 };
 const SPEED_FLAT = { lightning: 32, instant: 0 };
@@ -1199,7 +1199,7 @@ function AboutModal({ onClose }) {
                     background: `linear-gradient(180deg, ${T.good}, ${T.goodDeep})`, color: T.ivory, fontFamily: mono, fontSize: "max(12.5px, var(--min-fs, 0px))", fontWeight: 700,
                 } }, tr("about.sourceLink")),
             React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10.5px, var(--min-fs, 0px))", color: T.muted, textAlign: "center", margin: "8px 0 4px", wordBreak: "break-all" } }, "github.com/ghug/cribbage-trainer"),
-            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.24-dev.4"))));
+            React.createElement("div", { style: { fontFamily: mono, fontSize: "max(10px, var(--min-fs, 0px))", color: T.muted, textAlign: "center" } }, "v1.1.24-dev.5"))));
 }
 function HistoryModal({ onClose }) {
     const [tick, setTick] = React.useState(0);
@@ -1339,17 +1339,25 @@ function zeroForwardLogits(net, x) {
     return logits;
 }
 function zeroEncodeDiscard(six, dealerIsMe, yourToGo, oppToGo, target) {
-    var f = [], rc = new Array(13).fill(0), i;
-    for (i = 0; i < six.length; i++)
-        rc[six[i].r - 1]++;
-    for (i = 0; i < 13; i++)
-        f.push(rc[i] / 2);
-    f.push(1, 0, dealerIsMe ? 1 : 0, 1);
+    var f = [], i, k;
+    for (i = 0; i < 6; i++) {
+        var c = six[i], rr = new Array(13).fill(0), ss = new Array(4).fill(0);
+        if (c) {
+            rr[c.r - 1] = 1;
+            ss[c.s] = 1;
+        }
+        for (k = 0; k < 13; k++)
+            f.push(rr[k]);
+        for (k = 0; k < 4; k++)
+            f.push(ss[k]);
+    }
+    f.push(1, 0, dealerIsMe ? 1 : 0);
     f.push(yourToGo / target, oppToGo / target);
     f.push(0, 0, 0);
-    for (i = 0; i < 13; i++)
+    f.push(0);
+    for (i = 0; i < 6 * 13; i++)
         f.push(0);
-    for (i = 0; i < 13; i++)
+    for (i = 0; i < 17; i++)
         f.push(0);
     return f;
 }

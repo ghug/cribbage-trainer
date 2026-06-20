@@ -74,6 +74,7 @@ const ITERS = parseInt(process.argv[2], 10) || 5;
 const GAMES = parseInt(process.argv[3], 10) || 40;
 const SIMS = parseInt(process.argv[4], 10) || 20;
 const HID = 48, CPUCT = 1.5, LR = 0.02, EPOCHS = 2, EVAL = 200, EVAL_EVERY = 20;
+const DO_EVAL = process.argv.includes("--eval");   // off by default — just train; eval only when asked
 const CKPT = path.join(__dirname, "az_checkpoint.json");
 
 // RESUME so Cribbage Zero training continues across runs / this ephemeral box. --fresh forces a restart.
@@ -96,10 +97,10 @@ for (let it = startIter + 1; it <= startIter + ITERS; it++) {
   for (let g = 0; g < GAMES; g++) data = data.concat(selfPlay(net, SIMS, CPUCT));
   const loss = train(net, data, EPOCHS, LR);
   saveCkpt(it);                                            // checkpoint every iter → resumable
-  if (it % EVAL_EVERY === 0 || it === startIter + ITERS) {
+  if (DO_EVAL && (it % EVAL_EVERY === 0 || it === startIter + ITERS)) {
     const wr = 100 * evalVsRandom(net, EVAL);
     console.log(`  iter ${it}: loss ${loss.toFixed(3)}, vs random ${wr.toFixed(1)}%   [${((Date.now() - t0) / 1000).toFixed(0)}s]`);
-  } else if (it % 5 === 0) {
+  } else if (it % 10 === 0) {
     console.log(`  iter ${it}: loss ${loss.toFixed(3)}   [${((Date.now() - t0) / 1000).toFixed(0)}s]`);
   }
 }

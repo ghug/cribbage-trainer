@@ -23,3 +23,5 @@ android/keystore.properties
 # ── Misc ─────────────────────────────────────────────────────────────────────
 node_modules/
 .DS_Store
+
+engine/az_checkpoint.json

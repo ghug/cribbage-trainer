@@ -316,6 +316,7 @@ const initPeg = (seats, dealerIdx, P) => ({
   hands: seats.map((s) => s.kept.slice()),
   turn: (dealerIdx + 1) % P,
   count: 0, pile: [], pileSuited: [], played: seats.map(() => []),
+  seq: [],                     // every card played this hand, in global order (suited) — survives 31/go resets (Zero net input)
   passes: 0, lastPlayer: -1,
   goLow: seats.map(() => 0),   // lowest count each seat said "go" this hand (for the Zero net's pegging input)
 });
@@ -588,6 +589,7 @@ function playCard(state, seat, card) {
   const pile = peg.pile.concat(card.r);
   const pileSuited = peg.pileSuited.concat(card);
   const played = peg.played.map((p, i) => (i === seat ? p.concat(card) : p));
+  const seq = (peg.seq || []).concat(card);   // global ordered play sequence (never reset)
   const pts = pegScore(pile, count);
   let seats = addScore(state.seats, seat, pts, `pegging · ${pegReason(pile, count)}`, P, teams);
   let message = pts > 0
@@ -595,7 +597,7 @@ function playCard(state, seat, card) {
     : (isYou(seat)
         ? tr("play.msg.pegPlayYou", { card: tag(card), count })
         : tr("play.msg.pegPlaySeat", { seat: seatName(seat), card: tag(card), count }));
-  const np = { ...peg, hands, count, pile, pileSuited, played, lastPlayer: seat, passes: 0 };
+  const np = { ...peg, hands, count, pile, pileSuited, played, seq, lastPlayer: seat, passes: 0 };
   if (seats[seat].score >= targetFor(P)) return { ...state, seats, peg: np, phase: "over", winner: seat, message };
   if (count === 31) {
     // Freeze the full 31 pile on the table for a beat so it stays visible; RESET_31 (timed in the
@@ -1125,7 +1127,7 @@ export default function CribbagePlay() {
       let chosen;
       if (level === "zero" && settings.players === 2 && zeroReady()) {   // Cribbage Zero net picks the heads-up peg card
         const tgt = targetFor(settings.players), opp = 1 - seat;
-        const logits = zeroForwardLogits(ZERO_NET, zeroEncodePeg(hand, state.dealerIdx === seat, tgt - state.seats[seat].score, tgt - state.seats[opp].score, peg.count, peg.hands[opp].length, (peg.goLow ? peg.goLow[opp] : 0), peg.pile, state.starter, tgt));
+        const logits = zeroForwardLogits(ZERO_NET, zeroEncodePeg(hand, state.dealerIdx === seat, tgt - state.seats[seat].score, tgt - state.seats[opp].score, peg.count, peg.hands[opp].length, (peg.goLow ? peg.goLow[opp] : 0), peg.seq || [], peg.pile.length, state.seats[seat].discard, state.starter, tgt));
         let bk = -1, bv = -Infinity;
         for (let k = 0; k < hand.length; k++) if (pval(hand[k].r) + peg.count <= 31 && logits[k] > bv) { bv = logits[k]; bk = k; }
         chosen = bk >= 0 ? hand[bk] : legal[0];

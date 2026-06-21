@@ -12,9 +12,10 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-URL="https://raw.githubusercontent.com/ghug/cribbage-zero/net/checkpoints/az_checkpoint.json"
+BASE="https://raw.githubusercontent.com/ghug/cribbage-zero/net/checkpoints"
 echo "refresh-zero-net: pulling latest net from cribbage-zero @ net …"
-curl -fsSL "$URL" -o /tmp/cz_net.json
+curl -fsSL "$BASE/az_checkpoint.json" -o /tmp/cz_net.json
+curl -fsSL "$BASE/progress.csv" -o /tmp/cz_progress.csv 2>/dev/null || true   # iter/games context (clean checkpoint no longer carries them)
 
 node -e '
   const fs = require("fs");
@@ -23,13 +24,17 @@ node -e '
   if (!Array.isArray(n.W1) || n.W1.length !== n.nHid || !Array.isArray(n.W1[0]) || n.W1[0].length !== n.nIn) {
     console.error("refresh-zero-net: fetched net looks malformed (nIn " + n.nIn + ", nHid " + n.nHid + ") — aborting"); process.exit(1);
   }
-  // ENGINE-ONLY clean net: just what zero.js reads (policy network) — drop iter/games and the unused
-  // value head (Wv/bv). Round weights to 6 sig figs (~60% smaller, verified 0 decision changes over ~50k
-  // positions). The full-precision, full net stays on the cribbage-zero net branch; this is the bundle copy.
+  // iter/games for the log + commit message: from progress.csv if present, else the (old) checkpoint
+  let iter = n.iter || 0, games = n.games || 0;
+  try { const t = fs.readFileSync("/tmp/cz_progress.csv", "utf8"); const m = t.match(/(\d+)\s*games,\s*iter\s*(\d+)/); if (m) { games = +m[1]; iter = +m[2]; } } catch (e) {}
+  fs.writeFileSync("/tmp/cz_meta.json", JSON.stringify({ iter: iter, games: games }));
+  // ENGINE-ONLY clean net: just what zero.js reads (policy network) — drop the unused value head (Wv/bv).
+  // Round weights to 6 sig figs (~60% smaller, verified 0 decision changes over ~50k positions). The
+  // full-precision, full net stays on the cribbage-zero net branch; this is the bundle copy.
   const r6 = (x) => Array.isArray(x) ? x.map(r6) : (typeof x === "number" ? +x.toPrecision(6) : x);
   const net = { nIn: n.nIn, nHid: n.nHid, nPol: n.nPol, W1: r6(n.W1), b1: r6(n.b1), Wp: r6(n.Wp), bp: r6(n.bp) };
   fs.writeFileSync("src/az_net.json", JSON.stringify(net));
-  console.log("refresh-zero-net: src/az_net.json <- net iter " + n.iter + ", " + (n.games || 0) + " games (nIn " + net.nIn + ", nHid " + net.nHid + ", " + Math.round(fs.statSync("src/az_net.json").size / 1024) + " KB, engine-only weights @ 6 sig figs)");
+  console.log("refresh-zero-net: src/az_net.json <- net iter " + iter + ", " + games + " games (nIn " + net.nIn + ", nHid " + net.nHid + ", " + Math.round(fs.statSync("src/az_net.json").size / 1024) + " KB, engine-only weights @ 6 sig figs)");
 '
 echo "refresh-zero-net: done. NB src/zero.js's encoders must match nIn — keep them in lockstep on any architecture change."
 echo "next: bump VERSION + android versionName/versionCode (+1), ./build.sh, commit, push dev+main, tag v<version>"

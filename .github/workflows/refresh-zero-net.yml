@@ -42,8 +42,8 @@ jobs:
           if git diff --cached --quiet; then
             echo "Zero net unchanged — nothing to commit."
           else
-            ITER=$(node -e 'console.log(require("/tmp/cz_net.json").iter)')   # iter/games no longer in the clean bundle — read the pulled checkpoint
-            GAMES=$(node -e 'console.log(require("/tmp/cz_net.json").games||0)')
+            ITER=$(node -e 'console.log(require("/tmp/cz_meta.json").iter)')   # iter/games come from progress.csv (parsed by refresh-zero-net.sh)
+            GAMES=$(node -e 'console.log(require("/tmp/cz_meta.json").games||0)')
             git commit -m "Refresh Cribbage Zero net (iter ${ITER}, ${GAMES} games)"
             git push
           fi

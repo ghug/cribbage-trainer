@@ -12,10 +12,9 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-BASE="https://raw.githubusercontent.com/ghug/cribbage-zero/net/checkpoints"
 echo "refresh-zero-net: pulling latest net from cribbage-zero @ net …"
-curl -fsSL "$BASE/az_checkpoint.json" -o /tmp/cz_net.json
-curl -fsSL "$BASE/progress.csv" -o /tmp/cz_progress.csv 2>/dev/null || true   # games/iter fallback during the format transition
+curl -fsSL "https://raw.githubusercontent.com/ghug/cribbage-zero/net/checkpoints/az_checkpoint.json" -o /tmp/cz_net.json
+curl -fsSL "https://raw.githubusercontent.com/ghug/cribbage-zero/progress/progress.csv" -o /tmp/cz_progress.csv 2>/dev/null || true   # games/iter fallback during the format transition (progress.csv is on its own branch)
 
 node -e '
   const fs = require("fs");

@@ -24,38 +24,38 @@ function zeroPushCard(f, c) {                            // rank one-hot (13) + 
   for (k = 0; k < 13; k++) f.push(rr[k]); for (k = 0; k < 4; k++) f.push(ss[k]);
 }
 
-// encode a heads-up DISCARD position, matching engine/az_game.js encode() at phase "discard" (INPUT_DIM 270)
+// encode a heads-up DISCARD position, matching engine/az_game.js encode() at phase "discard" (INPUT_DIM 247)
 function zeroEncodeDiscard(six, dealerIsMe, yourToGo, oppToGo, target) {
   var f = [], i;
-  for (i = 0; i < 6; i++) zeroPushCard(f, six[i]);      // own hand by position
-  f.push(1, 0, dealerIsMe ? 1 : 0);                      // [discard, peg, dealer-is-me]  (to-act is always me)
+  for (i = 0; i < 6; i++) zeroPushCard(f, six[i]);      // own hand by position (the six dealt cards)
+  f.push(0, dealerIsMe ? 1 : 0);                         // [phase=discard(0), dealer-is-me]
   f.push(yourToGo / target, oppToGo / target);          // scores to-go, mine then opp
-  f.push(0, 0, 0);                                       // pegging context (none at discard)
-  f.push(0);                                             // opponent go-count (none)
-  for (i = 0; i < 6; i++) zeroPushCard(f, null);        // played-this-hand window (none at discard)
-  for (i = 0; i < 6; i++) f.push(0);                    // live-pile mask (none)
-  for (i = 0; i < 2; i++) zeroPushCard(f, null);        // my discards (none yet)
+  f.push(0);                                             // pip count (none at discard)
+  for (i = 0; i < 7; i++) zeroPushCard(f, null);        // played-this-hand window (none)
+  f.push(0, 0);                                          // my/opp peg-hand sizes (none)
+  f.push(0);                                             // opponent go-headroom (none)
+  f.push(0);                                             // cards in current sub-pile (none)
   zeroPushCard(f, null);                                 // starter (not cut yet)
   return f;
 }
 
-// encode a heads-up PEGGING position, matching engine/az_game.js encode() at phase "peg" (INPUT_DIM 270).
-// hand = the player's CURRENT peg cards (policy slot k = play hand[k]); playedSuited = every card played
-// THIS HAND in order (oldest..newest, survives 31/go resets); pileLen = #cards in the current sub-pile (the
-// live suffix of playedSuited); discards = my two crib cards; oppGoLow = the count the opponent last said
-// "go" at this hand (0 = none).
+// encode a heads-up PEGGING position, matching engine/az_game.js encode() at phase "peg" (INPUT_DIM 247).
+// hand = the player's CURRENT peg cards (policy slot k = play hand[k]); discards = my two crib cards (parked
+// in hand slots 4,5); playedSuited = every card played THIS HAND in order (oldest..newest, survives 31/go
+// resets); pileLen = #cards in the current sub-pile (the live suffix); oppGoLow = the lowest count the
+// opponent said "go" at this hand (0 = none).
 function zeroEncodePeg(hand, dealerIsMe, yourToGo, oppToGo, count, oppHandLen, oppGoLow, playedSuited, pileLen, discards, starter, target) {
-  var f = [], i;
-  for (i = 0; i < 6; i++) zeroPushCard(f, hand[i]);     // own hand by position
-  f.push(0, 1, dealerIsMe ? 1 : 0);                      // [discard=0, peg=1, dealer-is-me]
+  var f = [], i, d = discards || [];
+  var slots = [hand[0], hand[1], hand[2], hand[3], d[0], d[1]];   // peg hand in 0..3, my discards in 4,5
+  for (i = 0; i < 6; i++) zeroPushCard(f, slots[i]);
+  f.push(1, dealerIsMe ? 1 : 0);                         // [phase=peg(1), dealer-is-me]
   f.push(yourToGo / target, oppToGo / target);          // scores to-go
-  f.push((count || 0) / 31, hand.length / 4, oppHandLen / 4);   // pegging context
-  f.push((oppGoLow || 0) / 31);                          // opponent's go-count
-  var last6 = (playedSuited || []).slice(-6), off = 6 - last6.length;   // played-this-hand, last 6 in order
-  for (i = 0; i < 6; i++) zeroPushCard(f, i >= off ? last6[i - off] : null);
-  var pl = Math.min(pileLen || 0, 6);                    // live-pile mask: trailing pl slots = current sub-pile
-  for (i = 0; i < 6; i++) f.push(i >= 6 - pl ? 1 : 0);
-  for (i = 0; i < 2; i++) zeroPushCard(f, (discards || [])[i]);   // my two discards
+  f.push((count || 0) / 31);                             // pip count to 31
+  var last7 = (playedSuited || []).slice(-7), off = 7 - last7.length;   // played-this-hand, last 7 in order
+  for (i = 0; i < 7; i++) zeroPushCard(f, i >= off ? last7[i - off] : null);
+  f.push(hand.length / 4, oppHandLen / 4);               // my/opp peg-hand sizes
+  f.push(oppGoLow > 0 ? Math.min(31 - oppGoLow, 10) / 10 : 0);   // opponent go-headroom (0 = no go)
+  f.push(Math.min(pileLen || 0, 7) / 7);                 // cards in the current sub-pile
   zeroPushCard(f, starter);                              // starter rank + suit
   return f;
 }

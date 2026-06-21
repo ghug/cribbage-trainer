@@ -43,7 +43,7 @@ const twoCombos = (n) => { const out = []; for (let i = 0; i < n; i++) for (let 
 // best throw); `pegSkill` = probability the bot plays its pegging card with the greedy `pegChoose`
 // (else a random legal card). "hard" (0 / 1) is the unchanged, strongest play.
 const BOT_SKILL = {
-  easy: { discardNoise: 2.0, pegSkill: 0.35 },
+  easy: { discardNoise: 5.0, pegSkill: 0.15 },   // deliberately weak: near-random discards + mostly-random pegging (~16% vs hard)
   medium: { discardNoise: 0.8, pegSkill: 0.65 },
   hard: { discardNoise: 0, pegSkill: 1 },
   zero: { discardNoise: 0, pegSkill: 1 },   // Cribbage Zero net picks the heads-up discard; pegging = deep heuristic

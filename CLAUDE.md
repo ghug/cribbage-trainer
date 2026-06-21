@@ -567,11 +567,16 @@ Direct Upload (drag `index.html` in the dashboard), or the REST API with an
 >   On the dev branch it is `<next-patch>-dev.<n>` (e.g. `1.1.1-dev.1`). **Bump `<n>` by
 >   one on every dev commit that changes code** (docs-only commits don't bump). Keep the
 >   `<next-patch>` part = the patch that the next release will be.
-> - **On a *requested* release only:** set `VERSION` to the release number (drop
->   `-dev.<n>`), bump `android/app/build.gradle` `versionName` to match and `versionCode
->   +1`, add the fastlane changelog, `./build.sh`, commit, push **both** `HEAD:dev` and
->   `HEAD:main`, then tag `v<version>` and push the tag (the tag triggers the signed-APK
->   build). **Bump only the patch number** (e.g. `1.1.0 → 1.1.1`) — **never** the major
+> - **On a *requested* release only:** **STEP 1 — refresh the Zero net:** run
+>   `./refresh-zero-net.sh`, which pulls the latest trained net from the cribbage-zero
+>   `net` branch into `src/az_net.json` so the baked-in "Zero" bot ships the **current**
+>   net in both the web build and the APK (`play.html` embeds the net at build time, and
+>   the APK has no INTERNET permission, so it can't fetch one at runtime — a stale/placeholder
+>   `src/az_net.json` would otherwise freeze into the release). **Then** set `VERSION` to the
+>   release number (drop `-dev.<n>`), bump `android/app/build.gradle` `versionName` to match
+>   and `versionCode +1`, add the fastlane changelog, `./build.sh`, commit, push **both**
+>   `HEAD:dev` and `HEAD:main`, then tag `v<version>` and push the tag (the tag triggers the
+>   signed-APK build). **Bump only the patch number** (e.g. `1.1.0 → 1.1.1`) — **never** the major
 >   or minor unless the human explicitly asks. So the next release after `1.1.0` is
 >   `1.1.1` (versionCode 5, `VERSION` `1.1.1`), and dev builds toward it are
 >   `1.1.1-dev.1`, `1.1.1-dev.2`, …

@@ -28,16 +28,8 @@ jobs:
       - name: Install TypeScript (build.sh needs tsc)
         run: npm i -g typescript
 
-      - name: Pull latest net from cribbage-zero
-        run: |
-          curl -sSL "https://raw.githubusercontent.com/ghug/cribbage-zero/net/checkpoints/az_checkpoint.json" -o /tmp/net.json
-          node -e '
-            const n = JSON.parse(require("fs").readFileSync("/tmp/net.json","utf8"));
-            if (!Array.isArray(n.W1) || n.W1.length !== n.nHid) { console.error("::error::fetched net looks malformed"); process.exit(1); }
-            const net = { iter:n.iter, games:n.games||0, nIn:n.nIn, nHid:n.nHid, nPol:n.nPol, W1:n.W1, b1:n.b1, Wv:n.Wv, bv:n.bv, Wp:n.Wp, bp:n.bp };
-            require("fs").writeFileSync("src/az_net.json", JSON.stringify(net));
-            console.log("pulled net iter", net.iter, "games", net.games);
-          '
+      - name: Refresh the bundled net (pull + round + strip to engine-only)
+        run: ./refresh-zero-net.sh   # single source of the pull/round/clean logic
 
       - name: Rebuild the pages
         run: ./build.sh
@@ -50,8 +42,8 @@ jobs:
           if git diff --cached --quiet; then
             echo "Zero net unchanged — nothing to commit."
           else
-            ITER=$(node -e 'console.log(require("./src/az_net.json").iter)')
-            GAMES=$(node -e 'console.log(require("./src/az_net.json").games)')
+            ITER=$(node -e 'console.log(require("/tmp/cz_net.json").iter)')   # iter/games no longer in the clean bundle — read the pulled checkpoint
+            GAMES=$(node -e 'console.log(require("/tmp/cz_net.json").games||0)')
             git commit -m "Refresh Cribbage Zero net (iter ${ITER}, ${GAMES} games)"
             git push
           fi

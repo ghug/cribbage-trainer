@@ -8,13 +8,18 @@
  */
 var ZERO_COMBOS6 = (function () { var o = []; for (var i = 0; i < 6; i++) for (var j = i + 1; j < 6; j++) o.push([i, j]); return o; })();
 
-function zeroReady() { return typeof ZERO_NET !== "undefined" && ZERO_NET && Array.isArray(ZERO_NET.W1) && ZERO_NET.W1.length === ZERO_NET.nHid; }
+function zeroReady() { return typeof ZERO_NET !== "undefined" && ZERO_NET && Array.isArray(ZERO_NET.W) && Array.isArray(ZERO_NET.Wp); }
 
-function zeroForwardLogits(net, x) {                       // hidden tanh -> policy logits (value head unused)
-  var nHid = net.nHid, nPol = net.nPol, nIn = net.nIn, h = new Array(nHid), i, k, j, m, s;
-  for (i = 0; i < nHid; i++) { s = net.b1[i]; var Wi = net.W1[i]; for (k = 0; k < nIn; k++) s += Wi[k] * x[k]; h[i] = Math.tanh(s); }
-  var logits = new Array(nPol);
-  for (j = 0; j < nPol; j++) { s = net.bp[j]; var Wj = net.Wp[j]; for (m = 0; m < nHid; m++) s += Wj[m] * h[m]; logits[j] = s; }
+function zeroForwardLogits(net, x) {                       // multi-layer ReLU hidden -> policy logits (value head unused)
+  var hidden = net.hidden || [net.nHid], sizes = [net.nIn].concat(hidden);   // [nIn, h0, h1, …]; W[l] is FLAT row-major (dout*din)
+  var prev = x, L = net.W.length, l, i, k, din, dout, s, Wl, bl, base, out;
+  for (l = 0; l < L; l++) {
+    din = sizes[l]; dout = sizes[l + 1]; Wl = net.W[l]; bl = net.b[l]; out = new Array(dout);
+    for (i = 0; i < dout; i++) { s = bl[i]; base = i * din; for (k = 0; k < din; k++) s += Wl[base + k] * prev[k]; out[i] = s > 0 ? s : 0; }   // ReLU
+    prev = out;
+  }
+  var nHid = sizes[sizes.length - 1], nPol = net.nPol, logits = new Array(nPol), j, m, pbase;
+  for (j = 0; j < nPol; j++) { s = net.bp[j]; pbase = j * nHid; for (m = 0; m < nHid; m++) s += net.Wp[pbase + m] * prev[m]; logits[j] = s; }
   return logits;
 }
 

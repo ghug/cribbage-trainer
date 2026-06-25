@@ -20,6 +20,7 @@ on:
       - "index.html"
       - "trainer.html"
       - "play.html"
+      - "az_net.js"
       - "favicon.svg"
       - "manifest.webmanifest"
       - "vendor/**"
@@ -64,6 +65,7 @@ jobs:
             local src="$1" out="$2"
             mkdir -p "$out/vendor"
             cp "$src/index.html" "$src/trainer.html" "$src/play.html" "$out/"
+            cp "$src/az_net.js" "$out/" 2>/dev/null || true   # external Cribbage Zero net (play.html loads it)
             cp "$src/vendor/react.production.min.js" "$src/vendor/react-dom.production.min.js" "$out/vendor/"
             cp "$src/i18n.js" "$out/"            # i18n runtime
             cp -r "$src/locales" "$out/locales"  # language list + per-language catalogues

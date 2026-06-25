@@ -30,6 +30,9 @@ i18n_head() {
 build_one() {
   local SRC="$1" OUT="$2" TITLE="$3" COMPONENT="$4" HOMELINK="${5:-yes}" DESC="${6:-}"
   local TMP; TMP="$(mktemp -d)"
+  # Only play.html loads the external Zero net (the discard/peg bot lives there).
+  local ZERONET_TAG=""
+  if [ "$OUT" = "play.html" ]; then ZERONET_TAG='<script src="az_net.js"></script><!-- window.ZERO_NET (Cribbage Zero bot net) -->'; fi
   # The fixed shell "Home" link (pages that render their own in-app home button pass "no").
   local HOMEHTML=""
   if [ "$HOMELINK" = "yes" ]; then
@@ -41,14 +44,13 @@ build_one() {
   #    The shared settings (src/settings.js), engine (src/engine.js) and UI chrome (src/chrome.jsx)
   #    are PREPENDED so each built page still ships one self-contained copy of the deduped
   #    settings/storage + math + theme/modal chrome.
-  # Cribbage Zero net + inference for the "Zero" bot: the real net is bundled into play.html only; other
-  # pages get a null stub so the name-guard still resolves ZERO_NET and the zero* functions.
+  # Cribbage Zero net + inference for the "Zero" bot. The multi-MB net ships as an EXTERNAL script
+  # (az_net.js, built below) that play.html loads — so the HTML stays small and the net caches separately;
+  # the APK loads it via a <script> tag (fetch is blocked on file://). Here we only DECLARE ZERO_NET (so the
+  # name-guard resolves it, and pages that don't load az_net.js get null) — the external script sets
+  # window.ZERO_NET at runtime, which this picks up.
   local ZPRE="$TMP/zero.tsx"
-  if [ "$OUT" = "play.html" ] && [ -f "$ROOT/src/az_net.json" ]; then
-    { printf 'var ZERO_NET = '; cat "$ROOT/src/az_net.json"; printf ';\n'; cat "$ROOT/src/zero.js"; } > "$ZPRE"
-  else
-    { printf 'var ZERO_NET = null;\n'; cat "$ROOT/src/zero.js"; } > "$ZPRE"
-  fi
+  { printf 'var ZERO_NET = (typeof window !== "undefined" && window.ZERO_NET) || null;\n'; cat "$ROOT/src/zero.js"; } > "$ZPRE"
   cat "$ROOT/src/settings.js" "$ROOT/src/engine.js" "$ROOT/src/winprob.js" "$ROOT/src/chrome.jsx" "$ZPRE" > "$TMP/app.tsx"
   sed -e 's#^import React, { \(.*\) } from "react";#const { \1 } = React;#' \
       -e "s#^export default function ${COMPONENT}(#function ${COMPONENT}(#" \
@@ -111,6 +113,7 @@ HTML
 <body>
 ${HOMEHTML}
 <div id="root"></div>
+${ZERONET_TAG}
 <script>
 HTML
   cat "$TMP/out/app.js"
@@ -146,6 +149,13 @@ echo "built index.html (landing, primary-language i18n head inlined)"
 # Both apps render their own Home button in their header, so neither uses the shell link.
 build_one "src/CribbageTrainer.jsx" "trainer.html" "Cribbage Discard Trainer" "CribbageTrainer" "no" "Practice optimal cribbage discarding with a ranked, fully-explained analysis of every possible throw. Free and open-source."
 build_one "src/CribbagePlay.jsx"    "play.html"    "Cribbage — Play"          "CribbagePlay"   "no" "Play a full game of cribbage, 2 to 6 players, against bots or pass-and-play with friends. Free, open-source, works offline."
+
+# Cribbage Zero net as an EXTERNAL script (loaded by play.html only). External — not inlined — keeps play.html
+# small and lets the multi-MB net cache separately; the APK loads it via a <script> tag (no fetch on file://).
+if [ -f "$ROOT/src/az_net.json" ]; then
+  { printf 'window.ZERO_NET = '; cat "$ROOT/src/az_net.json"; printf ';\n'; } > "$ROOT/az_net.js"
+  echo "built az_net.js ($(( $(wc -c < "$ROOT/az_net.js") / 1024 )) KB)"
+fi
 
 # Stamp the version (read from the VERSION file) into each page's About popup, which
 # carries the __APP_VERSION__ placeholder. VERSION is the single source of truth:

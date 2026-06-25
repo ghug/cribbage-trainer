@@ -39,6 +39,7 @@ tasks.register('syncWebAssets', Copy) {
     into layout.projectDirectory.dir('src/main/assets')
     from(repoRoot) {
         include 'index.html', 'trainer.html', 'play.html'
+        include 'az_net.js'   // external Cribbage Zero net (play.html loads it via <script>)
         include 'vendor/**'
         include 'i18n.js'
         include 'locales/**'
